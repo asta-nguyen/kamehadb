@@ -1,0 +1,23 @@
+{
+  "name": "kamehadb",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @kamehadb/sidecar dev\" \"pnpm --filter @kamehadb/desktop dev\"",
+    "dev:desktop": "pnpm --filter @kamehadb/desktop dev",
+    "dev:sidecar": "pnpm --filter @kamehadb/sidecar dev",
+    "build": "pnpm --filter @kamehadb/shared build && pnpm --filter @kamehadb/sidecar build && pnpm --filter @kamehadb/desktop build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "tauri": "pnpm --filter @kamehadb/desktop tauri"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+  },
+  "devDependencies": {
+    "concurrently": "^9",
+    "typescript": "~5.8.3"
+  }
+}
