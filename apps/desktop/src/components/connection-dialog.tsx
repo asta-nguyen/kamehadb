@@ -1,9 +1,11 @@
+import { useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   CreateConnectionProfileSchema,
   type CreateConnectionProfileInput,
   type ConnectionProfile,
+  type DbKind,
 } from "@kamehadb/shared";
 import {
   Dialog,
@@ -16,18 +18,77 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   useCreateConnection,
   useTestConnection,
   useUpdateConnection,
 } from "@/hooks/use-connections";
-import { Loader2, Plug, Plus } from "lucide-react";
+import { Loader2, Plug, Plus, Database, File, Server, Box } from "lucide-react";
+
+const KIND_ICONS: Record<DbKind, typeof Database> = {
+  postgres: Database,
+  sqlite: File,
+  mysql: Server,
+  redis: Box,
+};
+
+const KIND_LABELS: Record<DbKind, string> = {
+  postgres: "PostgreSQL",
+  sqlite: "SQLite",
+  mysql: "MySQL",
+  redis: "Redis",
+};
+
+const KIND_COLORS: Record<DbKind, string> = {
+  postgres: "text-blue-500",
+  sqlite: "text-orange-500",
+  mysql: "text-green-500",
+  redis: "text-red-500",
+};
+
+const KIND_BG: Record<DbKind, string> = {
+  postgres: "bg-blue-500/10 border-blue-500/20",
+  sqlite: "bg-orange-500/10 border-orange-500/20",
+  mysql: "bg-green-500/10 border-green-500/20",
+  redis: "bg-red-500/10 border-red-500/20",
+};
+
+const KINDS: DbKind[] = ["postgres", "mysql", "sqlite", "redis"];
+
+function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> | null {
+  try {
+    const parsed = new URL(url);
+    const protocol = parsed.protocol.replace(":", "");
+
+    let kind: DbKind | null = null;
+    if (protocol === "postgresql" || protocol === "postgres") kind = "postgres";
+    else if (protocol === "mysql") kind = "mysql";
+    else if (protocol === "redis" || protocol === "rediss") kind = "redis";
+    else if (protocol === "sqlite") kind = "sqlite";
+
+    if (!kind) return null;
+
+    const result: Partial<CreateConnectionProfileInput> = {
+      kind,
+      host: parsed.hostname || undefined,
+      port: parsed.port ? Number(parsed.port) : undefined,
+      username: parsed.username || undefined,
+      password: parsed.password || undefined,
+    };
+
+    if (kind === "sqlite") {
+      result.filePath = parsed.pathname || undefined;
+      result.host = undefined;
+      result.port = undefined;
+    } else {
+      const db = parsed.pathname.replace(/^\//, "");
+      result.database = db || undefined;
+    }
+
+    return result;
+  } catch {
+    return null;
+  }
+}
 
 interface ConnectionDialogProps {
   open?: boolean;
@@ -59,6 +120,19 @@ export function ConnectionDialog({
   });
 
   const kind = form.watch("kind");
+
+  const handleUrlChange = useCallback((value: string) => {
+    if (!value.trim()) return;
+    const parsed = parseConnectionUrl(value);
+    if (!parsed) return;
+    if (parsed.kind) form.setValue("kind", parsed.kind);
+    if (parsed.host !== undefined) form.setValue("host", parsed.host);
+    if (parsed.port !== undefined) form.setValue("port", parsed.port);
+    if (parsed.database !== undefined) form.setValue("database", parsed.database);
+    if (parsed.username !== undefined) form.setValue("username", parsed.username);
+    if (parsed.password !== undefined) form.setValue("password", parsed.password);
+    if (parsed.filePath !== undefined) form.setValue("filePath", parsed.filePath);
+  }, [form]);
 
   async function handleTest() {
     const values = form.getValues();
@@ -102,31 +176,49 @@ export function ConnectionDialog({
 
           <div className="space-y-2">
             <Label>Type</Label>
-            <Select
-              value={kind}
-              onValueChange={(v) => {
-                form.setValue(
-                  "kind",
-                  v as CreateConnectionProfileInput["kind"]
+            <div className="grid grid-cols-4 gap-2">
+              {KINDS.map((dbKind) => {
+                const Icon = KIND_ICONS[dbKind];
+                const selected = kind === dbKind;
+                return (
+                  <button
+                    key={dbKind}
+                    type="button"
+                    onClick={() => {
+                      form.setValue("kind", dbKind);
+                      if (dbKind === "sqlite") {
+                        form.setValue("host", undefined);
+                        form.setValue("port", undefined);
+                        form.setValue("database", undefined);
+                        form.setValue("username", undefined);
+                      } else {
+                        form.setValue("filePath", undefined);
+                        if (!form.getValues("host")) form.setValue("host", "localhost");
+                      }
+                    }}
+                    className={`flex flex-col items-center gap-1.5 rounded-lg border p-2.5 transition-all text-xs ${
+                      selected
+                        ? `border-2 ${KIND_BG[dbKind]} ${KIND_COLORS[dbKind]}`
+                        : "border-border hover:bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    <Icon className={`size-5 ${selected ? KIND_COLORS[dbKind] : ""}`} />
+                    <span className="font-medium">{KIND_LABELS[dbKind]}</span>
+                  </button>
                 );
-                if (v === "sqlite") {
-                  form.setValue("host", undefined);
-                  form.setValue("port", undefined);
-                } else {
-                  form.setValue("filePath", undefined);
-                }
-              }}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="postgres">PostgreSQL</SelectItem>
-                <SelectItem value="sqlite">SQLite</SelectItem>
-                <SelectItem value="mysql">MySQL</SelectItem>
-                <SelectItem value="redis">Redis</SelectItem>
-              </SelectContent>
-            </Select>
+              })}
+            </div>
           </div>
+
+          {kind !== "sqlite" && (
+            <div className="space-y-2">
+              <Label>Connection URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                placeholder={`${kind}://user:pass@host:${kind === "redis" ? "6379" : kind === "postgres" ? "5432" : "3306"}/database`}
+                onChange={(e) => handleUrlChange(e.target.value)}
+              />
+            </div>
+          )}
 
           {kind !== "sqlite" ? (
             <>
@@ -161,7 +253,7 @@ export function ConnectionDialog({
                 <Input
                   id="username"
                   {...form.register("username")}
-                  placeholder="postgres"
+                  placeholder={kind === "postgres" ? "postgres" : "root"}
                 />
               </div>
               <div className="space-y-2">
