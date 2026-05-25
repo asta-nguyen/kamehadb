@@ -186,6 +186,41 @@ export interface RedisAdapter {
   close(): Promise<void>;
 }
 
+// AI types
+export type AIProvider = "ollama-local" | "ollama-cloud" | "openai" | "9router";
+
+export type AIProviderConfig = {
+  enabled: boolean;
+  model: string;
+  baseUrl?: string;
+  apiKey?: string;
+};
+
+export type AISettings = {
+  activeProvider: AIProvider;
+  providers: Record<AIProvider, AIProviderConfig>;
+};
+
+export type AIChatMessage = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
+export type AIChatRequest = {
+  connectionId?: string;
+  messages: AIChatMessage[];
+  provider?: AIProvider;
+  model?: string;
+};
+
+export type AIChatResponse = {
+  message: AIChatMessage;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+  };
+};
+
 // Health check
 export type HealthStatus = {
   status: "ok";
@@ -206,7 +241,10 @@ export type WorkspaceTab = {
   type: "table" | "query" | "redis";
   title: string;
   connectionId: string;
+  sql?: string;
 };
+
+export type AppView = "workspace" | "api-settings";
 
 export type AppStoreState = {
   activeConnectionId: string | null;
@@ -217,4 +255,5 @@ export type AppStoreState = {
   activeTabId: string | null;
   sidebarCollapsed: boolean;
   density: "compact" | "comfortable";
+  view: AppView;
 };

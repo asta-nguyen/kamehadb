@@ -2,15 +2,17 @@ import { useStore } from "@tanstack/react-store";
 import { Sidebar } from "@/components/sidebar";
 import { TableView } from "@/components/table-view";
 import { SqlEditor } from "@/components/sql-editor";
+import { ApiSettingsPage } from "@/components/api-settings-page";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { appStore, openTab, closeTab } from "@/store";
-import { X, Terminal, Table2 } from "lucide-react";
-import { nanoid } from "nanoid";
+import { AIChatPanel } from "@/components/ai-chat-panel";
+import { appStore, openNewQueryTab, closeTab } from "@/store";
+import { X, Terminal, Table2, Plus } from "lucide-react";
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
+  const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
 
   return (
     <div className="flex items-center h-8 border-b border-border bg-muted/20 shrink-0 overflow-x-auto">
@@ -41,6 +43,15 @@ function TabBar() {
           </button>
         </div>
       ))}
+      {activeConnectionId && (
+        <button
+          className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
+          onClick={() => openNewQueryTab(activeConnectionId)}
+          title="New Query"
+        >
+          <Plus className="size-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -71,14 +82,7 @@ function Workspace() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() =>
-              openTab({
-                id: nanoid(),
-                type: "query",
-                title: "Query 1",
-                connectionId: activeConnectionId,
-              })
-            }
+            onClick={() => openNewQueryTab(activeConnectionId)}
           >
             <Terminal className="size-3.5 mr-1.5" />
             New Query
@@ -92,7 +96,9 @@ function Workspace() {
 
   return (
     <div className="h-full flex flex-col">
-      {activeTab.type === "query" && <SqlEditor connectionId={activeConnectionId} />}
+      {activeTab.type === "query" && (
+        <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeConnectionId} />
+      )}
       {activeTab.type === "table" && (
         <TableView connectionId={activeConnectionId} tableId={activeTab.title} />
       )}
@@ -100,7 +106,27 @@ function Workspace() {
   );
 }
 
+function MainLayout() {
+  const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
+
+  return (
+    <div className="flex-1 flex overflow-hidden">
+      <main className="flex-1 bg-background flex flex-col overflow-hidden">
+        <TabBar />
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 overflow-hidden">
+            <Workspace />
+          </div>
+          <AIChatPanel connectionId={activeConnectionId} />
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function App() {
+  const view = useStore(appStore, (state) => state.view);
+
   return (
     <TooltipProvider>
       <div className="h-screen w-screen flex flex-col">
@@ -111,12 +137,11 @@ function App() {
           <aside className="w-56 border-r border-border shrink-0 flex flex-col bg-muted/30">
             <Sidebar />
           </aside>
-          <main className="flex-1 bg-background flex flex-col overflow-hidden">
-            <TabBar />
-            <div className="flex-1 overflow-hidden">
-              <Workspace />
-            </div>
-          </main>
+          {view === "api-settings" ? (
+            <ApiSettingsPage />
+          ) : (
+            <MainLayout />
+          )}
         </div>
       </div>
     </TooltipProvider>

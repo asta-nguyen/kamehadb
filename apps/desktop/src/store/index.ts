@@ -1,5 +1,6 @@
 import { Store } from "@tanstack/store";
-import type { AppStoreState, WorkspaceTab } from "@kamehadb/shared";
+import { nanoid } from "nanoid";
+import type { AppStoreState, AppView, WorkspaceTab } from "@kamehadb/shared";
 
 const initialState: AppStoreState = {
   activeConnectionId: null,
@@ -10,6 +11,7 @@ const initialState: AppStoreState = {
   activeTabId: null,
   sidebarCollapsed: false,
   density: "compact",
+  view: "workspace",
 };
 
 export const appStore = new Store<AppStoreState>(initialState);
@@ -17,6 +19,8 @@ export const appStore = new Store<AppStoreState>(initialState);
 export function setActiveConnection(id: string | null) {
   appStore.setState((state) => ({ ...state, activeConnectionId: id }));
 }
+
+let queryCounter = 0;
 
 export function openTab(tab: WorkspaceTab) {
   appStore.setState((state) => {
@@ -30,6 +34,27 @@ export function openTab(tab: WorkspaceTab) {
   });
 }
 
+export function openNewQueryTab(connectionId: string) {
+  queryCounter++;
+  const tab: WorkspaceTab = {
+    id: `query-${nanoid()}`,
+    type: "query",
+    title: `Query ${queryCounter}`,
+    connectionId,
+    sql: "SELECT * FROM ",
+  };
+  openTab(tab);
+}
+
+export function updateTabSql(tabId: string, sql: string) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) =>
+      t.id === tabId ? { ...t, sql } : t
+    ),
+  }));
+}
+
 export function closeTab(tabId: string) {
   appStore.setState((state) => {
     const tabs = state.openedTabs.filter((t) => t.id !== tabId);
@@ -38,6 +63,10 @@ export function closeTab(tabId: string) {
       : state.activeTabId;
     return { ...state, openedTabs: tabs, activeTabId };
   });
+}
+
+export function navigateTo(view: AppView) {
+  appStore.setState((state) => ({ ...state, view }));
 }
 
 export function toggleSidebar() {

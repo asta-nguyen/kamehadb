@@ -1,17 +1,19 @@
 import { useState, useCallback } from "react";
-import Editor from "@monaco-editor/react";
+import Editor, { type OnMount } from "@monaco-editor/react";
 import { useRunQuery } from "@/hooks/use-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Loader2, AlertCircle, Clock } from "lucide-react";
-import type { QueryResult } from "@kamehadb/shared";
+import { updateTabSql } from "@/store";
+import type { QueryResult, WorkspaceTab } from "@kamehadb/shared";
 
 type SqlEditorProps = {
+  tab: WorkspaceTab;
   connectionId: string;
 };
 
-export function SqlEditor({ connectionId }: SqlEditorProps) {
-  const [sql, setSql] = useState("SELECT * FROM ");
+export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
+  const [sql, setSql] = useState(tab.sql ?? "SELECT * FROM ");
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,9 +32,25 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
     }
   }, [sql, runQuery]);
 
+  const handleChange = useCallback((value: string | undefined) => {
+    const v = value ?? "";
+    setSql(v);
+    updateTabSql(tab.id, v);
+  }, [tab.id]);
+
+  const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
+    editor.addAction({
+      id: "run-query",
+      label: "Run Query",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run: () => {
+        handleRun();
+      },
+    });
+  }, [handleRun]);
+
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
         <Button size="sm" onClick={handleRun} disabled={runQuery.isPending} className="gap-1.5">
           {runQuery.isPending ? (
@@ -47,14 +65,14 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
         </span>
       </div>
 
-      {/* Editor */}
       <div className="flex-1 min-h-0 border-b border-border">
         <Editor
           height="100%"
           defaultLanguage="sql"
           theme="vs-dark"
           value={sql}
-          onChange={(v) => setSql(v ?? "")}
+          onChange={handleChange}
+          onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: false },
             fontSize: 13,
@@ -66,7 +84,6 @@ export function SqlEditor({ connectionId }: SqlEditorProps) {
         />
       </div>
 
-      {/* Results */}
       <div className="flex-1 overflow-auto min-h-0">
         {runQuery.isPending && (
           <div className="flex items-center justify-center py-8">

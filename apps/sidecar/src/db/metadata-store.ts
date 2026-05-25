@@ -1,8 +1,41 @@
 import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
-import type { ConnectionProfile } from "@kamehadb/shared";
+import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from "@kamehadb/shared";
 
 let db: Database.Database | null = null;
+const DEFAULT_AI_PROVIDER = "openai" satisfies AIProvider;
+
+function createDefaultAISettings(): AISettings {
+  return {
+    activeProvider: DEFAULT_AI_PROVIDER,
+    providers: {
+      "ollama-local": {
+        enabled: false,
+        model: "llama3.1",
+        baseUrl: "http://localhost:11434/v1",
+        apiKey: "",
+      },
+      "ollama-cloud": {
+        enabled: false,
+        model: "",
+        baseUrl: "",
+        apiKey: "",
+      },
+      openai: {
+        enabled: false,
+        model: "gpt-4o",
+        baseUrl: "",
+        apiKey: "",
+      },
+      "9router": {
+        enabled: false,
+        model: "",
+        baseUrl: "",
+        apiKey: "",
+      },
+    },
+  };
+}
 
 export function initMetadataStore(dbPath: string): void {
   db = new Database(dbPath);
@@ -32,6 +65,38 @@ export function initMetadataStore(dbPath: string): void {
   } catch {
     // Column already exists, ignore
   }
+
+  // Migrate ai_settings from old single-column schema if needed
+  const hasOldSettings = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='ai_settings'"
+  ).get() as { name: string } | undefined;
+  if (hasOldSettings) {
+    const colInfo = db.prepare("PRAGMA table_info(ai_settings)").all() as { name: string }[];
+    const hasKeyCol = colInfo.some((c) => c.name === "key");
+    if (!hasKeyCol) {
+      db.exec("DROP TABLE ai_settings; DROP TABLE IF EXISTS ai_provider_configs;");
+    }
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_provider_configs (
+      provider TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      model TEXT NOT NULL DEFAULT '',
+      base_url TEXT,
+      api_key TEXT
+    );
+  `);
+
+  seedDefaultAIProviders();
+  migrateLegacyAIConfig();
 }
 
 function getDb(): Database.Database {
@@ -163,6 +228,139 @@ function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
+}
+
+function migrateLegacyAIConfig(): void {
+  const hasOldTable = getDb()
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_config'")
+    .get() as { name: string } | undefined;
+  if (!hasOldTable) return;
+
+  const legacyProvider = getDb()
+    .prepare("SELECT value FROM ai_config WHERE key = ?")
+    .get("provider") as { value: string } | undefined;
+  if (!legacyProvider?.value) return;
+
+  const existingActiveProvider = getDb()
+    .prepare("SELECT value FROM ai_settings WHERE key = ?")
+    .get("activeProvider") as { value: string } | undefined;
+  if (existingActiveProvider?.value) return;
+
+  const legacyApiKey = getDb()
+    .prepare("SELECT value FROM ai_config WHERE key = ?")
+    .get("apiKey") as { value: string } | undefined;
+  const legacyModel = getDb()
+    .prepare("SELECT value FROM ai_config WHERE key = ?")
+    .get("model") as { value: string } | undefined;
+  const legacyBaseUrl = getDb()
+    .prepare("SELECT value FROM ai_config WHERE key = ?")
+    .get("baseUrl") as { value: string } | undefined;
+
+  const settings = createDefaultAISettings();
+  const mappedProvider: AIProvider = legacyProvider.value === "ollama" ? "ollama-local" : "openai";
+  settings.activeProvider = mappedProvider;
+  settings.providers[mappedProvider] = {
+    enabled: true,
+    model: legacyModel?.value ?? settings.providers[mappedProvider].model,
+    baseUrl: legacyBaseUrl?.value ?? settings.providers[mappedProvider].baseUrl ?? "",
+    apiKey: legacyApiKey?.value ?? settings.providers[mappedProvider].apiKey ?? "",
+  };
+
+  saveAISettings(settings);
+}
+
+function seedDefaultAIProviders(): void {
+  const upsert = getDb().prepare(`
+    INSERT OR IGNORE INTO ai_provider_configs (provider, enabled, model, base_url, api_key)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  for (const [provider, config] of Object.entries(createDefaultAISettings().providers) as [AIProvider, AIProviderConfig][]) {
+    upsert.run(
+      provider,
+      config.enabled ? 1 : 0,
+      config.model,
+      config.baseUrl ?? "",
+      config.apiKey ?? "",
+    );
+  }
+}
+
+function normalizeAISettings(input: AISettings): AISettings {
+  const normalized = createDefaultAISettings();
+
+  for (const provider of Object.keys(normalized.providers) as AIProvider[]) {
+    const config = input.providers[provider] ?? normalized.providers[provider];
+    normalized.providers[provider] = {
+      enabled: Boolean(config.enabled),
+      model: config.model?.trim() ?? "",
+      baseUrl: config.baseUrl?.trim().replace(/\/+$/, "") ?? "",
+      apiKey: config.apiKey?.trim() ?? "",
+    };
+  }
+
+  normalized.activeProvider = input.activeProvider in normalized.providers
+    ? input.activeProvider
+    : DEFAULT_AI_PROVIDER;
+
+  return normalized;
+}
+
+export function getAISettings(): AISettings {
+  const settings = createDefaultAISettings();
+  const activeProviderRow = getDb()
+    .prepare("SELECT value FROM ai_settings WHERE key = ?")
+    .get("activeProvider") as { value: string } | undefined;
+
+  if (activeProviderRow?.value && activeProviderRow.value in settings.providers) {
+    settings.activeProvider = activeProviderRow.value as AIProvider;
+  }
+
+  const rows = getDb()
+    .prepare("SELECT provider, enabled, model, base_url, api_key FROM ai_provider_configs")
+    .all() as {
+      provider: string;
+      enabled: number;
+      model: string;
+      base_url: string | null;
+      api_key: string | null;
+    }[];
+
+  for (const row of rows) {
+    if (!(row.provider in settings.providers)) continue;
+    settings.providers[row.provider as AIProvider] = {
+      enabled: row.enabled === 1,
+      model: row.model,
+      baseUrl: row.base_url ?? "",
+      apiKey: row.api_key ?? "",
+    };
+  }
+
+  return settings;
+}
+
+export function saveAISettings(settings: AISettings): void {
+  const normalized = normalizeAISettings(settings);
+  const upsertSetting = getDb().prepare("INSERT OR REPLACE INTO ai_settings (key, value) VALUES (?, ?)");
+  const upsertProvider = getDb().prepare(`
+    INSERT OR REPLACE INTO ai_provider_configs (provider, enabled, model, base_url, api_key)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const tx = getDb().transaction(() => {
+    upsertSetting.run("activeProvider", normalized.activeProvider);
+    for (const [provider, config] of Object.entries(normalized.providers) as [AIProvider, AIProviderConfig][]) {
+      upsertProvider.run(
+        provider,
+        config.enabled ? 1 : 0,
+        config.model,
+        config.baseUrl ?? "",
+        config.apiKey ?? "",
+      );
+    }
+  });
+
+  tx();
 }
 
 export function closeMetadataStore(): void {

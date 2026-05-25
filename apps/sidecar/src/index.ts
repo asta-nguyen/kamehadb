@@ -6,6 +6,7 @@ import pino from "pino";
 import { initMetadataStore, closeMetadataStore } from "./db/metadata-store.js";
 import { connectionsRouter } from "./routes/connections.js";
 import { sqlRouter } from "./routes/sql.js";
+import { aiRouter } from "./routes/ai.js";
 
 const log = pino({
   transport: {
@@ -33,6 +34,7 @@ app.get("/health", (c) => {
 // Routes
 app.route("/connections", connectionsRouter);
 app.route("/sql", sqlRouter);
+app.route("/ai", aiRouter);
 
 // Start server
 async function start() {
