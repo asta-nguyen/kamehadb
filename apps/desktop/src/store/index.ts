@@ -46,6 +46,15 @@ export function openNewQueryTab(connectionId: string) {
   openTab(tab);
 }
 
+export function openGraphTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:graph`,
+    type: "graph" as const,
+    title: "Schema Graph",
+    connectionId,
+  });
+}
+
 export function updateTabSql(tabId: string, sql: string) {
   appStore.setState((state) => ({
     ...state,

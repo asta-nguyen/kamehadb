@@ -2,12 +2,13 @@ import { useStore } from "@tanstack/react-store";
 import { Sidebar } from "@/components/sidebar";
 import { TableView } from "@/components/table-view";
 import { SqlEditor } from "@/components/sql-editor";
+import { SchemaGraph } from "@/components/schema-graph";
 import { ApiSettingsPage } from "@/components/api-settings-page";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { AIChatPanel } from "@/components/ai-chat-panel";
-import { appStore, openNewQueryTab, closeTab } from "@/store";
-import { X, Terminal, Table2, Plus } from "lucide-react";
+import { appStore, openNewQueryTab, openGraphTab, closeTab } from "@/store";
+import { X, Terminal, Table2, Plus, Share2 } from "lucide-react";
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -28,6 +29,8 @@ function TabBar() {
         >
           {tab.type === "query" ? (
             <Terminal className="size-3" />
+          ) : tab.type === "graph" ? (
+            <Share2 className="size-3" />
           ) : (
             <Table2 className="size-3" />
           )}
@@ -50,6 +53,15 @@ function TabBar() {
           title="New Query"
         >
           <Plus className="size-3.5" />
+        </button>
+      )}
+      {activeConnectionId && (
+        <button
+          className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
+          onClick={() => openGraphTab(activeConnectionId)}
+          title="Schema Graph"
+        >
+          <Share2 className="size-3.5" />
         </button>
       )}
     </div>
@@ -79,14 +91,24 @@ function Workspace() {
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-3">
           <p className="text-sm text-muted-foreground">Select a table or open a query tab</p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => openNewQueryTab(activeConnectionId)}
-          >
-            <Terminal className="size-3.5 mr-1.5" />
-            New Query
-          </Button>
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openNewQueryTab(activeConnectionId)}
+            >
+              <Terminal className="size-3.5 mr-1.5" />
+              New Query
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openGraphTab(activeConnectionId)}
+            >
+              <Share2 className="size-3.5 mr-1.5" />
+              Schema Graph
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -101,6 +123,9 @@ function Workspace() {
       )}
       {activeTab.type === "table" && (
         <TableView connectionId={activeConnectionId} tableId={activeTab.title} />
+      )}
+      {activeTab.type === "graph" && (
+        <SchemaGraph connectionId={activeConnectionId} />
       )}
     </div>
   );

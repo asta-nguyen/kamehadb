@@ -238,7 +238,7 @@ export type ApiError = {
 // TanStack Store state
 export type WorkspaceTab = {
   id: string;
-  type: "table" | "query" | "redis";
+  type: "table" | "query" | "redis" | "graph";
   title: string;
   connectionId: string;
   sql?: string;
