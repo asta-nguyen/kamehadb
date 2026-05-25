@@ -101,6 +101,31 @@ sqlRouter.get("/:connectionId/tables/:tableId/indexes", async (c) => {
   }
 });
 
+// Completions schema (all tables + columns for autocomplete)
+sqlRouter.get("/:connectionId/completions", async (c) => {
+  try {
+    const adapter = await getAdapter(c.req.param("connectionId"));
+    try {
+      const tables = await adapter.listTables();
+      const result = await Promise.all(
+        tables.map(async (table) => {
+          const columns = await adapter.getTableColumns(table.id);
+          return {
+            name: table.name,
+            schema: table.schema,
+            columns: columns.map((col) => ({ name: col.name, type: col.type })),
+          };
+        })
+      );
+      return c.json({ tables: result });
+    } finally {
+      await adapter.close();
+    }
+  } catch (err) {
+    return handleError(c, err, "completions");
+  }
+});
+
 // Preview rows
 sqlRouter.post("/:connectionId/preview", zValidator("json", z.object({
   tableId: z.string(),

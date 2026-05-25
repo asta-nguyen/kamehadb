@@ -1,11 +1,24 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { useRunQuery } from "@/hooks/use-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Play, Loader2, AlertCircle, Clock } from "lucide-react";
 import { updateTabSql } from "@/store";
+import { buildSqlCompletionEntries, type CompletionsData } from "@/lib/sql-autocomplete";
 import type { QueryResult, WorkspaceTab } from "@kamehadb/shared";
+
+function useCompletionsSchema(connectionId: string | null) {
+  return useQuery({
+    queryKey: ["completions", connectionId],
+    queryFn: () =>
+      api.request<CompletionsData>("GET", `/sql/${connectionId}/completions`),
+    enabled: !!connectionId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 type SqlEditorProps = {
   tab: WorkspaceTab;
@@ -16,6 +29,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const [sql, setSql] = useState(tab.sql ?? "SELECT * FROM ");
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { data: completions } = useCompletionsSchema(connectionId);
+  const completionsRef = useRef(completions);
+  completionsRef.current = completions;
 
   const runQuery = useRunQuery(connectionId);
 
@@ -39,14 +55,57 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   }, [tab.id]);
 
   const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
+    editor.focus();
+
     editor.addAction({
       id: "run-query",
       label: "Run Query",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-      run: () => {
-        handleRun();
+      run: () => handleRun(),
+    });
+
+    const provider = monaco.languages.registerCompletionItemProvider("sql", {
+      triggerCharacters: [".", " ", "(", ",", "="],
+      provideCompletionItems: (model: any, position: any) => {
+        const data = completionsRef.current;
+        if (!data) return { suggestions: [] };
+
+        const word = model.getWordUntilPosition(position);
+        const fullSql = model.getValue();
+        const textUntil = model.getValueInRange({
+          startLineNumber: position.lineNumber,
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column,
+        });
+
+        const suggestions = buildSqlCompletionEntries(fullSql, textUntil, data).map((item) => ({
+          label: item.label,
+          kind: item.kind === "table"
+            ? monaco.languages.CompletionItemKind.Struct
+            : item.kind === "column"
+              ? monaco.languages.CompletionItemKind.Field
+              : item.kind === "function"
+                ? monaco.languages.CompletionItemKind.Function
+                : item.kind === "operator"
+                  ? monaco.languages.CompletionItemKind.Operator
+                  : monaco.languages.CompletionItemKind.Keyword,
+          insertText: item.insertText,
+          detail: item.detail,
+          sortText: item.sortText,
+          range: {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: position.column,
+          },
+        }));
+
+        return { suggestions };
       },
     });
+
+    editor.onDidDispose(() => provider.dispose());
   }, [handleRun]);
 
   return (
