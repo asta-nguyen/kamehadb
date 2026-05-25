@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kameha
+      POSTGRES_PASSWORD: kameha
+      POSTGRES_DB: kamehadb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker-init/postgres:/docker-entrypoint-initdb.d
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: kameha
+      MYSQL_DATABASE: kamehadb
+      MYSQL_USER: kameha
+      MYSQL_PASSWORD: kameha
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker-init/mysql:/docker-entrypoint-initdb.d
+
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: kameha
+      MARIADB_DATABASE: kamehadb
+      MARIADB_USER: kameha
+      MARIADB_PASSWORD: kameha
+    ports:
+      - "3307:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./docker-init/mariadb:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
+  mysql_data:
+  mariadb_data:

@@ -1,6 +1,8 @@
 type CompletionColumn = {
   name: string;
   type: string;
+  primaryKey: boolean;
+  foreignKey?: { table: string; column: string };
 };
 
 export type CompletionTable = {
@@ -183,6 +185,61 @@ function buildTableSuggestions(tables: CompletionTable[]): CompletionEntry[] {
   return suggestions;
 }
 
+function lastJoinedTable(sql: string): string | null {
+  const joinMatch = sql.match(/\bJOIN\s+((?:"?[\w$]+"?\.)?"?[\w$]+"?)\s+(?:ON\s+[\w."\s=$<>!]*)?$/i);
+  if (joinMatch) return normalizeIdentifier(joinMatch[1]);
+
+  const allJoins = sql.match(/\bJOIN\s+((?:"?[\w$]+"?\.)?"?[\w$]+"?)/gi);
+  if (allJoins && allJoins.length > 0) {
+    const last = allJoins[allJoins.length - 1];
+    const tableMatch = last.match(/\bJOIN\s+((?:"?[\w$]+"?\.)?"?[\w$]+"?)/i);
+    if (tableMatch) return normalizeIdentifier(tableMatch[1]);
+  }
+  return null;
+}
+
+function buildJoinOnSuggestions(
+  sql: string,
+  tables: CompletionTable[],
+): CompletionEntry[] {
+  const joinedTableName = lastJoinedTable(sql);
+  if (!joinedTableName) return [];
+
+  const tableByName = new Map<string, CompletionTable>();
+  for (const table of tables) {
+    for (const name of tableNames(table)) {
+      tableByName.set(normalizeIdentifier(name), table);
+    }
+  }
+
+  const joinedTable = tableByName.get(joinedTableName);
+  if (!joinedTable) return [];
+
+  const suggestions: CompletionEntry[] = [];
+
+  for (const column of joinedTable.columns) {
+    if (!column.foreignKey) continue;
+
+    const refTableName = normalizeIdentifier(column.foreignKey.table);
+    const refTable = tableByName.get(refTableName);
+    if (!refTable) continue;
+
+    const refPkColumn = refTable.columns.find((c) => c.primaryKey);
+    const refCol = refPkColumn?.name ?? column.foreignKey.column;
+
+    const label = `${joinedTable.name}.${column.name} = ${refTableName}.${refCol}`;
+    suggestions.push({
+      label,
+      insertText: label,
+      detail: "FK condition",
+      kind: "operator",
+      sortText: "0-000",
+    });
+  }
+
+  return suggestions;
+}
+
 function buildColumnSuggestions(
   tables: CompletionTable[],
   aliases: AliasMap,
@@ -260,6 +317,13 @@ export function buildSqlCompletionEntries(
   }
 
   if (context === "condition") {
+    const afterJoinOn = /\bON\s+[\w."]*$/i.test(textUntil);
+    if (afterJoinOn) {
+      const fkSuggestions = buildJoinOnSuggestions(sql, data.tables);
+      if (fkSuggestions.length > 0) {
+        entries.push(...fkSuggestions);
+      }
+    }
     entries.push(...buildColumnSuggestions(data.tables, aliases, true));
     entries.push(...buildOperatorSuggestions());
     entries.push(...buildFunctionSuggestions());

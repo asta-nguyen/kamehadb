@@ -1,6 +1,7 @@
 import type { ConnectionProfile, SqlAdapter } from "@kamehadb/shared";
 import { createPostgresAdapter } from "./postgres.js";
 import { createSqliteAdapter } from "./sqlite.js";
+import { createMysqlAdapter } from "./mysql.js";
 
 export function createAdapter(profile: ConnectionProfile, _password?: string): SqlAdapter {
   switch (profile.kind) {
@@ -12,6 +13,14 @@ export function createAdapter(profile: ConnectionProfile, _password?: string): S
         username: profile.username,
         password: _password,
         ssl: profile.ssl,
+      });
+    case "mysql":
+      return createMysqlAdapter({
+        host: profile.host,
+        port: profile.port,
+        database: profile.database,
+        username: profile.username,
+        password: _password,
       });
     case "sqlite":
       if (!profile.filePath) throw new Error("SQLite file path is required");

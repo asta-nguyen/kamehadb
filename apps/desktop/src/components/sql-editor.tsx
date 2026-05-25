@@ -55,6 +55,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   }, [tab.id]);
 
   const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
+    type M = typeof monaco;
     editor.focus();
 
     editor.addAction({
@@ -66,7 +67,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
 
     const provider = monaco.languages.registerCompletionItemProvider("sql", {
       triggerCharacters: [".", " ", "(", ",", "="],
-      provideCompletionItems: (model: any, position: any) => {
+      provideCompletionItems: (model: M['editor']['ITextModel'], position: M['Position']) => {
         const data = completionsRef.current;
         if (!data) return { suggestions: [] };
 

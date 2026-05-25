@@ -183,7 +183,7 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.repeat) return;
-    if ((e.nativeEvent as any).isComposing) return;
+    if ((e.nativeEvent as KeyboardEvent).isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();

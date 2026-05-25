@@ -5,6 +5,7 @@ import { CreateConnectionProfileSchema, UpdateConnectionProfileSchema } from "@k
 import * as metadataStore from "../db/metadata-store.js";
 import { testPostgresConnection } from "../adapters/postgres.js";
 import { testSqliteConnection } from "../adapters/sqlite.js";
+import { testMysqlConnection } from "../adapters/mysql.js";
 
 export const connectionsRouter = new Hono();
 
@@ -48,11 +49,36 @@ connectionsRouter.post("/test", zValidator("json", CreateConnectionProfileSchema
     });
   }
 
+  // Validate required fields for mysql
+  if (input.kind === "mysql") {
+    if (!input.password) {
+      return c.json({
+        success: false,
+        message: "Password is required for MySQL connections",
+      });
+    }
+    if (!input.username) {
+      return c.json({
+        success: false,
+        message: "Username is required for MySQL connections",
+      });
+    }
+  }
+
   try {
     let result;
     switch (input.kind) {
       case "postgres":
         result = await testPostgresConnection(input);
+        break;
+      case "mysql":
+        result = await testMysqlConnection({
+          host: input.host,
+          port: input.port,
+          database: input.database,
+          username: input.username,
+          password: input.password,
+        });
         break;
       case "sqlite":
         result = testSqliteConnection(input.filePath);

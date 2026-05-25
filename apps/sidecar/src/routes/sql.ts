@@ -113,7 +113,12 @@ sqlRouter.get("/:connectionId/completions", async (c) => {
           return {
             name: table.name,
             schema: table.schema,
-            columns: columns.map((col) => ({ name: col.name, type: col.type })),
+            columns: columns.map((col) => ({
+              name: col.name,
+              type: col.type,
+              primaryKey: col.primaryKey,
+              foreignKey: col.foreignKey,
+            })),
           };
         })
       );

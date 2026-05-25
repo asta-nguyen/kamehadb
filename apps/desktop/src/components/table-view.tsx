@@ -147,6 +147,26 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   );
 }
 
+function formatJsonSyntax(json: string): React.ReactNode[] {
+  const lines = json.split("\n");
+  return lines.map((line, i) => {
+    const colored = line
+      .replace(/(\"[^"]*\")(?=\s*:)/g, '<span class="text-sky-400">$1</span>')
+      .replace(/:\s*("[^"]*")/g, ': <span class="text-green-400">$1</span>')
+      .replace(/:\s*(true|false)/g, ': <span class="text-yellow-400">$1</span>')
+      .replace(/:\s*(null)/g, ': <span class="text-purple-400 italic">$1</span>')
+      .replace(/:\s*(\d+\.?\d*)/g, ': <span class="text-orange-400">$1</span>');
+    return (
+      <div key={i} className="flex">
+        <span className="w-8 shrink-0 text-right text-[10px] text-muted-foreground/40 select-none mr-3">
+          {i + 1}
+        </span>
+        <span dangerouslySetInnerHTML={{ __html: colored || " " }} className="flex-1" />
+      </div>
+    );
+  });
+}
+
 function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown> | null }) {
   const [copied, setCopied] = useState(false);
 
@@ -170,23 +190,34 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
 
       <TabsContent value="view" className="flex-1 min-h-0 p-0">
         <ScrollArea className="h-full">
-          <div className="px-4 pb-4 space-y-0">
-            {Object.entries(selectedRow).map(([key, value]) => (
-              <div key={key} className="border-b border-border last:border-b-0 py-2">
-                <div className="text-[11px] font-medium text-muted-foreground mb-0.5">{key}</div>
-                <div className="text-sm font-mono break-all">
-                  {value === null ? (
-                    <span className="text-muted-foreground italic">null</span>
-                  ) : typeof value === "object" ? (
-                    <pre className="text-[11px] whitespace-pre-wrap bg-muted/50 rounded p-2 mt-1">
-                      {JSON.stringify(value, null, 2)}
-                    </pre>
-                  ) : (
-                    String(value)
-                  )}
+          <div className="pb-2">
+            {Object.entries(selectedRow).map(([key, value], i) => {
+              const typeLabel = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+              return (
+                <div
+                  key={key}
+                  className={`flex items-start gap-3 px-4 py-2 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
+                >
+                  <div className="w-[35%] shrink-0 min-w-0">
+                    <div className="text-xs font-medium truncate">{key}</div>
+                    <span className="text-[9px] uppercase text-muted-foreground/50 tracking-wider">
+                      {typeLabel}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug">
+                    {value === null ? (
+                      <span className="text-muted-foreground italic">null</span>
+                    ) : typeof value === "object" ? (
+                      <pre className="text-[11px] whitespace-pre-wrap bg-muted/50 rounded p-2 mt-0.5 max-h-32 overflow-auto">
+                        {JSON.stringify(value, null, 2)}
+                      </pre>
+                    ) : (
+                      <span className="text-foreground/90">{String(value)}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       </TabsContent>
@@ -202,9 +233,9 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
             {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
           </Button>
           <ScrollArea className="h-full">
-            <pre className="text-[11px] font-mono p-4 whitespace-pre-wrap">
-              {JSON.stringify(selectedRow, null, 2)}
-            </pre>
+            <div className="p-3 font-mono text-[11px] leading-relaxed bg-[#1e1e2e] text-gray-300 rounded-sm m-2">
+              {formatJsonSyntax(JSON.stringify(selectedRow, null, 2))}
+            </div>
           </ScrollArea>
         </div>
       </TabsContent>
