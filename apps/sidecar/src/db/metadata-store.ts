@@ -17,6 +17,7 @@ export function initMetadataStore(dbPath: string): void {
       port INTEGER,
       database TEXT,
       username TEXT,
+      password TEXT,
       ssl INTEGER DEFAULT 0,
       file_path TEXT,
       readonly INTEGER DEFAULT 1,
@@ -24,6 +25,13 @@ export function initMetadataStore(dbPath: string): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Migration: Add password column if it doesn't exist
+  try {
+    db.exec("ALTER TABLE connection_profiles ADD COLUMN password TEXT");
+  } catch {
+    // Column already exists, ignore
+  }
 }
 
 function getDb(): Database.Database {
@@ -47,6 +55,14 @@ export function getProfile(id: string): ConnectionProfile | null {
   return row ? rowToProfile(row) : null;
 }
 
+export function getProfilePassword(id: string): string | undefined {
+  const row = getDb()
+    .prepare("SELECT password FROM connection_profiles WHERE id = ?")
+    .get(id) as { password: string | null } | undefined;
+
+  return row?.password ?? undefined;
+}
+
 export function createProfile(input: {
   name: string;
   kind: string;
@@ -54,6 +70,7 @@ export function createProfile(input: {
   port?: number;
   database?: string;
   username?: string;
+  password?: string;
   ssl?: boolean;
   filePath?: string;
   readonly?: boolean;
@@ -63,8 +80,8 @@ export function createProfile(input: {
 
   getDb()
     .prepare(
-      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, ssl, file_path, readonly, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, readonly, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -74,6 +91,7 @@ export function createProfile(input: {
       input.port ?? null,
       input.database ?? null,
       input.username ?? null,
+      input.password ?? null,
       input.ssl ? 1 : 0,
       input.filePath ?? null,
       input.readonly !== false ? 1 : 0,
@@ -93,6 +111,7 @@ export function updateProfile(
     port?: number;
     database?: string;
     username?: string;
+    password?: string;
     ssl?: boolean;
     filePath?: string;
     readonly?: boolean;
@@ -111,6 +130,7 @@ export function updateProfile(
   if (input.port !== undefined) { updates.push("port = ?"); values.push(input.port); }
   if (input.database !== undefined) { updates.push("database = ?"); values.push(input.database); }
   if (input.username !== undefined) { updates.push("username = ?"); values.push(input.username); }
+  if (input.password !== undefined) { updates.push("password = ?"); values.push(input.password); }
   if (input.ssl !== undefined) { updates.push("ssl = ?"); values.push(input.ssl ? 1 : 0); }
   if (input.filePath !== undefined) { updates.push("file_path = ?"); values.push(input.filePath); }
   if (input.readonly !== undefined) { updates.push("readonly = ?"); values.push(input.readonly ? 1 : 0); }

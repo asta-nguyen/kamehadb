@@ -14,23 +14,38 @@ export const ConnectionProfileSchema = z.object({
   username: z.string().optional(),
   ssl: z.boolean().optional(),
   filePath: z.string().optional(),
-  readonly: z.boolean(),
+  readonly: z.boolean().optional().default(true),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 export type ConnectionProfile = z.infer<typeof ConnectionProfileSchema>;
 
 // Connection profile input (for create/update, without id/timestamps)
-export const CreateConnectionProfileSchema = ConnectionProfileSchema.omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
+const BaseCreateSchema = z.object({
+  name: z.string().min(1),
+  kind: z.enum(["postgres", "sqlite", "mysql", "redis"]),
+  host: z.string().optional(),
+  port: z.number().int().positive().optional(),
+  database: z.string().optional(),
+  username: z.string().optional(),
   password: z.string().optional(),
+  ssl: z.boolean().optional(),
+  filePath: z.string().optional(),
+  readonly: z.boolean().optional().default(true),
+});
+
+export const CreateConnectionProfileSchema = BaseCreateSchema.refine((data) => {
+  if (data.kind === "postgres" && !data.password) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Password is required for PostgreSQL connections",
+  path: ["password"],
 });
 export type CreateConnectionProfileInput = z.infer<typeof CreateConnectionProfileSchema>;
 
-export const UpdateConnectionProfileSchema = CreateConnectionProfileSchema.partial();
+export const UpdateConnectionProfileSchema = BaseCreateSchema.partial();
 export type UpdateConnectionProfileInput = z.infer<typeof UpdateConnectionProfileSchema>;
 
 // Credential reference

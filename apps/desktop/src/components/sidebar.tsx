@@ -1,17 +1,28 @@
 import { useStore } from "@tanstack/react-store";
+import { useState } from "react";
 import { useConnections } from "@/hooks/use-connections";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Database, Loader2, ChevronRight, ChevronDown } from "lucide-react";
+import {
+  Database,
+  Loader2,
+  ChevronRight,
+  ChevronDown,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { ConnectionDialog } from "./connection-dialog";
 import { SchemaTree } from "./schema-tree";
+import { useDeleteConnection } from "@/hooks/use-connections";
 import { appStore, setActiveConnection, openTab } from "@/store";
-import { useState } from "react";
+import type { ConnectionProfile } from "@kamehadb/shared";
 
 const kindColors: Record<string, string> = {
   postgres: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  sqlite: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-  mysql: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+  sqlite:
+    "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+  mysql:
+    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
   redis: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
@@ -20,33 +31,63 @@ function ConnectionItem({
   isActive,
   onSelect,
 }: {
-  conn: { id: string; name: string; kind: string };
+  conn: ConnectionProfile;
   isActive: boolean;
   onSelect: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const deleteConnection = useDeleteConnection();
 
   return (
     <div>
-      <button
-        onClick={() => {
-          onSelect();
-          setExpanded(!expanded);
-        }}
-        className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left text-sm hover:bg-muted transition-colors ${
-          isActive ? "bg-muted" : ""
-        }`}
-      >
-        {expanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />}
-        <Database className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate flex-1">{conn.name}</span>
-        <Badge
-          variant="outline"
-          className={`text-[10px] px-1 py-0 h-4 ${kindColors[conn.kind] ?? ""}`}
-        >
-          {conn.kind}
-        </Badge>
-      </button>
+      <div className="flex items-center">
+        <button
+          onClick={() => {
+            onSelect();
+            setExpanded(!expanded);
+          }}
+          className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left text-sm hover:bg-muted transition-colors ${
+            isActive ? "bg-muted" : ""
+          }`}>
+          {expanded ? (
+            <ChevronDown className="size-3 shrink-0" />
+          ) : (
+            <ChevronRight className="size-3 shrink-0" />
+          )}
+          <Database className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate flex-1">{conn.name}</span>
+          <Badge
+            variant="outline"
+            className={`text-[10px] px-1 py-0 h-4 ${
+              kindColors[conn.kind] ?? ""
+            }`}>
+            {conn.kind}
+          </Badge>
+        </button>
+        <div className="flex items-center gap-0.5 pr-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowEdit(true);
+            }}
+            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            title="Edit connection">
+            <Pencil className="size-3" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm(`Delete connection "${conn.name}"?`)) {
+                deleteConnection.mutate(conn.id);
+              }
+            }}
+            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
+            title="Delete connection">
+            <Trash2 className="size-3" />
+          </button>
+        </div>
+      </div>
       {expanded && isActive && (
         <div className="ml-3 pl-1 border-l border-border">
           <SchemaTree
@@ -68,12 +109,17 @@ function ConnectionItem({
 
 export function Sidebar() {
   const { data: connections, isLoading } = useConnections();
-  const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
+  const activeConnectionId = useStore(
+    appStore,
+    (state) => state.activeConnectionId
+  );
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-        <span className="text-xs font-medium text-muted-foreground">Connections</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          Connections
+        </span>
         <ConnectionDialog />
       </div>
       <ScrollArea className="flex-1">

@@ -28,15 +28,33 @@ export function createPostgresAdapter(connection: {
   password?: string;
   ssl?: boolean;
 }): SqlAdapter {
+  // Validate required fields
+  if (!connection.database) {
+    throw new Error("Database name is required");
+  }
+  if (!connection.username) {
+    throw new Error("Username is required");
+  }
+  if (connection.password === undefined || connection.password === null) {
+    throw new Error("Password is required");
+  }
+
   const pool = new pg.Pool({
     host: connection.host || "localhost",
     port: connection.port || 5432,
     database: connection.database,
     user: connection.username,
     password: connection.password,
-    ssl: connection.ssl || false,
+    ssl: connection.ssl
+      ? { rejectUnauthorized: false }
+      : false,
     max: 5,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+  });
+
+  pool.on("error", (err) => {
+    console.error("Unexpected PostgreSQL pool error:", err.message);
   });
 
   async function query(sql: string, params?: unknown[]) {
@@ -227,6 +245,24 @@ export async function testPostgresConnection(input: {
   const adapter = createPostgresAdapter(input);
   try {
     return await adapter.testConnection();
+  } catch (err) {
+    if (err instanceof Error) {
+      // Provide more helpful error messages for common issues
+      if (err.message.includes("ECONNREFUSED")) {
+        throw new Error(`Connection refused. Check if PostgreSQL is running on ${input.host}:${input.port}`);
+      }
+      if (err.message.includes("ENOTFOUND")) {
+        throw new Error(`Host not found: ${input.host}. Check the hostname.`);
+      }
+      if (err.message.includes("authentication failed")) {
+        throw new Error("Authentication failed. Check username and password.");
+      }
+      if (err.message.includes("database") && err.message.includes("does not exist")) {
+        throw new Error(`Database "${input.database}" does not exist.`);
+      }
+      throw err;
+    }
+    throw new Error("Unknown error during connection test");
   } finally {
     await adapter.close();
   }

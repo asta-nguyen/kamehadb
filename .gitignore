@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Environment files with secrets
+.env
+.env.*
+.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -29,3 +34,15 @@ apps/desktop/src-tauri/target/
 
 # Build output
 dist/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Native Node addon builds (rebuild artifacts)
+*.node
+
+# Sidecar local SQLite metadata database (auto-generated)
+*.db
+*.db-shm
+*.db-wal
+.openez/

@@ -40,6 +40,14 @@ connectionsRouter.delete("/:id", (c) => {
 connectionsRouter.post("/test", zValidator("json", CreateConnectionProfileSchema), async (c) => {
   const input = c.req.valid("json");
 
+  // Validate password is provided for postgres
+  if (input.kind === "postgres" && !input.password) {
+    return c.json({
+      success: false,
+      message: "Password is required for PostgreSQL connections",
+    });
+  }
+
   try {
     let result;
     switch (input.kind) {

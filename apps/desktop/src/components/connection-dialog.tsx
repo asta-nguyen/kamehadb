@@ -1,6 +1,10 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CreateConnectionProfileSchema, type CreateConnectionProfileInput } from "@kamehadb/shared";
+import {
+  CreateConnectionProfileSchema,
+  type CreateConnectionProfileInput,
+  type ConnectionProfile,
+} from "@kamehadb/shared";
 import {
   Dialog,
   DialogContent,
@@ -18,27 +22,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCreateConnection, useTestConnection } from "@/hooks/use-connections";
+import {
+  useCreateConnection,
+  useTestConnection,
+  useUpdateConnection,
+} from "@/hooks/use-connections";
 import { Loader2, Plug, Plus } from "lucide-react";
-type ConnectionDialogProps = {
+
+interface ConnectionDialogProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-};
+  editConnection?: ConnectionProfile | null;
+}
 
-export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) {
+export function ConnectionDialog({
+  open,
+  onOpenChange,
+  editConnection,
+}: ConnectionDialogProps) {
+  const isEditing = !!editConnection;
   const createConnection = useCreateConnection();
+  const updateConnection = useUpdateConnection();
   const testConnection = useTestConnection();
 
   const form = useForm<CreateConnectionProfileInput>({
-    resolver: zodResolver(CreateConnectionProfileSchema),
+    resolver: zodResolver(CreateConnectionProfileSchema) as any,
     defaultValues: {
-      name: "",
-      kind: "postgres",
-      host: "localhost",
-      port: 5432,
-      database: "",
-      username: "",
-      ssl: false,
+      name: editConnection?.name ?? "",
+      kind: editConnection?.kind ?? "postgres",
+      host: editConnection?.host ?? "localhost",
+      port: editConnection?.port ?? 5432,
+      database: editConnection?.database ?? "",
+      username: editConnection?.username ?? "",
+      ssl: editConnection?.ssl ?? false,
     },
   });
 
@@ -50,7 +66,14 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
   }
 
   async function handleSubmit(values: CreateConnectionProfileInput) {
-    await createConnection.mutateAsync(values);
+    if (isEditing) {
+      await updateConnection.mutateAsync({
+        id: editConnection.id,
+        input: values,
+      });
+    } else {
+      await createConnection.mutateAsync(values);
+    }
     onOpenChange?.(false);
     form.reset();
   }
@@ -59,16 +82,22 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
         <Plus className="size-3.5" />
-        New Connection
+        New
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-120">
         <DialogHeader>
-          <DialogTitle>New Connection</DialogTitle>
+          <DialogTitle>
+            {isEditing ? "Edit Connection" : "New Connection"}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" {...form.register("name")} placeholder="My Database" />
+            <Input
+              id="name"
+              {...form.register("name")}
+              placeholder="My Database"
+            />
           </div>
 
           <div className="space-y-2">
@@ -76,15 +105,17 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
             <Select
               value={kind}
               onValueChange={(v) => {
-                form.setValue("kind", v as CreateConnectionProfileInput["kind"]);
+                form.setValue(
+                  "kind",
+                  v as CreateConnectionProfileInput["kind"]
+                );
                 if (v === "sqlite") {
                   form.setValue("host", undefined);
                   form.setValue("port", undefined);
                 } else {
                   form.setValue("filePath", undefined);
                 }
-              }}
-            >
+              }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -102,7 +133,11 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="host">Host</Label>
-                  <Input id="host" {...form.register("host")} placeholder="localhost" />
+                  <Input
+                    id="host"
+                    {...form.register("host")}
+                    placeholder="localhost"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="port">Port</Label>
@@ -115,18 +150,32 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
               </div>
               <div className="space-y-2">
                 <Label htmlFor="database">Database</Label>
-                <Input id="database" {...form.register("database")} placeholder="mydb" />
+                <Input
+                  id="database"
+                  {...form.register("database")}
+                  placeholder="mydb"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
-                <Input id="username" {...form.register("username")} placeholder="postgres" />
+                <Input
+                  id="username"
+                  {...form.register("username")}
+                  placeholder="postgres"
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">
+                  Password{" "}
+                  {kind === "postgres" && (
+                    <span className="text-destructive">*</span>
+                  )}
+                </Label>
                 <Input
                   id="password"
                   type="password"
                   onChange={(e) => form.setValue("password", e.target.value)}
+                  placeholder={isEditing ? "(unchanged)" : ""}
                 />
               </div>
             </>
@@ -147,8 +196,7 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
               variant="outline"
               size="sm"
               onClick={handleTest}
-              disabled={testConnection.isPending}
-            >
+              disabled={testConnection.isPending}>
               {testConnection.isPending ? (
                 <Loader2 className="size-3.5 animate-spin" />
               ) : (
@@ -157,7 +205,12 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
               Test Connection
             </Button>
             {testConnection.data && (
-              <span className={`text-xs ${testConnection.data.success ? "text-green-600" : "text-red-600"}`}>
+              <span
+                className={`text-xs ${
+                  testConnection.data.success
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}>
                 {testConnection.data.success
                   ? `Connected (${testConnection.data.serverVersion ?? "ok"})`
                   : testConnection.data.message}
@@ -170,13 +223,19 @@ export function ConnectionDialog({ open, onOpenChange }: ConnectionDialogProps) 
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => onOpenChange?.(false)}
-            >
+              onClick={() => onOpenChange?.(false)}>
               Cancel
             </Button>
-            <Button size="sm" type="submit" disabled={createConnection.isPending}>
-              {createConnection.isPending && <Loader2 className="size-3.5 animate-spin" />}
-              Save
+            <Button
+              size="sm"
+              type="submit"
+              disabled={
+                createConnection.isPending || updateConnection.isPending
+              }>
+              {(createConnection.isPending || updateConnection.isPending) && (
+                <Loader2 className="size-3.5 animate-spin" />
+              )}
+              {isEditing ? "Update" : "Save"}
             </Button>
           </div>
         </form>
