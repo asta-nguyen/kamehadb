@@ -43,11 +43,22 @@ export const CreateConnectionProfileSchema = BaseCreateSchema.refine(
     if (data.kind === 'postgres' && !data.password) {
       return false;
     }
+    if (data.kind === 'mongodb' && !data.connectionString) {
+      return false;
+    }
     return true;
   },
-  {
-    message: 'Password is required for PostgreSQL connections',
-    path: ['password'],
+  (data) => {
+    if (data.kind === 'mongodb' && !data.connectionString) {
+      return {
+        message: 'Connection string is required for MongoDB connections',
+        path: ['connectionString'],
+      };
+    }
+    return {
+      message: 'Password is required for PostgreSQL connections',
+      path: ['password'],
+    };
   },
 );
 export type CreateConnectionProfileInput = z.infer<typeof CreateConnectionProfileSchema>;
@@ -300,4 +311,5 @@ export type AppStoreState = {
   sidebarCollapsed: boolean;
   density: 'compact' | 'comfortable';
   view: AppView;
+  theme: 'light' | 'dark' | 'system';
 };

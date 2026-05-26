@@ -65,8 +65,8 @@ mongoRouter.post(
       filter: z.record(z.unknown()).optional(),
       projection: z.record(z.unknown()).optional(),
       sort: z.record(z.union([z.literal(1), z.literal(-1)])).optional(),
-      skip: z.number().optional(),
-      limit: z.number().optional(),
+      skip: z.number().int().nonnegative().optional(),
+      limit: z.number().int().min(1).max(1000).optional(),
     }),
   ),
   async (c) => {
@@ -93,7 +93,7 @@ mongoRouter.post(
       collection: z.string(),
       database: z.string().optional(),
       pipeline: z.array(z.record(z.unknown())),
-      limit: z.number().optional(),
+      limit: z.number().int().min(1).max(1000).optional(),
     }),
   ),
   async (c) => {

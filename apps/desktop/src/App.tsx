@@ -1,5 +1,5 @@
 import { useStore } from '@tanstack/react-store';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useConnections } from '@/hooks/use-connections';
 import { Sidebar } from '@/components/sidebar';
 import { TableView } from '@/components/table-view';
@@ -10,8 +10,8 @@ import { ApiSettingsPage } from '@/components/api-settings-page';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { AIChatPanel } from '@/components/ai-chat-panel';
-import { appStore, openNewQueryTab, openGraphTab, closeTab } from '@/store';
-import { X, Terminal, Table2, Plus, Share2, Database } from 'lucide-react';
+import { appStore, openNewQueryTab, openGraphTab, closeTab, toggleTheme, applyTheme } from '@/store';
+import { X, Terminal, Table2, Plus, Share2, Database, Sun, Moon, Monitor } from 'lucide-react';
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -148,15 +148,54 @@ function MainLayout() {
   );
 }
 
+function ThemeToggle() {
+  const theme = useStore(appStore, (state) => state.theme);
+
+  const Icon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
+  const label = theme === 'light' ? 'Light mode' : theme === 'dark' ? 'Dark mode' : 'System theme';
+
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+      title={label}
+    >
+      <Icon className="size-4" />
+    </button>
+  );
+}
+
+function Header() {
+  return (
+    <header className="h-9 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background">
+      <span className="font-semibold text-sm">kamehadb</span>
+      <ThemeToggle />
+    </header>
+  );
+}
+
 function App() {
   const view = useStore(appStore, (state) => state.view);
+  const theme = useStore(appStore, (state) => state.theme);
+
+  useEffect(() => {
+    applyTheme(theme);
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      const currentTheme = appStore.state.theme;
+      if (currentTheme === 'system') {
+        document.documentElement.classList.toggle('dark', e.matches);
+      }
+    };
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, [theme]);
 
   return (
     <TooltipProvider>
       <div className="h-screen w-screen flex flex-col">
-        <header className="h-9 border-b border-border flex items-center px-4 shrink-0 bg-background">
-          <span className="font-semibold text-sm">kamehadb</span>
-        </header>
+        <Header />
         <div className="flex-1 flex overflow-hidden">
           <aside className="w-56 border-r border-border shrink-0 flex flex-col bg-muted/30">
             <Sidebar />

@@ -13,6 +13,7 @@ const initialState: AppStoreState = {
   sidebarCollapsed: false,
   density: 'compact',
   view: 'workspace',
+  theme: (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system',
 };
 
 export const appStore = new Store<AppStoreState>(initialState);
@@ -95,4 +96,31 @@ export function navigateTo(view: AppView) {
 
 export function toggleSidebar() {
   appStore.setState((state) => ({ ...state, sidebarCollapsed: !state.sidebarCollapsed }));
+}
+
+export function setTheme(theme: 'light' | 'dark' | 'system') {
+  localStorage.setItem('theme', theme);
+  appStore.setState((state) => ({ ...state, theme }));
+  applyTheme(theme);
+}
+
+export function toggleTheme() {
+  appStore.setState((state) => {
+    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
+    const currentIdx = themes.indexOf(state.theme);
+    const nextTheme = themes[(currentIdx + 1) % themes.length];
+    localStorage.setItem('theme', nextTheme);
+    applyTheme(nextTheme);
+    return { ...state, theme: nextTheme };
+  });
+}
+
+export function applyTheme(theme: 'light' | 'dark' | 'system') {
+  const root = document.documentElement;
+  if (theme === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.classList.toggle('dark', prefersDark);
+  } else {
+    root.classList.toggle('dark', theme === 'dark');
+  }
 }
