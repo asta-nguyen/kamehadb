@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.nus.kamehadb",
   "build": {
-    "beforeDevCommand": "pnpm --dir .. dev",
+    "beforeDevCommand": "pnpm --filter @kamehadb/desktop build",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm --dir .. build",
+    "beforeBuildCommand": "pnpm --filter @kamehadb/desktop build",
     "frontendDist": "../dist"
   },
   "app": {
