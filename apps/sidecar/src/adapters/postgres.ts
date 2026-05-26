@@ -13,6 +13,61 @@ import type {
   QueryColumn,
 } from '@kamehadb/shared';
 
+export type IndexStats = {
+  name: string;
+  table: string;
+  columns: string[];
+  unique: boolean;
+  primary: boolean;
+  sizeBytes: number;
+  scans: number;
+  reads: number;
+  usagePercent: number;
+};
+
+export type TableStats = {
+  tableId: string;
+  name: string;
+  schema: string;
+  rowEstimate: number;
+  totalBytes: number;
+  indexesBytes: number;
+  toastBytes: number;
+  bloatBytes: number;
+  bloatPercent: number;
+  lastVacuum: string | null;
+  lastAutovacuum: string | null;
+  lastAnalyze: string | null;
+  lastAutoanalyze: string | null;
+  vacuumCount: number;
+  autovacuumCount: number;
+  nLiveTup: number;
+  nDeadTup: number;
+};
+
+export type DatabaseSize = {
+  schema: string;
+  table: string;
+  sizeBytes: number;
+  indexBytes: number;
+  totalBytes: number;
+  rowEstimate: number;
+};
+
+export type ConnectionInfo = {
+  pid: number;
+  usename: string;
+  applicationName: string;
+  clientAddr: string | null;
+  backendStart: string;
+  state: string;
+  query: string | null;
+  queryStart: string | null;
+  waitEventType: string | null;
+  waitEvent: string | null;
+  durationSeconds: number;
+};
+
 const PG_TYPE_MAP: Record<number, string> = {
   16: 'boolean',
   20: 'bigint',
@@ -234,6 +289,156 @@ export function createPostgresAdapter(connection: {
         durationMs: Math.round(durationMs),
         truncated: false,
       };
+    },
+
+    async getIndexStats(tableId: string): Promise<IndexStats[]> {
+      const [schema, table] = tableId.split('.');
+      const sql = `SELECT
+        i.relname as name,
+        t.relname as table_name,
+        a.attname as column_name,
+        ix.indisunique as unique_index,
+        ix.indisprimary as primary_index,
+        pg_relation_size(i.oid) as size_bytes
+      FROM pg_index ix
+      JOIN pg_class i ON i.oid = ix.indexrelid
+      JOIN pg_class t ON t.oid = ix.indrelid
+      JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      WHERE n.nspname = $1 AND t.relname = $2
+      ORDER BY i.relname, a.attnum`;
+
+      const result = await query(sql, [schema, table]);
+
+      const indexMap = new Map<string, IndexStats>();
+      for (const row of result.rows as Record<string, unknown>[]) {
+        const name = row.name as string;
+        if (!indexMap.has(name)) {
+          indexMap.set(name, {
+            name,
+            table: row.table_name as string,
+            columns: [],
+            unique: !!row.unique_index,
+            primary: !!row.primary_index,
+            sizeBytes: Number(row.size_bytes) || 0,
+            scans: 0,
+            reads: 0,
+            usagePercent: 0,
+          });
+        }
+        indexMap.get(name)!.columns.push(row.column_name as string);
+      }
+
+      return Array.from(indexMap.values());
+    },
+
+    async getTableStats(tableId: string): Promise<TableStats> {
+      const [schema, table] = tableId.split('.');
+      const sql = `SELECT
+        t.relname as name,
+        n.nspname as schema,
+        s.n_live_tup as row_estimate,
+        pg_total_relation_size(t.oid) as total_bytes,
+        COALESCE(pg_indexes_size(t.oid), 0) as indexes_bytes,
+        COALESCE(pg_relation_size(t.oid) - pg_table_size(t.oid), 0) as toast_bytes,
+        (pg_total_relation_size(t.oid) - pg_table_size(t.oid)) as bloat_bytes,
+        100.0 * (pg_total_relation_size(t.oid) - pg_table_size(t.oid)) / NULLIF(pg_total_relation_size(t.oid), 0) as bloat_percent,
+        s.last_vacuum,
+        s.last_autovacuum,
+        s.last_analyze,
+        s.last_autoanalyze,
+        s.vacuum_count,
+        s.autovacuum_count,
+        COALESCE(s.n_live_tup, 0) as n_live_tup,
+        COALESCE(s.n_dead_tup, 0) as n_dead_tup
+      FROM pg_stat_user_tables s
+      JOIN pg_class t ON t.oid = s.relid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      WHERE n.nspname = $1 AND t.relname = $2`;
+
+      const result = await query(sql, [schema, table]);
+      const row = (result.rows as Record<string, unknown>[])[0];
+
+      return {
+        tableId,
+        name: (row?.name as string) ?? table,
+        schema: (row?.schema as string) ?? schema,
+        rowEstimate: Number(row?.row_estimate) || 0,
+        totalBytes: Number(row?.total_bytes) || 0,
+        indexesBytes: Number(row?.indexes_bytes) || 0,
+        toastBytes: Number(row?.toast_bytes) || 0,
+        bloatBytes: Number(row?.bloat_bytes) || 0,
+        bloatPercent: Number(row?.bloat_percent) || 0,
+        lastVacuum: (row?.last_vacuum as string) || null,
+        lastAutovacuum: (row?.last_autovacuum as string) || null,
+        lastAnalyze: (row?.last_analyze as string) || null,
+        lastAutoanalyze: (row?.last_autoanalyze as string) || null,
+        vacuumCount: Number(row?.vacuum_count) || 0,
+        autovacuumCount: Number(row?.autovacuum_count) || 0,
+        nLiveTup: Number(row?.n_live_tup) || 0,
+        nDeadTup: Number(row?.n_dead_tup) || 0,
+      };
+    },
+
+    async getDatabaseSizes(schema?: string): Promise<DatabaseSize[]> {
+      const sql = `SELECT
+        n.nspname as schema,
+        c.relname as table,
+        pg_relation_size(c.oid) as size_bytes,
+        COALESCE(pg_indexes_size(c.oid), 0) as index_bytes,
+        pg_total_relation_size(c.oid) as total_bytes,
+        s.n_live_tup as row_estimate
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
+      WHERE c.relkind = 'r'
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        AND n.nspname = COALESCE($1, n.nspname)
+      ORDER BY pg_total_relation_size(c.oid) DESC
+      LIMIT 100`;
+
+      const result = await query(sql, [schema || null]);
+      return (result.rows as Record<string, unknown>[]).map((r) => ({
+        schema: r.schema as string,
+        table: r.table as string,
+        sizeBytes: Number(r.size_bytes) || 0,
+        indexBytes: Number(r.index_bytes) || 0,
+        totalBytes: Number(r.total_bytes) || 0,
+        rowEstimate: Number(r.row_estimate) || 0,
+      }));
+    },
+
+    async getActiveConnections(): Promise<ConnectionInfo[]> {
+      const sql = `SELECT
+        pid,
+        usename,
+        application_name as applicationName,
+        client_addr::text as clientAddr,
+        backend_start::text as backendStart,
+        state,
+        query,
+        query_start::text as queryStart,
+        wait_event_type as waitEventType,
+        wait_event as waitEvent,
+        EXTRACT(EPOCH FROM (now() - query_start))::bigint as durationSeconds
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+      ORDER BY state, query_start`;
+
+      const result = await query(sql);
+      return (result.rows as Record<string, unknown>[]).map((r) => ({
+        pid: Number(r.pid),
+        usename: (r.usename as string) || '',
+        applicationName: (r.applicationName as string) || '',
+        clientAddr: (r.clientAddr as string) || null,
+        backendStart: (r.backendStart as string) || '',
+        state: (r.state as string) || '',
+        query: r.query as string | null,
+        queryStart: (r.queryStart as string) || null,
+        waitEventType: (r.waitEventType as string) || null,
+        waitEvent: (r.waitEvent as string) || null,
+        durationSeconds: Number(r.durationSeconds) || 0,
+      }));
     },
 
     async close(): Promise<void> {

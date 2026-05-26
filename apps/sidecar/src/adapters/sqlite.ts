@@ -11,6 +11,10 @@ import type {
   QueryResult,
   RunQueryInput,
   QueryColumn,
+  TableStats,
+  IndexStats,
+  DatabaseSize,
+  ConnectionInfo,
 } from '@kamehadb/shared';
 
 export function createSqliteAdapter(filePath: string): SqlAdapter {
@@ -142,6 +146,100 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
     async close(): Promise<void> {
       db.close();
+    },
+
+    async getTableStats(tableId: string): Promise<TableStats> {
+      const rowCount = db.prepare(`SELECT COUNT(*) as count FROM "${tableId}"`).get() as { count: number };
+      const totalBytes = db
+        .prepare(`SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()`)
+        .get() as { size: number };
+
+      return {
+        tableId,
+        name: tableId,
+        schema: 'main',
+        rowEstimate: rowCount.count,
+        totalBytes: totalBytes.size,
+        indexesBytes: 0,
+        toastBytes: 0,
+        bloatBytes: 0,
+        bloatPercent: 0,
+        lastVacuum: null,
+        lastAutovacuum: null,
+        lastAnalyze: null,
+        lastAutoanalyze: null,
+        vacuumCount: 0,
+        autovacuumCount: 0,
+        nLiveTup: rowCount.count,
+        nDeadTup: 0,
+      };
+    },
+
+    async getIndexStats(tableId: string): Promise<IndexStats[]> {
+      const indexes = db.prepare(`PRAGMA index_list("${tableId}")`).all() as {
+        name: string;
+        unique: number;
+        origin: string;
+      }[];
+
+      return indexes.map((idx) => {
+        const cols = db.prepare(`PRAGMA index_info("${idx.name}")`).all() as { name: string }[];
+        const size = db
+          .prepare(`SELECT idx_blksize * len as size FROM sqlite_master WHERE type='index' AND name='${idx.name}'`)
+          .get() as { size: number } | undefined;
+
+        return {
+          name: idx.name,
+          table: tableId,
+          columns: cols.map((c) => c.name),
+          unique: !!idx.unique,
+          primary: idx.origin === 'pk',
+          sizeBytes: size?.size || 0,
+          scans: 0,
+          reads: 0,
+          usagePercent: 0,
+        };
+      });
+    },
+
+    async getDatabaseSizes(): Promise<DatabaseSize[]> {
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        .all() as { name: string }[];
+
+      return tables.map((t) => {
+        const info = db
+          .prepare(
+            `SELECT page_count * page_size as size, (SELECT COUNT(*) FROM "${t.name}") as rows FROM pragma_page_count(), pragma_page_size()`,
+          )
+          .get() as { size: number; rows: number };
+        return {
+          schema: 'main',
+          table: t.name,
+          sizeBytes: info.size,
+          indexBytes: 0,
+          totalBytes: info.size,
+          rowEstimate: info.rows,
+        };
+      });
+    },
+
+    async getActiveConnections(): Promise<ConnectionInfo[]> {
+      return [
+        {
+          pid: 1,
+          usename: 'sqlite',
+          applicationName: 'kamehadb',
+          clientAddr: null,
+          backendStart: new Date().toISOString(),
+          state: 'active',
+          query: null,
+          queryStart: null,
+          waitEventType: null,
+          waitEvent: null,
+          durationSeconds: 0,
+        },
+      ];
     },
   };
 }

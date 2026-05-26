@@ -214,3 +214,76 @@ sqlRouter.post(
     }
   },
 );
+
+// Table stats
+sqlRouter.get('/:connectionId/tables/:tableId/stats', async (c) => {
+  try {
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
+    try {
+      if (!('getTableStats' in adapter)) {
+        return c.json({ error: 'NOT_SUPPORTED', message: 'Stats not available for this database type' }, 400);
+      }
+      const stats = await adapter.getTableStats!(c.req.param('tableId'));
+      return c.json(stats);
+    } finally {
+      await adapter.close();
+    }
+  } catch (err) {
+    return handleError(c, err, 'getTableStats');
+  }
+});
+
+// Index stats
+sqlRouter.get('/:connectionId/tables/:tableId/index-stats', async (c) => {
+  try {
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
+    try {
+      if (!('getIndexStats' in adapter)) {
+        return c.json({ error: 'NOT_SUPPORTED', message: 'Index stats not available for this database type' }, 400);
+      }
+      const stats = await adapter.getIndexStats!(c.req.param('tableId'));
+      return c.json(stats);
+    } finally {
+      await adapter.close();
+    }
+  } catch (err) {
+    return handleError(c, err, 'getIndexStats');
+  }
+});
+
+// Database sizes
+sqlRouter.get('/:connectionId/sizes', async (c) => {
+  try {
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
+    try {
+      if (!('getDatabaseSizes' in adapter)) {
+        return c.json({ error: 'NOT_SUPPORTED', message: 'Size info not available for this database type' }, 400);
+      }
+      const schema = c.req.query('schema');
+      const sizes = await adapter.getDatabaseSizes!(schema);
+      return c.json(sizes);
+    } finally {
+      await adapter.close();
+    }
+  } catch (err) {
+    return handleError(c, err, 'getDatabaseSizes');
+  }
+});
+
+// Active connections
+sqlRouter.get('/:connectionId/connections', async (c) => {
+  try {
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
+    try {
+      if (!('getActiveConnections' in adapter)) {
+        return c.json({ error: 'NOT_SUPPORTED', message: 'Connection info not available for this database type' }, 400);
+      }
+      const connections = await adapter.getActiveConnections!();
+      return c.json(connections);
+    } finally {
+      await adapter.close();
+    }
+  } catch (err) {
+    return handleError(c, err, 'getActiveConnections');
+  }
+});

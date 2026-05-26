@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import {
   CreateConnectionProfileSchema,
   type CreateConnectionProfileInput,
@@ -144,7 +145,13 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
 
   async function handleTest() {
     const values = form.getValues();
-    await testConnection.mutateAsync(values);
+    try {
+      await testConnection.mutateAsync(values);
+      toast.success('Connection successful!');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Connection failed';
+      toast.error(message);
+    }
   }
 
   async function handleSubmit(values: CreateConnectionProfileInput) {

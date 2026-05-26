@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
+import { TableStats } from '@/components/table-stats';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Key, Hash, Table2, ChevronLeft, ChevronRight, FileJson, Copy, Check } from 'lucide-react';
+import { Loader2, Key, Hash, Table2, ChevronLeft, ChevronRight, FileJson, Copy, Check, Activity } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -259,6 +260,10 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
             <TabsTrigger value="indexes" className="text-xs">
               Indexes
             </TabsTrigger>
+            <TabsTrigger value="stats" className="text-xs">
+              <Activity className="size-3 mr-1" />
+              Stats
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -330,6 +335,10 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
               </tbody>
             </table>
           </div>
+        </TabsContent>
+
+        <TabsContent value="stats" className="flex-1 overflow-auto">
+          <TableStats connectionId={connectionId} tableId={tableId} />
         </TabsContent>
       </Tabs>
     </div>
