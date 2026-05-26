@@ -46,3 +46,7 @@ dist/
 *.db-shm
 *.db-wal
 .openez/
+
+# CodeDB (local index - never commit)
+codedb.snapshot
+.codegraph/

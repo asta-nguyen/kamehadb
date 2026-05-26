@@ -116,6 +116,12 @@ export type ColumnInfo = {
   };
 };
 
+export type TableCompletions = {
+  name: string;
+  schema?: string;
+  columns: ColumnInfo[];
+};
+
 export type IndexInfo = {
   name: string;
   columns: string[];
@@ -153,6 +159,7 @@ export interface SqlAdapter {
   listTables(schema?: string): Promise<TableInfo[]>;
   getTableColumns(tableId: string): Promise<ColumnInfo[]>;
   getTableIndexes(tableId: string): Promise<IndexInfo[]>;
+  getCompletions(schema?: string): Promise<TableCompletions[]>;
   previewRows(input: PreviewRowsInput): Promise<QueryResult>;
   runQuery(input: RunQueryInput): Promise<QueryResult>;
   close(): Promise<void>;

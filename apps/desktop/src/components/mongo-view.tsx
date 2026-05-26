@@ -94,7 +94,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         {/* Controls */}
         <div className="flex flex-wrap gap-2 items-start">
           <div className="flex-1 min-w-64">
-            <label className="text-[10px] text-muted-foreground mb-1 block">Filter (JSON)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Filter (JSON)</label>
             <Input
               value={filterStr}
               onChange={(e) => setFilterStr(e.target.value)}
@@ -103,7 +103,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             />
           </div>
           <div className="w-36">
-            <label className="text-[10px] text-muted-foreground mb-1 block">Sort (JSON)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Sort (JSON)</label>
             <Input
               value={sortStr}
               onChange={(e) => setSortStr(e.target.value)}
@@ -112,7 +112,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             />
           </div>
           <div className="w-20">
-            <label className="text-[10px] text-muted-foreground mb-1 block">Limit</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Limit</label>
             <Input
               value={limitStr}
               onChange={(e) => setLimitStr(e.target.value)}
@@ -131,13 +131,13 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
 
         {/* JSON validation */}
         {parseJsonSafe(filterStr) === null && filterStr !== '{}' && (
-          <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
+          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
             <AlertCircle className="size-3" />
             Invalid JSON in filter
           </p>
         )}
         {sortStr && parseJsonSafe(sortStr) === null && (
-          <p className="text-[10px] text-destructive mt-1 flex items-center gap-1">
+          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
             <AlertCircle className="size-3" />
             Invalid JSON in sort
           </p>
@@ -163,7 +163,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             <div className="text-xs text-muted-foreground mb-3 flex items-center justify-between">
               <span>
                 {data.documents.length} document{data.documents.length !== 1 ? 's' : ''} returned
-                {data.hasMore && <span className="text-amber-600 dark:text-amber-400 ml-1">(has more)</span>}
+                {data.hasMore && <span className="text-muted-foreground ml-1">(has more)</span>}
               </span>
               {isFetching && (
                 <span className="flex items-center gap-1 text-muted-foreground">
@@ -257,7 +257,7 @@ function DocumentCard({ doc, isExpanded, onToggle, tabIndex }: DocumentCardProps
             className="absolute top-2 right-2 p-1.5 rounded bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
             title="Copy JSON"
           >
-            {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
+            {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
           </button>
           <pre className="text-xs font-mono whitespace-pre-wrap break-all pr-10">{JSON.stringify(doc, null, 2)}</pre>
         </div>

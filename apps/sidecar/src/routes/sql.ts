@@ -26,7 +26,20 @@ async function getSqlAdapter(connectionId: string) {
   }
 
   const adapter = createSqlAdapter(profile, password);
-  if (!adapter) throw new Error(`Unsupported database kind: ${profile.kind}`);
+  if (!adapter) {
+    return {
+      testConnection: () => Promise.resolve({ success: false, message: `Unsupported for ${profile.kind}` }),
+      listDatabases: () => Promise.resolve([]),
+      listSchemas: () => Promise.resolve([]),
+      listTables: () => Promise.resolve([]),
+      getTableColumns: () => Promise.resolve([]),
+      getTableIndexes: () => Promise.resolve([]),
+      getCompletions: () => Promise.resolve([]),
+      previewRows: () => Promise.reject(new Error('Not supported')),
+      runQuery: () => Promise.reject(new Error('Not supported')),
+      close: () => Promise.resolve(),
+    };
+  }
   return adapter;
 }
 
@@ -122,23 +135,9 @@ sqlRouter.get('/:connectionId/completions', async (c) => {
   try {
     const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
-      const tables = await adapter.listTables();
-      const result = await Promise.all(
-        tables.map(async (table) => {
-          const columns = await adapter.getTableColumns(table.id);
-          return {
-            name: table.name,
-            schema: table.schema,
-            columns: columns.map((col) => ({
-              name: col.name,
-              type: col.type,
-              primaryKey: col.primaryKey,
-              foreignKey: col.foreignKey,
-            })),
-          };
-        }),
-      );
-      return c.json({ tables: result });
+      const schema = c.req.query('schema');
+      const tables = await adapter.getCompletions(schema);
+      return c.json({ tables });
     } finally {
       await adapter.close();
     }

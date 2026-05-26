@@ -73,18 +73,18 @@ pnpm test
 - [x] PostgreSQL
 - [x] MySQL
 - [x] SQLite
+- [x] MongoDB
+- [x] Redis
+- [x] Data export (CSV, JSON, SQL)
 
 ### Not Yet Supported
 
-- [ ] Redis
-- [ ] MongoDB
 - [ ] SQL Server
 - [ ] Oracle
 - [ ] ClickHouse
 
 ### Future Ideas
 
-- [ ] Data export (CSV, JSON, SQL)
 - [ ] Query history with favorites
 - [ ] Migration assistant
 - [ ] Data visualization / charts

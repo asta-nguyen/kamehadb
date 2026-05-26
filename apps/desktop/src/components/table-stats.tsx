@@ -155,7 +155,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
                   <TableHead>Name</TableHead>
                   <TableHead>Columns</TableHead>
                   <TableHead>Size</TableHead>
@@ -166,7 +166,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
               </TableHeader>
               <TableBody>
                 {indexStats.map((idx) => (
-                  <TableRow key={idx.name}>
+                  <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
                     <TableCell className="font-mono text-sm">{idx.name}</TableCell>
                     <TableCell className="text-muted-foreground">
                       <div className="flex flex-wrap gap-1">

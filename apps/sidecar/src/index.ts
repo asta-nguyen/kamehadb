@@ -7,6 +7,7 @@ import { initMetadataStore, closeMetadataStore } from './db/metadata-store.js';
 import { connectionsRouter } from './routes/connections.js';
 import { sqlRouter } from './routes/sql.js';
 import { mongoRouter } from './routes/mongo.js';
+import { redisRouter } from './routes/redis.js';
 import { aiRouter } from './routes/ai.js';
 
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
@@ -38,6 +39,7 @@ app.get('/health', (c) => {
 app.route('/connections', connectionsRouter);
 app.route('/sql', sqlRouter);
 app.route('/mongo', mongoRouter);
+app.route('/redis', redisRouter);
 app.route('/ai', aiRouter);
 
 // Start server

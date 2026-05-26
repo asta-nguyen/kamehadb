@@ -7,6 +7,20 @@ import { testPostgresConnection } from '../adapters/postgres.js';
 import { testSqliteConnection } from '../adapters/sqlite.js';
 import { testMysqlConnection } from '../adapters/mysql.js';
 import { createMongoAdapter } from '../adapters/mongodb.js';
+import { createRedisDbAdapter } from '../adapters/factory.js';
+
+// Schema for testing connection without requiring a name (use base schema without refinement)
+const TestConnectionSchema = z.object({
+  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb']),
+  host: z.string().optional(),
+  port: z.number().int().positive().optional(),
+  database: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  ssl: z.boolean().optional(),
+  filePath: z.string().optional(),
+  connectionString: z.string().optional(),
+});
 
 export const connectionsRouter = new Hono();
 
@@ -39,7 +53,7 @@ connectionsRouter.delete('/:id', (c) => {
   return c.body(null, 204);
 });
 
-connectionsRouter.post('/test', zValidator('json', CreateConnectionProfileSchema), async (c) => {
+connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async (c) => {
   const input = c.req.valid('json');
 
   // Validate password is provided for postgres
@@ -95,6 +109,9 @@ connectionsRouter.post('/test', zValidator('json', CreateConnectionProfileSchema
           connectionString: input.connectionString,
           database: input.database,
         }).testConnection();
+        break;
+      case 'redis':
+        result = await createRedisDbAdapter(input, input.password).testConnection();
         break;
       default:
         return c.json({ success: false, message: `Unsupported database kind: ${input.kind}` });
