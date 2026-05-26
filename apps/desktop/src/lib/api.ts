@@ -66,6 +66,27 @@ export const api = {
   aiChat: (input: import('@kamehadb/shared').AIChatRequest) =>
     request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input),
 
+  // PostgreSQL stats
+  getTableStats: (connectionId: string, tableId: string) =>
+    request<import('@kamehadb/shared').TableStats>(
+      'GET',
+      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/stats`,
+    ),
+
+  getIndexStats: (connectionId: string, tableId: string) =>
+    request<import('@kamehadb/shared').IndexStats[]>(
+      'GET',
+      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/index-stats`,
+    ),
+
+  getDatabaseSizes: (connectionId: string, schema?: string) => {
+    const query = schema ? `?schema=${encodeURIComponent(schema)}` : '';
+    return request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/sizes${query}`);
+  },
+
+  getActiveConnections: (connectionId: string) =>
+    request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/connections`),
+
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
     request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined, true),

@@ -1,17 +1,28 @@
 import { useStore } from '@tanstack/react-store';
 import { useMemo, useEffect } from 'react';
+import { Toaster } from '@/components/ui/sonner';
 import { useConnections } from '@/hooks/use-connections';
 import { Sidebar } from '@/components/sidebar';
 import { TableView } from '@/components/table-view';
 import { SqlEditor } from '@/components/sql-editor';
 import { SchemaGraph } from '@/components/schema-graph';
 import { MongoView } from '@/components/mongo-view';
+import { TableStats } from '@/components/table-stats';
+import { DatabaseStats } from '@/components/database-stats';
 import { ApiSettingsPage } from '@/components/api-settings-page';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { AIChatPanel } from '@/components/ai-chat-panel';
-import { appStore, openNewQueryTab, openGraphTab, closeTab, toggleTheme, applyTheme } from '@/store';
-import { X, Terminal, Table2, Plus, Share2, Database, Sun, Moon, Monitor } from 'lucide-react';
+import {
+  appStore,
+  openNewQueryTab,
+  openGraphTab,
+  closeTab,
+  toggleTheme,
+  applyTheme,
+  openDatabaseStatsTab,
+} from '@/store';
+import { X, Terminal, Table2, Plus, Share2, Database, Sun, Moon, Monitor, BarChart3, Activity } from 'lucide-react';
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -44,6 +55,10 @@ function TabBar() {
               <Share2 className="size-3" />
             ) : tab.type === 'mongo' ? (
               <Database className="size-3" />
+            ) : tab.type === 'stats' || tab.type === 'database-stats' ? (
+              <BarChart3 className="size-3" />
+            ) : tab.type === 'table-stats' ? (
+              <Activity className="size-3" />
             ) : (
               <Table2 className="size-3" />
             )}
@@ -112,6 +127,10 @@ function Workspace() {
               <Share2 className="size-3.5 mr-1.5" />
               Schema Graph
             </Button>
+            <Button size="sm" variant="outline" onClick={() => openDatabaseStatsTab(activeConnectionId)}>
+              <BarChart3 className="size-3.5 mr-1.5" />
+              Database Stats
+            </Button>
           </div>
         </div>
       </div>
@@ -128,6 +147,10 @@ function Workspace() {
       {activeTab.type === 'table' && <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />}
       {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
       {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
+        <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
+      )}
     </div>
   );
 }
@@ -196,6 +219,7 @@ function App() {
 
   return (
     <TooltipProvider>
+      <Toaster />
       <div className="h-screen w-screen flex flex-col">
         <Header />
         <div className="flex-1 flex overflow-hidden">

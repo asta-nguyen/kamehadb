@@ -156,7 +156,67 @@ export interface SqlAdapter {
   previewRows(input: PreviewRowsInput): Promise<QueryResult>;
   runQuery(input: RunQueryInput): Promise<QueryResult>;
   close(): Promise<void>;
+  // Extended stats (PostgreSQL specific)
+  getIndexStats?(tableId: string): Promise<IndexStats[]>;
+  getTableStats?(tableId: string): Promise<TableStats>;
+  getDatabaseSizes?(schema?: string): Promise<DatabaseSize[]>;
+  getActiveConnections?(): Promise<ConnectionInfo[]>;
 }
+
+export type IndexStats = {
+  name: string;
+  table: string;
+  columns: string[];
+  unique: boolean;
+  primary: boolean;
+  sizeBytes: number;
+  scans: number;
+  reads: number;
+  usagePercent: number;
+};
+
+export type TableStats = {
+  tableId: string;
+  name: string;
+  schema: string;
+  rowEstimate: number;
+  totalBytes: number;
+  indexesBytes: number;
+  toastBytes: number;
+  bloatBytes: number;
+  bloatPercent: number;
+  lastVacuum: string | null;
+  lastAutovacuum: string | null;
+  lastAnalyze: string | null;
+  lastAutoanalyze: string | null;
+  vacuumCount: number;
+  autovacuumCount: number;
+  nLiveTup: number;
+  nDeadTup: number;
+};
+
+export type DatabaseSize = {
+  schema: string;
+  table: string;
+  sizeBytes: number;
+  indexBytes: number;
+  totalBytes: number;
+  rowEstimate: number;
+};
+
+export type ConnectionInfo = {
+  pid: number;
+  usename: string;
+  applicationName: string;
+  clientAddr: string | null;
+  backendStart: string;
+  state: string;
+  query: string | null;
+  queryStart: string | null;
+  waitEventType: string | null;
+  waitEvent: string | null;
+  durationSeconds: number;
+};
 
 // Redis types
 export type RedisKeyType = 'string' | 'hash' | 'list' | 'set' | 'zset' | 'stream';
@@ -295,8 +355,15 @@ export type ApiError = {
 
 // TanStack Store state
 export type WorkspaceTab =
-  | { id: string; type: 'table' | 'query' | 'redis' | 'graph'; title: string; connectionId: string; sql?: string }
-  | { id: string; type: 'mongo'; title: string; connectionId: string; database: string; collection: string };
+  | {
+      id: string;
+      type: 'table' | 'query' | 'redis' | 'graph' | 'stats' | 'database-stats';
+      title: string;
+      connectionId: string;
+      sql?: string;
+    }
+  | { id: string; type: 'mongo'; title: string; connectionId: string; database: string; collection: string }
+  | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string };
 
 export type AppView = 'workspace' | 'api-settings';
 

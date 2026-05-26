@@ -75,6 +75,25 @@ export function openGraphTab(connectionId: string) {
   });
 }
 
+export function openDatabaseStatsTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:db-stats`,
+    type: 'database-stats' as const,
+    title: 'Database Stats',
+    connectionId,
+  });
+}
+
+export function openTableStatsTab(connectionId: string, tableId: string) {
+  openTab({
+    id: `${connectionId}:${tableId}:stats`,
+    type: 'table-stats' as const,
+    title: `Stats: ${tableId}`,
+    connectionId,
+    tableId,
+  });
+}
+
 export function updateTabSql(tabId: string, sql: string) {
   appStore.setState((state) => ({
     ...state,
