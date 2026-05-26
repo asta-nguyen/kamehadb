@@ -1,26 +1,32 @@
-import { Store } from "@tanstack/store";
-import { nanoid } from "nanoid";
-import type { AppStoreState, AppView, WorkspaceTab } from "@kamehadb/shared";
+import { Store } from '@tanstack/store';
+import { nanoid } from 'nanoid';
+import type { AppStoreState, AppView, WorkspaceTab } from '@kamehadb/shared';
 
 const initialState: AppStoreState = {
   activeConnectionId: null,
   activeDatabaseId: null,
   activeSchemaId: null,
   activeTableId: null,
+  activeMongoDatabase: null,
   openedTabs: [],
   activeTabId: null,
   sidebarCollapsed: false,
-  density: "compact",
-  view: "workspace",
+  density: 'compact',
+  view: 'workspace',
 };
 
 export const appStore = new Store<AppStoreState>(initialState);
 
 export function setActiveConnection(id: string | null) {
-  appStore.setState((state) => ({ ...state, activeConnectionId: id }));
+  appStore.setState((state) => ({ ...state, activeConnectionId: id, activeMongoDatabase: null }));
+}
+
+export function setActiveMongoDatabase(database: string | null) {
+  appStore.setState((state) => ({ ...state, activeMongoDatabase: database }));
 }
 
 let queryCounter = 0;
+let mongoCounter = 0;
 
 export function openTab(tab: WorkspaceTab) {
   appStore.setState((state) => {
@@ -38,10 +44,23 @@ export function openNewQueryTab(connectionId: string) {
   queryCounter++;
   const tab: WorkspaceTab = {
     id: `query-${nanoid()}`,
-    type: "query",
+    type: 'query',
     title: `Query ${queryCounter}`,
     connectionId,
-    sql: "SELECT * FROM ",
+    sql: 'SELECT * FROM ',
+  };
+  openTab(tab);
+}
+
+export function openMongoTab(connectionId: string, database: string, collection: string) {
+  mongoCounter++;
+  const tab: WorkspaceTab = {
+    id: `mongo-${connectionId}-${database}-${collection}-${mongoCounter}`,
+    type: 'mongo',
+    title: collection,
+    connectionId,
+    database,
+    collection,
   };
   openTab(tab);
 }
@@ -49,8 +68,8 @@ export function openNewQueryTab(connectionId: string) {
 export function openGraphTab(connectionId: string) {
   openTab({
     id: `${connectionId}:graph`,
-    type: "graph" as const,
-    title: "Schema Graph",
+    type: 'graph' as const,
+    title: 'Schema Graph',
     connectionId,
   });
 }
@@ -58,18 +77,14 @@ export function openGraphTab(connectionId: string) {
 export function updateTabSql(tabId: string, sql: string) {
   appStore.setState((state) => ({
     ...state,
-    openedTabs: state.openedTabs.map((t) =>
-      t.id === tabId ? { ...t, sql } : t
-    ),
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, sql } : t)),
   }));
 }
 
 export function closeTab(tabId: string) {
   appStore.setState((state) => {
     const tabs = state.openedTabs.filter((t) => t.id !== tabId);
-    const activeTabId = state.activeTabId === tabId
-      ? (tabs[tabs.length - 1]?.id ?? null)
-      : state.activeTabId;
+    const activeTabId = state.activeTabId === tabId ? (tabs[tabs.length - 1]?.id ?? null) : state.activeTabId;
     return { ...state, openedTabs: tabs, activeTabId };
   });
 }

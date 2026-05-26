@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback } from 'react';
 import {
   ReactFlow,
   Background,
@@ -12,13 +12,13 @@ import {
   Handle,
   Position,
   MarkerType,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
-import dagre from "dagre";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import { openTab } from "@/store";
-import { Loader2, Table2 } from "lucide-react";
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import dagre from 'dagre';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { openTab } from '@/store';
+import { Loader2, Table2 } from 'lucide-react';
 
 type CompletionsData = {
   tables: Array<{
@@ -35,9 +35,8 @@ type CompletionsData = {
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
-    queryKey: ["completions", connectionId],
-    queryFn: () =>
-      api.request<CompletionsData>("GET", `/sql/${connectionId}/completions`),
+    queryKey: ['completions', connectionId],
+    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/completions`),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
   });
@@ -52,7 +51,14 @@ function TableNode({ data }: NodeProps) {
         <span className="text-xs font-semibold">{data.label as string}</span>
       </div>
       <div className="px-0 py-0">
-        {(data.columns as Array<{ name: string; type: string; primaryKey: boolean; foreignKey?: { table: string; column: string } }>).map((col) => (
+        {(
+          data.columns as Array<{
+            name: string;
+            type: string;
+            primaryKey: boolean;
+            foreignKey?: { table: string; column: string };
+          }>
+        ).map((col) => (
           <div
             key={col.name}
             className="flex items-center gap-2 px-3 py-1 text-[11px] border-b border-border/40 last:border-b-0"
@@ -84,7 +90,7 @@ function buildGraph(data: CompletionsData) {
 
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "LR", nodesep: 80, ranksep: 120 });
+  g.setGraph({ rankdir: 'LR', nodesep: 80, ranksep: 120 });
 
   for (const table of data.tables) {
     const label = table.schema ? `${table.schema}.${table.name}` : table.name;
@@ -97,11 +103,9 @@ function buildGraph(data: CompletionsData) {
     const sourceLabel = table.schema ? `${table.schema}.${table.name}` : table.name;
     for (const col of table.columns) {
       if (col.foreignKey) {
-        const targetLabel = col.foreignKey.table.includes(".")
-          ? col.foreignKey.table
-          : col.foreignKey.table;
+        const targetLabel = col.foreignKey.table.includes('.') ? col.foreignKey.table : col.foreignKey.table;
         const qualifiedTarget = data.tables.find(
-          (t) => t.name === targetLabel || `${t.schema}.${t.name}` === targetLabel
+          (t) => t.name === targetLabel || `${t.schema}.${t.name}` === targetLabel,
         );
         if (!qualifiedTarget) continue;
         const targetId = qualifiedTarget.schema
@@ -113,10 +117,10 @@ function buildGraph(data: CompletionsData) {
           source: sourceLabel,
           target: targetId,
           label: `${col.name}`,
-          type: "smoothstep",
+          type: 'smoothstep',
           markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-          style: { stroke: "#60a5fa", strokeWidth: 1.5 },
-          labelStyle: { fontSize: 10, fill: "#94a3b8" },
+          style: { stroke: '#60a5fa', strokeWidth: 1.5 },
+          labelStyle: { fontSize: 10, fill: '#94a3b8' },
         });
       }
     }
@@ -129,7 +133,7 @@ function buildGraph(data: CompletionsData) {
     const node = g.node(label);
     nodes.push({
       id: label,
-      type: "table",
+      type: 'table',
       position: { x: node.x - node.width / 2, y: node.y - node.height / 2 },
       data: { label, columns: table.columns, tableName: table.name, tableSchema: table.schema },
     });
@@ -157,7 +161,7 @@ export function SchemaGraph({ connectionId }: SchemaGraphProps) {
     (_: React.MouseEvent, node: Node) => {
       openTab({
         id: `${connectionId}:${node.id}`,
-        type: "table",
+        type: 'table',
         title: node.id,
         connectionId,
       });
@@ -174,11 +178,7 @@ export function SchemaGraph({ connectionId }: SchemaGraphProps) {
   }
 
   if (!completions || completions.tables.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-        No tables found
-      </div>
-    );
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">No tables found</div>;
   }
 
   return (
@@ -196,11 +196,7 @@ export function SchemaGraph({ connectionId }: SchemaGraphProps) {
     >
       <Background gap={20} size={1} color="#1e293b" />
       <Controls className="!bg-popover !border-border" />
-      <MiniMap
-        nodeColor="#334155"
-        maskColor="rgba(0,0,0,0.3)"
-        className="!border-border"
-      />
+      <MiniMap nodeColor="#334155" maskColor="rgba(0,0,0,0.3)" className="!border-border" />
     </ReactFlow>
   );
 }

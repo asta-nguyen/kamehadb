@@ -1,15 +1,17 @@
-import { useStore } from "@tanstack/react-store";
-import { useConnections } from "@/hooks/use-connections";
-import { Sidebar } from "@/components/sidebar";
-import { TableView } from "@/components/table-view";
-import { SqlEditor } from "@/components/sql-editor";
-import { SchemaGraph } from "@/components/schema-graph";
-import { ApiSettingsPage } from "@/components/api-settings-page";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { AIChatPanel } from "@/components/ai-chat-panel";
-import { appStore, openNewQueryTab, openGraphTab, closeTab } from "@/store";
-import { X, Terminal, Table2, Plus, Share2 } from "lucide-react";
+import { useStore } from '@tanstack/react-store';
+import { useMemo } from 'react';
+import { useConnections } from '@/hooks/use-connections';
+import { Sidebar } from '@/components/sidebar';
+import { TableView } from '@/components/table-view';
+import { SqlEditor } from '@/components/sql-editor';
+import { SchemaGraph } from '@/components/schema-graph';
+import { MongoView } from '@/components/mongo-view';
+import { ApiSettingsPage } from '@/components/api-settings-page';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import { AIChatPanel } from '@/components/ai-chat-panel';
+import { appStore, openNewQueryTab, openGraphTab, closeTab } from '@/store';
+import { X, Terminal, Table2, Plus, Share2, Database } from 'lucide-react';
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -17,38 +19,35 @@ function TabBar() {
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
   const { data: connections } = useConnections();
 
-  const getConnectionColor = (connectionId: string) => {
-    return connections?.find((c) => c.id === connectionId)?.color ?? null;
-  };
+  // Memoize color lookup map to avoid O(n) find on every render
+  const connectionColorMap = useMemo(() => {
+    if (!connections) return new Map<string, string>();
+    return new Map(connections.map((c) => [c.id, c.color ?? '']));
+  }, [connections]);
 
   return (
     <div className="flex items-center h-8 border-b border-border bg-muted/20 shrink-0 overflow-x-auto">
       {openedTabs.map((tab) => {
-        const connColor = getConnectionColor(tab.connectionId);
+        const connColor = connectionColorMap.get(tab.connectionId) || null;
         return (
           <div
             key={tab.id}
             className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-xs shrink-0 select-none ${
-              tab.id === activeTabId
-                ? "bg-background border-b-2 border-b-primary"
-                : "hover:bg-muted/50"
+              tab.id === activeTabId ? 'bg-background border-b-2 border-b-primary' : 'hover:bg-muted/50'
             }`}
             onClick={() => appStore.setState((s) => ({ ...s, activeTabId: tab.id }))}
           >
-            {connColor && (
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: connColor }}
-              />
-            )}
-            {tab.type === "query" ? (
+            {connColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: connColor }} />}
+            {tab.type === 'query' ? (
               <Terminal className="size-3" />
-            ) : tab.type === "graph" ? (
+            ) : tab.type === 'graph' ? (
               <Share2 className="size-3" />
+            ) : tab.type === 'mongo' ? (
+              <Database className="size-3" />
             ) : (
               <Table2 className="size-3" />
             )}
-            <span className="truncate max-w-[120px]">{tab.title}</span>
+            <span className="truncate max-w-30">{tab.title}</span>
             <button
               className="ml-1 hover:bg-muted rounded-sm p-0.5"
               onClick={(e) => {
@@ -93,9 +92,7 @@ function Workspace() {
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-base font-medium mb-1">Welcome to kamehadb</h2>
-          <p className="text-sm text-muted-foreground">
-            Create or select a connection to get started
-          </p>
+          <p className="text-sm text-muted-foreground">Create or select a connection to get started</p>
         </div>
       </div>
     );
@@ -107,19 +104,11 @@ function Workspace() {
         <div className="text-center space-y-3">
           <p className="text-sm text-muted-foreground">Select a table or open a query tab</p>
           <div className="flex items-center justify-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openNewQueryTab(activeConnectionId)}
-            >
+            <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
               <Terminal className="size-3.5 mr-1.5" />
               New Query
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openGraphTab(activeConnectionId)}
-            >
+            <Button size="sm" variant="outline" onClick={() => openGraphTab(activeConnectionId)}>
               <Share2 className="size-3.5 mr-1.5" />
               Schema Graph
             </Button>
@@ -133,15 +122,10 @@ function Workspace() {
 
   return (
     <div className="h-full flex flex-col">
-      {activeTab.type === "query" && (
-        <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeConnectionId} />
-      )}
-      {activeTab.type === "table" && (
-        <TableView connectionId={activeConnectionId} tableId={activeTab.title} />
-      )}
-      {activeTab.type === "graph" && (
-        <SchemaGraph connectionId={activeConnectionId} />
-      )}
+      {activeTab.type === 'query' && <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeConnectionId} />}
+      {activeTab.type === 'table' && <TableView connectionId={activeConnectionId} tableId={activeTab.title} />}
+      {activeTab.type === 'graph' && <SchemaGraph connectionId={activeConnectionId} />}
+      {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeConnectionId} />}
     </div>
   );
 }
@@ -177,11 +161,7 @@ function App() {
           <aside className="w-56 border-r border-border shrink-0 flex flex-col bg-muted/30">
             <Sidebar />
           </aside>
-          {view === "api-settings" ? (
-            <ApiSettingsPage />
-          ) : (
-            <MainLayout />
-          )}
+          {view === 'api-settings' ? <ApiSettingsPage /> : <MainLayout />}
         </div>
       </div>
     </TooltipProvider>

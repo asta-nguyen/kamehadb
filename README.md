@@ -31,12 +31,12 @@ Then open the desktop app, create a new connection pointing at `localhost`, and 
 
 ### Connection defaults (Docker)
 
-| Engine    | Port  | User   | Password | Database  |
-|-----------|-------|--------|----------|-----------|
-| PostgreSQL | 5432 | kameha | kameha   | kamehadb  |
-| MySQL     | 3306 | kameha | kameha   | kamehadb  |
-| MariaDB   | 3307 | kameha | kameha   | kamehadb  |
-| Redis     | 6379 | —      | —        | —         |
+| Engine     | Port | User   | Password | Database |
+| ---------- | ---- | ------ | -------- | -------- |
+| PostgreSQL | 5432 | kameha | kameha   | kamehadb |
+| MySQL      | 3306 | kameha | kameha   | kamehadb |
+| MariaDB    | 3307 | kameha | kameha   | kamehadb |
+| Redis      | 6379 | —      | —        | —        |
 
 ## Project Structure
 
@@ -69,11 +69,13 @@ pnpm test
 ## Roadmap
 
 ### Currently Supported
+
 - [x] PostgreSQL
 - [x] MySQL
 - [x] SQLite
 
 ### Not Yet Supported
+
 - [ ] Redis
 - [ ] MongoDB
 - [ ] SQL Server
@@ -81,6 +83,7 @@ pnpm test
 - [ ] ClickHouse
 
 ### Future Ideas
+
 - [ ] Data export (CSV, JSON, SQL)
 - [ ] Query history with favorites
 - [ ] Migration assistant

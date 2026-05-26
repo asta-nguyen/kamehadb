@@ -1,66 +1,67 @@
-import { Hono } from "hono";
-import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
-import { CreateConnectionProfileSchema, UpdateConnectionProfileSchema } from "@kamehadb/shared";
-import * as metadataStore from "../db/metadata-store.js";
-import { testPostgresConnection } from "../adapters/postgres.js";
-import { testSqliteConnection } from "../adapters/sqlite.js";
-import { testMysqlConnection } from "../adapters/mysql.js";
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
+import { CreateConnectionProfileSchema, UpdateConnectionProfileSchema } from '@kamehadb/shared';
+import * as metadataStore from '../db/metadata-store.js';
+import { testPostgresConnection } from '../adapters/postgres.js';
+import { testSqliteConnection } from '../adapters/sqlite.js';
+import { testMysqlConnection } from '../adapters/mysql.js';
+import { createMongoAdapter } from '../adapters/mongodb.js';
 
 export const connectionsRouter = new Hono();
 
-connectionsRouter.get("/", (c) => {
+connectionsRouter.get('/', (c) => {
   const profiles = metadataStore.listProfiles();
   return c.json(profiles);
 });
 
-connectionsRouter.get("/:id", (c) => {
-  const profile = metadataStore.getProfile(c.req.param("id"));
-  if (!profile) return c.json({ error: "NOT_FOUND", message: "Connection not found", statusCode: 404 }, 404);
+connectionsRouter.get('/:id', (c) => {
+  const profile = metadataStore.getProfile(c.req.param('id'));
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   return c.json(profile);
 });
 
-connectionsRouter.post("/", zValidator("json", CreateConnectionProfileSchema), async (c) => {
-  const input = c.req.valid("json");
+connectionsRouter.post('/', zValidator('json', CreateConnectionProfileSchema), async (c) => {
+  const input = c.req.valid('json');
   const profile = metadataStore.createProfile(input);
   return c.json(profile, 201);
 });
 
-connectionsRouter.patch("/:id", zValidator("json", UpdateConnectionProfileSchema), async (c) => {
-  const profile = metadataStore.updateProfile(c.req.param("id"), c.req.valid("json"));
-  if (!profile) return c.json({ error: "NOT_FOUND", message: "Connection not found", statusCode: 404 }, 404);
+connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema), async (c) => {
+  const profile = metadataStore.updateProfile(c.req.param('id'), c.req.valid('json'));
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   return c.json(profile);
 });
 
-connectionsRouter.delete("/:id", (c) => {
-  const deleted = metadataStore.deleteProfile(c.req.param("id"));
-  if (!deleted) return c.json({ error: "NOT_FOUND", message: "Connection not found", statusCode: 404 }, 404);
+connectionsRouter.delete('/:id', (c) => {
+  const deleted = metadataStore.deleteProfile(c.req.param('id'));
+  if (!deleted) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   return c.body(null, 204);
 });
 
-connectionsRouter.post("/test", zValidator("json", CreateConnectionProfileSchema), async (c) => {
-  const input = c.req.valid("json");
+connectionsRouter.post('/test', zValidator('json', CreateConnectionProfileSchema), async (c) => {
+  const input = c.req.valid('json');
 
   // Validate password is provided for postgres
-  if (input.kind === "postgres" && !input.password) {
+  if (input.kind === 'postgres' && !input.password) {
     return c.json({
       success: false,
-      message: "Password is required for PostgreSQL connections",
+      message: 'Password is required for PostgreSQL connections',
     });
   }
 
   // Validate required fields for mysql
-  if (input.kind === "mysql") {
+  if (input.kind === 'mysql') {
     if (!input.password) {
       return c.json({
         success: false,
-        message: "Password is required for MySQL connections",
+        message: 'Password is required for MySQL connections',
       });
     }
     if (!input.username) {
       return c.json({
         success: false,
-        message: "Username is required for MySQL connections",
+        message: 'Username is required for MySQL connections',
       });
     }
   }
@@ -68,10 +69,10 @@ connectionsRouter.post("/test", zValidator("json", CreateConnectionProfileSchema
   try {
     let result;
     switch (input.kind) {
-      case "postgres":
+      case 'postgres':
         result = await testPostgresConnection(input);
         break;
-      case "mysql":
+      case 'mysql':
         result = await testMysqlConnection({
           host: input.host,
           port: input.port,
@@ -80,8 +81,20 @@ connectionsRouter.post("/test", zValidator("json", CreateConnectionProfileSchema
           password: input.password,
         });
         break;
-      case "sqlite":
+      case 'sqlite':
         result = testSqliteConnection(input.filePath);
+        break;
+      case 'mongodb':
+        if (!input.connectionString) {
+          return c.json({
+            success: false,
+            message: 'Connection string is required for MongoDB connections',
+          });
+        }
+        result = await createMongoAdapter({
+          connectionString: input.connectionString,
+          database: input.database,
+        }).testConnection();
         break;
       default:
         return c.json({ success: false, message: `Unsupported database kind: ${input.kind}` });
@@ -90,7 +103,7 @@ connectionsRouter.post("/test", zValidator("json", CreateConnectionProfileSchema
   } catch (err) {
     return c.json({
       success: false,
-      message: err instanceof Error ? err.message : "Unknown error",
+      message: err instanceof Error ? err.message : 'Unknown error',
     });
   }
 });

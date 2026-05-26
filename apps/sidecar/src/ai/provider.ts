@@ -1,4 +1,4 @@
-import type { AIChatMessage, AIProvider, AIProviderConfig } from "@kamehadb/shared";
+import type { AIChatMessage, AIProvider, AIProviderConfig } from '@kamehadb/shared';
 
 export type ChatResult = {
   content: string;
@@ -17,40 +17,40 @@ type ResolvedConfig = {
 };
 
 export function resolveProviderConfig(provider: AIProvider, config: AIProviderConfig): ResolvedConfig {
-  let baseUrl = config.baseUrl?.replace(/\/+$/, "") ?? "";
-  let apiKey = config.apiKey ?? "";
+  let baseUrl = config.baseUrl?.replace(/\/+$/, '') ?? '';
+  let apiKey = config.apiKey ?? '';
 
   switch (provider) {
-    case "ollama-local":
-      baseUrl = baseUrl || "http://localhost:11434/v1";
-      apiKey = apiKey || "ollama";
+    case 'ollama-local':
+      baseUrl = baseUrl || 'http://localhost:11434/v1';
+      apiKey = apiKey || 'ollama';
       break;
-    case "openai":
-      baseUrl = baseUrl || "https://api.openai.com/v1";
+    case 'openai':
+      baseUrl = baseUrl || 'https://api.openai.com/v1';
       break;
-    case "ollama-cloud":
-    case "9router":
+    case 'ollama-cloud':
+    case '9router':
       break;
   }
   return { apiKey, model: config.model.trim(), baseUrl };
 }
 
 export function validateProviderConfig(provider: AIProvider, config: AIProviderConfig): string | null {
-  if (!config.model) return "Model is required";
+  if (!config.model) return 'Model is required';
 
   switch (provider) {
-    case "ollama-local":
+    case 'ollama-local':
       return null; // apiKey optional, baseUrl defaults
-    case "openai":
-      if (!config.apiKey) return "API key is required for OpenAI";
+    case 'openai':
+      if (!config.apiKey) return 'API key is required for OpenAI';
       return null;
-    case "ollama-cloud":
-      if (!config.baseUrl) return "Base URL is required for Ollama Cloud";
-      if (!config.apiKey) return "API key is required for Ollama Cloud";
+    case 'ollama-cloud':
+      if (!config.baseUrl) return 'Base URL is required for Ollama Cloud';
+      if (!config.apiKey) return 'API key is required for Ollama Cloud';
       return null;
-    case "9router":
-      if (!config.baseUrl) return "Base URL is required for 9Router";
-      if (!config.apiKey) return "API key is required for 9Router";
+    case '9router':
+      if (!config.baseUrl) return 'Base URL is required for 9Router';
+      if (!config.apiKey) return 'API key is required for 9Router';
       return null;
   }
 }
@@ -68,9 +68,9 @@ class OpenAICompatibleProvider implements LLMProvider {
 
   async chat(messages: AIChatMessage[], signal?: AbortSignal): Promise<ChatResult> {
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
@@ -82,7 +82,7 @@ class OpenAICompatibleProvider implements LLMProvider {
     });
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => "");
+      const errBody = await res.text().catch(() => '');
       throw new Error(`AI API error (${res.status}): ${errBody || res.statusText}`);
     }
 
@@ -92,7 +92,7 @@ class OpenAICompatibleProvider implements LLMProvider {
     };
 
     return {
-      content: body.choices[0]?.message?.content ?? "",
+      content: body.choices[0]?.message?.content ?? '',
       inputTokens: body.usage?.prompt_tokens ?? 0,
       outputTokens: body.usage?.completion_tokens ?? 0,
     };
