@@ -1,21 +1,33 @@
-import Database from "better-sqlite3";
-import type { SqlAdapter, TestConnectionResult, DatabaseInfo, SchemaInfo, TableInfo, ColumnInfo, IndexInfo, PreviewRowsInput, QueryResult, RunQueryInput, QueryColumn } from "@kamehadb/shared";
+import Database from 'better-sqlite3';
+import type {
+  SqlAdapter,
+  TestConnectionResult,
+  DatabaseInfo,
+  SchemaInfo,
+  TableInfo,
+  ColumnInfo,
+  IndexInfo,
+  PreviewRowsInput,
+  QueryResult,
+  RunQueryInput,
+  QueryColumn,
+} from '@kamehadb/shared';
 
 export function createSqliteAdapter(filePath: string): SqlAdapter {
   const db = new Database(filePath, { readonly: true });
 
   return {
     async testConnection(): Promise<TestConnectionResult> {
-      const result = db.prepare("SELECT sqlite_version() as version").get() as { version: string };
+      const result = db.prepare('SELECT sqlite_version() as version').get() as { version: string };
       return { success: true, serverVersion: result.version };
     },
 
     async listDatabases(): Promise<DatabaseInfo[]> {
-      return [{ name: "main" }];
+      return [{ name: 'main' }];
     },
 
     async listSchemas(): Promise<SchemaInfo[]> {
-      return [{ name: "main" }];
+      return [{ name: 'main' }];
     },
 
     async listTables(): Promise<TableInfo[]> {
@@ -52,7 +64,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
       return result.map((r) => ({
         name: r.name,
-        type: r.type || "text",
+        type: r.type || 'text',
         nullable: !r.notnull,
         default: r.dflt_value,
         primaryKey: r.pk > 0,
@@ -76,7 +88,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
           name: idx.name,
           columns: cols.map((c) => c.name),
           unique: !!idx.unique,
-          primary: idx.origin === "pk",
+          primary: idx.origin === 'pk',
         });
       }
 
@@ -89,7 +101,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       let sql = `SELECT * FROM "${input.tableId}"`;
 
       if (input.sortColumn) {
-        sql += ` ORDER BY "${input.sortColumn}" ${input.sortDirection === "desc" ? "DESC" : "ASC"}`;
+        sql += ` ORDER BY "${input.sortColumn}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
       }
       sql += ` LIMIT ? OFFSET ?`;
 
@@ -99,9 +111,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] =
-        rows.length > 0
-          ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] }))
-          : [];
+        rows.length > 0 ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] })) : [];
 
       return {
         columns,
@@ -119,9 +129,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] =
-        rows.length > 0
-          ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] }))
-          : [];
+        rows.length > 0 ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] })) : [];
 
       return {
         columns,
@@ -140,7 +148,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
 export async function testSqliteConnection(filePath?: string): Promise<TestConnectionResult> {
   if (!filePath) {
-    return { success: false, message: "SQLite file path is required" };
+    return { success: false, message: 'SQLite file path is required' };
   }
 
   try {
@@ -151,7 +159,7 @@ export async function testSqliteConnection(filePath?: string): Promise<TestConne
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : "Failed to open SQLite database",
+      message: err instanceof Error ? err.message : 'Failed to open SQLite database',
     };
   }
 }

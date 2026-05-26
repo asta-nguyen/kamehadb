@@ -1,5 +1,17 @@
-import mysql from "mysql2/promise";
-import type { SqlAdapter, TestConnectionResult, DatabaseInfo, SchemaInfo, TableInfo, ColumnInfo, IndexInfo, PreviewRowsInput, QueryResult, RunQueryInput, QueryColumn } from "@kamehadb/shared";
+import mysql from 'mysql2/promise';
+import type {
+  SqlAdapter,
+  TestConnectionResult,
+  DatabaseInfo,
+  SchemaInfo,
+  TableInfo,
+  ColumnInfo,
+  IndexInfo,
+  PreviewRowsInput,
+  QueryResult,
+  RunQueryInput,
+  QueryColumn,
+} from '@kamehadb/shared';
 
 export async function testMysqlConnection(connection: {
   host?: string;
@@ -9,7 +21,7 @@ export async function testMysqlConnection(connection: {
   password?: string;
 }): Promise<TestConnectionResult> {
   const pool = mysql.createPool({
-    host: connection.host || "localhost",
+    host: connection.host || 'localhost',
     port: connection.port || 3306,
     database: connection.database,
     user: connection.username,
@@ -19,7 +31,7 @@ export async function testMysqlConnection(connection: {
   });
 
   try {
-    const [rows] = await pool.execute("SELECT VERSION() AS version");
+    const [rows] = await pool.execute('SELECT VERSION() AS version');
     const version = (rows as Record<string, unknown>[])[0]?.version as string;
     await pool.end();
     return { success: true, serverVersion: version };
@@ -36,14 +48,14 @@ export function createMysqlAdapter(connection: {
   username?: string;
   password?: string;
 }): SqlAdapter {
-  if (!connection.database) throw new Error("Database name is required");
-  if (!connection.username) throw new Error("Username is required");
+  if (!connection.database) throw new Error('Database name is required');
+  if (!connection.username) throw new Error('Username is required');
   if (connection.password === undefined || connection.password === null) {
-    throw new Error("Password is required");
+    throw new Error('Password is required');
   }
 
   const pool = mysql.createPool({
-    host: connection.host || "localhost",
+    host: connection.host || 'localhost',
     port: connection.port || 3306,
     database: connection.database,
     user: connection.username,
@@ -54,7 +66,7 @@ export function createMysqlAdapter(connection: {
   });
 
   function escapeId(id: string): string {
-    return "`" + id.replace(/`/g, "``") + "`";
+    return '`' + id.replace(/`/g, '``') + '`';
   }
 
   async function query(sql: string, params?: unknown[]) {
@@ -64,17 +76,17 @@ export function createMysqlAdapter(connection: {
 
   return {
     async testConnection(): Promise<TestConnectionResult> {
-      const rows = await query("SELECT VERSION() AS version");
-      return { success: true, serverVersion: String(rows[0]?.version ?? "") };
+      const rows = await query('SELECT VERSION() AS version');
+      return { success: true, serverVersion: String(rows[0]?.version ?? '') };
     },
 
     async listDatabases(): Promise<DatabaseInfo[]> {
-      const rows = await query("SELECT SCHEMA_NAME AS name FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY name");
+      const rows = await query('SELECT SCHEMA_NAME AS name FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY name');
       return rows as DatabaseInfo[];
     },
 
     async listSchemas(): Promise<SchemaInfo[]> {
-      const rows = await query("SELECT SCHEMA_NAME AS name FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY name");
+      const rows = await query('SELECT SCHEMA_NAME AS name FROM INFORMATION_SCHEMA.SCHEMATA ORDER BY name');
       return rows as SchemaInfo[];
     },
 
@@ -92,7 +104,7 @@ export function createMysqlAdapter(connection: {
     },
 
     async getTableColumns(tableId: string): Promise<ColumnInfo[]> {
-      const parts = tableId.split(".");
+      const parts = tableId.split('.');
       const schema = parts.length > 1 ? parts[0] : connection.database;
       const table = parts.length > 1 ? parts[1] : tableId;
       const [rows] = await pool.query(
@@ -115,17 +127,15 @@ export function createMysqlAdapter(connection: {
       return (rows as Record<string, unknown>[]).map((r) => ({
         name: r.name as string,
         type: r.type as string,
-        nullable: r.nullable === "YES",
+        nullable: r.nullable === 'YES',
         default: r.default === null ? null : String(r.default),
         primaryKey: !!r.primary_key,
-        foreignKey: r.ref_table
-          ? { table: r.ref_table as string, column: r.ref_column as string }
-          : undefined,
+        foreignKey: r.ref_table ? { table: r.ref_table as string, column: r.ref_column as string } : undefined,
       }));
     },
 
     async getTableIndexes(tableId: string): Promise<IndexInfo[]> {
-      const parts = tableId.split(".");
+      const parts = tableId.split('.');
       const schema = parts.length > 1 ? parts[0] : connection.database;
       const table = parts.length > 1 ? parts[1] : tableId;
       const [rows] = await pool.query(
@@ -143,7 +153,7 @@ export function createMysqlAdapter(connection: {
             name,
             columns: [],
             unique: row.Non_unique === 0,
-            primary: name === "PRIMARY",
+            primary: name === 'PRIMARY',
           });
         }
         indexMap.get(name)!.columns.push(row.Column_name as string);
@@ -152,7 +162,7 @@ export function createMysqlAdapter(connection: {
     },
 
     async previewRows(input: PreviewRowsInput): Promise<QueryResult> {
-      const parts = input.tableId.split(".");
+      const parts = input.tableId.split('.');
       const schema = parts.length > 1 ? parts[0] : connection.database;
       const table = parts.length > 1 ? parts[1] : input.tableId;
       const offset = input.offset ?? 0;
@@ -160,20 +170,24 @@ export function createMysqlAdapter(connection: {
       let sql = `SELECT * FROM ${escapeId(schema!)}.${escapeId(table)}`;
 
       if (input.sortColumn) {
-        sql += ` ORDER BY ${escapeId(input.sortColumn)} ${input.sortDirection === "desc" ? "DESC" : "ASC"}`;
+        sql += ` ORDER BY ${escapeId(input.sortColumn)} ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
       }
       sql += ` LIMIT ${limit} OFFSET ${offset}`;
 
       const start = performance.now();
-      const [rows] = await pool.query(sql) as unknown as [Record<string, unknown>[]];
+      const [rows] = (await pool.query(sql)) as unknown as [Record<string, unknown>[]];
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] =
-        rows.length > 0
-          ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] }))
-          : [];
+        rows.length > 0 ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] })) : [];
 
-      return { columns, rows, rowCount: rows.length, durationMs: Math.round(durationMs), truncated: rows.length >= limit };
+      return {
+        columns,
+        rows,
+        rowCount: rows.length,
+        durationMs: Math.round(durationMs),
+        truncated: rows.length >= limit,
+      };
     },
 
     async runQuery(input: RunQueryInput): Promise<QueryResult> {
@@ -182,11 +196,15 @@ export function createMysqlAdapter(connection: {
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] =
-        rows.length > 0
-          ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] }))
-          : [];
+        rows.length > 0 ? Object.keys(rows[0]).map((key) => ({ name: key, type: typeof rows[0][key] })) : [];
 
-      return { columns, rows, rowCount: rows.length, durationMs: Math.round(durationMs), truncated: false };
+      return {
+        columns,
+        rows,
+        rowCount: rows.length,
+        durationMs: Math.round(durationMs),
+        truncated: false,
+      };
     },
 
     async close(): Promise<void> {

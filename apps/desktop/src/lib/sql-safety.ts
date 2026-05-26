@@ -1,7 +1,14 @@
 const DESTRUCTIVE_KEYWORDS = [
-  "DROP", "TRUNCATE", "ALTER", "CREATE",
-  "INSERT", "UPDATE", "DELETE", "MERGE",
-  "GRANT", "REVOKE",
+  'DROP',
+  'TRUNCATE',
+  'ALTER',
+  'CREATE',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'MERGE',
+  'GRANT',
+  'REVOKE',
 ];
 
 export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {

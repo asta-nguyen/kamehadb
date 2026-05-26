@@ -1,11 +1,12 @@
-import type { ConnectionProfile, SqlAdapter } from "@kamehadb/shared";
-import { createPostgresAdapter } from "./postgres.js";
-import { createSqliteAdapter } from "./sqlite.js";
-import { createMysqlAdapter } from "./mysql.js";
+import type { ConnectionProfile, SqlAdapter } from '@kamehadb/shared';
+import { createPostgresAdapter } from './postgres.js';
+import { createSqliteAdapter } from './sqlite.js';
+import { createMysqlAdapter } from './mysql.js';
+import { createMongoAdapter } from './mongodb.js';
 
-export function createAdapter(profile: ConnectionProfile, _password?: string): SqlAdapter {
+export function createSqlAdapter(profile: ConnectionProfile, _password?: string): SqlAdapter | null {
   switch (profile.kind) {
-    case "postgres":
+    case 'postgres':
       return createPostgresAdapter({
         host: profile.host,
         port: profile.port,
@@ -14,7 +15,7 @@ export function createAdapter(profile: ConnectionProfile, _password?: string): S
         password: _password,
         ssl: profile.ssl,
       });
-    case "mysql":
+    case 'mysql':
       return createMysqlAdapter({
         host: profile.host,
         port: profile.port,
@@ -22,10 +23,23 @@ export function createAdapter(profile: ConnectionProfile, _password?: string): S
         username: profile.username,
         password: _password,
       });
-    case "sqlite":
-      if (!profile.filePath) throw new Error("SQLite file path is required");
+    case 'sqlite':
+      if (!profile.filePath) throw new Error('SQLite file path is required');
       return createSqliteAdapter(profile.filePath);
     default:
-      throw new Error(`Unsupported database kind: ${profile.kind}`);
+      return null;
   }
+}
+
+export function createMongoDbAdapter(profile: ConnectionProfile) {
+  if (profile.kind !== 'mongodb') {
+    throw new Error(`Expected mongodb, got ${profile.kind}`);
+  }
+  if (!profile.connectionString) {
+    throw new Error('MongoDB connection string is required');
+  }
+  return createMongoAdapter({
+    connectionString: profile.connectionString,
+    database: profile.database,
+  });
 }

@@ -1,20 +1,9 @@
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { useAiChat } from "@/hooks/use-ai-chat";
-import { openNewQueryTab, updateTabSql, appStore, navigateTo } from "@/store";
-import {
-  Bot,
-  Send,
-  Loader2,
-  X,
-  Sparkles,
-  Terminal,
-  Play,
-  Copy,
-  Check,
-  Settings2,
-} from "lucide-react";
-import type { AIChatMessage } from "@kamehadb/shared";
+import { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { useAiChat } from '@/hooks/use-ai-chat';
+import { openNewQueryTab, updateTabSql, appStore, navigateTo } from '@/store';
+import { Bot, Send, Loader2, X, Sparkles, Terminal, Play, Copy, Check, Settings2 } from 'lucide-react';
+import type { AIChatMessage } from '@kamehadb/shared';
 
 type AIChatPanelProps = {
   connectionId: string | null;
@@ -29,7 +18,15 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
         <span className="text-[10px] text-zinc-400">sql</span>
         <div className="flex items-center gap-0.5">
           <button
-            onClick={() => { navigator.clipboard.writeText(sql); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(sql);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              } catch (err) {
+                console.error('Failed to copy SQL:', err);
+              }
+            }}
             className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
             title="Copy"
           >
@@ -56,42 +53,34 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
   );
 }
 
-function extractSqlBlocks(content: string): { type: "text" | "sql"; value: string }[] {
-  const blocks: { type: "text" | "sql"; value: string }[] = [];
+function extractSqlBlocks(content: string): { type: 'text' | 'sql'; value: string }[] {
+  const blocks: { type: 'text' | 'sql'; value: string }[] = [];
   const regex = /```sql\n?([\s\S]*?)```/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(content)) !== null) {
     if (match.index > lastIndex) {
-      blocks.push({ type: "text", value: content.slice(lastIndex, match.index).trim() });
+      blocks.push({ type: 'text', value: content.slice(lastIndex, match.index).trim() });
     }
-    blocks.push({ type: "sql", value: match[1].trim() });
+    blocks.push({ type: 'sql', value: match[1].trim() });
     lastIndex = match.index + match[0].length;
   }
 
   if (lastIndex < content.length) {
-    blocks.push({ type: "text", value: content.slice(lastIndex).trim() });
+    blocks.push({ type: 'text', value: content.slice(lastIndex).trim() });
   }
 
   return blocks;
 }
 
-function MessageBubble({
-  msg,
-  connectionId,
-}: {
-  msg: AIChatMessage;
-  connectionId: string | null;
-}) {
-  const isUser = msg.role === "user";
+function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId: string | null }) {
+  const isUser = msg.role === 'user';
 
   if (isUser) {
     return (
       <div className="flex justify-end mb-3">
-        <div className="bg-primary/10 text-sm rounded-lg px-3 py-2 max-w-[85%]">
-          {msg.content}
-        </div>
+        <div className="bg-primary/10 text-sm rounded-lg px-3 py-2 max-w-[85%]">{msg.content}</div>
       </div>
     );
   }
@@ -106,7 +95,7 @@ function MessageBubble({
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium text-muted-foreground mb-1">AI</div>
         {blocks.map((block, i) =>
-          block.type === "sql" ? (
+          block.type === 'sql' ? (
             <SqlBlock
               key={i}
               sql={block.value}
@@ -131,7 +120,7 @@ function MessageBubble({
                 {block.value}
               </p>
             )
-          )
+          ),
         )}
       </div>
     </div>
@@ -141,7 +130,7 @@ function MessageBubble({
 export function AIChatPanel({ connectionId }: AIChatPanelProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -164,9 +153,9 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
     sendingRef.current = true;
 
     const snapshot = messagesRef.current;
-    const userMsg: AIChatMessage = { role: "user", content: text };
+    const userMsg: AIChatMessage = { role: 'user', content: text };
     setMessages((prev) => [...prev, userMsg]);
-    setInput("");
+    setInput('');
 
     try {
       const res = await aiChat.mutateAsync({ messages: [...snapshot, userMsg] });
@@ -174,7 +163,10 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: `Error: ${err instanceof Error ? err.message : "AI request failed"}` },
+        {
+          role: 'assistant',
+          content: `Error: ${err instanceof Error ? err.message : 'AI request failed'}`,
+        },
       ]);
     } finally {
       sendingRef.current = false;
@@ -184,7 +176,7 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.repeat) return;
     if ((e.nativeEvent as KeyboardEvent).isComposing) return;
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -212,7 +204,7 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
           </div>
           <div className="flex items-center gap-0.5">
             <button
-              onClick={() => navigateTo("api-settings")}
+              onClick={() => navigateTo('api-settings')}
               className="p-1 rounded hover:bg-muted text-muted-foreground"
               title="API Settings"
             >
@@ -273,11 +265,7 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
               onClick={handleSend}
               disabled={!input.trim() || aiChat.isPending}
             >
-              {aiChat.isPending ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Send className="size-3.5" />
-              )}
+              {aiChat.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground/60 mt-1">Enter to send, Shift+Enter for new line</p>

@@ -1,17 +1,12 @@
-import { useState, useMemo, useCallback } from "react";
-import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-  type ColumnDef,
-} from "@tanstack/react-table";
-import { useTableColumns, useTableIndexes, usePreviewRows } from "@/hooks/use-schema";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Key, Hash, Table2, ChevronLeft, ChevronRight, FileJson, Copy, Check } from "lucide-react";
+import { useState, useMemo, useCallback } from 'react';
+import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
+import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, Key, Hash, Table2, ChevronLeft, ChevronRight, FileJson, Copy, Check } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -93,10 +88,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               >
                 <td className="px-2 py-1 text-muted-foreground text-[11px]">{offset + i + 1}</td>
                 {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="px-3 py-1 border-r last:border-r-0 truncate max-w-[250px]"
-                  >
+                  <td key={cell.id} className="px-3 py-1 border-r last:border-r-0 truncate max-w-[250px]">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -107,7 +99,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         {result && (
           <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-t bg-muted/30 flex items-center gap-3">
             <span>{result.rowCount} rows</span>
-            {result.truncated && <Badge variant="outline" className="text-[10px]">Truncated</Badge>}
+            {result.truncated && (
+              <Badge variant="outline" className="text-[10px]">
+                Truncated
+              </Badge>
+            )}
             <span className="ml-auto mr-auto">{result.durationMs}ms</span>
             <div className="flex items-center gap-1">
               <Button
@@ -132,12 +128,17 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         )}
       </div>
 
-      <Sheet open={!!selectedRow} onOpenChange={(open) => { if (!open) setSelectedRow(null); }}>
+      <Sheet
+        open={!!selectedRow}
+        onOpenChange={(open) => {
+          if (!open) setSelectedRow(null);
+        }}
+      >
         <SheetContent className="sm:max-w-lg flex flex-col">
           <SheetHeader className="shrink-0">
             <SheetTitle className="flex items-center gap-2">
               <FileJson className="size-4" />
-              Record #{selectedRow ? offset + result?.rows.indexOf(selectedRow)! + 1 : ""}
+              Record #{selectedRow ? offset + result?.rows.indexOf(selectedRow)! + 1 : ''}
             </SheetTitle>
           </SheetHeader>
           <RecordDetailTabs selectedRow={selectedRow} />
@@ -148,7 +149,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 }
 
 function formatJsonSyntax(json: string): React.ReactNode[] {
-  const lines = json.split("\n");
+  const lines = json.split('\n');
   return lines.map((line, i) => {
     const colored = line
       .replace(/(\"[^"]*\")(?=\s*:)/g, '<span class="text-sky-400">$1</span>')
@@ -158,10 +159,8 @@ function formatJsonSyntax(json: string): React.ReactNode[] {
       .replace(/:\s*(\d+\.?\d*)/g, ': <span class="text-orange-400">$1</span>');
     return (
       <div key={i} className="flex">
-        <span className="w-8 shrink-0 text-right text-[10px] text-muted-foreground/40 select-none mr-3">
-          {i + 1}
-        </span>
-        <span dangerouslySetInnerHTML={{ __html: colored || " " }} className="flex-1" />
+        <span className="w-8 shrink-0 text-right text-[10px] text-muted-foreground/40 select-none mr-3">{i + 1}</span>
+        <span dangerouslySetInnerHTML={{ __html: colored || ' ' }} className="flex-1" />
       </div>
     );
   });
@@ -183,8 +182,12 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
     <Tabs defaultValue="view" className="flex-1 flex flex-col min-h-0">
       <div className="shrink-0 px-4">
         <TabsList>
-          <TabsTrigger value="view" className="text-xs">View</TabsTrigger>
-          <TabsTrigger value="json" className="text-xs">JSON</TabsTrigger>
+          <TabsTrigger value="view" className="text-xs">
+            View
+          </TabsTrigger>
+          <TabsTrigger value="json" className="text-xs">
+            JSON
+          </TabsTrigger>
         </TabsList>
       </div>
 
@@ -192,22 +195,17 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
         <ScrollArea className="h-full">
           <div className="pb-2">
             {Object.entries(selectedRow).map(([key, value], i) => {
-              const typeLabel = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+              const typeLabel = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
               return (
-                <div
-                  key={key}
-                  className={`flex items-start gap-3 px-4 py-2 ${i % 2 === 0 ? "bg-muted/20" : ""}`}
-                >
+                <div key={key} className={`flex items-start gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-muted/20' : ''}`}>
                   <div className="w-[35%] shrink-0 min-w-0">
                     <div className="text-xs font-medium truncate">{key}</div>
-                    <span className="text-[9px] uppercase text-muted-foreground/50 tracking-wider">
-                      {typeLabel}
-                    </span>
+                    <span className="text-[9px] uppercase text-muted-foreground/50 tracking-wider">{typeLabel}</span>
                   </div>
                   <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug">
                     {value === null ? (
                       <span className="text-muted-foreground italic">null</span>
-                    ) : typeof value === "object" ? (
+                    ) : typeof value === 'object' ? (
                       <pre className="text-[11px] whitespace-pre-wrap bg-muted/50 rounded p-2 mt-0.5 max-h-32 overflow-auto">
                         {JSON.stringify(value, null, 2)}
                       </pre>
@@ -224,12 +222,7 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
 
       <TabsContent value="json" className="flex-1 min-h-0 p-0">
         <div className="relative h-full">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            className="absolute top-2 right-2 z-10"
-            onClick={handleCopy}
-          >
+          <Button variant="outline" size="icon-sm" className="absolute top-2 right-2 z-10" onClick={handleCopy}>
             {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
           </Button>
           <ScrollArea className="h-full">
@@ -257,9 +250,15 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
       <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
         <div className="px-4 pt-2 shrink-0">
           <TabsList>
-            <TabsTrigger value="data" className="text-xs">Data</TabsTrigger>
-            <TabsTrigger value="columns" className="text-xs">Columns</TabsTrigger>
-            <TabsTrigger value="indexes" className="text-xs">Indexes</TabsTrigger>
+            <TabsTrigger value="data" className="text-xs">
+              Data
+            </TabsTrigger>
+            <TabsTrigger value="columns" className="text-xs">
+              Columns
+            </TabsTrigger>
+            <TabsTrigger value="indexes" className="text-xs">
+              Indexes
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -284,7 +283,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                   <tr key={col.name} className="border-b last:border-b-0 hover:bg-muted/30">
                     <td className="px-3 py-1.5 font-medium">{col.name}</td>
                     <td className="px-3 py-1.5 text-muted-foreground">{col.type}</td>
-                    <td className="px-3 py-1.5">{col.nullable ? "YES" : "NO"}</td>
+                    <td className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</td>
                     <td className="px-3 py-1.5 text-muted-foreground font-mono text-[11px]">
                       {col.default ?? <span className="italic">null</span>}
                     </td>
@@ -324,10 +323,8 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                         {idx.name}
                       </div>
                     </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">
-                      {idx.columns.join(", ")}
-                    </td>
-                    <td className="px-3 py-1.5">{idx.unique ? "YES" : "NO"}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</td>
+                    <td className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</td>
                   </tr>
                 ))}
               </tbody>

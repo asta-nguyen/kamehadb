@@ -12,13 +12,27 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "tauri": "pnpm --filter @kamehadb/desktop tauri"
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "tauri": "pnpm --filter @kamehadb/desktop tauri",
+    "prepare": "husky"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,md}": "prettier --write"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
     "concurrently": "^9",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
+    "prettier": "^3.8.3",
     "typescript": "~5.8.3"
   }
 }

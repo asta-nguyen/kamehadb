@@ -1,8 +1,8 @@
-import { useStore } from "@tanstack/react-store";
-import { useState, useMemo } from "react";
-import { useConnections } from "@/hooks/use-connections";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { useStore } from '@tanstack/react-store';
+import { useState, useMemo } from 'react';
+import { useConnections } from '@/hooks/use-connections';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import {
   Database,
   Loader2,
@@ -13,20 +13,20 @@ import {
   Terminal,
   Sparkles,
   Settings2,
-} from "lucide-react";
-import { ConnectionDialog } from "./connection-dialog";
-import { SchemaTree } from "./schema-tree";
-import { useDeleteConnection } from "@/hooks/use-connections";
-import { appStore, setActiveConnection, openTab, openNewQueryTab, navigateTo } from "@/store";
-import type { ConnectionProfile } from "@kamehadb/shared";
+} from 'lucide-react';
+import { ConnectionDialog } from './connection-dialog';
+import { SchemaTree } from './schema-tree';
+import { MongoExplorer } from './mongo-explorer';
+import { useDeleteConnection } from '@/hooks/use-connections';
+import { appStore, setActiveConnection, openTab, openNewQueryTab, navigateTo } from '@/store';
+import type { ConnectionProfile } from '@kamehadb/shared';
 
 const kindColors: Record<string, string> = {
-  postgres: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  sqlite:
-    "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-  mysql:
-    "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
-  redis: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  postgres: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  sqlite: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  mysql: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+  redis: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+  mongodb: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300',
 };
 
 function ConnectionItem({
@@ -51,20 +51,21 @@ function ConnectionItem({
             setExpanded(!expanded);
           }}
           className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left text-sm hover:bg-muted transition-colors ${
-            isActive ? "bg-muted" : ""
-          }`}>
-          {expanded ? (
-            <ChevronDown className="size-3 shrink-0" />
-          ) : (
-            <ChevronRight className="size-3 shrink-0" />
-          )}
+            isActive ? 'bg-muted' : ''
+          }`}
+        >
+          {expanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />}
           <Database className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{conn.name}</span>
+          <span
+            className="w-3 h-3 rounded-full shrink-0 border border-border/50"
+            style={{ backgroundColor: conn.color ?? undefined }}
+            title={conn.color ? `Custom color: ${conn.color}` : conn.kind}
+          />
           <Badge
             variant="outline"
-            className={`text-[10px] px-1 py-0 h-4 ${
-              kindColors[conn.kind] ?? ""
-            }`}>
+            className={`text-[10px] px-1 py-0 h-4 ${!conn.color ? (kindColors[conn.kind] ?? '') : ''}`}
+          >
             {conn.kind}
           </Badge>
         </button>
@@ -75,7 +76,8 @@ function ConnectionItem({
               setShowEdit(true);
             }}
             className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Edit connection">
+            title="Edit connection"
+          >
             <Pencil className="size-3" />
           </button>
           <button
@@ -86,38 +88,41 @@ function ConnectionItem({
               }
             }}
             className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
-            title="Delete connection">
+            title="Delete connection"
+          >
             <Trash2 className="size-3" />
           </button>
         </div>
       </div>
       {showEdit && (
-        <ConnectionDialog
-          open={showEdit}
-          onOpenChange={(open) => setShowEdit(open)}
-          editConnection={conn}
-        />
+        <ConnectionDialog open={showEdit} onOpenChange={(open) => setShowEdit(open)} editConnection={conn} />
       )}
       {expanded && isActive && (
         <div className="ml-3 pl-1 border-l border-border">
-          <button
-            onClick={() => openNewQueryTab(conn.id)}
-            className="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md text-muted-foreground"
-          >
-            <Terminal className="size-3.5" />
-            <span>New Query</span>
-          </button>
-          <SchemaTree
-            connectionId={conn.id}
-            onSelectTable={(tableId) =>
-              openTab({
-                id: `${conn.id}:${tableId}`,
-                type: "table",
-                title: tableId,
-                connectionId: conn.id,
-              })
-            }
-          />
+          {conn.kind === 'mongodb' ? (
+            <MongoExplorer connectionId={conn.id} />
+          ) : (
+            <>
+              <button
+                onClick={() => openNewQueryTab(conn.id)}
+                className="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md text-muted-foreground"
+              >
+                <Terminal className="size-3.5" />
+                <span>New Query</span>
+              </button>
+              <SchemaTree
+                connectionId={conn.id}
+                onSelectTable={(tableId) =>
+                  openTab({
+                    id: `${conn.id}:${tableId}`,
+                    type: 'table',
+                    title: tableId,
+                    connectionId: conn.id,
+                  })
+                }
+              />
+            </>
+          )}
         </div>
       )}
     </div>
@@ -129,13 +134,15 @@ const GROUP_ORDER: Record<string, number> = {
   mysql: 1,
   sqlite: 2,
   redis: 3,
+  mongodb: 4,
 };
 
 const GROUP_LABELS: Record<string, string> = {
-  postgres: "PostgreSQL",
-  mysql: "MySQL",
-  sqlite: "SQLite",
-  redis: "Redis",
+  postgres: 'PostgreSQL',
+  mysql: 'MySQL',
+  sqlite: 'SQLite',
+  redis: 'Redis',
+  mongodb: 'MongoDB',
 };
 
 const GROUP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -143,6 +150,7 @@ const GROUP_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
   mysql: Database,
   sqlite: Database,
   redis: Database,
+  mongodb: Database,
 };
 
 function ConnectionGroup({
@@ -179,31 +187,24 @@ function ConnectionGroup({
 
 export function Sidebar() {
   const { data: connections, isLoading } = useConnections();
-  const activeConnectionId = useStore(
-    appStore,
-    (state) => state.activeConnectionId
-  );
+  const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
   const view = useStore(appStore, (state) => state.view);
 
   const groups = useMemo(() => {
     if (!connections) return [];
     const grouped: Record<string, ConnectionProfile[]> = {};
     for (const conn of connections) {
-      const key = conn.kind in GROUP_ORDER ? conn.kind : "other";
+      const key = conn.kind in GROUP_ORDER ? conn.kind : 'other';
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(conn);
     }
-    return Object.entries(grouped).sort(
-      ([a], [b]) => (GROUP_ORDER[a] ?? 99) - (GROUP_ORDER[b] ?? 99)
-    );
+    return Object.entries(grouped).sort(([a], [b]) => (GROUP_ORDER[a] ?? 99) - (GROUP_ORDER[b] ?? 99));
   }, [connections]);
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-        <span className="text-xs font-medium text-muted-foreground">
-          Connections
-        </span>
+        <span className="text-xs font-medium text-muted-foreground">Connections</span>
         <ConnectionDialog />
       </div>
       <ScrollArea className="flex-1">
@@ -213,36 +214,23 @@ export function Sidebar() {
               <Loader2 className="size-4 animate-spin text-muted-foreground" />
             </div>
           ) : connections?.length === 0 ? (
-            <p className="text-xs text-muted-foreground px-2 py-4 text-center">
-              No connections yet
-            </p>
+            <p className="text-xs text-muted-foreground px-2 py-4 text-center">No connections yet</p>
           ) : (
             groups.map(([kind, conns]) => (
-              <ConnectionGroup
-                key={kind}
-                kind={kind}
-                conns={conns}
-                activeConnectionId={activeConnectionId}
-              />
+              <ConnectionGroup key={kind} kind={kind} conns={conns} activeConnectionId={activeConnectionId} />
             ))
           )}
         </div>
       </ScrollArea>
       <div className="border-t border-border p-1.5 shrink-0">
         <button
-          onClick={() => navigateTo(view === "api-settings" ? "workspace" : "api-settings")}
+          onClick={() => navigateTo(view === 'api-settings' ? 'workspace' : 'api-settings')}
           className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors ${
-            view === "api-settings"
-              ? "bg-primary/10 text-primary"
-              : "hover:bg-muted text-muted-foreground"
+            view === 'api-settings' ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'
           }`}
         >
-          {view === "api-settings" ? (
-            <Sparkles className="size-3.5" />
-          ) : (
-            <Settings2 className="size-3.5" />
-          )}
-          <span>{view === "api-settings" ? "Back to Workspace" : "API Settings"}</span>
+          {view === 'api-settings' ? <Sparkles className="size-3.5" /> : <Settings2 className="size-3.5" />}
+          <span>{view === 'api-settings' ? 'Back to Workspace' : 'API Settings'}</span>
         </button>
       </div>
     </div>

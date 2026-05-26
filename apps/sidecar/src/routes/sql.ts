@@ -1,34 +1,50 @@
-import { Hono } from "hono";
-import { z } from "zod";
-import { zValidator } from "@hono/zod-validator";
-import * as metadataStore from "../db/metadata-store.js";
-import { createAdapter } from "../adapters/factory.js";
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
+import * as metadataStore from '../db/metadata-store.js';
+import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
 
 export const sqlRouter = new Hono();
 
 function handleError(c: any, err: unknown, context: string) {
-  const message = err instanceof Error ? err.message : "Unknown error";
+  const message = err instanceof Error ? err.message : 'Unknown error';
   console.error(`[SQL] ${context}:`, message);
-  return c.json({ error: "INTERNAL_ERROR", message }, 500);
+  return c.json({ error: 'INTERNAL_ERROR', message }, 500);
 }
 
-async function getAdapter(connectionId: string) {
+async function getSqlAdapter(connectionId: string) {
   const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw new Error("Connection not found");
-  const password = metadataStore.getProfilePassword(connectionId);
-  if (!password) {
-    const msg = profile.kind === "postgres"
-      ? "Password not saved. Open connection settings and save with password."
-      : "No password configured for this connection.";
-    throw new Error(msg);
+  if (!profile) throw new Error('Connection not found');
+
+  if (profile.kind === 'mongodb') {
+    throw new Error('Use /mongo endpoint for MongoDB connections');
   }
-  return createAdapter(profile, password);
+
+  const password = metadataStore.getProfilePassword(connectionId);
+  if (!password && profile.kind === 'postgres') {
+    throw new Error('Password not saved. Open connection settings and save with password.');
+  }
+
+  const adapter = createSqlAdapter(profile, password);
+  if (!adapter) throw new Error(`Unsupported database kind: ${profile.kind}`);
+  return adapter;
+}
+
+async function getMongoAdapter(connectionId: string) {
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) throw new Error('Connection not found');
+
+  if (profile.kind !== 'mongodb') {
+    throw new Error('Use /sql endpoint for non-MongoDB connections');
+  }
+
+  return createMongoDbAdapter(profile);
 }
 
 // Databases
-sqlRouter.get("/:connectionId/databases", async (c) => {
+sqlRouter.get('/:connectionId/databases', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param("connectionId"));
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
       const databases = await adapter.listDatabases();
       return c.json(databases);
@@ -36,14 +52,14 @@ sqlRouter.get("/:connectionId/databases", async (c) => {
       await adapter.close();
     }
   } catch (err) {
-    return handleError(c, err, "listDatabases");
+    return handleError(c, err, 'listDatabases');
   }
 });
 
 // Schemas
-sqlRouter.get("/:connectionId/schemas", async (c) => {
+sqlRouter.get('/:connectionId/schemas', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param("connectionId"));
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
       const schemas = await adapter.listSchemas();
       return c.json(schemas);
@@ -51,60 +67,60 @@ sqlRouter.get("/:connectionId/schemas", async (c) => {
       await adapter.close();
     }
   } catch (err) {
-    return handleError(c, err, "listSchemas");
+    return handleError(c, err, 'listSchemas');
   }
 });
 
 // Tables
-sqlRouter.get("/:connectionId/tables", async (c) => {
+sqlRouter.get('/:connectionId/tables', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param("connectionId"));
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
-      const schema = c.req.query("schema");
+      const schema = c.req.query('schema');
       const tables = await adapter.listTables(schema);
       return c.json(tables);
     } finally {
       await adapter.close();
     }
   } catch (err) {
-    return handleError(c, err, "listTables");
+    return handleError(c, err, 'listTables');
   }
 });
 
 // Table columns
-sqlRouter.get("/:connectionId/tables/:tableId/columns", async (c) => {
+sqlRouter.get('/:connectionId/tables/:tableId/columns', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param("connectionId"));
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
-      const columns = await adapter.getTableColumns(c.req.param("tableId"));
+      const columns = await adapter.getTableColumns(c.req.param('tableId'));
       return c.json(columns);
     } finally {
       await adapter.close();
     }
   } catch (err) {
-    return handleError(c, err, "getTableColumns");
+    return handleError(c, err, 'getTableColumns');
   }
 });
 
 // Table indexes
-sqlRouter.get("/:connectionId/tables/:tableId/indexes", async (c) => {
+sqlRouter.get('/:connectionId/tables/:tableId/indexes', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param("connectionId"));
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
-      const indexes = await adapter.getTableIndexes(c.req.param("tableId"));
+      const indexes = await adapter.getTableIndexes(c.req.param('tableId'));
       return c.json(indexes);
     } finally {
       await adapter.close();
     }
   } catch (err) {
-    return handleError(c, err, "getTableIndexes");
+    return handleError(c, err, 'getTableIndexes');
   }
 });
 
 // Completions schema (all tables + columns for autocomplete)
-sqlRouter.get("/:connectionId/completions", async (c) => {
+sqlRouter.get('/:connectionId/completions', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param("connectionId"));
+    const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
       const tables = await adapter.listTables();
       const result = await Promise.all(
@@ -120,63 +136,81 @@ sqlRouter.get("/:connectionId/completions", async (c) => {
               foreignKey: col.foreignKey,
             })),
           };
-        })
+        }),
       );
       return c.json({ tables: result });
     } finally {
       await adapter.close();
     }
   } catch (err) {
-    return handleError(c, err, "completions");
+    return handleError(c, err, 'completions');
   }
 });
 
 // Preview rows
-sqlRouter.post("/:connectionId/preview", zValidator("json", z.object({
-  tableId: z.string(),
-  schema: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
-  sortColumn: z.string().optional(),
-  sortDirection: z.enum(["asc", "desc"]).optional(),
-  filters: z.array(z.object({
-    column: z.string(),
-    operator: z.string(),
-    value: z.string(),
-  })).optional(),
-})), async (c) => {
-  try {
-    const adapter = await getAdapter(c.req.param("connectionId"));
+sqlRouter.post(
+  '/:connectionId/preview',
+  zValidator(
+    'json',
+    z.object({
+      tableId: z.string(),
+      schema: z.string().optional(),
+      offset: z.number().optional(),
+      limit: z.number().optional(),
+      sortColumn: z.string().optional(),
+      sortDirection: z.enum(['asc', 'desc']).optional(),
+      filters: z
+        .array(
+          z.object({
+            column: z.string(),
+            operator: z.string(),
+            value: z.string(),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+  async (c) => {
     try {
-      const result = await adapter.previewRows(c.req.valid("json"));
-      return c.json(result);
-    } finally {
-      await adapter.close();
+      const adapter = await getSqlAdapter(c.req.param('connectionId'));
+      try {
+        const result = await adapter.previewRows(c.req.valid('json'));
+        return c.json(result);
+      } finally {
+        await adapter.close();
+      }
+    } catch (err) {
+      return handleError(c, err, 'previewRows');
     }
-  } catch (err) {
-    return handleError(c, err, "previewRows");
-  }
-});
+  },
+);
 
 // Run query
-sqlRouter.post("/:connectionId/query", zValidator("json", z.object({
-  query: z.string(),
-  params: z.array(z.unknown()).optional(),
-})), async (c) => {
-  try {
-    const connectionId = c.req.param("connectionId");
-    const profile = metadataStore.getProfile(connectionId);
-    if (!profile) return c.json({ error: "NOT_FOUND", message: "Connection not found" }, 404);
-
-    const password = metadataStore.getProfilePassword(connectionId);
-    const adapter = createAdapter(profile, password);
+sqlRouter.post(
+  '/:connectionId/query',
+  zValidator(
+    'json',
+    z.object({
+      query: z.string(),
+      params: z.array(z.unknown()).optional(),
+    }),
+  ),
+  async (c) => {
     try {
-      const result = await adapter.runQuery(c.req.valid("json"));
-      return c.json(result);
-    } finally {
-      await adapter.close();
+      const connectionId = c.req.param('connectionId');
+      const profile = metadataStore.getProfile(connectionId);
+      if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+
+      const password = metadataStore.getProfilePassword(connectionId);
+      const adapter = await getSqlAdapter(connectionId);
+      try {
+        const result = await adapter.runQuery(c.req.valid('json'));
+        return c.json(result);
+      } finally {
+        await adapter.close();
+      }
+    } catch (err) {
+      return handleError(c, err, 'runQuery');
     }
-  } catch (err) {
-    return handleError(c, err, "runQuery");
-  }
-});
+  },
+);

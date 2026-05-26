@@ -1,12 +1,17 @@
 const DESTRUCTIVE_KEYWORDS = [
-  "DROP", "TRUNCATE", "ALTER", "CREATE",
-  "INSERT", "UPDATE", "DELETE", "MERGE",
-  "GRANT", "REVOKE",
+  'DROP',
+  'TRUNCATE',
+  'ALTER',
+  'CREATE',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'MERGE',
+  'GRANT',
+  'REVOKE',
 ];
 
-const SAFE_KEYWORDS = [
-  "SELECT", "WITH", "SHOW", "DESCRIBE", "EXPLAIN",
-];
+const SAFE_KEYWORDS = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
 
 export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
   const normalized = sql.trim().toUpperCase();

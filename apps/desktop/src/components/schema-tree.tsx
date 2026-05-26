@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { useSchemas, useTables, useTableColumns } from "@/hooks/use-schema";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2 } from "lucide-react";
+import { useState } from 'react';
+import { useSchemas, useTables, useTableColumns } from '@/hooks/use-schema';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2 } from 'lucide-react';
 
 function SchemaItem({
   connectionId,
@@ -70,10 +70,7 @@ function TableItem({
             <Loader2 className="size-3 animate-spin my-1 mx-auto" />
           ) : (
             columns?.map((col) => (
-              <div
-                key={col.name}
-                className="flex items-center gap-1.5 px-2 py-0.5 text-[11px] text-muted-foreground"
-              >
+              <div key={col.name} className="flex items-center gap-1.5 px-2 py-0.5 text-[11px] text-muted-foreground">
                 <Columns3 className="size-3" />
                 <span className="truncate">{col.name}</span>
                 <Badge variant="outline" className="text-[10px] px-1 py-0 h-3.5 ml-auto">

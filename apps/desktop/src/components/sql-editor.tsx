@@ -1,20 +1,19 @@
-import { useState, useCallback, useRef } from "react";
-import Editor, { type OnMount } from "@monaco-editor/react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import { useRunQuery } from "@/hooks/use-query";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Play, Loader2, AlertCircle, Clock } from "lucide-react";
-import { updateTabSql } from "@/store";
-import { buildSqlCompletionEntries, type CompletionsData } from "@/lib/sql-autocomplete";
-import type { QueryResult, WorkspaceTab } from "@kamehadb/shared";
+import { useState, useCallback, useRef } from 'react';
+import Editor, { type OnMount } from '@monaco-editor/react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { useRunQuery } from '@/hooks/use-query';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Play, Loader2, AlertCircle, Clock } from 'lucide-react';
+import { updateTabSql } from '@/store';
+import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
+import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
-    queryKey: ["completions", connectionId],
-    queryFn: () =>
-      api.request<CompletionsData>("GET", `/sql/${connectionId}/completions`),
+    queryKey: ['completions', connectionId],
+    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/completions`),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
   });
@@ -26,7 +25,7 @@ type SqlEditorProps = {
 };
 
 export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
-  const [sql, setSql] = useState(tab.sql ?? "SELECT * FROM ");
+  const [sql, setSql] = useState('sql' in tab ? (tab.sql ?? 'SELECT * FROM ') : 'SELECT * FROM ');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { data: completions } = useCompletionsSchema(connectionId);
@@ -44,84 +43,87 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       const res = await runQuery.mutateAsync({ query: sql });
       setResult(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Query failed");
+      setError(err instanceof Error ? err.message : 'Query failed');
     }
   }, [sql, runQuery]);
 
-  const handleChange = useCallback((value: string | undefined) => {
-    const v = value ?? "";
-    setSql(v);
-    updateTabSql(tab.id, v);
-  }, [tab.id]);
+  const handleChange = useCallback(
+    (value: string | undefined) => {
+      const v = value ?? '';
+      setSql(v);
+      updateTabSql(tab.id, v);
+    },
+    [tab.id],
+  );
 
-  const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
-    type M = typeof monaco;
-    editor.focus();
+  const handleEditorDidMount: OnMount = useCallback(
+    (editor, monaco) => {
+      type M = typeof monaco;
+      editor.focus();
 
-    editor.addAction({
-      id: "run-query",
-      label: "Run Query",
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-      run: () => handleRun(),
-    });
+      editor.addAction({
+        id: 'run-query',
+        label: 'Run Query',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+        run: () => handleRun(),
+      });
 
-    const provider = monaco.languages.registerCompletionItemProvider("sql", {
-      triggerCharacters: [".", " ", "(", ",", "="],
-      provideCompletionItems: (model: M['editor']['ITextModel'], position: M['Position']) => {
-        const data = completionsRef.current;
-        if (!data) return { suggestions: [] };
+      const provider = monaco.languages.registerCompletionItemProvider('sql', {
+        triggerCharacters: ['.', ' ', '(', ',', '='],
+        provideCompletionItems: (model: M['editor']['ITextModel'], position: M['Position']) => {
+          const data = completionsRef.current;
+          if (!data) return { suggestions: [] };
 
-        const word = model.getWordUntilPosition(position);
-        const fullSql = model.getValue();
-        const textUntil = model.getValueInRange({
-          startLineNumber: position.lineNumber,
-          startColumn: 1,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column,
-        });
-
-        const suggestions = buildSqlCompletionEntries(fullSql, textUntil, data).map((item) => ({
-          label: item.label,
-          kind: item.kind === "table"
-            ? monaco.languages.CompletionItemKind.Struct
-            : item.kind === "column"
-              ? monaco.languages.CompletionItemKind.Field
-              : item.kind === "function"
-                ? monaco.languages.CompletionItemKind.Function
-                : item.kind === "operator"
-                  ? monaco.languages.CompletionItemKind.Operator
-                  : monaco.languages.CompletionItemKind.Keyword,
-          insertText: item.insertText,
-          detail: item.detail,
-          sortText: item.sortText,
-          range: {
+          const word = model.getWordUntilPosition(position);
+          const fullSql = model.getValue();
+          const textUntil = model.getValueInRange({
             startLineNumber: position.lineNumber,
+            startColumn: 1,
             endLineNumber: position.lineNumber,
-            startColumn: word.startColumn,
             endColumn: position.column,
-          },
-        }));
+          });
 
-        return { suggestions };
-      },
-    });
+          const suggestions = buildSqlCompletionEntries(fullSql, textUntil, data).map((item) => ({
+            label: item.label,
+            kind:
+              item.kind === 'table'
+                ? monaco.languages.CompletionItemKind.Struct
+                : item.kind === 'column'
+                  ? monaco.languages.CompletionItemKind.Field
+                  : item.kind === 'function'
+                    ? monaco.languages.CompletionItemKind.Function
+                    : item.kind === 'operator'
+                      ? monaco.languages.CompletionItemKind.Operator
+                      : monaco.languages.CompletionItemKind.Keyword,
+            insertText: item.insertText,
+            detail: item.detail,
+            sortText: item.sortText,
+            range: {
+              startLineNumber: position.lineNumber,
+              endLineNumber: position.lineNumber,
+              startColumn: word.startColumn,
+              endColumn: position.column,
+            },
+          }));
 
-    editor.onDidDispose(() => provider.dispose());
-  }, [handleRun]);
+          return { suggestions };
+        },
+      });
+
+      editor.onDidDispose(() => provider.dispose());
+    },
+    [handleRun],
+  );
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
         <Button size="sm" onClick={handleRun} disabled={runQuery.isPending} className="gap-1.5">
-          {runQuery.isPending ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Play className="size-3.5" />
-          )}
+          {runQuery.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
           Run
         </Button>
         <span className="text-[11px] text-muted-foreground">
-          {runQuery.isPending ? "Running..." : "Ctrl+Enter to run"}
+          {runQuery.isPending ? 'Running...' : 'Ctrl+Enter to run'}
         </span>
       </div>
 
@@ -136,7 +138,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           options={{
             minimap: { enabled: false },
             fontSize: 13,
-            lineNumbers: "on",
+            lineNumbers: 'on',
             scrollBeyondLastLine: false,
             automaticLayout: true,
             padding: { top: 8 },
@@ -170,9 +172,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                         className="px-3 py-1.5 text-left font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
                       >
                         {col.name}
-                        <span className="text-[10px] ml-1 text-muted-foreground/60">
-                          {col.type}
-                        </span>
+                        <span className="text-[10px] ml-1 text-muted-foreground/60">{col.type}</span>
                       </th>
                     ))}
                   </tr>
@@ -181,10 +181,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                   {result.rows.map((row, i) => (
                     <tr key={i} className="border-b last:border-b-0 hover:bg-muted/30">
                       {result.columns.map((col) => (
-                        <td
-                          key={col.name}
-                          className="px-3 py-1 border-r last:border-r-0 truncate max-w-[250px]"
-                        >
+                        <td key={col.name} className="px-3 py-1 border-r last:border-r-0 truncate max-w-[250px]">
                           {row[col.name] === null ? (
                             <span className="text-muted-foreground italic">NULL</span>
                           ) : (
@@ -203,7 +200,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                 <Clock className="size-3" />
                 {result.durationMs}ms
               </span>
-              {result.truncated && <Badge variant="outline" className="text-[10px]">Truncated</Badge>}
+              {result.truncated && (
+                <Badge variant="outline" className="text-[10px]">
+                  Truncated
+                </Badge>
+              )}
             </div>
           </div>
         )}
