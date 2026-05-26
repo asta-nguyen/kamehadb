@@ -40,6 +40,17 @@ pnpm test
 pnpm tauri build
 ```
 
+## Release Workflow
+
+The GitHub release pipeline builds desktop installers and uploads them to the GitHub Release assets. The default `Source code (zip)` and `Source code (tar.gz)` entries are added by GitHub automatically and are not installable app bundles.
+
+```bash
+git tag -d v0.1.0-rc.1
+git push origin :refs/tags/v0.1.0-rc.1
+git tag v0.1.0-rc.1
+git push origin v0.1.0-rc.1
+```
+
 ## Architecture
 
 ```
