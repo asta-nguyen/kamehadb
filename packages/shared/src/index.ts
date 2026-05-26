@@ -15,6 +15,7 @@ export const ConnectionProfileSchema = z.object({
   ssl: z.boolean().optional(),
   filePath: z.string().optional(),
   readonly: z.boolean().optional().default(true),
+  color: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -32,6 +33,7 @@ const BaseCreateSchema = z.object({
   ssl: z.boolean().optional(),
   filePath: z.string().optional(),
   readonly: z.boolean().optional().default(true),
+  color: z.string().optional(),
 });
 
 export const CreateConnectionProfileSchema = BaseCreateSchema.refine((data) => {

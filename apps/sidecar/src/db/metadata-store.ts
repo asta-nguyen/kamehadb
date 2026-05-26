@@ -54,6 +54,7 @@ export function initMetadataStore(dbPath: string): void {
       ssl INTEGER DEFAULT 0,
       file_path TEXT,
       readonly INTEGER DEFAULT 1,
+      color TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -62,6 +63,13 @@ export function initMetadataStore(dbPath: string): void {
   // Migration: Add password column if it doesn't exist
   try {
     db.exec("ALTER TABLE connection_profiles ADD COLUMN password TEXT");
+  } catch {
+    // Column already exists, ignore
+  }
+
+  // Migration: Add color column if it doesn't exist
+  try {
+    db.exec("ALTER TABLE connection_profiles ADD COLUMN color TEXT");
   } catch {
     // Column already exists, ignore
   }
@@ -139,14 +147,15 @@ export function createProfile(input: {
   ssl?: boolean;
   filePath?: string;
   readonly?: boolean;
+  color?: string;
 }): ConnectionProfile {
   const id = nanoid();
   const now = new Date().toISOString();
 
   getDb()
     .prepare(
-      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, readonly, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, readonly, color, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -160,6 +169,7 @@ export function createProfile(input: {
       input.ssl ? 1 : 0,
       input.filePath ?? null,
       input.readonly !== false ? 1 : 0,
+      input.color ?? null,
       now,
       now,
     );
@@ -180,6 +190,7 @@ export function updateProfile(
     ssl?: boolean;
     filePath?: string;
     readonly?: boolean;
+    color?: string;
   },
 ): ConnectionProfile | null {
   const existing = getProfile(id);
@@ -199,6 +210,7 @@ export function updateProfile(
   if (input.ssl !== undefined) { updates.push("ssl = ?"); values.push(input.ssl ? 1 : 0); }
   if (input.filePath !== undefined) { updates.push("file_path = ?"); values.push(input.filePath); }
   if (input.readonly !== undefined) { updates.push("readonly = ?"); values.push(input.readonly ? 1 : 0); }
+  if (input.color !== undefined) { updates.push("color = ?"); values.push(input.color); }
 
   values.push(id);
   getDb()
@@ -225,6 +237,7 @@ function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
     ssl: row.ssl === 1,
     filePath: (row.file_path as string) ?? undefined,
     readonly: row.readonly === 1,
+    color: (row.color as string) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

@@ -1,6 +1,8 @@
-# kamehadb
+# KamehaDB
 
-**kamehadb** is a local-first, cross-platform database GUI built with Tauri, React, and Node.js. It connects to PostgreSQL, MySQL, SQLite, and Redis — letting you browse schemas, run queries, and visualize relationships without leaving your desktop.
+<img src="apps/desktop/public/logo.png" alt="KamehaDB" width="300" />
+
+**KamehaDB** is a local-first, cross-platform database GUI built with Tauri, React, and Node.js. It connects to PostgreSQL, MySQL, SQLite, and Redis — letting you browse schemas, run queries, and visualize relationships without leaving your desktop.
 
 ## Features
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "kamehadb",
+  "productName": "KamehaDB",
   "version": "0.1.0",
   "identifier": "com.nus.kamehadb",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "kamehadb",
+        "title": "KamehaDB",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

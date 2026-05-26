@@ -60,10 +60,15 @@ function ConnectionItem({
           )}
           <Database className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{conn.name}</span>
+          <span
+            className="w-3 h-3 rounded-full shrink-0 border border-border/50"
+            style={{ backgroundColor: conn.color ?? undefined }}
+            title={conn.color ? `Custom color: ${conn.color}` : conn.kind}
+          />
           <Badge
             variant="outline"
             className={`text-[10px] px-1 py-0 h-4 ${
-              kindColors[conn.kind] ?? ""
+              !conn.color ? kindColors[conn.kind] ?? "" : ""
             }`}>
             {conn.kind}
           </Badge>

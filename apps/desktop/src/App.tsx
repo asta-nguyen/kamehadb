@@ -1,4 +1,5 @@
 import { useStore } from "@tanstack/react-store";
+import { useConnections } from "@/hooks/use-connections";
 import { Sidebar } from "@/components/sidebar";
 import { TableView } from "@/components/table-view";
 import { SqlEditor } from "@/components/sql-editor";
@@ -14,38 +15,52 @@ function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
+  const { data: connections } = useConnections();
+
+  const getConnectionColor = (connectionId: string) => {
+    return connections?.find((c) => c.id === connectionId)?.color ?? null;
+  };
 
   return (
     <div className="flex items-center h-8 border-b border-border bg-muted/20 shrink-0 overflow-x-auto">
-      {openedTabs.map((tab) => (
-        <div
-          key={tab.id}
-          className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-xs shrink-0 select-none ${
-            tab.id === activeTabId
-              ? "bg-background border-b-2 border-b-primary"
-              : "hover:bg-muted/50"
-          }`}
-          onClick={() => appStore.setState((s) => ({ ...s, activeTabId: tab.id }))}
-        >
-          {tab.type === "query" ? (
-            <Terminal className="size-3" />
-          ) : tab.type === "graph" ? (
-            <Share2 className="size-3" />
-          ) : (
-            <Table2 className="size-3" />
-          )}
-          <span className="truncate max-w-[120px]">{tab.title}</span>
-          <button
-            className="ml-1 hover:bg-muted rounded-sm p-0.5"
-            onClick={(e) => {
-              e.stopPropagation();
-              closeTab(tab.id);
-            }}
+      {openedTabs.map((tab) => {
+        const connColor = getConnectionColor(tab.connectionId);
+        return (
+          <div
+            key={tab.id}
+            className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-xs shrink-0 select-none ${
+              tab.id === activeTabId
+                ? "bg-background border-b-2 border-b-primary"
+                : "hover:bg-muted/50"
+            }`}
+            onClick={() => appStore.setState((s) => ({ ...s, activeTabId: tab.id }))}
           >
-            <X className="size-2.5" />
-          </button>
-        </div>
-      ))}
+            {connColor && (
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: connColor }}
+              />
+            )}
+            {tab.type === "query" ? (
+              <Terminal className="size-3" />
+            ) : tab.type === "graph" ? (
+              <Share2 className="size-3" />
+            ) : (
+              <Table2 className="size-3" />
+            )}
+            <span className="truncate max-w-[120px]">{tab.title}</span>
+            <button
+              className="ml-1 hover:bg-muted rounded-sm p-0.5"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTab(tab.id);
+              }}
+            >
+              <X className="size-2.5" />
+            </button>
+          </div>
+        );
+      })}
       {activeConnectionId && (
         <button
           className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"

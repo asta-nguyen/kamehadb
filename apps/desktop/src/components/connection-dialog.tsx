@@ -54,6 +54,18 @@ const KIND_BG: Record<DbKind, string> = {
 
 const KINDS: DbKind[] = ["postgres", "mysql", "sqlite", "redis"];
 
+// Preset colors for connection badges
+const PRESET_COLORS = [
+  "#3b82f6", // blue
+  "#10b981", // green
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#8b5cf6", // purple
+  "#ec4899", // pink
+  "#06b6d4", // cyan
+  "#84cc16", // lime
+];
+
 function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> | null {
   try {
     const parsed = new URL(url);
@@ -116,10 +128,12 @@ export function ConnectionDialog({
       database: editConnection?.database ?? "",
       username: editConnection?.username ?? "",
       ssl: editConnection?.ssl ?? false,
+      color: editConnection?.color ?? undefined,
     },
   });
 
   const kind = form.watch("kind");
+  const selectedColor = form.watch("color");
 
   const handleUrlChange = useCallback((value: string) => {
     if (!value.trim()) return;
@@ -207,6 +221,35 @@ export function ConnectionDialog({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Color Badge</Label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {PRESET_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => form.setValue("color", color)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${
+                    selectedColor === color
+                      ? "border-foreground scale-110"
+                      : "border-transparent hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              ))}
+              {selectedColor && (
+                <button
+                  type="button"
+                  onClick={() => form.setValue("color", undefined)}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded border border-border"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
 
