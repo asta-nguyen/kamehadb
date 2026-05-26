@@ -122,10 +122,12 @@ function Workspace() {
 
   return (
     <div className="h-full flex flex-col">
-      {activeTab.type === 'query' && <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeConnectionId} />}
-      {activeTab.type === 'table' && <TableView connectionId={activeConnectionId} tableId={activeTab.title} />}
-      {activeTab.type === 'graph' && <SchemaGraph connectionId={activeConnectionId} />}
-      {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeConnectionId} />}
+      {activeTab.type === 'query' && (
+        <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
+      {activeTab.type === 'table' && <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />}
+      {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
     </div>
   );
 }

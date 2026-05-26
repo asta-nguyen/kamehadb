@@ -7,9 +7,8 @@ import { createMongoDbAdapter } from '../adapters/factory.js';
 export const mongoRouter = new Hono();
 
 function handleError(c: any, err: unknown, context: string) {
-  const message = err instanceof Error ? err.message : 'Unknown error';
-  console.error(`[Mongo] ${context}:`, message);
-  return c.json({ error: 'INTERNAL_ERROR', message }, 500);
+  console.error(`[Mongo] ${context}:`, err instanceof Error ? err.stack || err.message : err);
+  return c.json({ error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500);
 }
 
 async function getAdapter(connectionId: string) {

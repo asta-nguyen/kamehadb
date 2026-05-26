@@ -9,6 +9,8 @@ import { sqlRouter } from './routes/sql.js';
 import { mongoRouter } from './routes/mongo.js';
 import { aiRouter } from './routes/ai.js';
 
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
+
 const log = pino({
   transport: {
     target: 'pino-pretty',

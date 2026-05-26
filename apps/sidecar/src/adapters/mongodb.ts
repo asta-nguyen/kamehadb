@@ -29,14 +29,13 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
 
   return {
     async testConnection(): Promise<TestConnectionResult> {
+      const tempClient = new MongoClient(config.connectionString, {
+        serverSelectionTimeoutMS: 5000,
+      });
       try {
-        const tempClient = new MongoClient(config.connectionString, {
-          serverSelectionTimeoutMS: 5000,
-        });
         await tempClient.connect();
         const adminDb = tempClient.db().admin();
         const result = await adminDb.command({ buildInfo: 1 });
-        await tempClient.close();
         return {
           success: true,
           serverVersion: `MongoDB ${result.version}`,
@@ -46,6 +45,8 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
           success: false,
           message: err instanceof Error ? err.message : 'Connection failed',
         };
+      } finally {
+        await tempClient.close();
       }
     },
 

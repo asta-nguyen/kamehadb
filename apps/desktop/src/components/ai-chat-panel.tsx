@@ -18,10 +18,14 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
         <span className="text-[10px] text-zinc-400">sql</span>
         <div className="flex items-center gap-0.5">
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(sql);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(sql);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              } catch (err) {
+                console.error('Failed to copy SQL:', err);
+              }
             }}
             className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
             title="Copy"
