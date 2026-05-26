@@ -41,6 +41,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Setup Tauri
+        uses: tauri-apps/setup-toolchain@v1
+        with:
+          platforms: src-tauri
+
       - name: Install dependencies
         run: pnpm install
 
