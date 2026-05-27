@@ -18,7 +18,7 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     outputs:
-      release_id: ${{ steps.create_release.outputs.id }}
+      tag_name: ${{ steps.release_tag.outputs.value }}
     steps:
       - name: Resolve release tag
         id: release_tag
@@ -85,22 +85,58 @@ jobs:
       - name: Build Tauri app
         run: pnpm --filter @kamehadb/desktop tauri build ${{ matrix.args }}
 
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload macOS artifact
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
         with:
-          release_id: ${{ needs.create-release.outputs.release_id }}
-          files: |
-            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
-            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          name: release-${{ matrix.platform }}-${{ matrix.args == '--target aarch64-apple-darwin' && 'aarch64' || 'x64' }}
+          if-no-files-found: error
+          path: apps/desktop/src-tauri/target/*/release/bundle/dmg/*.dmg
+
+      - name: Upload Linux artifacts
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          if-no-files-found: error
+          path: |
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/desktop/src-tauri/target/release/bundle/rpm/*.rpm
-            apps/desktop/src-tauri/target/*/release/bundle/dmg/*.dmg
-            apps/desktop/src-tauri/target/*/release/bundle/msi/*.msi
-            apps/desktop/src-tauri/target/*/release/bundle/nsis/*.exe
-            apps/desktop/src-tauri/target/*/release/bundle/deb/*.deb
-            apps/desktop/src-tauri/target/*/release/bundle/appimage/*.AppImage
-            apps/desktop/src-tauri/target/*/release/bundle/rpm/*.rpm
+
+      - name: Upload Windows artifacts
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          if-no-files-found: error
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+
+  publish-release-assets:
+    needs:
+      - create-release
+      - build-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag_name }}
+          files: |
+            release-assets/*.dmg
+            release-assets/*.exe
+            release-assets/*.msi
+            release-assets/*.deb
+            release-assets/*.AppImage
+            release-assets/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -45,6 +45,68 @@ pnpm tauri build
 The GitHub release pipeline builds desktop installers and uploads them to the GitHub Release assets. The default `Source code (zip)` and `Source code (tar.gz)` entries are added by GitHub automatically and are not installable app bundles.
 
 ```bash
+# Push the commit that should be released
+git push origin <branch>
+
+# Create a version tag on that exact commit
+git tag v0.1.0-rc.1
+
+# Push the tag to trigger the Release workflow
+git push origin v0.1.0-rc.1
+```
+
+### Versioning
+
+Use Semantic Versioning with a leading `v` because the release workflow listens for tags matching `v*`.
+
+- Stable releases: `v0.1.0`, `v0.1.1`, `v1.0.0`
+- Pre-releases: `v0.1.0-alpha.1`, `v0.1.0-beta.1`, `v0.1.0-rc.1`
+
+Recommended meaning:
+
+- `MAJOR`: breaking change or major product milestone
+- `MINOR`: new features without major breakage
+- `PATCH`: bug fixes and small improvements
+- `alpha`: early internal or experimental build
+- `beta`: feature-complete test build
+- `rc`: release candidate, expected to become stable if no blocking issues are found
+
+Typical progression:
+
+```text
+v0.1.0-alpha.1 -> v0.1.0-beta.1 -> v0.1.0-rc.1 -> v0.1.0 -> v0.1.1
+```
+
+### Important Notes
+
+- GitHub Actions always runs the workflow files from the commit referenced by the tag.
+- If a tag points to an older commit, GitHub will run the older workflow and may produce a release with only source archives.
+- This project is a desktop Tauri app. Expected release assets are desktop bundles such as `.dmg`, `.msi`, `.exe`, `.deb`, `.AppImage`, or `.rpm`, not Android `.apk` files.
+- Manual release runs via `workflow_dispatch` must provide an existing git tag.
+
+### Expected Release Assets
+
+A valid GitHub Release for this project should expose only user-facing desktop installers or bundles:
+
+- macOS: `.dmg`
+- Windows: `.exe` and `.msi`
+- Linux: `.deb`, `.AppImage`, `.rpm`
+
+Notes:
+
+- `Source code (zip)` and `Source code (tar.gz)` are added by GitHub automatically for tags.
+- Files such as `data.tar.gz`, raw binaries like `kamehadb`, or other unpacked internal artifacts should not be kept as release assets for end users.
+
+### If A Release Has Only Source Code Assets
+
+Check the `Release` workflow in GitHub Actions and verify these steps in each matrix job:
+
+- `Build Tauri app`
+- `Upload to Release`
+
+If a tag was created on the wrong commit, recreate it:
+
+```bash
 git tag -d v0.1.0-rc.1
 git push origin :refs/tags/v0.1.0-rc.1
 git tag v0.1.0-rc.1
