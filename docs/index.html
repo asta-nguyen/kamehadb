@@ -1,95 +1,291 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KamehaDB - AI-Powered Database GUI</title>
-  <meta name="description" content="KamehaDB is a local-first, cross-platform database GUI with built-in AI that connects to PostgreSQL, MySQL, SQLite, MongoDB, and Redis.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗃️</text></svg>">
+  <meta name="description" content="KamehaDB is a local-first, cross-platform database GUI with built-in AI for PostgreSQL, MySQL, SQLite, MongoDB, and Redis.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+    :root {
+      --color-primary: #6366f1;
+      --color-primary-hover: #4f46e5;
+      --color-gradient-end: #a855f7;
+      --color-canvas: #ffffff;
+      --color-surface-soft: #f8fafc;
+      --color-border: rgba(226, 232, 240, 0.6);
+      --color-ink: #0f172a;
+      --color-body: #334155;
+      --shadow-card: 0 20px 40px -12px rgba(0, 0, 0, 0.12);
+      --transition-fast: 0.2s ease;
+      --transition-normal: 0.3s ease;
+      --transition-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background: var(--color-surface-soft);
+      color: var(--color-ink);
+    }
+
+    .nav-blur {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--color-primary), var(--color-gradient-end));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .grid-pattern {
+      background-image: radial-gradient(rgba(99, 102, 241, 0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    .hero-glow::before {
+      content: "";
+      position: absolute;
+      inset: -35%;
+      background: radial-gradient(circle at center, rgba(99, 102, 241, 0.14) 0%, transparent 65%);
+      pointer-events: none;
+      animation: pulseGlow 6s ease-in-out infinite;
+    }
+
+    .card-hover {
+      transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+    }
+
+    .card-hover:hover {
+      transform: translateY(-6px);
+      box-shadow: var(--shadow-card);
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-hover {
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+    }
+
+    .btn-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px -10px rgba(79, 70, 229, 0.7);
+    }
+
+    .scroll-reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity var(--transition-slow), transform var(--transition-slow);
+    }
+
+    .scroll-reveal.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .animate-float {
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+  </style>
 </head>
-<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#fafafa;color:#1a1a1a;">
-  <header style="background:#fff;border-bottom:1px solid #e5e5e5;padding:1rem 2rem;">
-    <nav style="max-width:960px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;">
-      <span style="font-weight:700;font-size:1.25rem;">🗃️ KamehaDB</span>
-      <div style="display:flex;gap:1.5rem;font-size:0.875rem;">
-        <a href="getting-started.html" style="color:#666;text-decoration:none;">Get Started</a>
-        <a href="features.html" style="color:#666;text-decoration:none;">Features</a>
-        <a href="faq.html" style="color:#666;text-decoration:none;">FAQ</a>
-      </div>
-    </nav>
-  </header>
-
-  <main style="max-width:960px;margin:0 auto;padding:4rem 2rem;">
-    <div style="text-align:center;margin-bottom:4rem;">
-      <h1 style="font-size:3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-0.02em;">
-        Database GUI,<br>Powered by AI
-      </h1>
-      <p style="font-size:1.25rem;color:#666;max-width:600px;margin:0 auto 2rem;line-height:1.6;">
-        Connect to PostgreSQL, MySQL, SQLite, MongoDB, and Redis. Browse schemas, run queries, and generate SQL through natural conversation with AI.
-      </p>
-      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
-        <a href="getting-started.html" style="background:#1a1a1a;color:#fff;padding:0.75rem 1.5rem;border-radius:0.5rem;text-decoration:none;font-weight:600;">Get Started</a>
-        <a href="https://github.com/asta-nguyen/kamehadb" style="background:#fff;color:#1a1a1a;padding:0.75rem 1.5rem;border-radius:0.5rem;border:1px solid #e5e5e5;text-decoration:none;font-weight:600;">View on GitHub</a>
+<body class="antialiased selection:bg-indigo-200 selection:text-indigo-900">
+  <nav class="fixed inset-x-0 top-0 z-50 border-b border-slate-200/60 bg-white/70 nav-blur">
+    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <a href="index.html" class="group flex items-center gap-3">
+        <img src="assets/logo.png" alt="KamehaDB" class="h-9 w-9 rounded-xl object-cover transition-transform duration-300 group-hover:scale-110">
+        <span class="text-xl font-bold tracking-tight">KamehaDB</span>
+      </a>
+      <div class="flex items-center gap-1 sm:gap-2">
+        <a href="getting-started.html" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900">Get Started</a>
+        <a href="features.html" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900">Features</a>
+        <a href="faq.html" class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900">FAQ</a>
+        <a href="https://github.com/asta-nguyen/kamehadb" class="btn-hover ml-1 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">GitHub</a>
       </div>
     </div>
+  </nav>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:4rem;">
-      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
-        <div style="font-size:2rem;margin-bottom:0.75rem;">🤖</div>
-        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">AI-SQL Generation</h3>
-        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
-          Chat with AI to generate, explain, and debug SQL queries. AI knows your schema context for accurate results.
-        </p>
+  <main class="pt-20">
+    <section class="relative overflow-hidden grid-pattern">
+      <div class="hero-glow pointer-events-none absolute inset-0"></div>
+      <div class="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8 lg:py-36">
+        <div class="mx-auto max-w-4xl text-center">
+          <div class="mb-7 inline-flex items-center gap-2 rounded-full border border-indigo-200/50 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700">
+            <span class="relative flex h-2 w-2">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75"></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-indigo-500"></span>
+            </span>
+            v0.1.0 - Local-first, AI-powered
+          </div>
+          <h1 class="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl lg:text-7xl">
+            <span class="gradient-text">Database GUI,</span><br>
+            <span>Powered by AI</span>
+          </h1>
+          <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">
+            Connect to PostgreSQL, MySQL, SQLite, MongoDB, and Redis. Browse schemas, run queries, and generate SQL through natural conversation with AI.
+          </p>
+          <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <a href="getting-started.html" class="btn-hover inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold text-white hover:bg-indigo-700 sm:w-auto">
+              Get Started
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </a>
+            <a href="https://github.com/asta-nguyen/kamehadb" class="btn-hover inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-8 py-3.5 text-base font-semibold text-slate-800 hover:bg-slate-50 sm:w-auto">
+              <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              View on GitHub
+            </a>
+          </div>
+        </div>
       </div>
-      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
-        <div style="font-size:2rem;margin-bottom:0.75rem;">🔗</div>
-        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">Multi-Engine Support</h3>
-        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
-          PostgreSQL, MySQL, SQLite, MongoDB, and Redis — one app to rule them all. Local-first architecture.
-        </p>
-      </div>
-      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
-        <div style="font-size:2rem;margin-bottom:0.75rem;">📊</div>
-        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">ER Diagrams</h3>
-        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
-          Auto-generated entity relationship graphs. Visualize tables, columns, and foreign key relationships.
-        </p>
-      </div>
-      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
-        <div style="font-size:2rem;margin-bottom:0.75rem;">💾</div>
-        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">Local-First</h3>
-        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
-          All metadata stored locally via SQLite. Credentials encrypted at rest. No cloud dependency.
-        </p>
-      </div>
-    </div>
+    </section>
 
-    <div style="background:#1a1a1a;color:#fff;border-radius:0.75rem;padding:2rem;margin-bottom:4rem;">
-      <h3 style="font-size:1.25rem;font-weight:700;margin-bottom:1rem;">Quick Setup</h3>
-      <pre style="background:#2a2a2a;padding:1rem;border-radius:0.5rem;overflow-x:auto;font-size:0.875rem;line-height:1.6;"># Install dependencies
-pnpm install
-
-# Start dev services
-docker compose up -d
-
-# Run the app
-pnpm dev</pre>
-    </div>
-
-    <div style="text-align:center;margin-bottom:4rem;">
-      <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">Supported Databases</h3>
-      <div style="display:flex;gap:2rem;justify-content:center;flex-wrap:wrap;font-size:0.875rem;color:#666;">
-        <span>✅ PostgreSQL</span>
-        <span>✅ MySQL</span>
-        <span>✅ SQLite</span>
-        <span>✅ MongoDB</span>
-        <span>✅ Redis</span>
+    <section class="scroll-reveal mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+      <div class="mb-16 text-center">
+        <h2 class="text-3xl font-extrabold tracking-tight sm:text-4xl">Built for modern data workflows</h2>
+        <p class="mx-auto mt-4 max-w-2xl text-lg text-slate-600">Everything you need to inspect, query, and understand your data.</p>
       </div>
-    </div>
+      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <article class="card-hover group rounded-2xl border border-slate-200/60 bg-white p-6">
+          <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-2xl transition-transform duration-300 group-hover:scale-110">AI</div>
+          <h3 class="mb-2 text-lg font-bold text-slate-900">AI-SQL Generation</h3>
+          <p class="text-sm leading-relaxed text-slate-600">Generate, explain, and refine SQL with schema-aware AI assistance directly in your workflow.</p>
+        </article>
+        <article class="card-hover group rounded-2xl border border-slate-200/60 bg-white p-6">
+          <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-2xl transition-transform duration-300 group-hover:scale-110">DB</div>
+          <h3 class="mb-2 text-lg font-bold text-slate-900">Multi-Engine</h3>
+          <p class="text-sm leading-relaxed text-slate-600">One app for PostgreSQL, MySQL, SQLite, MongoDB, and Redis with a consistent local-first experience.</p>
+        </article>
+        <article class="card-hover group rounded-2xl border border-slate-200/60 bg-white p-6">
+          <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-2xl transition-transform duration-300 group-hover:scale-110">ER</div>
+          <h3 class="mb-2 text-lg font-bold text-slate-900">ER Diagrams</h3>
+          <p class="text-sm leading-relaxed text-slate-600">Visualize table structure and relationships to quickly understand schema topology.</p>
+        </article>
+        <article class="card-hover group rounded-2xl border border-slate-200/60 bg-white p-6">
+          <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-2xl transition-transform duration-300 group-hover:scale-110">SEC</div>
+          <h3 class="mb-2 text-lg font-bold text-slate-900">Local-First Security</h3>
+          <p class="text-sm leading-relaxed text-slate-600">Metadata stays local and credentials are encrypted at rest for safer day-to-day operations.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="scroll-reveal mx-auto max-w-6xl px-4 pb-4 sm:px-6 lg:px-8">
+      <div class="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-8 sm:p-12">
+        <div class="mb-10 flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
+          <div>
+            <h3 class="text-2xl font-bold text-white sm:text-3xl">Quick Setup</h3>
+            <p class="mt-2 text-slate-300">Get up and running in seconds.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="rounded-lg border border-slate-600/50 bg-slate-700/50 px-3 py-1 text-xs font-mono text-slate-300">bash</span>
+            <button data-cmd="pnpm install && docker compose up -d && pnpm dev" class="btn-hover flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy
+            </button>
+          </div>
+        </div>
+        <pre class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-950/60 p-5 text-sm leading-relaxed sm:p-6"><code class="text-slate-300"><span class="text-slate-500"># Install dependencies</span>
+<span class="text-emerald-400">pnpm install</span>
+
+<span class="text-slate-500"># Start dev services (PostgreSQL, MySQL, MariaDB, Redis)</span>
+<span class="text-emerald-400">docker compose up -d</span>
+
+<span class="text-slate-500"># Run both sidecar and desktop in dev mode</span>
+<span class="text-emerald-400">pnpm dev</span></code></pre>
+      </div>
+    </section>
+
+    <section class="scroll-reveal mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:px-8">
+      <div class="mb-12 text-center">
+        <h3 class="text-3xl font-extrabold tracking-tight sm:text-4xl">Supported Databases</h3>
+        <p class="mt-4 text-lg text-slate-600">Works with all your favorite engines.</p>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+        <span class="animate-float rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700">PostgreSQL</span>
+        <span class="animate-float rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700">MySQL</span>
+        <span class="animate-float rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700">SQLite</span>
+        <span class="animate-float rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700">MongoDB</span>
+        <span class="animate-float rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700">Redis</span>
+      </div>
+    </section>
+
+    <section class="scroll-reveal bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white">
+      <div class="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:px-8">
+        <h2 class="text-3xl font-extrabold tracking-tight sm:text-4xl">Ready to simplify your data workflow?</h2>
+        <p class="mx-auto mt-4 max-w-xl text-lg text-indigo-100">KamehaDB is open-source and free. Start managing your databases with AI-powered assistance.</p>
+        <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <a href="getting-started.html" class="btn-hover inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-semibold text-indigo-700 hover:bg-indigo-50">
+            Get Started Now
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </a>
+          <a href="https://github.com/asta-nguyen/kamehadb" class="btn-hover inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-8 py-3.5 text-base font-semibold text-white hover:bg-white/20">
+            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            Star on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <footer style="border-top:1px solid #e5e5e5;padding:2rem;text-align:center;color:#666;font-size:0.875rem;">
-    <p>MIT License • <a href="https://github.com/asta-nguyen/kamehadb" style="color:#1a1a1a;">GitHub</a></p>
+  <footer class="border-t border-slate-200 bg-white">
+    <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
+        <div class="flex items-center gap-2.5 text-sm text-slate-500">
+          <img src="assets/logo.png" alt="KamehaDB" class="h-5 w-5 rounded object-cover">
+          <span>MIT License</span>
+          <span class="text-slate-300">-</span>
+          <a href="https://github.com/asta-nguyen/kamehadb" class="transition-colors duration-200 hover:text-slate-700">GitHub</a>
+          <span class="text-slate-300">-</span>
+          <span>Made with love</span>
+        </div>
+        <div class="flex items-center gap-4 text-sm text-slate-400">
+          <a href="getting-started.html" class="transition-colors duration-200 hover:text-slate-600">Docs</a>
+          <a href="features.html" class="transition-colors duration-200 hover:text-slate-600">Features</a>
+          <a href="faq.html" class="transition-colors duration-200 hover:text-slate-600">FAQ</a>
+        </div>
+      </div>
+    </div>
   </footer>
+
+  <script>
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("revealed");
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll(".scroll-reveal").forEach((el) => revealObserver.observe(el));
+
+    document.querySelectorAll("[data-cmd]").forEach((btn) => {
+      btn.addEventListener("click", async (event) => {
+        const code = event.currentTarget.getAttribute("data-cmd");
+        try {
+          await navigator.clipboard.writeText(code);
+          const original = event.currentTarget.innerHTML;
+          event.currentTarget.innerHTML = "<svg class='h-3.5 w-3.5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7'/></svg> Copied!";
+          setTimeout(() => {
+            event.currentTarget.innerHTML = original;
+          }, 2000);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    });
+  </script>
 </body>
 </html>
