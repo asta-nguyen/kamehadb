@@ -7,6 +7,21 @@ import { testPostgresConnection } from '../adapters/postgres.js';
 import { testSqliteConnection } from '../adapters/sqlite.js';
 import { testMysqlConnection } from '../adapters/mysql.js';
 import { createMongoAdapter } from '../adapters/mongodb.js';
+import { createRedisDbAdapter } from '../adapters/factory.js';
+import { clearConnectionCache } from '../lib/cache.js';
+
+// Schema for testing connection without requiring a name (use base schema without refinement)
+const TestConnectionSchema = z.object({
+  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb']),
+  host: z.string().optional(),
+  port: z.number().int().positive().optional(),
+  database: z.string().optional(),
+  username: z.string().optional(),
+  password: z.string().optional(),
+  ssl: z.boolean().optional(),
+  filePath: z.string().optional(),
+  connectionString: z.string().optional(),
+});
 
 export const connectionsRouter = new Hono();
 
@@ -28,18 +43,75 @@ connectionsRouter.post('/', zValidator('json', CreateConnectionProfileSchema), a
 });
 
 connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema), async (c) => {
-  const profile = metadataStore.updateProfile(c.req.param('id'), c.req.valid('json'));
+  const id = c.req.param('id');
+  const profile = metadataStore.updateProfile(id, c.req.valid('json'));
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+  clearConnectionCache(id);
   return c.json(profile);
 });
 
 connectionsRouter.delete('/:id', (c) => {
-  const deleted = metadataStore.deleteProfile(c.req.param('id'));
+  const id = c.req.param('id');
+  const deleted = metadataStore.deleteProfile(id);
   if (!deleted) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+  clearConnectionCache(id);
   return c.body(null, 204);
 });
 
-connectionsRouter.post('/test', zValidator('json', CreateConnectionProfileSchema), async (c) => {
+// Health check for existing connection by ID
+connectionsRouter.get('/:id/health', async (c) => {
+  const connectionId = c.req.param('id');
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+
+  const password = metadataStore.getProfilePassword(connectionId);
+
+  try {
+    let result;
+    switch (profile.kind) {
+      case 'postgres':
+        result = await testPostgresConnection({
+          host: profile.host!,
+          port: profile.port!,
+          database: profile.database!,
+          username: profile.username!,
+          password: password ?? '',
+        });
+        break;
+      case 'mongodb':
+        result = await createMongoAdapter({
+          connectionString: profile.connectionString!,
+          database: profile.database,
+        }).testConnection();
+        break;
+      case 'redis':
+        result = await createRedisDbAdapter(profile, password).testConnection();
+        break;
+      case 'sqlite':
+        result = testSqliteConnection(profile.filePath);
+        break;
+      case 'mysql':
+        result = await testMysqlConnection({
+          host: profile.host,
+          port: profile.port,
+          database: profile.database,
+          username: profile.username,
+          password: password ?? '',
+        });
+        break;
+      default:
+        return c.json({ success: false, message: `Unsupported database kind: ${profile.kind}` });
+    }
+    return c.json(result);
+  } catch (err) {
+    return c.json({
+      success: false,
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
+});
+
+connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async (c) => {
   const input = c.req.valid('json');
 
   // Validate password is provided for postgres
@@ -95,6 +167,9 @@ connectionsRouter.post('/test', zValidator('json', CreateConnectionProfileSchema
           connectionString: input.connectionString,
           database: input.database,
         }).testConnection();
+        break;
+      case 'redis':
+        result = await createRedisDbAdapter(input, input.password).testConnection();
         break;
       default:
         return c.json({ success: false, message: `Unsupported database kind: ${input.kind}` });

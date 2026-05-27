@@ -1,8 +1,10 @@
 import Database from 'better-sqlite3';
+import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
 
 let db: Database.Database | null = null;
+const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
 const DEFAULT_AI_PROVIDER = 'openai' satisfies AIProvider;
 
 function createDefaultAISettings(): AISettings {
@@ -121,10 +123,12 @@ function getDb(): Database.Database {
 }
 
 export function listProfiles(): ConnectionProfile[] {
-  const rows = getDb().prepare('SELECT * FROM connection_profiles ORDER BY updated_at DESC').all() as Record<
-    string,
-    unknown
-  >[];
+  const rows = getDb()
+    .prepare(
+      `SELECT id, name, kind, host, port, database, username, ssl, file_path, readonly, color, connection_string, created_at, updated_at
+     FROM connection_profiles ORDER BY updated_at DESC`,
+    )
+    .all() as Record<string, unknown>[];
 
   return rows.map(rowToProfile);
 }
@@ -209,62 +213,30 @@ export function updateProfile(
   if (!existing) return null;
 
   const now = new Date().toISOString();
-  const updates: string[] = ['updated_at = ?'];
-  const values: unknown[] = [now];
-
-  if (input.name !== undefined) {
-    updates.push('name = ?');
-    values.push(input.name);
-  }
-  if (input.kind !== undefined) {
-    updates.push('kind = ?');
-    values.push(input.kind);
-  }
-  if (input.host !== undefined) {
-    updates.push('host = ?');
-    values.push(input.host);
-  }
-  if (input.port !== undefined) {
-    updates.push('port = ?');
-    values.push(input.port);
-  }
-  if (input.database !== undefined) {
-    updates.push('database = ?');
-    values.push(input.database);
-  }
-  if (input.username !== undefined) {
-    updates.push('username = ?');
-    values.push(input.username);
-  }
-  if (input.password !== undefined) {
-    updates.push('password = ?');
-    values.push(input.password);
-  }
-  if (input.ssl !== undefined) {
-    updates.push('ssl = ?');
-    values.push(input.ssl ? 1 : 0);
-  }
-  if (input.filePath !== undefined) {
-    updates.push('file_path = ?');
-    values.push(input.filePath);
-  }
-  if (input.readonly !== undefined) {
-    updates.push('readonly = ?');
-    values.push(input.readonly ? 1 : 0);
-  }
-  if (input.color !== undefined) {
-    updates.push('color = ?');
-    values.push(input.color);
-  }
-  if (input.connectionString !== undefined) {
-    updates.push('connection_string = ?');
-    values.push(input.connectionString);
-  }
-
-  values.push(id);
+  const existingPassword = getProfilePassword(id);
   getDb()
-    .prepare(`UPDATE connection_profiles SET ${updates.join(', ')} WHERE id = ?`)
-    .run(...values);
+    .prepare(
+      `UPDATE connection_profiles SET
+        name = ?, kind = ?, host = ?, port = ?, database = ?, username = ?, password = ?,
+        ssl = ?, file_path = ?, readonly = ?, color = ?, connection_string = ?, updated_at = ?
+       WHERE id = ?`,
+    )
+    .run(
+      input.name ?? existing.name,
+      input.kind ?? existing.kind,
+      input.host ?? existing.host,
+      input.port ?? existing.port,
+      input.database ?? existing.database,
+      input.username ?? existing.username,
+      input.password ?? existingPassword,
+      input.ssl !== undefined ? (input.ssl ? 1 : 0) : existing.ssl ? 1 : 0,
+      input.filePath ?? existing.filePath,
+      input.readonly !== undefined ? (input.readonly ? 1 : 0) : existing.readonly ? 1 : 0,
+      input.color ?? existing.color,
+      input.connectionString ?? existing.connectionString,
+      now,
+      id,
+    );
 
   return getProfile(id);
 }
@@ -365,34 +337,42 @@ function normalizeAISettings(input: AISettings): AISettings {
 }
 
 export function getAISettings(): AISettings {
+  const cached = aiSettingsCache.get('settings');
+  if (cached) return structuredClone(cached);
+
   const settings = createDefaultAISettings();
-  const activeProviderRow = getDb().prepare('SELECT value FROM ai_settings WHERE key = ?').get('activeProvider') as
-    | { value: string }
-    | undefined;
+  const db = getDb();
 
-  if (activeProviderRow?.value && activeProviderRow.value in settings.providers) {
-    settings.activeProvider = activeProviderRow.value as AIProvider;
-  }
+  db.transaction(() => {
+    const activeProviderRow = db.prepare('SELECT value FROM ai_settings WHERE key = ?').get('activeProvider') as
+      | { value: string }
+      | undefined;
 
-  const rows = getDb().prepare('SELECT provider, enabled, model, base_url, api_key FROM ai_provider_configs').all() as {
-    provider: string;
-    enabled: number;
-    model: string;
-    base_url: string | null;
-    api_key: string | null;
-  }[];
+    if (activeProviderRow?.value && activeProviderRow.value in settings.providers) {
+      settings.activeProvider = activeProviderRow.value as AIProvider;
+    }
 
-  for (const row of rows) {
-    if (!(row.provider in settings.providers)) continue;
-    settings.providers[row.provider as AIProvider] = {
-      enabled: row.enabled === 1,
-      model: row.model,
-      baseUrl: row.base_url ?? '',
-      apiKey: row.api_key ?? '',
-    };
-  }
+    const rows = db.prepare('SELECT provider, enabled, model, base_url, api_key FROM ai_provider_configs').all() as {
+      provider: string;
+      enabled: number;
+      model: string;
+      base_url: string | null;
+      api_key: string | null;
+    }[];
 
-  return settings;
+    for (const row of rows) {
+      if (!(row.provider in settings.providers)) continue;
+      settings.providers[row.provider as AIProvider] = {
+        enabled: row.enabled === 1,
+        model: row.model,
+        baseUrl: row.base_url ?? '',
+        apiKey: row.api_key ?? '',
+      };
+    }
+  })();
+
+  aiSettingsCache.set('settings', settings);
+  return structuredClone(settings);
 }
 
 export function saveAISettings(settings: AISettings): void {
@@ -411,6 +391,7 @@ export function saveAISettings(settings: AISettings): void {
   });
 
   tx();
+  aiSettingsCache.clear();
 }
 
 export function closeMetadataStore(): void {

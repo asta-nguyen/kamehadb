@@ -1,11 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
 import { formatBytes, formatNumber } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart3, Database, HardDrive, RefreshCw, Trash2, Activity, AlertTriangle } from 'lucide-react';
+import { useTableStats, useIndexStats } from '@/hooks/use-schema';
 
 type TableStatsProps = {
   connectionId: string;
@@ -13,20 +12,8 @@ type TableStatsProps = {
 };
 
 export function TableStats({ connectionId, tableId }: TableStatsProps) {
-  const {
-    data: stats,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ['table-stats', connectionId, tableId],
-    queryFn: () => api.getTableStats(connectionId, tableId),
-    refetchInterval: 30000,
-  });
-
-  const { data: indexStats } = useQuery({
-    queryKey: ['index-stats', connectionId, tableId],
-    queryFn: () => api.getIndexStats(connectionId, tableId),
-  });
+  const { data: stats, isLoading, error } = useTableStats(connectionId, tableId);
+  const { data: indexStats } = useIndexStats(connectionId, tableId);
 
   if (isLoading) {
     return (
@@ -155,7 +142,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 80px' }}>
                   <TableHead>Name</TableHead>
                   <TableHead>Columns</TableHead>
                   <TableHead>Size</TableHead>
@@ -166,8 +153,13 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
               </TableHeader>
               <TableBody>
                 {indexStats.map((idx) => (
-                  <TableRow key={idx.name}>
-                    <TableCell className="font-mono text-sm">{idx.name}</TableCell>
+                  <TableRow
+                    key={idx.name}
+                    style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 80px' }}
+                  >
+                    <TableCell className="font-mono text-sm truncate min-w-0" title={idx.name}>
+                      {idx.name}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       <div className="flex flex-wrap gap-1">
                         {idx.columns.map((col) => (

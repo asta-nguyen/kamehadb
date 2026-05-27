@@ -11,6 +11,7 @@ import type {
   QueryResult,
   RunQueryInput,
   QueryColumn,
+  TableCompletions,
 } from '@kamehadb/shared';
 
 export type IndexStats = {
@@ -206,6 +207,79 @@ export function createPostgresAdapter(connection: {
         primaryKey: !!r.primary_key,
         foreignKey: r.ref_table ? { table: r.ref_table as string, column: r.ref_column as string } : undefined,
       }));
+    },
+
+    async getCompletions(schema?: string): Promise<TableCompletions[]> {
+      const sql = `WITH pk_cols AS (
+        SELECT ku.table_schema, ku.table_name, ku.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage ku
+          ON tc.constraint_catalog = ku.constraint_catalog
+          AND tc.constraint_schema = ku.constraint_schema
+          AND tc.constraint_name = ku.constraint_name
+          AND tc.table_schema = ku.table_schema
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+          AND tc.table_schema = $1
+      ), fk_cols AS (
+        SELECT ku.table_schema, ku.table_name, ku.column_name,
+               ccu.table_name AS ref_table, ccu.column_name AS ref_column
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage ku
+          ON tc.constraint_catalog = ku.constraint_catalog
+          AND tc.constraint_schema = ku.constraint_schema
+          AND tc.constraint_name = ku.constraint_name
+          AND tc.table_schema = ku.table_schema
+        JOIN information_schema.constraint_column_usage ccu
+          ON tc.constraint_catalog = ccu.constraint_catalog
+          AND tc.constraint_schema = ccu.constraint_schema
+          AND tc.constraint_name = ccu.constraint_name
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema = $1
+      )
+      SELECT
+        c.table_name,
+        c.table_schema,
+        c.column_name,
+        c.data_type,
+        c.is_nullable,
+        c.column_default,
+        CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END AS primary_key,
+        fk.ref_table,
+        fk.ref_column
+      FROM information_schema.columns c
+      LEFT JOIN pk_cols pk
+        ON c.table_schema = pk.table_schema
+        AND c.table_name = pk.table_name
+        AND c.column_name = pk.column_name
+      LEFT JOIN fk_cols fk
+        ON c.table_schema = fk.table_schema
+        AND c.table_name = fk.table_name
+        AND c.column_name = fk.column_name
+      WHERE c.table_schema = $1
+        AND c.table_name IN (
+          SELECT table_name FROM information_schema.tables
+          WHERE table_schema = $1 AND table_type = 'BASE TABLE'
+        )
+      ORDER BY c.table_name, c.ordinal_position`;
+
+      const schemaName = schema || 'public';
+      const result = await query(sql, [schemaName]);
+      const tableMap = new Map<string, TableCompletions>();
+      for (const row of result.rows as Record<string, unknown>[]) {
+        const name = row.table_name as string;
+        if (!tableMap.has(name)) {
+          tableMap.set(name, { name, schema: row.table_schema as string, columns: [] });
+        }
+        tableMap.get(name)!.columns.push({
+          name: row.column_name as string,
+          type: row.data_type as string,
+          nullable: row.is_nullable === 'YES',
+          default: (row.column_default as string) ?? null,
+          primaryKey: !!row.primary_key,
+          foreignKey: row.ref_table ? { table: row.ref_table as string, column: row.ref_column as string } : undefined,
+        });
+      }
+      return Array.from(tableMap.values());
     },
 
     async getTableIndexes(tableId: string): Promise<IndexInfo[]> {

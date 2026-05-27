@@ -116,6 +116,12 @@ export type ColumnInfo = {
   };
 };
 
+export type TableCompletions = {
+  name: string;
+  schema?: string;
+  columns: ColumnInfo[];
+};
+
 export type IndexInfo = {
   name: string;
   columns: string[];
@@ -153,6 +159,7 @@ export interface SqlAdapter {
   listTables(schema?: string): Promise<TableInfo[]>;
   getTableColumns(tableId: string): Promise<ColumnInfo[]>;
   getTableIndexes(tableId: string): Promise<IndexInfo[]>;
+  getCompletions(schema?: string): Promise<TableCompletions[]>;
   previewRows(input: PreviewRowsInput): Promise<QueryResult>;
   runQuery(input: RunQueryInput): Promise<QueryResult>;
   close(): Promise<void>;
@@ -301,6 +308,21 @@ export interface MongoAdapter {
   listCollections(database?: string): Promise<CollectionInfo[]>;
   findDocuments(input: FindDocumentsInput): Promise<DocumentResult>;
   aggregate(input: AggregateInput): Promise<DocumentResult>;
+  deleteDocument(
+    database: string,
+    collection: string,
+    filter: Record<string, unknown>,
+  ): Promise<{ deletedCount: number }>;
+  updateDocument(
+    database: string,
+    collection: string,
+    filter: Record<string, unknown>,
+    update: Record<string, unknown>,
+  ): Promise<{ matchedCount: number; modifiedCount: number }>;
+  getCollectionStats(
+    database: string,
+    collection: string,
+  ): Promise<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>;
   close(): Promise<void>;
 }
 
@@ -379,4 +401,6 @@ export type AppStoreState = {
   density: 'compact' | 'comfortable';
   view: AppView;
   theme: 'light' | 'dark' | 'system';
+  expandedConnections: string[];
+  connectionStatus: Record<string, 'connected' | 'disconnected'>;
 };

@@ -1,4 +1,4 @@
-const DEV_PROXY_API_BASE = '/api';
+const DEV_PROXY_API_BASE = 'http://127.0.0.1:3170';
 const DIRECT_SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 
@@ -58,6 +58,9 @@ export const api = {
   testConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
     request<import('@kamehadb/shared').TestConnectionResult>('POST', '/connections/test', input),
 
+  checkConnectionHealth: (id: string) =>
+    request<import('@kamehadb/shared').TestConnectionResult>('GET', `/connections/${id}/health`),
+
   getAISettings: () => request<import('@kamehadb/shared').AISettings>('GET', '/ai/settings'),
 
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
@@ -103,4 +106,22 @@ export const api = {
 
   findMongoDocuments: (connectionId: string, input: import('@kamehadb/shared').FindDocumentsInput) =>
     request<import('@kamehadb/shared').DocumentResult>('POST', `/mongo/${connectionId}/find`, input, true),
+
+  deleteMongoDocument: (
+    connectionId: string,
+    input: { collection: string; database?: string; filter: Record<string, unknown> },
+  ) => request<{ deletedCount: number }>('POST', `/mongo/${connectionId}/delete`, input, true),
+
+  updateMongoDocument: (
+    connectionId: string,
+    input: { collection: string; database?: string; filter: Record<string, unknown>; update: Record<string, unknown> },
+  ) => request<{ matchedCount: number; modifiedCount: number }>('POST', `/mongo/${connectionId}/update`, input, true),
+
+  getMongoCollectionStats: (connectionId: string, database: string, collection: string) =>
+    request<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
+      'GET',
+      `/mongo/${connectionId}/stats?database=${encodeURIComponent(database)}&collection=${encodeURIComponent(collection)}`,
+      undefined,
+      true,
+    ),
 };

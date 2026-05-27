@@ -1,35 +1,46 @@
 import { useState } from 'react';
 import { useSchemas, useTables, useTableColumns } from '@/hooks/use-schema';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2 } from 'lucide-react';
 
 function SchemaItem({
   connectionId,
   schema,
+  expanded,
+  onToggle,
   onSelectTable,
 }: {
   connectionId: string;
   schema: string;
+  expanded: boolean;
+  onToggle: () => void;
   onSelectTable: (tableId: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const { data: tables, isLoading } = useTables(connectionId, schema);
 
   return (
-    <div>
+    <div className="select-none">
       <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md"
+        onClick={onToggle}
+        className="w-full group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs hover:bg-muted/70 transition-colors"
       >
-        {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-        <Database className="size-3.5 text-muted-foreground" />
-        <span>{schema}</span>
+        <ChevronDown className={`size-3 text-muted-foreground/60 shrink-0 ${expanded ? '' : 'hidden'}`} />
+        <ChevronRight className={`size-3 text-muted-foreground/60 shrink-0 ${expanded ? 'hidden' : ''}`} />
+        <Database className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+        <span className="font-medium text-foreground/80 group-hover:text-foreground transition-colors">{schema}</span>
+        {expanded && tables && (
+          <span className="ml-auto text-xs text-muted-foreground/50 tabular-nums">{tables.length}</span>
+        )}
       </button>
       {expanded && (
-        <div className="ml-3 border-l border-border pl-2">
+        <div className="mt-0.5 ml-3 pl-2 border-l border-border/60 space-y-0.5">
           {isLoading ? (
-            <Loader2 className="size-3 animate-spin my-1 mx-auto" />
+            <div className="flex justify-center py-2">
+              <Loader2 className="size-3 animate-spin text-muted-foreground/60" />
+            </div>
+          ) : tables?.length === 0 ? (
+            <p className="text-xs text-muted-foreground/60 pl-2">No tables</p>
           ) : (
             tables?.map((table) => (
               <TableItem key={table.id} connectionId={connectionId} table={table} onSelect={onSelectTable} />
@@ -54,26 +65,38 @@ function TableItem({
   const { data: columns, isLoading } = useTableColumns(connectionId, expanded ? table.id : null);
 
   return (
-    <div>
+    <div className="select-none">
       <button
         onClick={() => onSelect(table.id)}
         onDoubleClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md"
+        className="group w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs hover:bg-muted/50 transition-colors"
       >
-        {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-        <Table2 className="size-3.5 text-muted-foreground" />
-        <span className="truncate">{table.name}</span>
+        <ChevronDown className={`size-2.5 text-muted-foreground/50 shrink-0 ${expanded ? '' : 'hidden'}`} />
+        <ChevronRight className={`size-2.5 text-muted-foreground/50 shrink-0 ${expanded ? 'hidden' : ''}`} />
+        <Table2 className="size-3 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
+        <span className="truncate text-foreground/80 group-hover:text-foreground transition-colors">{table.name}</span>
       </button>
       {expanded && (
-        <div className="ml-3">
+        <div className="mt-0.5 ml-4 pl-2 space-y-0">
           {isLoading ? (
-            <Loader2 className="size-3 animate-spin my-1 mx-auto" />
+            <div className="flex justify-center py-1.5">
+              <Loader2 className="size-2.5 animate-spin text-muted-foreground/50" />
+            </div>
           ) : (
             columns?.map((col) => (
-              <div key={col.name} className="flex items-center gap-1.5 px-2 py-0.5 text-[11px] text-muted-foreground">
-                <Columns3 className="size-3" />
-                <span className="truncate">{col.name}</span>
-                <Badge variant="outline" className="text-[10px] px-1 py-0 h-3.5 ml-auto">
+              <div
+                key={col.name}
+                className="group/row flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-muted/30 transition-colors"
+              >
+                <Columns3 className="size-2.5 text-muted-foreground/50 shrink-0" />
+                <span className="truncate text-xs text-foreground/70 group-hover/row:text-foreground transition-colors">
+                  {col.name}
+                </span>
+                {col.primaryKey && <span className="size-1.5 rounded-full bg-primary shrink-0" title="Primary Key" />}
+                <Badge
+                  variant="outline"
+                  className="ml-auto text-xs px-1 py-0 h-3.5 shrink-0 bg-muted/30 text-muted-foreground/80 border-muted"
+                >
                   {col.type}
                 </Badge>
               </div>
@@ -93,27 +116,32 @@ export function SchemaTree({
   onSelectTable: (tableId: string) => void;
 }) {
   const { data: schemas, isLoading } = useSchemas(connectionId);
+  const [expandedSchema, setExpandedSchema] = useState<string | null>(null);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-4">
+      <div className="flex items-center justify-center py-6">
         <Loader2 className="size-4 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
+  if (!schemas?.length) {
+    return <div className="flex items-center justify-center py-6 text-xs text-muted-foreground">No schemas found</div>;
+  }
+
   return (
-    <ScrollArea className="flex-1">
-      <div className="p-1 space-y-0.5">
-        {schemas?.map((schema) => (
-          <SchemaItem
-            key={schema.name}
-            connectionId={connectionId}
-            schema={schema.name}
-            onSelectTable={onSelectTable}
-          />
-        ))}
-      </div>
-    </ScrollArea>
+    <div className="flex-1 overflow-y-auto min-h-0 p-1.5">
+      {schemas?.map((schema) => (
+        <SchemaItem
+          key={schema.name}
+          connectionId={connectionId}
+          schema={schema.name}
+          expanded={schema.name === expandedSchema}
+          onToggle={() => setExpandedSchema(expandedSchema === schema.name ? null : schema.name)}
+          onSelectTable={onSelectTable}
+        />
+      ))}
+    </div>
   );
 }

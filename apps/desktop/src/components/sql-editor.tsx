@@ -5,10 +5,18 @@ import { api } from '@/lib/api';
 import { useRunQuery } from '@/hooks/use-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Play, Loader2, AlertCircle, Clock } from 'lucide-react';
+
+import { Play, Loader2, AlertCircle, Clock, Download } from 'lucide-react';
 import { updateTabSql } from '@/store';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
+import { downloadResult } from '@/lib/export';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
@@ -122,9 +130,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           {runQuery.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
           Run
         </Button>
-        <span className="text-[11px] text-muted-foreground">
-          {runQuery.isPending ? 'Running...' : 'Ctrl+Enter to run'}
-        </span>
+        <span className="text-xs text-muted-foreground">{runQuery.isPending ? 'Running...' : 'Ctrl+Enter to run'}</span>
       </div>
 
       <div className="flex-1 min-h-0 border-b border-border">
@@ -154,7 +160,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         )}
 
         {error && (
-          <div className="flex items-start gap-2 p-4 text-sm text-red-600">
+          <div className="flex items-start gap-2 p-4 text-sm text-destructive">
             <AlertCircle className="size-4 mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
@@ -163,48 +169,67 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         {result && (
           <div className="p-4">
             <div className="overflow-auto border rounded-md">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    {result.columns.map((col) => (
-                      <th
-                        key={col.name}
-                        className="px-3 py-1.5 text-left font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
-                      >
-                        {col.name}
-                        <span className="text-[10px] ml-1 text-muted-foreground/60">{col.type}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.rows.map((row, i) => (
-                    <tr key={i} className="border-b last:border-b-0 hover:bg-muted/30">
-                      {result.columns.map((col) => (
-                        <td key={col.name} className="px-3 py-1 border-r last:border-r-0 truncate max-w-[250px]">
-                          {row[col.name] === null ? (
-                            <span className="text-muted-foreground italic">NULL</span>
-                          ) : (
-                            String(row[col.name])
-                          )}
-                        </td>
-                      ))}
-                    </tr>
+              {result.columns.length > 0 && (
+                <div
+                  className="grid text-xs bg-muted/50 sticky top-0 z-10"
+                  style={{ gridTemplateColumns: `repeat(${result.columns.length}, minmax(120px, 1fr))` }}
+                >
+                  {result.columns.map((col) => (
+                    <div
+                      key={col.name}
+                      className="px-3 py-1.5 font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
+                    >
+                      {col.name}
+                      <span className="ml-1 text-muted-foreground/60">{col.type}</span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
-              <span>{result.rowCount} rows returned</span>
-              <span className="flex items-center gap-1">
-                <Clock className="size-3" />
-                {result.durationMs}ms
-              </span>
-              {result.truncated && (
-                <Badge variant="outline" className="text-[10px]">
-                  Truncated
-                </Badge>
+                </div>
               )}
+              {result.rows.map((row, i) => (
+                <div
+                  key={i}
+                  className="grid text-xs border-t border-border/40 hover:bg-muted/30"
+                  style={{ gridTemplateColumns: `repeat(${result.columns.length}, minmax(120px, 1fr))` }}
+                >
+                  {result.columns.map((col) => (
+                    <div
+                      key={col.name}
+                      className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
+                      title={row[col.name] === null ? '' : String(row[col.name])}
+                    >
+                      {row[col.name] === null ? (
+                        <span className="text-muted-foreground italic">NULL</span>
+                      ) : (
+                        String(row[col.name])
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span>{result.rowCount} rows returned</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="size-3" />
+                  {result.durationMs}ms
+                </span>
+                {result.truncated && (
+                  <Badge variant="outline" className="text-xs">
+                    Truncated
+                  </Badge>
+                )}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+                  <Download className="size-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         )}

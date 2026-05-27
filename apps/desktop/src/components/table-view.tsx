@@ -6,8 +6,28 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Key, Hash, Table2, ChevronLeft, ChevronRight, FileJson, Copy, Check, Activity } from 'lucide-react';
+
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
+import {
+  Loader2,
+  Key,
+  Hash,
+  Table2,
+  ChevronLeft,
+  ChevronRight,
+  FileJson,
+  Copy,
+  Check,
+  Activity,
+  Download,
+} from 'lucide-react';
+import { downloadResult } from '@/lib/export';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const PAGE_SIZE = 50;
 
@@ -52,6 +72,10 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     getCoreRowModel: getCoreRowModel(),
   });
 
+  const headerGroups = table.getHeaderGroups();
+  const gridTemplate =
+    headerGroups.length > 0 ? `2rem ${headerGroups[0].headers.map((h) => `${h.getSize()}px`).join(' ')}` : undefined;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -63,49 +87,46 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   return (
     <>
       <div className="overflow-auto border rounded-md">
-        <table className="w-full text-xs">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b bg-muted/50">
-                <th className="w-8 px-2 py-1 text-left text-muted-foreground font-medium">#</th>
+        <Table className="text-xs">
+          <TableHeader>
+            {headerGroups.map((headerGroup) => (
+              <TableRow key={headerGroup.id} style={{ gridTemplateColumns: gridTemplate }}>
+                <TableHead className="px-2 py-1 text-left bg-muted/50">#</TableHead>
                 {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="px-3 py-1 text-left font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
-                    style={{ width: header.getSize() }}
-                  >
+                  <TableHead key={header.id} className="px-3 py-1 text-left bg-muted/50 border-r whitespace-nowrap">
                     {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </thead>
-          <tbody>
+          </TableHeader>
+          <TableBody>
             {table.getRowModel().rows.map((row, i) => (
-              <tr
+              <TableRow
                 key={row.id}
-                className="border-b last:border-b-0 hover:bg-muted/30 cursor-pointer"
+                className="cursor-pointer hover:bg-muted/30"
+                style={{ gridTemplateColumns: gridTemplate }}
                 onClick={() => setSelectedRow(row.original)}
               >
-                <td className="px-2 py-1 text-muted-foreground text-[11px]">{offset + i + 1}</td>
+                <TableCell className="px-2 py-1 text-muted-foreground">{offset + i + 1}</TableCell>
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-1 border-r last:border-r-0 truncate max-w-[250px]">
+                  <TableCell key={cell.id} className="px-3 py-1 border-r last:border-r-0 truncate max-w-60">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         {result && (
-          <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-t bg-muted/30 flex items-center gap-3">
+          <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3">
             <span>{result.rowCount} rows</span>
             {result.truncated && (
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-xs">
                 Truncated
               </Badge>
             )}
-            <span className="ml-auto mr-auto">{result.durationMs}ms</span>
+            <span className="ml-auto">{result.durationMs}ms</span>
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
@@ -125,6 +146,34 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                 <ChevronRight className="size-3.5" />
               </Button>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+                <Download className="size-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    downloadResult(result, 'csv');
+                  }}
+                >
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    downloadResult(result, 'json');
+                  }}
+                >
+                  Export as JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    downloadResult(result, 'sql');
+                  }}
+                >
+                  Export as SQL
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -149,18 +198,28 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   );
 }
 
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function formatJsonSyntax(json: string): React.ReactNode[] {
   const lines = json.split('\n');
   return lines.map((line, i) => {
-    const colored = line
-      .replace(/(\"[^"]*\")(?=\s*:)/g, '<span class="text-sky-400">$1</span>')
-      .replace(/:\s*("[^"]*")/g, ': <span class="text-green-400">$1</span>')
-      .replace(/:\s*(true|false)/g, ': <span class="text-yellow-400">$1</span>')
-      .replace(/:\s*(null)/g, ': <span class="text-purple-400 italic">$1</span>')
-      .replace(/:\s*(\d+\.?\d*)/g, ': <span class="text-orange-400">$1</span>');
+    const safeLine = escapeHtml(line);
+    const colored = safeLine
+      .replace(/(&quot;[^&]*&quot;)(?=\s*:)/g, '<span class="text-primary">$1</span>')
+      .replace(/:\s*(&quot;[^&]*&quot;)/g, ': <span class="text-muted-foreground">$1</span>')
+      .replace(/:\s*(true|false)/g, ': <span class="text-accent-foreground">$1</span>')
+      .replace(/:\s*(null)/g, ': <span class="text-muted-foreground italic">$1</span>')
+      .replace(/:\s*(\d+\.?\d*)/g, ': <span class="text-foreground">$1</span>');
     return (
       <div key={i} className="flex">
-        <span className="w-8 shrink-0 text-right text-[10px] text-muted-foreground/40 select-none mr-3">{i + 1}</span>
+        <span className="w-8 shrink-0 text-right text-xs text-muted-foreground/40 select-none mr-3">{i + 1}</span>
         <span dangerouslySetInnerHTML={{ __html: colored || ' ' }} className="flex-1" />
       </div>
     );
@@ -193,21 +252,21 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
       </div>
 
       <TabsContent value="view" className="flex-1 min-h-0 p-0">
-        <ScrollArea className="h-full">
+        <div className="h-full overflow-y-auto">
           <div className="pb-2">
             {Object.entries(selectedRow).map(([key, value], i) => {
               const typeLabel = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
               return (
                 <div key={key} className={`flex items-start gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-muted/20' : ''}`}>
-                  <div className="w-[35%] shrink-0 min-w-0">
+                  <div className="w-2/5 shrink-0 min-w-0">
                     <div className="text-xs font-medium truncate">{key}</div>
-                    <span className="text-[9px] uppercase text-muted-foreground/50 tracking-wider">{typeLabel}</span>
+                    <span className="text-xs uppercase text-muted-foreground/50 tracking-wider">{typeLabel}</span>
                   </div>
                   <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug">
                     {value === null ? (
                       <span className="text-muted-foreground italic">null</span>
                     ) : typeof value === 'object' ? (
-                      <pre className="text-[11px] whitespace-pre-wrap bg-muted/50 rounded p-2 mt-0.5 max-h-32 overflow-auto">
+                      <pre className="text-xs whitespace-pre-wrap bg-muted/50 rounded p-2 mt-0.5 max-h-32 overflow-auto">
                         {JSON.stringify(value, null, 2)}
                       </pre>
                     ) : (
@@ -218,19 +277,19 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
       </TabsContent>
 
       <TabsContent value="json" className="flex-1 min-h-0 p-0">
         <div className="relative h-full">
           <Button variant="outline" size="icon-sm" className="absolute top-2 right-2 z-10" onClick={handleCopy}>
-            {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
+            {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
           </Button>
-          <ScrollArea className="h-full">
-            <div className="p-3 font-mono text-[11px] leading-relaxed bg-[#1e1e2e] text-gray-300 rounded-sm m-2">
+          <div className="h-full overflow-y-auto">
+            <div className="p-3 font-mono text-xs leading-relaxed bg-card text-muted-foreground rounded-sm m-2">
               {formatJsonSyntax(JSON.stringify(selectedRow, null, 2))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </TabsContent>
     </Tabs>
@@ -273,67 +332,67 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
 
         <TabsContent value="columns" className="flex-1 p-4 pt-2 overflow-auto">
           <div className="border rounded-md">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="px-3 py-1.5 text-left font-medium">Name</th>
-                  <th className="px-3 py-1.5 text-left font-medium">Type</th>
-                  <th className="px-3 py-1.5 text-left font-medium">Nullable</th>
-                  <th className="px-3 py-1.5 text-left font-medium">Default</th>
-                  <th className="px-3 py-1.5 text-left font-medium">Key</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+                  <TableHead className="px-3 py-1.5">Name</TableHead>
+                  <TableHead className="px-3 py-1.5">Type</TableHead>
+                  <TableHead className="px-3 py-1.5">Nullable</TableHead>
+                  <TableHead className="px-3 py-1.5">Default</TableHead>
+                  <TableHead className="px-3 py-1.5">Key</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {columns?.map((col) => (
-                  <tr key={col.name} className="border-b last:border-b-0 hover:bg-muted/30">
-                    <td className="px-3 py-1.5 font-medium">{col.name}</td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{col.type}</td>
-                    <td className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</td>
-                    <td className="px-3 py-1.5 text-muted-foreground font-mono text-[11px]">
+                  <TableRow key={col.name} style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+                    <TableCell className="px-3 py-1.5 font-medium">{col.name}</TableCell>
+                    <TableCell className="px-3 py-1.5 text-muted-foreground">{col.type}</TableCell>
+                    <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
+                    <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
                       {col.default ?? <span className="italic">null</span>}
-                    </td>
-                    <td className="px-3 py-1.5">
+                    </TableCell>
+                    <TableCell className="px-3 py-1.5">
                       <div className="flex items-center gap-1">
-                        {col.primaryKey && <Key className="size-3 text-amber-500" />}
+                        {col.primaryKey && <Key className="size-3 text-muted-foreground" />}
                         {col.foreignKey && (
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             &rarr; {col.foreignKey.table}({col.foreignKey.column})
                           </span>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </TabsContent>
 
         <TabsContent value="indexes" className="flex-1 p-4 pt-2 overflow-auto">
           <div className="border rounded-md">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="px-3 py-1.5 text-left font-medium">Name</th>
-                  <th className="px-3 py-1.5 text-left font-medium">Columns</th>
-                  <th className="px-3 py-1.5 text-left font-medium">Unique</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  <TableHead className="px-3 py-1.5">Name</TableHead>
+                  <TableHead className="px-3 py-1.5">Columns</TableHead>
+                  <TableHead className="px-3 py-1.5">Unique</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {indexes?.map((idx) => (
-                  <tr key={idx.name} className="border-b last:border-b-0 hover:bg-muted/30">
-                    <td className="px-3 py-1.5 font-medium">
+                  <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                    <TableCell className="px-3 py-1.5 font-medium">
                       <div className="flex items-center gap-1">
-                        {idx.primary && <Hash className="size-3 text-amber-500" />}
+                        {idx.primary && <Hash className="size-3 text-muted-foreground" />}
                         {idx.name}
                       </div>
-                    </td>
-                    <td className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</td>
-                    <td className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</TableCell>
+                    <TableCell className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </TabsContent>
 

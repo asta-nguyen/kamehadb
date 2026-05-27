@@ -14,6 +14,8 @@ const initialState: AppStoreState = {
   density: 'compact',
   view: 'workspace',
   theme: (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system',
+  expandedConnections: [],
+  connectionStatus: {},
 };
 
 export const appStore = new Store<AppStoreState>(initialState);
@@ -84,6 +86,15 @@ export function openDatabaseStatsTab(connectionId: string) {
   });
 }
 
+export function openRedisTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:redis`,
+    type: 'redis' as const,
+    title: 'Redis Browser',
+    connectionId,
+  });
+}
+
 export function openTableStatsTab(connectionId: string, tableId: string) {
   openTab({
     id: `${connectionId}:${tableId}:stats`,
@@ -115,6 +126,26 @@ export function navigateTo(view: AppView) {
 
 export function toggleSidebar() {
   appStore.setState((state) => ({ ...state, sidebarCollapsed: !state.sidebarCollapsed }));
+}
+
+export function toggleExpandedConnection(id: string) {
+  appStore.setState((state) => {
+    const expanded = state.expandedConnections.includes(id)
+      ? state.expandedConnections.filter((e) => e !== id)
+      : [...state.expandedConnections, id];
+    return { ...state, expandedConnections: expanded };
+  });
+}
+
+export function setExpandedConnections(ids: string[]) {
+  appStore.setState((state) => ({ ...state, expandedConnections: ids }));
+}
+
+export function setConnectionStatus(id: string, status: 'connected' | 'disconnected') {
+  appStore.setState((state) => {
+    if (state.connectionStatus[id] === status) return state;
+    return { ...state, connectionStatus: { ...state.connectionStatus, [id]: status } };
+  });
 }
 
 export function setTheme(theme: 'light' | 'dark' | 'system') {

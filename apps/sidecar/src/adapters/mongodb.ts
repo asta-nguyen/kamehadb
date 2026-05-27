@@ -14,6 +14,20 @@ interface MongoConfig {
   database?: string;
 }
 
+function serializeDocument(doc: Record<string, unknown>): Record<string, unknown> {
+  const serialized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(doc)) {
+    if (value && typeof value === 'object' && (value as { _bsontype?: string })._bsontype === 'ObjectId') {
+      serialized[key] = (value as { toString: () => string }).toString();
+    } else if (value instanceof Date) {
+      serialized[key] = value.toISOString();
+    } else {
+      serialized[key] = value;
+    }
+  }
+  return serialized;
+}
+
 export function createMongoAdapter(config: MongoConfig): MongoAdapter {
   let client: MongoClient | null = null;
   let activeDbName: string | null = null;
@@ -88,6 +102,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const skip = input.skip || 0;
       const limit = Math.min(input.limit || 100, 1000);
 
+      // Fetch limit + 1 to determine if there are more results
       const cursor = collection.find(filter, {
         projection,
         sort,
@@ -96,30 +111,52 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       });
 
       const documents: Record<string, unknown>[] = [];
-      let count = 0;
+      let hasMore = false;
 
       for await (const doc of cursor) {
-        if (count < limit) {
-          const serialized: Record<string, unknown> = {};
-          for (const [key, value] of Object.entries(doc)) {
-            if (value && typeof value === 'object' && (value as { _bsontype?: string })._bsontype === 'ObjectId') {
-              serialized[key] = (value as { toString: () => string }).toString();
-            } else if (value instanceof Date) {
-              serialized[key] = value.toISOString();
-            } else {
-              serialized[key] = value;
-            }
-          }
-          documents.push(serialized);
+        if (documents.length < limit) {
+          documents.push(serializeDocument(doc as Record<string, unknown>));
+        } else {
+          // We've reached limit + 1, there are more results
+          hasMore = true;
         }
-        count++;
       }
 
       return {
         documents,
-        totalCount: count,
-        hasMore: count > limit,
+        totalCount: documents.length + (hasMore ? 1 : 0),
+        hasMore,
       };
+    },
+
+    async updateDocument(
+      database: string,
+      collection: string,
+      filter: Record<string, unknown>,
+      update: Record<string, unknown>,
+    ): Promise<{ matchedCount: number; modifiedCount: number }> {
+      const mongoClient = await ensureConnected();
+      const targetDb = mongoClient.db(database || activeDbName || config.database);
+      const coll = targetDb.collection(collection);
+      const result = await coll.updateOne(filter, { $set: update });
+      return {
+        matchedCount: result.matchedCount,
+        modifiedCount: result.modifiedCount,
+      };
+    },
+
+    async deleteDocument(
+      database: string,
+      collection: string,
+      filter: Record<string, unknown>,
+    ): Promise<{ deletedCount: number }> {
+      const mongoClient = await ensureConnected();
+      const targetDb = database ? mongoClient.db(database) : mongoClient.db(activeDbName || config.database);
+      if (!targetDb) throw new Error('No database selected');
+
+      const coll = targetDb.collection(collection);
+      const result = await coll.deleteMany(filter);
+      return { deletedCount: result.deletedCount };
     },
 
     async aggregate(input: AggregateInput): Promise<DocumentResult> {
@@ -135,31 +172,27 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const limit = Math.min(input.limit || 100, 1000);
 
       const finalPipeline = [...pipeline];
+      // Only add limit if not already present in pipeline
       if (!finalPipeline.some((stage) => '$limit' in stage)) {
-        finalPipeline.push({ $limit: limit } as Record<string, unknown>);
+        finalPipeline.push({ $limit: limit + 1 } as Record<string, unknown>);
       }
 
       const cursor = collection.aggregate(finalPipeline);
       const documents: Record<string, unknown>[] = [];
+      let hasMore = false;
 
       for await (const doc of cursor) {
-        const serialized: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(doc)) {
-          if (value && typeof value === 'object' && (value as { _bsontype?: string })._bsontype === 'ObjectId') {
-            serialized[key] = (value as { toString: () => string }).toString();
-          } else if (value instanceof Date) {
-            serialized[key] = value.toISOString();
-          } else {
-            serialized[key] = value;
-          }
+        if (documents.length < limit) {
+          documents.push(serializeDocument(doc as Record<string, unknown>));
+        } else {
+          hasMore = true;
         }
-        documents.push(serialized);
       }
 
       return {
         documents,
-        totalCount: documents.length,
-        hasMore: documents.length >= limit,
+        totalCount: documents.length + (hasMore ? 1 : 0),
+        hasMore,
       };
     },
 
@@ -169,6 +202,31 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
         client = null;
         activeDbName = null;
       }
+    },
+
+    async getCollectionStats(
+      database: string,
+      collection: string,
+    ): Promise<{
+      documentCount: number;
+      indexes: { name: string; key: Record<string, unknown>; unique: boolean }[];
+    }> {
+      const mongoClient = await ensureConnected();
+      const targetDb = mongoClient.db(database || activeDbName || config.database);
+      const coll = targetDb.collection(collection);
+
+      const [documentCount, indexes] = await Promise.all([coll.estimatedDocumentCount(), coll.indexes()]);
+
+      return {
+        documentCount,
+        indexes: indexes
+          .filter((idx) => idx.name)
+          .map((idx) => ({
+            name: idx.name!,
+            key: idx.key as Record<string, unknown>,
+            unique: idx.unique ?? false,
+          })),
+      };
     },
   };
 }

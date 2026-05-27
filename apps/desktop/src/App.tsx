@@ -7,6 +7,7 @@ import { TableView } from '@/components/table-view';
 import { SqlEditor } from '@/components/sql-editor';
 import { SchemaGraph } from '@/components/schema-graph';
 import { MongoView } from '@/components/mongo-view';
+import { RedisView } from '@/components/redis-view';
 import { TableStats } from '@/components/table-stats';
 import { DatabaseStats } from '@/components/database-stats';
 import { ApiSettingsPage } from '@/components/api-settings-page';
@@ -21,8 +22,22 @@ import {
   toggleTheme,
   applyTheme,
   openDatabaseStatsTab,
+  openRedisTab,
 } from '@/store';
-import { X, Terminal, Table2, Plus, Share2, Database, Sun, Moon, Monitor, BarChart3, Activity } from 'lucide-react';
+import {
+  X,
+  Terminal,
+  Table2,
+  Plus,
+  Share2,
+  Database,
+  Sun,
+  Moon,
+  Monitor,
+  BarChart3,
+  Activity,
+  Box,
+} from 'lucide-react';
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -55,6 +70,8 @@ function TabBar() {
               <Share2 className="size-3" />
             ) : tab.type === 'mongo' ? (
               <Database className="size-3" />
+            ) : tab.type === 'redis' ? (
+              <Box className="size-3" />
             ) : tab.type === 'stats' || tab.type === 'database-stats' ? (
               <BarChart3 className="size-3" />
             ) : tab.type === 'table-stats' ? (
@@ -101,6 +118,26 @@ function Workspace() {
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
+  const { data: connections } = useConnections();
+
+  const activeConnection = connections?.find((c) => c.id === activeConnectionId);
+
+  // Auto-open appropriate view for connection type when no matching tabs open
+  useEffect(() => {
+    if (!activeConnectionId || !activeConnection) return;
+
+    const hasMatchingTab = openedTabs.some((tab) => {
+      if (activeConnection.kind === 'redis') return tab.type === 'redis';
+      if (activeConnection.kind === 'mongodb') return tab.type === 'mongo';
+      return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
+    });
+
+    if (!hasMatchingTab) {
+      if (activeConnection.kind === 'redis') {
+        openRedisTab(activeConnectionId);
+      }
+    }
+  }, [activeConnectionId, activeConnection?.kind]);
 
   if (!activeConnectionId) {
     return (
@@ -114,30 +151,69 @@ function Workspace() {
   }
 
   if (openedTabs.length === 0) {
+    if (activeConnection?.kind === 'mongodb') {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Select a collection from the sidebar</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-3">
-          <p className="text-sm text-muted-foreground">Select a table or open a query tab</p>
+          <p className="text-sm text-muted-foreground">Select a table or open a tab</p>
           <div className="flex items-center justify-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
-              <Terminal className="size-3.5 mr-1.5" />
-              New Query
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => openGraphTab(activeConnectionId)}>
-              <Share2 className="size-3.5 mr-1.5" />
-              Schema Graph
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => openDatabaseStatsTab(activeConnectionId)}>
-              <BarChart3 className="size-3.5 mr-1.5" />
-              Database Stats
-            </Button>
+            {(activeConnection?.kind === 'postgres' ||
+              activeConnection?.kind === 'mysql' ||
+              activeConnection?.kind === 'sqlite') && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
+                  <Terminal className="size-3.5 mr-1.5" />
+                  New Query
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => openGraphTab(activeConnectionId)}>
+                  <Share2 className="size-3.5 mr-1.5" />
+                  Schema Graph
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => openDatabaseStatsTab(activeConnectionId)}>
+                  <BarChart3 className="size-3.5 mr-1.5" />
+                  Database Stats
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
-  const activeTab = openedTabs.find((t) => t.id === activeTabId) ?? openedTabs[0];
+  // Filter tabs to only show tabs matching current connection type
+  const visibleTabs = openedTabs.filter((tab) => {
+    if (!activeConnection) return false;
+    switch (activeConnection.kind) {
+      case 'redis':
+        return tab.type === 'redis';
+      case 'mongodb':
+        return tab.type === 'mongo';
+      default:
+        return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
+    }
+  });
+
+  const activeTab = visibleTabs.find((t) => t.id === activeTabId) ?? visibleTabs[0];
+
+  if (!activeTab) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -147,6 +223,7 @@ function Workspace() {
       {activeTab.type === 'table' && <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />}
       {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
       {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'redis' && <RedisView connectionId={activeTab.connectionId} />}
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
@@ -223,9 +300,7 @@ function App() {
       <div className="h-screen w-screen flex flex-col">
         <Header />
         <div className="flex-1 flex overflow-hidden">
-          <aside className="w-56 border-r border-border shrink-0 flex flex-col bg-muted/30">
-            <Sidebar />
-          </aside>
+          <Sidebar />
           {view === 'api-settings' ? <ApiSettingsPage /> : <MainLayout />}
         </div>
       </div>
