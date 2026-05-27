@@ -308,6 +308,21 @@ export interface MongoAdapter {
   listCollections(database?: string): Promise<CollectionInfo[]>;
   findDocuments(input: FindDocumentsInput): Promise<DocumentResult>;
   aggregate(input: AggregateInput): Promise<DocumentResult>;
+  deleteDocument(
+    database: string,
+    collection: string,
+    filter: Record<string, unknown>,
+  ): Promise<{ deletedCount: number }>;
+  updateDocument(
+    database: string,
+    collection: string,
+    filter: Record<string, unknown>,
+    update: Record<string, unknown>,
+  ): Promise<{ matchedCount: number; modifiedCount: number }>;
+  getCollectionStats(
+    database: string,
+    collection: string,
+  ): Promise<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>;
   close(): Promise<void>;
 }
 
@@ -386,4 +401,6 @@ export type AppStoreState = {
   density: 'compact' | 'comfortable';
   view: AppView;
   theme: 'light' | 'dark' | 'system';
+  expandedConnections: string[];
+  connectionStatus: Record<string, 'connected' | 'disconnected'>;
 };

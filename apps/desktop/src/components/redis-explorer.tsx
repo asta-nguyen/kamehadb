@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useRedisKeys, useRedisKeyDetails } from '@/hooks/use-redis';
 import { Loader2, Search, Box, Hash, List, Type, Clock, X } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -103,40 +103,36 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
             />
           </div>
         </div>
-        <ScrollArea className="flex-1">
-          <div className="p-1.5 space-y-0.5">
-            {loadingKeys ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredKeys.length === 0 ? (
-              <div className="px-2 py-4 text-xs text-muted-foreground text-center">
-                {keysResult?.keys?.length === 0 ? 'No keys found' : 'No matches'}
-              </div>
-            ) : (
-              filteredKeys.map((entry) => {
-                const Icon = typeIcons[entry.type] || Box;
-                const isSelected = selectedKey === entry.key;
-                return (
-                  <button
-                    key={entry.key}
-                    onClick={() => handleKeyClick(entry.key)}
-                    className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded-md transition-colors group ${
-                      isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
-                    }`}
-                    title={`${entry.key} (${entry.type})`}
-                  >
-                    <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
-                    <span className="truncate flex-1 text-left">{entry.key}</span>
-                    <span className={`text-[10px] uppercase ml-auto ${typeColors[entry.type] || ''}`}>
-                      {entry.type}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </ScrollArea>
+        <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
+          {loadingKeys ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredKeys.length === 0 ? (
+            <div className="px-2 py-4 text-xs text-muted-foreground text-center">
+              {keysResult?.keys?.length === 0 ? 'No keys found' : 'No matches'}
+            </div>
+          ) : (
+            filteredKeys.map((entry) => {
+              const Icon = typeIcons[entry.type] || Box;
+              const isSelected = selectedKey === entry.key;
+              return (
+                <button
+                  key={entry.key}
+                  onClick={() => handleKeyClick(entry.key)}
+                  className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded-md transition-colors group ${
+                    isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                  }`}
+                  title={`${entry.key} (${entry.type})`}
+                >
+                  <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
+                  <span className="truncate flex-1 text-left">{entry.key}</span>
+                  <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
         <div className="px-2 py-1 border-t border-border text-xs text-muted-foreground">{filteredKeys.length} keys</div>
       </div>
 
@@ -150,7 +146,9 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
                   const Icon = typeIcons[keyDetails.type] || Box;
                   return <Icon className={`size-4 shrink-0 ${typeColors[keyDetails.type] || ''}`} />;
                 })()}
-                <span className="font-mono text-sm truncate">{keyDetails.key}</span>
+                <span className="font-mono text-sm truncate" title={keyDetails.key}>
+                  {keyDetails.key}
+                </span>
                 <span className="text-xs uppercase bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                   {keyDetails.type}
                 </span>
@@ -167,11 +165,11 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
                 </Button>
               </div>
             </div>
-            <ScrollArea className="flex-1 p-3">
+            <div className="flex-1 overflow-y-auto min-h-0 p-3">
               <div className="font-mono text-sm whitespace-pre-wrap break-all">
                 {formatValue(keyDetails.value, keyDetails.type)}
               </div>
-            </ScrollArea>
+            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">

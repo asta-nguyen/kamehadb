@@ -169,36 +169,43 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         {result && (
           <div className="p-4">
             <div className="overflow-auto border rounded-md">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="bg-muted/50">
-                    {result.columns.map((col) => (
-                      <th
-                        key={col.name}
-                        className="px-3 py-1.5 text-left font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
-                      >
-                        {col.name}
-                        <span className="ml-1 text-muted-foreground/60">{col.type}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.rows.map((row, i) => (
-                    <tr key={i} className="border-t border-border/40 hover:bg-muted/30">
-                      {result.columns.map((col) => (
-                        <td key={col.name} className="px-3 py-1 border-r last:border-r-0 truncate max-w-60">
-                          {row[col.name] === null ? (
-                            <span className="text-muted-foreground italic">NULL</span>
-                          ) : (
-                            String(row[col.name])
-                          )}
-                        </td>
-                      ))}
-                    </tr>
+              {result.columns.length > 0 && (
+                <div
+                  className="grid text-xs bg-muted/50 sticky top-0 z-10"
+                  style={{ gridTemplateColumns: `repeat(${result.columns.length}, minmax(120px, 1fr))` }}
+                >
+                  {result.columns.map((col) => (
+                    <div
+                      key={col.name}
+                      className="px-3 py-1.5 font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
+                    >
+                      {col.name}
+                      <span className="ml-1 text-muted-foreground/60">{col.type}</span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              )}
+              {result.rows.map((row, i) => (
+                <div
+                  key={i}
+                  className="grid text-xs border-t border-border/40 hover:bg-muted/30"
+                  style={{ gridTemplateColumns: `repeat(${result.columns.length}, minmax(120px, 1fr))` }}
+                >
+                  {result.columns.map((col) => (
+                    <div
+                      key={col.name}
+                      className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
+                      title={row[col.name] === null ? '' : String(row[col.name])}
+                    >
+                      {row[col.name] === null ? (
+                        <span className="text-muted-foreground italic">NULL</span>
+                      ) : (
+                        String(row[col.name])
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
             <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
               <div className="flex items-center gap-3">

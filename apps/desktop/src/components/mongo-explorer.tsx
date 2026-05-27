@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from '@tanstack/react-store';
 import { useMongoDatabases, useMongoCollections } from '@/hooks/use-mongo';
-import { ChevronRight, ChevronDown, Database, Table2, Eye, Clock, Loader2, Search } from 'lucide-react';
+import { Database, Table2, Eye, Clock, Loader2, Search } from 'lucide-react';
 import { openMongoTab, setActiveMongoDatabase, appStore } from '@/store';
 import type { CollectionInfo } from '@kamehadb/shared';
 
@@ -24,21 +24,35 @@ interface MongoExplorerProps {
 export function MongoExplorer({ connectionId }: MongoExplorerProps) {
   const storedDb = useStore(appStore, (s) => s.activeMongoDatabase);
   const [selectedDb, setSelectedDb] = useState<string | null>(storedDb);
+  const [expandedDbs, setExpandedDbs] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const { data: databases, isLoading: loadingDatabases } = useMongoDatabases(connectionId);
 
-  // Auto-select first database if none selected
+  // Auto-select and auto-expand first database
   useEffect(() => {
     if (!selectedDb && databases?.length) {
-      setSelectedDb(databases[0].name);
-      setActiveMongoDatabase(databases[0].name);
+      const first = databases[0].name;
+      setSelectedDb(first);
+      setExpandedDbs(new Set([first]));
+      setActiveMongoDatabase(first);
     }
   }, [databases, selectedDb]);
+
+  const toggleDb = (name: string) => {
+    setExpandedDbs((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   const handleDbSelect = (dbName: string) => {
     setSelectedDb(dbName);
     setActiveMongoDatabase(dbName);
     setSearchQuery('');
+    setSelectedCollection(null);
   };
 
   return (
@@ -57,10 +71,13 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
             key={db.name}
             dbName={db.name}
             connectionId={connectionId}
-            isSelected={selectedDb === db.name}
+            expanded={expandedDbs.has(db.name)}
+            onToggle={() => toggleDb(db.name)}
             onSelect={() => handleDbSelect(db.name)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            selectedCollection={selectedCollection}
+            onSelectCollection={setSelectedCollection}
           />
         ))
       )}
@@ -71,17 +88,29 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
 interface DatabaseNodeProps {
   dbName: string;
   connectionId: string;
-  isSelected: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   onSelect: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  selectedCollection: string | null;
+  onSelectCollection: (name: string | null) => void;
 }
 
-function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery, onSearchChange }: DatabaseNodeProps) {
-  const [expanded, setExpanded] = useState(false);
+function DatabaseNode({
+  dbName,
+  connectionId,
+  expanded,
+  onToggle,
+  onSelect,
+  searchQuery,
+  onSearchChange,
+  selectedCollection,
+  onSelectCollection,
+}: DatabaseNodeProps) {
   const { data: collections, isLoading: loadingCollections } = useMongoCollections(
     connectionId,
-    isSelected ? dbName : null,
+    expanded ? dbName : null,
   );
 
   const filteredCollections = useMemo(() => {
@@ -93,13 +122,17 @@ function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery,
 
   const handleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setExpanded(!expanded);
-    if (!expanded) onSelect();
+    onToggle();
+    onSelect();
   };
 
-  const handleCollectionClick = (collection: CollectionInfo) => {
-    openMongoTab(connectionId, dbName, collection.name);
-  };
+  const handleCollectionClick = useCallback(
+    (collection: CollectionInfo) => {
+      onSelectCollection(`${dbName}:${collection.name}`);
+      openMongoTab(connectionId, dbName, collection.name);
+    },
+    [connectionId, dbName, onSelectCollection],
+  );
 
   return (
     <div>
@@ -107,14 +140,44 @@ function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery,
         onClick={handleExpand}
         className="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors"
       >
-        {expanded ? <ChevronDown className="size-3 shrink-0" /> : <ChevronRight className="size-3 shrink-0" />}
         <Database className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate">{dbName}</span>
-        {isSelected && collections && (
-          <span className="ml-auto text-xs text-muted-foreground">{collections.length}</span>
+        <span className="truncate" title={dbName}>
+          {dbName}
+        </span>
+        {collections && <span className="ml-auto text-xs text-muted-foreground">{collections.length}</span>}
+        {expanded ? (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-3 shrink-0 text-muted-foreground/60"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-3 shrink-0 text-muted-foreground/60"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
         )}
       </button>
-      {expanded && isSelected && (
+      {expanded && (
         <div className="ml-4 pl-2 border-l border-border">
           <div className="px-2 py-1">
             <div className="relative">
@@ -144,13 +207,11 @@ function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery,
                 <button
                   key={col.name}
                   onClick={() => handleCollectionClick(col)}
-                  className="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors group"
-                  title={`${col.type}${col.documentCount !== undefined ? ` (${col.documentCount} docs)` : ''}`}
+                  className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors ${selectedCollection === `${dbName}:${col.name}` ? 'bg-muted/50' : ''}`}
                 >
                   <Icon className={`size-3 shrink-0 ${typeColors[col.type]}`} />
-                  <span className="truncate flex-1">{col.name}</span>
-                  <span className="text-xs text-muted-foreground uppercase ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                    {col.type}
+                  <span className="truncate" title={col.name}>
+                    {col.name}
                   </span>
                 </button>
               );

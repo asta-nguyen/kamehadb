@@ -122,6 +122,23 @@ function Workspace() {
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
 
+  // Auto-open appropriate view for connection type when no matching tabs open
+  useEffect(() => {
+    if (!activeConnectionId || !activeConnection) return;
+
+    const hasMatchingTab = openedTabs.some((tab) => {
+      if (activeConnection.kind === 'redis') return tab.type === 'redis';
+      if (activeConnection.kind === 'mongodb') return tab.type === 'mongo';
+      return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
+    });
+
+    if (!hasMatchingTab) {
+      if (activeConnection.kind === 'redis') {
+        openRedisTab(activeConnectionId);
+      }
+    }
+  }, [activeConnectionId, activeConnection?.kind, openedTabs]);
+
   if (!activeConnectionId) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -133,20 +150,38 @@ function Workspace() {
     );
   }
 
-  // Auto-open Redis browser for Redis connections when no tabs open
-  useEffect(() => {
-    if (openedTabs.length === 0 && activeConnection?.kind === 'redis') {
-      openRedisTab(activeConnectionId);
+  // Filter tabs to only show tabs matching current connection type
+  const visibleTabs = openedTabs.filter((tab) => {
+    if (!activeConnection) return false;
+    switch (activeConnection.kind) {
+      case 'redis':
+        return tab.type === 'redis';
+      case 'mongodb':
+        return tab.type === 'mongo';
+      default:
+        return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
     }
-  }, [activeConnectionId, openedTabs.length, activeConnection?.kind]);
+  });
 
-  if (openedTabs.length === 0) {
+  if (visibleTabs.length === 0) {
+    if (activeConnection?.kind === 'mongodb') {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Select a collection from the sidebar</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-3">
           <p className="text-sm text-muted-foreground">Select a table or open a tab</p>
           <div className="flex items-center justify-center gap-2">
-            {activeConnection?.kind !== 'redis' && (
+            {(activeConnection?.kind === 'postgres' ||
+              activeConnection?.kind === 'mysql' ||
+              activeConnection?.kind === 'sqlite') && (
               <>
                 <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
                   <Terminal className="size-3.5 mr-1.5" />
@@ -168,7 +203,21 @@ function Workspace() {
     );
   }
 
-  const activeTab = openedTabs.find((t) => t.id === activeTabId) ?? openedTabs[0];
+  const foundTab = visibleTabs.find((t) => t.id === activeTabId);
+  if (!foundTab && visibleTabs.length > 0) {
+    appStore.setState((s) => ({ ...s, activeTabId: visibleTabs[0].id }));
+  }
+  const activeTab = foundTab ?? visibleTabs[0];
+
+  if (!activeTab) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">

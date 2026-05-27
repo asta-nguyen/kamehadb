@@ -103,4 +103,22 @@ export const api = {
 
   findMongoDocuments: (connectionId: string, input: import('@kamehadb/shared').FindDocumentsInput) =>
     request<import('@kamehadb/shared').DocumentResult>('POST', `/mongo/${connectionId}/find`, input, true),
+
+  deleteMongoDocument: (
+    connectionId: string,
+    input: { collection: string; database?: string; filter: Record<string, unknown> },
+  ) => request<{ deletedCount: number }>('POST', `/mongo/${connectionId}/delete`, input, true),
+
+  updateMongoDocument: (
+    connectionId: string,
+    input: { collection: string; database?: string; filter: Record<string, unknown>; update: Record<string, unknown> },
+  ) => request<{ matchedCount: number; modifiedCount: number }>('POST', `/mongo/${connectionId}/update`, input, true),
+
+  getMongoCollectionStats: (connectionId: string, database: string, collection: string) =>
+    request<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
+      'GET',
+      `/mongo/${connectionId}/stats?database=${encodeURIComponent(database)}&collection=${encodeURIComponent(collection)}`,
+      undefined,
+      true,
+    ),
 };
