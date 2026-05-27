@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Features - KamehaDB</title>
+  <meta name="description" content="Explore KamehaDB features: AI-SQL generation, multi-engine support, ER diagrams, and more.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗃️</text></svg>">
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #fafafa; color: #1a1a1a; line-height: 1.6; }
+    header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 1rem 2rem; }
+    nav { max-width: 960px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: #666; text-decoration: none; font-size: 0.875rem; }
+    nav a:hover { color: #1a1a1a; }
+    .logo { font-weight: 700; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 0 auto; padding: 3rem 2rem; }
+    h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem; }
+    h2 { font-size: 1.5rem; font-weight: 700; margin: 2rem 0 1rem; }
+    .feature { background: #fff; border: 1px solid #e5e5e5; border-radius: 0.75rem; padding: 1.5rem; margin: 1rem 0; }
+    .feature h3 { font-size: 1.125rem; font-weight: 700; margin: 0 0 0.5rem; display: flex; align-items: center; gap: 0.5rem; }
+    .feature p { color: #666; margin: 0; }
+    .tag { background: #f0f0f0; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600; }
+    .tag.ai { background: #dbeafe; color: #1e40af; }
+    .tag.core { background: #dcfce7; color: #166534; }
+    .tag.visual { background: #fef3c7; color: #92400e; }
+    footer { border-top: 1px solid #e5e5e5; padding: 2rem; text-align: center; color: #666; font-size: 0.875rem; }
+    footer a { color: #1a1a1a; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #e5e5e5; padding: 0.75rem; text-align: left; }
+    th { background: #f0f0f0; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <span class="logo">🗃️ KamehaDB</span>
+      <div style="display:flex;gap:1.5rem;">
+        <a href="index.html">Home</a>
+        <a href="getting-started.html">Get Started</a>
+        <a href="faq.html">FAQ</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Features</h1>
+    <p>KamehaDB combines a powerful SQL editor with AI-powered assistance to make database work faster and more intuitive.</p>
+
+    <div class="feature">
+      <h3><span class="tag ai">AI</span> AI-SQL Generation</h3>
+      <p>Chat naturally with AI to generate, explain, and debug SQL queries. The AI has access to your database schema, so it knows your table structure, columns, and relationships. Supports OpenAI, Ollama (local/cloud), and 9Router.</p>
+    </div>
+
+    <div class="feature">
+      <h3><span class="tag ai">AI</span> Schema-Aware Context</h3>
+      <p>AI automatically builds context from your database schema (CREATE TABLE statements, column types, foreign keys, indexes). No more guessing table names or column types.</p>
+    </div>
+
+    <div class="feature">
+      <h3><span class="tag core">CORE</span> Multi-Engine Support</h3>
+      <p>Connect to PostgreSQL, MySQL, SQLite, MongoDB, and Redis from a single application. Each engine is supported with native query capabilities.</p>
+    </div>
+
+    <div class="feature">
+      <h3><span class="tag core">CORE</span> Schema Browser</h3>
+      <p>Browse databases, schemas, tables, columns, and indexes with a tree-view navigator. See column types, nullable flags, defaults, and foreign key relationships.</p>
+    </div>
+
+    <div class="feature">
+      <h3><span class="tag core">CORE</span> SQL Editor</h3>
+      <p>Monaco-based editor with syntax highlighting, autocomplete, FK-aware JOIN suggestions, and execution with results grid.</p>
+    </div>
+
+    <div class="feature">
+      <h3><span class="tag visual">VISUAL</span> ER Diagrams</h3>
+      <p>Auto-generated entity relationship graphs powered by ReactFlow. Visualize how tables connect via foreign keys. Zoom, pan, and explore relationships interactively.</p>
+    </div>
+
+    <div class="feature">
+      <h3><span class="tag core">CORE</span> Connection URL Parser</h3>
+      <p>Paste postgresql://, mysql://, or redis:// URIs to auto-fill connection fields. No more hunting for port numbers.</p>
+    </div>
+
+    <div class="feature">
+      <h3><span class="tag core">CORE</span> Local-First Storage</h3>
+      <p>All connection profiles and metadata stored locally via SQLite. Credentials encrypted at rest. No secrets sent to the cloud.</p>
+    </div>
+
+    <h2>Database Support Matrix</h2>
+    <table>
+      <tr><th>Feature</th><th>PostgreSQL</th><th>MySQL</th><th>SQLite</th><th>MongoDB</th><th>Redis</th></tr>
+      <tr><td>Schema browsing</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Query execution</td><td>✅</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+      <tr><td>ER diagrams</td><td>✅</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+      <tr><td>AI-SQL generation</td><td>✅</td><td>✅</td><td>✅</td><td>—</td><td>—</td></tr>
+      <tr><td>Table stats</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>Active connections</td><td>✅</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    </table>
+  </main>
+
+  <footer>
+    <p>MIT License • <a href="https://github.com/asta-nguyen/kamehadb">GitHub</a></p>
+  </footer>
+</body>
+</html>

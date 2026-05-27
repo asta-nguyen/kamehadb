@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQ - KamehaDB</title>
+  <meta name="description" content="Frequently asked questions about KamehaDB.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗃️</text></svg>">
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #fafafa; color: #1a1a1a; line-height: 1.6; }
+    header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 1rem 2rem; }
+    nav { max-width: 960px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: #666; text-decoration: none; font-size: 0.875rem; }
+    nav a:hover { color: #1a1a1a; }
+    .logo { font-weight: 700; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 0 auto; padding: 3rem 2rem; }
+    h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem; }
+    h2 { font-size: 1.5rem; font-weight: 700; margin: 2rem 0 1rem; }
+    .faq-item { margin: 1.5rem 0; }
+    .faq-item h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .faq-item p { color: #666; margin: 0; }
+    footer { border-top: 1px solid #e5e5e5; padding: 2rem; text-align: center; color: #666; font-size: 0.875rem; }
+    footer a { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <span class="logo">🗃️ KamehaDB</span>
+      <div style="display:flex;gap:1.5rem;">
+        <a href="index.html">Home</a>
+        <a href="getting-started.html">Get Started</a>
+        <a href="features.html">Features</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>FAQ</h1>
+
+    <div class="faq-item">
+      <h3>What is KamehaDB?</h3>
+      <p>KamehaDB is a local-first, cross-platform database GUI with built-in AI. It connects to PostgreSQL, MySQL, SQLite, MongoDB, and Redis, letting you browse schemas, run queries, and generate SQL through conversation.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>How does AI-SQL generation work?</h3>
+      <p>KamehaDB's AI chat sends your database schema context (table definitions, columns, foreign keys) to an LLM provider. The AI uses this context to generate accurate SQL queries. You can ask questions like "show me all users who signed up last month" and the AI will write the query.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>What AI providers are supported?</h3>
+      <p>KamehaDB supports any OpenAI-compatible API provider: OpenAI (GPT-4o, GPT-4o-mini), Ollama (local or cloud), and 9Router. Local Ollama is recommended for privacy and cost savings.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Is my data sent to the cloud?</h3>
+      <p>Your database credentials are stored locally in an encrypted SQLite database. If you use a cloud AI provider (OpenAI, 9Router), query context is sent to that provider. Using local Ollama keeps all data on your machine.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>What's the difference between KamehaDB and DBeaver/Navicat?</h3>
+      <p>KamehaDB differentiates by: (1) Built-in AI for SQL generation, (2) Local-first architecture with encrypted credentials, (3) Modern React + Tauri stack, (4) ER diagram visualization with ReactFlow.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Why Tauri instead of Electron?</h3>
+      <p>Tauri uses Rust for the backend instead of Node.js, making binaries smaller (~10MB vs ~150MB), startup faster, and memory usage lower. The web frontend is still React.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>Can I connect to remote databases?</h3>
+      <p>Yes. KamehaDB connects to any PostgreSQL, MySQL, or Redis instance accessible from your machine. Simply provide the host, port, username, and password (or connection string).</p>
+    </div>
+
+    <div class="faq-item">
+      <h3>How do I report bugs or request features?</h3>
+      <p>Open an issue on <a href="https://github.com/asta-nguyen/kamehadb" style="color:#1a1a1a;">GitHub</a> with details about the problem or desired feature.</p>
+    </div>
+  </main>
+
+  <footer>
+    <p>MIT License • <a href="https://github.com/asta-nguyen/kamehadb">GitHub</a></p>
+  </footer>
+</body>
+</html>

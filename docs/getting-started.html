@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started - KamehaDB</title>
+  <meta name="description" content="Set up KamehaDB in minutes. Connect to PostgreSQL, MySQL, SQLite, MongoDB, or Redis.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗃️</text></svg>">
+  <style>
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #fafafa; color: #1a1a1a; line-height: 1.6; }
+    header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 1rem 2rem; }
+    nav { max-width: 960px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: #666; text-decoration: none; font-size: 0.875rem; }
+    nav a:hover { color: #1a1a1a; }
+    .logo { font-weight: 700; font-size: 1.25rem; }
+    main { max-width: 960px; margin: 0 auto; padding: 3rem 2rem; }
+    h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem; }
+    h2 { font-size: 1.5rem; font-weight: 700; margin: 2rem 0 1rem; }
+    pre { background: #1a1a1a; color: #e5e5e5; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.875rem; margin: 1rem 0; }
+    code { background: #f0f0f0; padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875em; }
+    .note { background: #fffbeb; border: 1px solid #fcd34d; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { border: 1px solid #e5e5e5; padding: 0.75rem; text-align: left; }
+    th { background: #f0f0f0; font-weight: 600; }
+    footer { border-top: 1px solid #e5e5e5; padding: 2rem; text-align: center; color: #666; font-size: 0.875rem; }
+    footer a { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <span class="logo">🗃️ KamehaDB</span>
+      <div style="display:flex;gap:1.5rem;">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="faq.html">FAQ</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Getting Started</h1>
+    <p>KamehaDB is a cross-platform database GUI with built-in AI. Follow this guide to set up and run it in minutes.</p>
+
+    <h2>Prerequisites</h2>
+    <ul>
+      <li>Node.js 20+</li>
+      <li>pnpm 9+</li>
+      <li>Docker (for dev databases)</li>
+      <li>Rust (for Tauri desktop app)</li>
+    </ul>
+
+    <h2>Installation</h2>
+    <pre>git clone https://github.com/asta-nguyen/kamehadb.git
+cd kamehadb
+pnpm install</pre>
+
+    <h2>Start Dev Databases</h2>
+    <pre>docker compose up -d</pre>
+
+    <div class="note">
+      <strong>Default credentials:</strong>
+      <table>
+        <tr><th>Engine</th><th>Port</th><th>User</th><th>Password</th><th>Database</th></tr>
+        <tr><td>PostgreSQL</td><td>5432</td><td>kameha</td><td>kameha</td><td>kamehadb</td></tr>
+        <tr><td>MySQL</td><td>3306</td><td>kameha</td><td>kameha</td><td>kamehadb</td></tr>
+        <tr><td>MariaDB</td><td>3307</td><td>kameha</td><td>kameha</td><td>kamehadb</td></tr>
+        <tr><td>Redis</td><td>6379</td><td>—</td><td>—</td><td>—</td></tr>
+      </table>
+    </div>
+
+    <h2>Run the App</h2>
+    <pre># Start both sidecar (backend) and desktop (frontend)
+pnpm dev</pre>
+
+    <h2>Building for Production</h2>
+    <pre># Build all packages
+pnpm build
+
+# Build Tauri desktop app
+pnpm tauri build</pre>
+
+    <h2>AI Setup</h2>
+    <p>Configure AI providers in the app via the API Settings page:</p>
+    <table>
+      <tr><th>Provider</th><th>Model</th><th>Notes</th></tr>
+      <tr><td>Ollama (local)</td><td>llama3.2</td><td>Uses <code>http://localhost:11434</code> by default</td></tr>
+      <tr><td>OpenAI</td><td>gpt-4o</td><td>Requires API key</td></tr>
+      <tr><td>9Router</td><td>Any model</td><td>Requires base URL and API key</td></tr>
+    </table>
+
+    <h2>Type Checking</h2>
+    <pre>pnpm typecheck</pre>
+
+    <h2>Running Tests</h2>
+    <pre>pnpm test</pre>
+  </main>
+
+  <footer>
+    <p>MIT License • <a href="https://github.com/asta-nguyen/kamehadb">GitHub</a></p>
+  </footer>
+</body>
+</html>

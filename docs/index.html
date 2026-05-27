@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KamehaDB - AI-Powered Database GUI</title>
+  <meta name="description" content="KamehaDB is a local-first, cross-platform database GUI with built-in AI that connects to PostgreSQL, MySQL, SQLite, MongoDB, and Redis.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗃️</text></svg>">
+</head>
+<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#fafafa;color:#1a1a1a;">
+  <header style="background:#fff;border-bottom:1px solid #e5e5e5;padding:1rem 2rem;">
+    <nav style="max-width:960px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:700;font-size:1.25rem;">🗃️ KamehaDB</span>
+      <div style="display:flex;gap:1.5rem;font-size:0.875rem;">
+        <a href="getting-started.html" style="color:#666;text-decoration:none;">Get Started</a>
+        <a href="features.html" style="color:#666;text-decoration:none;">Features</a>
+        <a href="faq.html" style="color:#666;text-decoration:none;">FAQ</a>
+      </div>
+    </nav>
+  </header>
+
+  <main style="max-width:960px;margin:0 auto;padding:4rem 2rem;">
+    <div style="text-align:center;margin-bottom:4rem;">
+      <h1 style="font-size:3rem;font-weight:800;margin-bottom:1rem;letter-spacing:-0.02em;">
+        Database GUI,<br>Powered by AI
+      </h1>
+      <p style="font-size:1.25rem;color:#666;max-width:600px;margin:0 auto 2rem;line-height:1.6;">
+        Connect to PostgreSQL, MySQL, SQLite, MongoDB, and Redis. Browse schemas, run queries, and generate SQL through natural conversation with AI.
+      </p>
+      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+        <a href="getting-started.html" style="background:#1a1a1a;color:#fff;padding:0.75rem 1.5rem;border-radius:0.5rem;text-decoration:none;font-weight:600;">Get Started</a>
+        <a href="https://github.com/asta-nguyen/kamehadb" style="background:#fff;color:#1a1a1a;padding:0.75rem 1.5rem;border-radius:0.5rem;border:1px solid #e5e5e5;text-decoration:none;font-weight:600;">View on GitHub</a>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-bottom:4rem;">
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">🤖</div>
+        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">AI-SQL Generation</h3>
+        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
+          Chat with AI to generate, explain, and debug SQL queries. AI knows your schema context for accurate results.
+        </p>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">🔗</div>
+        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">Multi-Engine Support</h3>
+        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
+          PostgreSQL, MySQL, SQLite, MongoDB, and Redis — one app to rule them all. Local-first architecture.
+        </p>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">📊</div>
+        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">ER Diagrams</h3>
+        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
+          Auto-generated entity relationship graphs. Visualize tables, columns, and foreign key relationships.
+        </p>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:0.75rem;padding:1.5rem;">
+        <div style="font-size:2rem;margin-bottom:0.75rem;">💾</div>
+        <h3 style="font-size:1.125rem;font-weight:700;margin-bottom:0.5rem;">Local-First</h3>
+        <p style="color:#666;font-size:0.875rem;line-height:1.6;">
+          All metadata stored locally via SQLite. Credentials encrypted at rest. No cloud dependency.
+        </p>
+      </div>
+    </div>
+
+    <div style="background:#1a1a1a;color:#fff;border-radius:0.75rem;padding:2rem;margin-bottom:4rem;">
+      <h3 style="font-size:1.25rem;font-weight:700;margin-bottom:1rem;">Quick Setup</h3>
+      <pre style="background:#2a2a2a;padding:1rem;border-radius:0.5rem;overflow-x:auto;font-size:0.875rem;line-height:1.6;"># Install dependencies
+pnpm install
+
+# Start dev services
+docker compose up -d
+
+# Run the app
+pnpm dev</pre>
+    </div>
+
+    <div style="text-align:center;margin-bottom:4rem;">
+      <h3 style="font-size:1.5rem;font-weight:700;margin-bottom:1rem;">Supported Databases</h3>
+      <div style="display:flex;gap:2rem;justify-content:center;flex-wrap:wrap;font-size:0.875rem;color:#666;">
+        <span>✅ PostgreSQL</span>
+        <span>✅ MySQL</span>
+        <span>✅ SQLite</span>
+        <span>✅ MongoDB</span>
+        <span>✅ Redis</span>
+      </div>
+    </div>
+  </main>
+
+  <footer style="border-top:1px solid #e5e5e5;padding:2rem;text-align:center;color:#666;font-size:0.875rem;">
+    <p>MIT License • <a href="https://github.com/asta-nguyen/kamehadb" style="color:#1a1a1a;">GitHub</a></p>
+  </footer>
+</body>
+</html>
