@@ -75,7 +75,31 @@ pnpm test
 - **Editor**: Monaco (via @monaco-editor/react), custom SQL autocomplete with FK-aware JOIN/ON hints
 - **Sidecar**: Hono, PostgreSQL (`pg`), MySQL (`mysql2`), SQLite (`better-sqlite3`)
 - **Graph**: ReactFlow, dagre auto-layout
-- **AI**: Multi-provider abstraction (OpenAI, Ollama, 9Router), schema-aware prompt context
+- **AI**: Multi-provider abstraction (OpenAI, Ollama, 9Router)
+
+## Roadmap
+
+### Currently Supported
+
+- [x] PostgreSQL
+- [x] MySQL
+- [x] SQLite
+- [x] MongoDB
+- [x] Redis
+- [x] Data export (CSV, JSON, SQL)
+
+### Not Yet Supported
+
+- [ ] SQL Server
+- [ ] Oracle
+- [ ] ClickHouse
+
+### Future Ideas
+
+- [ ] Query history with favorites
+- [ ] Migration assistant
+- [ ] Data visualization / charts
+- [ ] Collaboration features
 
 ## License
 

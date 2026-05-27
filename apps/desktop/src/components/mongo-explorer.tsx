@@ -13,8 +13,8 @@ const typeIcons: Record<CollectionInfo['type'], React.ComponentType<{ className?
 
 const typeColors: Record<CollectionInfo['type'], string> = {
   collection: 'text-muted-foreground',
-  view: 'text-purple-500',
-  timeseries: 'text-amber-500',
+  view: 'text-primary',
+  timeseries: 'text-muted-foreground',
 };
 
 interface MongoExplorerProps {
@@ -43,7 +43,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
 
   return (
     <div className="space-y-1">
-      <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+      <div className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center justify-between">
         <span>Databases</span>
         <span className="normal-case font-normal">{databases?.length ?? 0}</span>
       </div>
@@ -111,7 +111,7 @@ function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery,
         <Database className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate">{dbName}</span>
         {isSelected && collections && (
-          <span className="ml-auto text-[9px] text-muted-foreground">{collections.length}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{collections.length}</span>
         )}
       </button>
       {expanded && isSelected && (
@@ -124,7 +124,7 @@ function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery,
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Filter..."
-                className="w-full h-6 pl-6 pr-2 text-[10px] bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="w-full h-6 pl-6 pr-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
               />
             </div>
           </div>
@@ -134,7 +134,7 @@ function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery,
               <Loader2 className="size-3 animate-spin text-muted-foreground" />
             </div>
           ) : filteredCollections.length === 0 ? (
-            <div className="px-2 py-1 text-[10px] text-muted-foreground italic">
+            <div className="px-2 py-1 text-xs text-muted-foreground italic">
               {collections?.length === 0 ? 'No collections' : 'No matches'}
             </div>
           ) : (
@@ -149,7 +149,7 @@ function DatabaseNode({ dbName, connectionId, isSelected, onSelect, searchQuery,
                 >
                   <Icon className={`size-3 shrink-0 ${typeColors[col.type]}`} />
                   <span className="truncate flex-1">{col.name}</span>
-                  <span className="text-[9px] text-muted-foreground uppercase ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs text-muted-foreground uppercase ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
                     {col.type}
                   </span>
                 </button>

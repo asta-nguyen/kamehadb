@@ -15,6 +15,7 @@ import type {
   IndexStats,
   DatabaseSize,
   ConnectionInfo,
+  TableCompletions,
 } from '@kamehadb/shared';
 
 export function createSqliteAdapter(filePath: string): SqlAdapter {
@@ -74,6 +75,41 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
         primaryKey: r.pk > 0,
         foreignKey: fkMap.get(r.name),
       }));
+    },
+
+    async getCompletions(schema?: string): Promise<TableCompletions[]> {
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        .all() as { name: string }[];
+      const getColumns = db.prepare('SELECT * FROM pragma_table_info(?)');
+      const getFKs = db.prepare('SELECT * FROM pragma_foreign_key_list(?)');
+
+      const result: TableCompletions[] = [];
+      for (const table of tables) {
+        const cols = getColumns.all(table.name) as {
+          name: string;
+          type: string;
+          notnull: number;
+          dflt_value: string | null;
+          pk: number;
+        }[];
+        const fks = getFKs.all(table.name) as { from: string; table: string; to: string }[];
+        const fkMap = new Map<string, { table: string; column: string }>();
+        for (const fk of fks) fkMap.set(fk.from, { table: fk.table, column: fk.to });
+
+        result.push({
+          name: table.name,
+          columns: cols.map((c) => ({
+            name: c.name,
+            type: c.type || 'text',
+            nullable: !c.notnull,
+            default: c.dflt_value,
+            primaryKey: c.pk > 0,
+            foreignKey: fkMap.get(c.name),
+          })),
+        });
+      }
+      return result;
     },
 
     async getTableIndexes(tableId: string): Promise<IndexInfo[]> {

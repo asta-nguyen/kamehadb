@@ -11,6 +11,7 @@ import type {
   QueryResult,
   RunQueryInput,
   QueryColumn,
+  TableCompletions,
 } from '@kamehadb/shared';
 
 export async function testMysqlConnection(connection: {
@@ -132,6 +133,50 @@ export function createMysqlAdapter(connection: {
         primaryKey: !!r.primary_key,
         foreignKey: r.ref_table ? { table: r.ref_table as string, column: r.ref_column as string } : undefined,
       }));
+    },
+
+    async getCompletions(schema?: string): Promise<TableCompletions[]> {
+      const db = schema ?? connection.database;
+      const rows = await query(
+        `SELECT
+          c.TABLE_NAME AS table_name,
+          c.COLUMN_NAME AS column_name,
+          c.COLUMN_TYPE AS type,
+          c.IS_NULLABLE AS nullable,
+          c.COLUMN_DEFAULT AS \`default\`,
+          IF(c.COLUMN_KEY = 'PRI', TRUE, FALSE) AS primary_key,
+          ku.REFERENCED_TABLE_NAME AS ref_table,
+          ku.REFERENCED_COLUMN_NAME AS ref_column
+        FROM INFORMATION_SCHEMA.COLUMNS c
+        LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
+          ON c.TABLE_SCHEMA = ku.TABLE_SCHEMA
+          AND c.TABLE_NAME = ku.TABLE_NAME
+          AND c.COLUMN_NAME = ku.COLUMN_NAME
+          AND ku.REFERENCED_TABLE_NAME IS NOT NULL
+        WHERE c.TABLE_SCHEMA = ?
+          AND c.TABLE_NAME IN (
+            SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'
+          )
+        ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION`,
+        [db, db],
+      );
+      const tableMap = new Map<string, TableCompletions>();
+      for (const row of rows as Record<string, unknown>[]) {
+        const name = row.table_name as string;
+        if (!tableMap.has(name)) {
+          tableMap.set(name, { name, schema: db, columns: [] });
+        }
+        tableMap.get(name)!.columns.push({
+          name: row.column_name as string,
+          type: row.type as string,
+          nullable: row.nullable === 'YES',
+          default: row.default === null ? null : String(row.default),
+          primaryKey: !!row.primary_key,
+          foreignKey: row.ref_table ? { table: row.ref_table as string, column: row.ref_column as string } : undefined,
+        });
+      }
+      return Array.from(tableMap.values());
     },
 
     async getTableIndexes(tableId: string): Promise<IndexInfo[]> {

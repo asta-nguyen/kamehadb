@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -6,6 +6,8 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  ReactFlowProvider,
   type Node,
   type Edge,
   type NodeProps,
@@ -18,7 +20,7 @@ import dagre from 'dagre';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { openTab } from '@/store';
-import { Loader2, Table2 } from 'lucide-react';
+import { Loader2, Table2, LayoutGrid } from 'lucide-react';
 
 type CompletionsData = {
   tables: Array<{
@@ -44,7 +46,7 @@ function useCompletionsSchema(connectionId: string | null) {
 
 function TableNode({ data }: NodeProps) {
   return (
-    <div className="rounded-lg border border-border bg-popover shadow-sm min-w-[180px]">
+    <div className="rounded-lg border border-border bg-popover shadow-sm min-w-45">
       <Handle type="target" position={Position.Top} className="!bg-border" />
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-muted/30 rounded-t-lg">
         <Table2 className="size-3 text-muted-foreground" />
@@ -61,12 +63,12 @@ function TableNode({ data }: NodeProps) {
         ).map((col) => (
           <div
             key={col.name}
-            className="flex items-center gap-2 px-3 py-1 text-[11px] border-b border-border/40 last:border-b-0"
+            className="flex items-center gap-2 px-3 py-1 text-xs border-b border-border/40 last:border-b-0"
           >
             {col.primaryKey ? (
-              <span className="size-1.5 rounded-full bg-amber-500 shrink-0" title="PK" />
+              <span className="size-1.5 rounded-full bg-primary shrink-0" title="PK" />
             ) : col.foreignKey ? (
-              <span className="size-1.5 rounded-full bg-sky-500 shrink-0" title="FK" />
+              <span className="size-1.5 rounded-full bg-muted-foreground shrink-0" title="FK" />
             ) : (
               <span className="size-1.5 rounded-full bg-transparent shrink-0" />
             )}
@@ -81,6 +83,47 @@ function TableNode({ data }: NodeProps) {
 }
 
 const nodeTypes = { table: TableNode };
+
+function MiniMapNode({
+  x,
+  y,
+  width,
+  height,
+  id,
+  selected,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  id: string;
+  selected?: boolean;
+}) {
+  const shortLabel = id.length > 12 ? id.slice(0, 10) + '…' : id;
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      <rect
+        width={width}
+        height={height}
+        rx={4}
+        ry={4}
+        fill="var(--popover)"
+        stroke={selected ? 'var(--primary)' : 'var(--border)'}
+        strokeWidth={selected ? 2 : 1}
+      />
+      <text
+        x={width / 2}
+        y={height / 2 + 4}
+        textAnchor="middle"
+        fontSize={10}
+        fill="var(--foreground)"
+        style={{ fontFamily: 'inherit', pointerEvents: 'none' }}
+      >
+        {shortLabel}
+      </text>
+    </g>
+  );
+}
 
 function buildGraph(data: CompletionsData) {
   const nodes: Node[] = [];
@@ -103,7 +146,7 @@ function buildGraph(data: CompletionsData) {
     const sourceLabel = table.schema ? `${table.schema}.${table.name}` : table.name;
     for (const col of table.columns) {
       if (col.foreignKey) {
-        const targetLabel = col.foreignKey.table.includes('.') ? col.foreignKey.table : col.foreignKey.table;
+        const targetLabel = col.foreignKey.table;
         const qualifiedTarget = data.tables.find(
           (t) => t.name === targetLabel || `${t.schema}.${t.name}` === targetLabel,
         );
@@ -119,8 +162,8 @@ function buildGraph(data: CompletionsData) {
           label: `${col.name}`,
           type: 'smoothstep',
           markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-          style: { stroke: '#60a5fa', strokeWidth: 1.5 },
-          labelStyle: { fontSize: 10, fill: '#94a3b8' },
+          style: { stroke: 'var(--primary)', strokeWidth: 1.5, opacity: 0.7 },
+          labelStyle: { fontSize: 10, fill: 'var(--muted-foreground)' },
         });
       }
     }
@@ -146,16 +189,27 @@ type SchemaGraphProps = {
   connectionId: string;
 };
 
-export function SchemaGraph({ connectionId }: SchemaGraphProps) {
+function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
   const { data: completions, isLoading } = useCompletionsSchema(connectionId);
-
+  const { fitView } = useReactFlow();
   const layouted = useMemo(() => {
     if (!completions) return { nodes: [], edges: [] };
     return buildGraph(completions);
   }, [completions]);
 
-  const [nodes, , onNodesChange] = useNodesState(layouted.nodes);
-  const [edges, , onEdgesChange] = useEdgesState(layouted.edges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  useEffect(() => {
+    setNodes(layouted.nodes);
+    setEdges(layouted.edges);
+  }, [layouted, setNodes, setEdges]);
+
+  const handleAutoArrange = useCallback(() => {
+    setNodes(layouted.nodes);
+    setEdges(layouted.edges);
+    setTimeout(() => fitView({ padding: 0.2 }), 50);
+  }, [layouted, setNodes, setEdges, fitView]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -182,21 +236,48 @@ export function SchemaGraph({ connectionId }: SchemaGraphProps) {
   }
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onNodeClick={onNodeClick}
-      nodeTypes={nodeTypes}
-      fitView
-      minZoom={0.3}
-      maxZoom={2}
-      proOptions={{ hideAttribution: true }}
-    >
-      <Background gap={20} size={1} color="#1e293b" />
-      <Controls className="!bg-popover !border-border" />
-      <MiniMap nodeColor="#334155" maskColor="rgba(0,0,0,0.3)" className="!border-border" />
-    </ReactFlow>
+    <div className="relative w-full h-full">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
+        nodeTypes={nodeTypes}
+        fitView
+        minZoom={0.3}
+        maxZoom={2}
+        proOptions={{ hideAttribution: true }}
+      >
+        <Background gap={20} size={1} color="var(--border)" />
+        <Controls
+          showInteractive={true}
+          className="!bg-popover !border !border-border [&>button]:!bg-popover [&>button]:!border [&>button]:!border-border [&>button]:hover:!bg-muted [&>button>svg]:!fill-foreground [&>svg]:!fill-foreground"
+          style={{ '--xy-controls-button-color': 'var(--foreground)' } as React.CSSProperties}
+        >
+          <button onClick={handleAutoArrange} className="react-flow__controls-button" title="Auto Arrange">
+            <LayoutGrid className="size-4" />
+          </button>
+        </Controls>
+        <MiniMap
+          nodeComponent={MiniMapNode}
+          nodeColor={(node) => {
+            return node.selected ? 'var(--primary)' : 'var(--muted-foreground)';
+          }}
+          maskColor="rgba(0,0,0,0.4)"
+          maskStrokeColor="var(--border)"
+          className="!border !border-border !rounded-lg [&>svg]:!rounded-lg [&_.react-flow__minimap-node]:!fill-primary/20 [&_.react-flow__minimap-node]:!stroke-primary/40"
+          style={{ backgroundColor: 'var(--popover)' }}
+        />
+      </ReactFlow>
+    </div>
+  );
+}
+
+export function SchemaGraph(props: SchemaGraphProps) {
+  return (
+    <ReactFlowProvider>
+      <SchemaGraphInner {...props} />
+    </ReactFlowProvider>
   );
 }

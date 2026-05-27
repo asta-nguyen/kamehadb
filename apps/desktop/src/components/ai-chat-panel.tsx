@@ -13,9 +13,9 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
   const [copied, setCopied] = useState(false);
 
   return (
-    <div className="border rounded-md overflow-hidden bg-zinc-950 my-2">
-      <div className="flex items-center justify-between px-2 py-1 bg-zinc-900 border-b border-zinc-800">
-        <span className="text-[10px] text-zinc-400">sql</span>
+    <div className="border rounded-md overflow-hidden bg-card my-2">
+      <div className="flex items-center justify-between px-2 py-1 bg-muted border-b border-border">
+        <span className="text-xs text-muted-foreground">sql</span>
         <div className="flex items-center gap-0.5">
           <button
             onClick={async () => {
@@ -27,28 +27,28 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
                 console.error('Failed to copy SQL:', err);
               }
             }}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="Copy"
           >
             {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
           </button>
           <button
             onClick={onInsert}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="Insert into editor"
           >
             <Terminal className="size-3" />
           </button>
           <button
             onClick={onRun}
-            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
             title="Run"
           >
             <Play className="size-3" />
           </button>
         </div>
       </div>
-      <pre className="p-2 text-[11px] font-mono overflow-x-auto text-zinc-100">{sql}</pre>
+      <pre className="p-2 text-xs font-mono overflow-x-auto text-foreground">{sql}</pre>
     </div>
   );
 }
@@ -226,7 +226,7 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
               <div className="text-center py-8 text-muted-foreground">
                 <Bot className="size-8 mx-auto mb-2 opacity-40" />
                 <p className="text-xs">Ask me to write SQL queries</p>
-                <p className="text-[10px] mt-1">e.g. "show me users who signed up last month"</p>
+                <p className="text-xs mt-1">e.g. "show me users who signed up last month"</p>
               </div>
             )}
 
@@ -268,7 +268,7 @@ export function AIChatPanel({ connectionId }: AIChatPanelProps) {
               {aiChat.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground/60 mt-1">Enter to send, Shift+Enter for new line</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Enter to send, Shift+Enter for new line</p>
         </div>
       </div>
     </>

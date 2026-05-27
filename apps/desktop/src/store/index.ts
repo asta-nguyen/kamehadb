@@ -84,6 +84,15 @@ export function openDatabaseStatsTab(connectionId: string) {
   });
 }
 
+export function openRedisTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:redis`,
+    type: 'redis' as const,
+    title: 'Redis Browser',
+    connectionId,
+  });
+}
+
 export function openTableStatsTab(connectionId: string, tableId: string) {
   openTab({
     id: `${connectionId}:${tableId}:stats`,

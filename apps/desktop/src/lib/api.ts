@@ -1,4 +1,4 @@
-const DEV_PROXY_API_BASE = '/api';
+const DEV_PROXY_API_BASE = 'http://127.0.0.1:3170';
 const DIRECT_SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 

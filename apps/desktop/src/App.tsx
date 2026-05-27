@@ -7,6 +7,7 @@ import { TableView } from '@/components/table-view';
 import { SqlEditor } from '@/components/sql-editor';
 import { SchemaGraph } from '@/components/schema-graph';
 import { MongoView } from '@/components/mongo-view';
+import { RedisView } from '@/components/redis-view';
 import { TableStats } from '@/components/table-stats';
 import { DatabaseStats } from '@/components/database-stats';
 import { ApiSettingsPage } from '@/components/api-settings-page';
@@ -21,8 +22,22 @@ import {
   toggleTheme,
   applyTheme,
   openDatabaseStatsTab,
+  openRedisTab,
 } from '@/store';
-import { X, Terminal, Table2, Plus, Share2, Database, Sun, Moon, Monitor, BarChart3, Activity } from 'lucide-react';
+import {
+  X,
+  Terminal,
+  Table2,
+  Plus,
+  Share2,
+  Database,
+  Sun,
+  Moon,
+  Monitor,
+  BarChart3,
+  Activity,
+  Box,
+} from 'lucide-react';
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -55,6 +70,8 @@ function TabBar() {
               <Share2 className="size-3" />
             ) : tab.type === 'mongo' ? (
               <Database className="size-3" />
+            ) : tab.type === 'redis' ? (
+              <Box className="size-3" />
             ) : tab.type === 'stats' || tab.type === 'database-stats' ? (
               <BarChart3 className="size-3" />
             ) : tab.type === 'table-stats' ? (
@@ -101,6 +118,9 @@ function Workspace() {
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
+  const { data: connections } = useConnections();
+
+  const activeConnection = connections?.find((c) => c.id === activeConnectionId);
 
   if (!activeConnectionId) {
     return (
@@ -113,24 +133,35 @@ function Workspace() {
     );
   }
 
+  // Auto-open Redis browser for Redis connections when no tabs open
+  useEffect(() => {
+    if (openedTabs.length === 0 && activeConnection?.kind === 'redis') {
+      openRedisTab(activeConnectionId);
+    }
+  }, [activeConnectionId, openedTabs.length, activeConnection?.kind]);
+
   if (openedTabs.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-3">
-          <p className="text-sm text-muted-foreground">Select a table or open a query tab</p>
+          <p className="text-sm text-muted-foreground">Select a table or open a tab</p>
           <div className="flex items-center justify-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
-              <Terminal className="size-3.5 mr-1.5" />
-              New Query
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => openGraphTab(activeConnectionId)}>
-              <Share2 className="size-3.5 mr-1.5" />
-              Schema Graph
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => openDatabaseStatsTab(activeConnectionId)}>
-              <BarChart3 className="size-3.5 mr-1.5" />
-              Database Stats
-            </Button>
+            {activeConnection?.kind !== 'redis' && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
+                  <Terminal className="size-3.5 mr-1.5" />
+                  New Query
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => openGraphTab(activeConnectionId)}>
+                  <Share2 className="size-3.5 mr-1.5" />
+                  Schema Graph
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => openDatabaseStatsTab(activeConnectionId)}>
+                  <BarChart3 className="size-3.5 mr-1.5" />
+                  Database Stats
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -147,6 +178,7 @@ function Workspace() {
       {activeTab.type === 'table' && <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />}
       {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
       {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'redis' && <RedisView connectionId={activeTab.connectionId} />}
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
@@ -223,9 +255,7 @@ function App() {
       <div className="h-screen w-screen flex flex-col">
         <Header />
         <div className="flex-1 flex overflow-hidden">
-          <aside className="w-56 border-r border-border shrink-0 flex flex-col bg-muted/30">
-            <Sidebar />
-          </aside>
+          <Sidebar />
           {view === 'api-settings' ? <ApiSettingsPage /> : <MainLayout />}
         </div>
       </div>
