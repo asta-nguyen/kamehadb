@@ -103,28 +103,32 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const limit = Math.min(input.limit || 100, 1000);
 
       // Fetch limit + 1 to determine if there are more results
-      const cursor = collection.find(filter, {
-        projection,
-        sort,
-        skip,
-        limit: limit + 1,
-      });
+      const [countResult, findResults] = await Promise.all([
+        collection.countDocuments(filter),
+        collection
+          .find(filter, {
+            projection,
+            sort,
+            skip,
+            limit: limit + 1,
+          })
+          .toArray(),
+      ]);
 
       const documents: Record<string, unknown>[] = [];
       let hasMore = false;
 
-      for await (const doc of cursor) {
-        if (documents.length < limit) {
-          documents.push(serializeDocument(doc as Record<string, unknown>));
+      for (let i = 0; i < findResults.length; i++) {
+        if (i < limit) {
+          documents.push(serializeDocument(findResults[i] as Record<string, unknown>));
         } else {
-          // We've reached limit + 1, there are more results
           hasMore = true;
         }
       }
 
       return {
         documents,
-        totalCount: documents.length + (hasMore ? 1 : 0),
+        totalCount: countResult,
         hasMore,
       };
     },
@@ -155,7 +159,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       if (!targetDb) throw new Error('No database selected');
 
       const coll = targetDb.collection(collection);
-      const result = await coll.deleteMany(filter);
+      const result = await coll.deleteOne(filter);
       return { deletedCount: result.deletedCount };
     },
 
@@ -177,6 +181,12 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
         finalPipeline.push({ $limit: limit + 1 } as Record<string, unknown>);
       }
 
+      // Get total count by running the pipeline with $count (minus any existing limit stage)
+      const countPipeline = pipeline.filter((stage) => !('$limit' in stage));
+      countPipeline.push({ $count: 'total' } as Record<string, unknown>);
+      const countResult = await collection.aggregate([...countPipeline, { $limit: 10001 }]).toArray();
+      const totalCount = countResult[0]?.total ?? 0;
+
       const cursor = collection.aggregate(finalPipeline);
       const documents: Record<string, unknown>[] = [];
       let hasMore = false;
@@ -191,7 +201,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
 
       return {
         documents,
-        totalCount: documents.length + (hasMore ? 1 : 0),
+        totalCount,
         hasMore,
       };
     },

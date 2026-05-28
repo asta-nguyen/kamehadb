@@ -131,7 +131,9 @@ mongoRouter.post(
     z.object({
       collection: z.string(),
       database: z.string().optional(),
-      filter: z.record(z.unknown()),
+      filter: z.record(z.unknown()).refine((obj) => Object.keys(obj).length > 0, {
+        message: 'filter must not be empty',
+      }),
     }),
   ),
   async (c) => {
@@ -158,7 +160,9 @@ mongoRouter.post(
     z.object({
       collection: z.string(),
       database: z.string().optional(),
-      filter: z.record(z.unknown()),
+      filter: z.record(z.unknown()).refine((obj) => Object.keys(obj).length > 0, {
+        message: 'filter must not be empty',
+      }),
       update: z.record(z.unknown()),
     }),
   ),

@@ -557,26 +557,26 @@ function DocumentCard({
                   {key}:
                 </span>
                 {editingKey === key ? (
-                  <div className="flex items-center gap-1 flex-1">
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
                     <input
                       type="text"
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       onKeyDown={handleEditKeyDown}
-                      className="flex-1 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background"
+                      className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
                       autoFocus
                     />
                     <button
                       onClick={saveEdit}
                       disabled={saving}
-                      className="p-1 hover:bg-muted rounded text-primary"
+                      className="p-1 hover:bg-muted rounded text-primary shrink-0"
                       title="Save (Enter)"
                     >
                       <Save className="size-3" />
                     </button>
                     <button
                       onClick={cancelEdit}
-                      className="p-1 hover:bg-muted rounded text-muted-foreground"
+                      className="p-1 hover:bg-muted rounded text-muted-foreground shrink-0"
                       title="Cancel (Esc)"
                     >
                       <X className="size-3" />
@@ -714,95 +714,106 @@ function DocumentTableView({
     }
   };
 
-  const gridTemplate = `32px repeat(${columns.length}, minmax(120px, 1fr)) 80px`;
+  const tableMinWidth = 32 + columns.length * 120 + 80;
 
   return (
-    <div className="border rounded-md overflow-auto">
-      <div className="grid text-xs bg-muted/50 sticky top-0" style={{ gridTemplateColumns: gridTemplate }}>
-        <div className="px-2 py-1.5 font-medium text-muted-foreground">#</div>
-        {columns.map((col) => (
-          <div key={col} className="px-2 py-1.5 font-medium text-muted-foreground">
-            <span className="truncate max-w-40" title={col}>
-              {col}
-            </span>
-          </div>
-        ))}
-        <div className="px-2 py-1.5 font-medium text-muted-foreground">Actions</div>
-      </div>
-      {documents.map((doc, rowIndex) => (
-        <div
-          key={doc._id ? String(doc._id) : rowIndex}
-          className="grid text-xs border-b last:border-b-0 hover:bg-muted/30"
-          style={{ gridTemplateColumns: gridTemplate }}
-        >
-          <div className="px-2 py-1.5 text-muted-foreground">{rowIndex + 1}</div>
-          {columns.map((col) => {
-            const value = doc[col];
-            const isEditing = editCell?.row === rowIndex && editCell?.key === col;
-            return (
-              <div key={col} className="px-1 py-1 max-w-48">
-                {isEditing ? (
-                  <div className="flex items-end gap-1">
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="flex-1 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background"
-                      autoFocus
-                    />
-                    <button
-                      onClick={saveEdit}
-                      disabled={saving}
-                      className="p-1 hover:bg-muted rounded text-primary"
-                      title="Save (Enter)"
-                    >
-                      <Save className="size-3" />
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      className="p-1 hover:bg-muted rounded text-muted-foreground"
-                      title="Cancel (Esc)"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => startEdit(rowIndex, col, value)}
-                    className="w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded truncate block"
-                    title={formatCellValue(value)}
-                  >
-                    {value === null ? (
-                      <span className="text-muted-foreground italic">null</span>
+    <div className="border rounded-md overflow-auto bg-background">
+      <table className="w-full text-xs table-fixed" style={{ minWidth: tableMinWidth }}>
+        <thead className="sticky top-0 z-10 bg-muted/50">
+          <tr>
+            <th className="px-2 py-1.5 font-medium text-muted-foreground text-left" style={{ width: 32 }}>
+              #
+            </th>
+            {columns.map((col) => (
+              <th key={col} className="px-2 py-1.5 font-medium text-muted-foreground text-left" style={{ width: 120 }}>
+                <span className="truncate block" title={col}>
+                  {col}
+                </span>
+              </th>
+            ))}
+            <th className="px-2 py-1.5 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {documents.map((doc, rowIndex) => (
+            <tr
+              key={doc._id ? String(doc._id) : rowIndex}
+              className="border-b last:border-b-0 bg-background even:bg-muted/20 hover:bg-muted/30"
+            >
+              <td className="px-2 py-1.5 text-muted-foreground">{rowIndex + 1}</td>
+              {columns.map((col) => {
+                const value = doc[col];
+                const isEditing = editCell?.row === rowIndex && editCell?.key === col;
+                return (
+                  <td key={col} className="px-1 py-1 overflow-hidden">
+                    {isEditing ? (
+                      <div className="flex items-end gap-0.5 min-w-0">
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
+                          autoFocus
+                        />
+                        <button
+                          onClick={saveEdit}
+                          disabled={saving}
+                          className="p-1 hover:bg-muted rounded text-primary shrink-0"
+                          title="Save (Enter)"
+                        >
+                          <Save className="size-3" />
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="p-1 hover:bg-muted rounded text-muted-foreground shrink-0"
+                          title="Cancel (Esc)"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
                     ) : (
-                      <span className={typeof value === 'object' ? 'text-primary' : ''}>{formatCellValue(value)}</span>
+                      <button
+                        onClick={() => startEdit(rowIndex, col, value)}
+                        className="w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded truncate block"
+                        title={formatCellValue(value)}
+                      >
+                        {value === null ? (
+                          <span className="text-muted-foreground italic">null</span>
+                        ) : (
+                          <span className={typeof value === 'object' ? 'text-primary' : ''}>
+                            {formatCellValue(value)}
+                          </span>
+                        )}
+                      </button>
                     )}
+                  </td>
+                );
+              })}
+              <td className="px-1 py-1">
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => handleCopyRow(doc, rowIndex)}
+                    className="p-1 hover:bg-muted rounded"
+                    title="Copy JSON"
+                  >
+                    {copiedRow === rowIndex ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
                   </button>
-                )}
-              </div>
-            );
-          })}
-          <div className="px-1 py-1">
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => handleCopyRow(doc, rowIndex)}
-                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
-                title="Copy JSON"
-              >
-                {copiedRow === rowIndex ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
-              </button>
-              <button
-                onClick={() => onDelete(doc)}
-                className="p-1 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive"
-                title="Delete document"
-              >
-                <Trash2 className="size-3" />
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
+                  <button
+                    onClick={() => onDelete(doc)}
+                    className="p-1 hover:bg-destructive/20 rounded hover:text-destructive"
+                    title="Delete document"
+                  >
+                    <Trash2 className="size-3" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

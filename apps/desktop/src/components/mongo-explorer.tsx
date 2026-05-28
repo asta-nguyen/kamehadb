@@ -128,7 +128,7 @@ function DatabaseNode({
 
   const handleCollectionClick = useCallback(
     (collection: CollectionInfo) => {
-      onSelectCollection(collection.name);
+      onSelectCollection(`${dbName}:${collection.name}`);
       openMongoTab(connectionId, dbName, collection.name);
     },
     [connectionId, dbName, onSelectCollection],
@@ -141,7 +141,9 @@ function DatabaseNode({
         className="w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors"
       >
         <Database className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="truncate">{dbName}</span>
+        <span className="truncate" title={dbName}>
+          {dbName}
+        </span>
         {collections && <span className="ml-auto text-xs text-muted-foreground">{collections.length}</span>}
         {expanded ? (
           <svg
@@ -205,10 +207,12 @@ function DatabaseNode({
                 <button
                   key={col.name}
                   onClick={() => handleCollectionClick(col)}
-                  className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors ${selectedCollection === col.name ? 'bg-muted/50' : ''}`}
+                  className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors ${selectedCollection === `${dbName}:${col.name}` ? 'bg-muted/50' : ''}`}
                 >
                   <Icon className={`size-3 shrink-0 ${typeColors[col.type]}`} />
-                  <span className="truncate">{col.name}</span>
+                  <span className="truncate" title={col.name}>
+                    {col.name}
+                  </span>
                 </button>
               );
             })

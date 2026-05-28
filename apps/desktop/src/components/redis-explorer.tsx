@@ -146,7 +146,9 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
                   const Icon = typeIcons[keyDetails.type] || Box;
                   return <Icon className={`size-4 shrink-0 ${typeColors[keyDetails.type] || ''}`} />;
                 })()}
-                <span className="font-mono text-sm truncate">{keyDetails.key}</span>
+                <span className="font-mono text-sm truncate" title={keyDetails.key}>
+                  {keyDetails.key}
+                </span>
                 <span className="text-xs uppercase bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                   {keyDetails.type}
                 </span>

@@ -212,7 +212,9 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
                               {conn.state}
                             </Badge>
                           </TableCell>
-                          <TableCell className="max-w-xs truncate text-sm">{conn.query || '-'}</TableCell>
+                          <TableCell className="max-w-xs truncate text-sm" title={conn.query || '-'}>
+                            {conn.query || '-'}
+                          </TableCell>
                           <TableCell className="text-sm">
                             {conn.durationSeconds > 0 ? (
                               <span className={conn.durationSeconds > 60 ? 'text-destructive' : ''}>

@@ -110,7 +110,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               >
                 <TableCell className="px-2 py-1 text-muted-foreground">{offset + i + 1}</TableCell>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="px-3 py-1 border-r last:border-r-0 truncate max-w-60">
+                  <TableCell
+                    key={cell.id}
+                    className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
+                    title={String(cell.getValue() ?? '')}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

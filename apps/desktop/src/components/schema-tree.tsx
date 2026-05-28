@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useSchemas, useTables, useTableColumns } from '@/hooks/use-schema';
 
 import { Badge } from '@/components/ui/badge';
@@ -89,7 +89,10 @@ function TableItem({
                 className="group/row flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-muted/30 transition-colors"
               >
                 <Columns3 className="size-2.5 text-muted-foreground/50 shrink-0" />
-                <span className="truncate text-xs text-foreground/70 group-hover/row:text-foreground transition-colors">
+                <span
+                  className="truncate text-xs text-foreground/70 group-hover/row:text-foreground transition-colors"
+                  title={col.name}
+                >
                   {col.name}
                 </span>
                 {col.primaryKey && <span className="size-1.5 rounded-full bg-primary shrink-0" title="Primary Key" />}
@@ -116,7 +119,19 @@ export function SchemaTree({
   onSelectTable: (tableId: string) => void;
 }) {
   const { data: schemas, isLoading } = useSchemas(connectionId);
-  const [expandedSchema, setExpandedSchema] = useState<string | null>(null);
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
+
+  const toggleSchema = useCallback((schema: string) => {
+    setExpandedSchemas((prev) => {
+      const next = new Set(prev);
+      if (next.has(schema)) {
+        next.delete(schema);
+      } else {
+        next.add(schema);
+      }
+      return next;
+    });
+  }, []);
 
   if (isLoading) {
     return (
@@ -137,8 +152,8 @@ export function SchemaTree({
           key={schema.name}
           connectionId={connectionId}
           schema={schema.name}
-          expanded={schema.name === expandedSchema}
-          onToggle={() => setExpandedSchema(expandedSchema === schema.name ? null : schema.name)}
+          expanded={expandedSchemas.has(schema.name)}
+          onToggle={() => toggleSchema(schema.name)}
           onSelectTable={onSelectTable}
         />
       ))}

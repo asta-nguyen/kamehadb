@@ -11,7 +11,9 @@ export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?
         { pattern, count: 100, cursor },
       ),
     enabled: !!connectionId,
-    staleTime: 10000, // 10 seconds - Redis keys change often
+    staleTime: 10000,
+    retry: 1,
+    retryDelay: 1000,
   });
 }
 
