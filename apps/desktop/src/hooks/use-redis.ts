@@ -11,6 +11,9 @@ export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?
         { pattern, count: 100, cursor },
       ),
     enabled: !!connectionId,
+    staleTime: 10000,
+    retry: 1,
+    retryDelay: 1000,
   });
 }
 
@@ -22,6 +25,7 @@ export function useRedisKeyDetails(connectionId: string | null, key: string | nu
         key,
       }),
     enabled: !!connectionId && !!key,
+    staleTime: 10000,
   });
 }
 

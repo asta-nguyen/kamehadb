@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useSchemas, useTables, useTableColumns } from '@/hooks/use-schema';
 
 import { Badge } from '@/components/ui/badge';
@@ -119,7 +119,19 @@ export function SchemaTree({
   onSelectTable: (tableId: string) => void;
 }) {
   const { data: schemas, isLoading } = useSchemas(connectionId);
-  const [expandedSchema, setExpandedSchema] = useState<string | null>(null);
+  const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
+
+  const toggleSchema = useCallback((schema: string) => {
+    setExpandedSchemas((prev) => {
+      const next = new Set(prev);
+      if (next.has(schema)) {
+        next.delete(schema);
+      } else {
+        next.add(schema);
+      }
+      return next;
+    });
+  }, []);
 
   if (isLoading) {
     return (
@@ -140,8 +152,8 @@ export function SchemaTree({
           key={schema.name}
           connectionId={connectionId}
           schema={schema.name}
-          expanded={schema.name === expandedSchema}
-          onToggle={() => setExpandedSchema(expandedSchema === schema.name ? null : schema.name)}
+          expanded={expandedSchemas.has(schema.name)}
+          onToggle={() => toggleSchema(schema.name)}
           onSelectTable={onSelectTable}
         />
       ))}

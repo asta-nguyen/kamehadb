@@ -58,6 +58,9 @@ export const api = {
   testConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
     request<import('@kamehadb/shared').TestConnectionResult>('POST', '/connections/test', input),
 
+  checkConnectionHealth: (id: string) =>
+    request<import('@kamehadb/shared').TestConnectionResult>('GET', `/connections/${id}/health`),
+
   getAISettings: () => request<import('@kamehadb/shared').AISettings>('GET', '/ai/settings'),
 
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>

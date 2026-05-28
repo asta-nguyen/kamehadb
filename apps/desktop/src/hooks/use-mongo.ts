@@ -2,11 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { get, post } from '@/lib/api';
 import type { CollectionInfo, DatabaseInfo, DocumentResult, FindDocumentsInput } from '@kamehadb/shared';
 
+const SCHEMA_CACHE_TIME = 5 * 60 * 1000;
+const STATS_CACHE_TIME = 30 * 1000;
+
 export function useMongoDatabases(connectionId: string | null) {
   return useQuery({
     queryKey: ['mongo', connectionId, 'databases'],
     queryFn: () => get<DatabaseInfo[]>(`/mongo/${connectionId}/databases`),
     enabled: !!connectionId,
+    staleTime: SCHEMA_CACHE_TIME,
   });
 }
 
@@ -16,6 +20,7 @@ export function useMongoCollections(connectionId: string | null, database: strin
     queryFn: () =>
       get<CollectionInfo[]>(`/mongo/${connectionId}/collections?database=${encodeURIComponent(database ?? '')}`),
     enabled: !!connectionId && !!database,
+    staleTime: SCHEMA_CACHE_TIME,
   });
 }
 
@@ -40,5 +45,22 @@ export function useMongoDocuments(
       return post<DocumentResult>(`/mongo/${connectionId}/find`, input);
     },
     enabled: !!connectionId && !!database && !!collection,
+    staleTime: STATS_CACHE_TIME,
+  });
+}
+
+export function useMongoCollectionStats(
+  connectionId: string | null,
+  database: string | null,
+  collection: string | null,
+) {
+  return useQuery({
+    queryKey: ['mongo-stats', connectionId, database, collection],
+    queryFn: () =>
+      get<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
+        `/mongo/${connectionId}/stats?database=${encodeURIComponent(database ?? '')}&collection=${encodeURIComponent(collection ?? '')}`,
+      ),
+    enabled: !!connectionId && !!database && !!collection,
+    staleTime: STATS_CACHE_TIME,
   });
 }

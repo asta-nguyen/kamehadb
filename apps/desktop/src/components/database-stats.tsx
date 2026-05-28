@@ -1,5 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
 import { formatBytes, formatNumber } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +6,9 @@ import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Server, Users, RefreshCw, AlertTriangle, Clock, Radio, Loader2 } from 'lucide-react';
+import { useDatabaseSizes } from '@/hooks/use-schema';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
 
 type DatabaseStatsProps = {
   connectionId: string;
@@ -19,10 +20,7 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
     isLoading: sizesLoading,
     error: sizesError,
     refetch: refetchSizes,
-  } = useQuery({
-    queryKey: ['database-sizes', connectionId],
-    queryFn: () => api.getDatabaseSizes(connectionId),
-  });
+  } = useDatabaseSizes(connectionId);
 
   const {
     data: connections,
@@ -32,7 +30,7 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
   } = useQuery({
     queryKey: ['active-connections', connectionId],
     queryFn: () => api.getActiveConnections(connectionId),
-    refetchInterval: 10000,
+    staleTime: 10000,
   });
 
   const totalSize = sizes?.reduce((acc, s) => acc + s.totalBytes, 0) ?? 0;

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import { getCached, setCache } from '../lib/cache.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { createMongoDbAdapter } from '../adapters/factory.js';
 
@@ -24,11 +25,17 @@ async function getAdapter(connectionId: string) {
 
 // GET /mongo/:connectionId/collections
 mongoRouter.get('/:connectionId/collections', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const database = c.req.query('database') || '';
+  const cacheKey = `mongo:${connectionId}:collections:${database}`;
+  const cached = getCached<unknown[]>(cacheKey);
+  if (cached) return c.json(cached);
+
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
+    const adapter = await getAdapter(connectionId);
     try {
-      const database = c.req.query('database') || undefined;
-      const collections = await adapter.listCollections(database);
+      const collections = await adapter.listCollections(database || undefined);
+      setCache(cacheKey, collections);
       return c.json(collections);
     } finally {
       await adapter.close();
@@ -40,10 +47,16 @@ mongoRouter.get('/:connectionId/collections', async (c) => {
 
 // GET /mongo/:connectionId/databases
 mongoRouter.get('/:connectionId/databases', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const cacheKey = `mongo:${connectionId}:databases`;
+  const cached = getCached<unknown[]>(cacheKey);
+  if (cached) return c.json(cached);
+
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
+    const adapter = await getAdapter(connectionId);
     try {
       const databases = await adapter.listDatabases();
+      setCache(cacheKey, databases);
       return c.json(databases);
     } finally {
       await adapter.close();

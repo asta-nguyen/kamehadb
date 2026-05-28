@@ -1,7 +1,6 @@
 import { useStore } from '@tanstack/react-store';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useConnections, useDeleteConnection } from '@/hooks/use-connections';
-import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -28,30 +27,22 @@ import {
   Sparkles,
   Settings2,
   Share2,
-  BarChart3,
 } from 'lucide-react';
 import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
 import { MongoExplorer } from './mongo-explorer';
+import { api } from '@/lib/api';
 import {
   appStore,
   setActiveConnection,
   openTab,
   openNewQueryTab,
   openGraphTab,
-  openDatabaseStatsTab,
   navigateTo,
   toggleExpandedConnection,
+  setConnectionStatus,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
-
-const kindColors: Record<string, string> = {
-  postgres: 'bg-primary/10 text-primary',
-  sqlite: 'bg-muted text-muted-foreground',
-  mysql: 'bg-accent text-accent-foreground',
-  redis: 'bg-destructive/10 text-destructive',
-  mongodb: 'bg-card text-card-foreground',
-};
 
 function ConnectionItem({
   conn,
@@ -68,53 +59,91 @@ function ConnectionItem({
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteConnection = useDeleteConnection();
+  const healthCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const status = connectionStatus[conn.id] ?? 'disconnected';
+  const status = connectionStatus[conn.id] ?? 'connected';
   const indicatorColor = conn.color || (status === 'connected' ? '#22c55e' : '#ef4444');
 
+  const checkConnectionHealth = useCallback(async () => {
+    if (healthCheckTimeout.current) clearTimeout(healthCheckTimeout.current);
+    healthCheckTimeout.current = setTimeout(async () => {
+      try {
+        const result = await api.checkConnectionHealth(conn.id);
+        setConnectionStatus(conn.id, result.success ? 'connected' : 'disconnected');
+      } catch {
+        setConnectionStatus(conn.id, 'disconnected');
+      }
+    }, 500);
+  }, [conn.id]);
+
+  useEffect(() => {
+    return () => {
+      if (healthCheckTimeout.current) clearTimeout(healthCheckTimeout.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Check health on mount
+    checkConnectionHealth();
+  }, [checkConnectionHealth]);
+
   return (
-    <div className="relative">
-      <div className="flex items-center gap-1">
+    <div className="relative group">
+      <div
+        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm transition-all ${
+          isActive ? 'bg-muted/60 shadow-sm' : 'hover:bg-muted/50'
+        }`}
+      >
         <button
           onClick={() => {
             onSelect();
-            // Don't expand for Redis - it uses workspace tabs
+            checkConnectionHealth();
             if (conn.kind !== 'redis') {
               toggleExpandedConnection(conn.id);
             }
           }}
-          className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left text-sm hover:bg-muted/70 transition-colors ${
-            isActive ? 'bg-muted/50' : ''
-          }`}
+          className="flex items-center gap-2 flex-1 min-w-0"
         >
-          {conn.kind === 'redis' ? (
-            <span className="size-3 shrink-0" /> // Spacer for Redis (no chevron)
-          ) : expanded ? (
-            <ChevronDown className="size-3 shrink-0 text-muted-foreground/60" />
+          {conn.kind !== 'redis' ? (
+            expanded ? (
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground/50 group-hover:text-foreground/70 transition-colors" />
+            ) : (
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 group-hover:text-foreground/70 transition-colors" />
+            )
           ) : (
-            <ChevronRight className="size-3 shrink-0 text-muted-foreground/60" />
+            <span className="size-4 shrink-0" />
           )}
-          <Database className="size-3.5 shrink-0 text-muted-foreground/70" />
-          <span className="truncate flex-1 text-foreground/80" title={conn.name}>
+          <Database className="size-4 shrink-0 text-muted-foreground/60" />
+          <span className="truncate font-medium text-foreground/90" title={conn.name}>
             {conn.name}
           </span>
           <span
-            className="w-2.5 h-2.5 rounded-full shrink-0 border border-border/30"
-            style={{ backgroundColor: indicatorColor }}
-            title={conn.color ? `Custom: ${conn.color}` : status}
-          />
-          <Badge
-            variant="outline"
-            className={`text-xs px-1 py-0 h-4 shrink-0 ${!conn.color ? (kindColors[conn.kind] ?? '') : ''}`}
+            className={`text-[10px] px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${
+              conn.kind === 'postgres'
+                ? 'bg-primary/10 text-primary'
+                : conn.kind === 'redis'
+                  ? 'bg-destructive/10 text-destructive'
+                  : conn.kind === 'mongodb'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-muted text-muted-foreground'
+            }`}
           >
             {conn.kind}
-          </Badge>
+          </span>
         </button>
+        <span
+          className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-background"
+          style={{
+            backgroundColor: indicatorColor,
+            boxShadow: status === 'connected' ? `0 0 8px ${indicatorColor}` : 'none',
+          }}
+          title={status}
+        />
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center justify-center size-6 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted outline-none">
-            <MoreVertical className="size-3.5" />
+          <DropdownMenuTrigger className="shrink-0 p-1 rounded hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100">
+            <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={2}>
+          <DropdownMenuContent align="end" sideOffset={4}>
             <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
               <Share2 className="size-3.5 mr-2" />
               Graph
@@ -151,7 +180,7 @@ function ConnectionItem({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {expanded && isActive && (
+      {expanded && (
         <div className="mt-1 ml-3 pl-2 border-l border-border/60 space-y-0.5">
           {conn.kind === 'mongodb' ? (
             <MongoExplorer connectionId={conn.id} />
@@ -165,24 +194,6 @@ function ConnectionItem({
               >
                 <Terminal className="size-3.5" />
                 <span>New Query</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openDatabaseStatsTab(conn.id)}
-                className="w-full justify-start gap-1.5 px-2 text-muted-foreground/80"
-              >
-                <BarChart3 className="size-3.5" />
-                <span>Database Stats</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openGraphTab(conn.id)}
-                className="w-full justify-start gap-1.5 px-2 text-muted-foreground/80"
-              >
-                <Share2 className="size-3.5" />
-                <span>Graph</span>
               </Button>
               <SchemaTree
                 connectionId={conn.id}
@@ -230,12 +241,12 @@ function ConnectionGroup({
 }) {
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-1.5 px-2 py-1">
-        <Database className="size-3 text-muted-foreground/60" />
-        <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">
+      <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/30">
+        <Database className="size-3.5 text-muted-foreground/50" />
+        <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
           {GROUP_LABELS[kind] ?? kind}
         </span>
-        <span className="text-xs text-muted-foreground/40 ml-auto tabular-nums">{conns.length}</span>
+        <span className="ml-auto text-[10px] text-muted-foreground/40 tabular-nums">{conns.length}</span>
       </div>
       {conns.map((conn) => (
         <ConnectionItem
@@ -310,7 +321,7 @@ export function Sidebar() {
           <span className="text-xs font-medium text-muted-foreground">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />
         </div>
-        <div className="flex-1 overflow-x-auto overflow-y-auto [scrollbar-width:thin] [&::-webkit-scrollbar:vertical]:hidden">
+        <div className="flex-1 overflow-y-auto">
           <div className="p-2 space-y-2">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
