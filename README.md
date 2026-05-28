@@ -1,6 +1,10 @@
 # KamehaDB
 
-<img src="apps/desktop/public/logo.png" alt="KamehaDB" width="300" />
+<p align="center">
+  <a href="https://asta-nguyen.github.io/kamehadb">
+    <img src="apps/desktop/public/logo.png" width="100px" alt="KamehaDB logo" />
+  </a>
+</p>
 
 **KamehaDB** is a local-first, cross-platform database GUI with built-in AI that connects to PostgreSQL, MySQL, SQLite, MongoDB, and Redis — letting you browse schemas, run queries, and generate SQL through conversation.
 
