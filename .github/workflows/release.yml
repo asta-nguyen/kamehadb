@@ -127,16 +127,19 @@ jobs:
           merge-multiple: true
           path: release-assets
 
+      - name: List downloaded artifacts
+        run: find release-assets -type f | sort
+
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.tag_name }}
           files: |
-            release-assets/*.dmg
-            release-assets/*.exe
-            release-assets/*.msi
-            release-assets/*.deb
-            release-assets/*.AppImage
-            release-assets/*.rpm
+            release-assets/**/*.dmg
+            release-assets/**/*.exe
+            release-assets/**/*.msi
+            release-assets/**/*.deb
+            release-assets/**/*.AppImage
+            release-assets/**/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
