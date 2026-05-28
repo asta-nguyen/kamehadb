@@ -27,6 +27,7 @@ import {
   Sparkles,
   Settings2,
   Share2,
+  BarChart3,
 } from 'lucide-react';
 import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
@@ -41,6 +42,7 @@ import {
   navigateTo,
   toggleExpandedConnection,
   setConnectionStatus,
+  openDatabaseStatsTab,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
@@ -194,6 +196,24 @@ function ConnectionItem({
               >
                 <Terminal className="size-3.5" />
                 <span>New Query</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openDatabaseStatsTab(conn.id)}
+                className="w-full justify-start gap-1.5 px-2 text-muted-foreground/80"
+              >
+                <BarChart3 className="size-3.5" />
+                <span>Database Stats</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openGraphTab(conn.id)}
+                className="w-full justify-start gap-1.5 px-2 text-muted-foreground/80"
+              >
+                <Share2 className="size-3.5" />
+                <span>Graph</span>
               </Button>
               <SchemaTree
                 connectionId={conn.id}

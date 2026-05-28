@@ -73,6 +73,27 @@ kamehadb/
 pnpm test
 ```
 
+## macOS Test Builds
+
+Unsigned macOS builds can still be used for local testing, but Gatekeeper may show messages such as `"KamehaDB" is damaged and can't be opened` or `"KamehaDB" cannot be opened because Apple cannot check it for malicious software`.
+
+If you only need to test the app on your own Mac, try one of these:
+
+1. Right-click `KamehaDB.app`, choose `Open`, then confirm.
+2. Remove the quarantine attribute after copying the app to `Applications`:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/KamehaDB.app
+```
+
+If the app is still being run directly from the mounted DMG:
+
+```bash
+xattr -dr com.apple.quarantine "/Volumes/KamehaDB/KamehaDB.app"
+```
+
+You can also disable Gatekeeper globally with `sudo spctl --master-disable`, but that is broader than necessary and should not be left enabled long-term.
+
 ## Tech Stack
 
 - **Desktop**: Tauri v2, React 19, Vite, Tailwind CSS, shadcn/ui, tanstack (query, store, table)
