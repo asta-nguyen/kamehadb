@@ -187,8 +187,12 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   async function handleTest() {
     const values = form.getValues();
     try {
-      await testConnection.mutateAsync(values);
-      toast.success('Connection successful!');
+      const result = await testConnection.mutateAsync(values);
+      if (result.success) {
+        toast.success('Connection successful!');
+      } else {
+        toast.error(result.message || 'Connection failed');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Connection failed';
       toast.error(message);

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import {
   Loader2,
@@ -110,7 +110,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               >
                 <TableCell className="px-2 py-1 text-muted-foreground">{offset + i + 1}</TableCell>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="px-3 py-1 border-r last:border-r-0 truncate max-w-60">
+                  <TableCell
+                    key={cell.id}
+                    className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
+                    title={String(cell.getValue() ?? '')}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -252,7 +256,7 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
       </div>
 
       <TabsContent value="view" className="flex-1 min-h-0 p-0">
-        <ScrollArea className="h-full">
+        <div className="h-full overflow-y-auto">
           <div className="pb-2">
             {Object.entries(selectedRow).map(([key, value], i) => {
               const typeLabel = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
@@ -277,7 +281,7 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
               );
             })}
           </div>
-        </ScrollArea>
+        </div>
       </TabsContent>
 
       <TabsContent value="json" className="flex-1 min-h-0 p-0">
@@ -285,11 +289,11 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
           <Button variant="outline" size="icon-sm" className="absolute top-2 right-2 z-10" onClick={handleCopy}>
             {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
           </Button>
-          <ScrollArea className="h-full">
+          <div className="h-full overflow-y-auto">
             <div className="p-3 font-mono text-xs leading-relaxed bg-card text-muted-foreground rounded-sm m-2">
               {formatJsonSyntax(JSON.stringify(selectedRow, null, 2))}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </TabsContent>
     </Tabs>

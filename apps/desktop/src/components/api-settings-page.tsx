@@ -260,10 +260,14 @@ export function ApiSettingsPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium">{meta.label}</span>
+                        <span className="truncate text-sm font-medium" title={meta.label}>
+                          {meta.label}
+                        </span>
                         {isActive && <span className="size-1.5 rounded-full bg-primary shrink-0" />}
                       </div>
-                      <div className="truncate text-xs text-muted-foreground">{status}</div>
+                      <div className="truncate text-xs text-muted-foreground" title={status}>
+                        {status}
+                      </div>
                     </div>
                   </button>
                 );

@@ -1,7 +1,6 @@
 import { useStore } from '@tanstack/react-store';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useConnections, useDeleteConnection } from '@/hooks/use-connections';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
@@ -32,7 +31,7 @@ import {
 import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
 import { MongoExplorer } from './mongo-explorer';
-import { appStore, setActiveConnection, openTab, openNewQueryTab, navigateTo } from '@/store';
+import { appStore, setActiveConnection, openTab, openNewQueryTab, navigateTo, toggleExpandedConnection } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
 const kindColors: Record<string, string> = {
@@ -52,10 +51,15 @@ function ConnectionItem({
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const expandedConnections = useStore(appStore, (state) => state.expandedConnections);
+  const connectionStatus = useStore(appStore, (state) => state.connectionStatus);
+  const expanded = expandedConnections.includes(conn.id);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteConnection = useDeleteConnection();
+
+  const status = connectionStatus[conn.id] ?? 'disconnected';
+  const indicatorColor = conn.color || (status === 'connected' ? '#22c55e' : '#ef4444');
 
   return (
     <div className="relative">
@@ -65,7 +69,7 @@ function ConnectionItem({
             onSelect();
             // Don't expand for Redis - it uses workspace tabs
             if (conn.kind !== 'redis') {
-              setExpanded(!expanded);
+              toggleExpandedConnection(conn.id);
             }
           }}
           className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded-md text-left text-sm hover:bg-muted/70 transition-colors ${
@@ -80,11 +84,13 @@ function ConnectionItem({
             <ChevronRight className="size-3 shrink-0 text-muted-foreground/60" />
           )}
           <Database className="size-3.5 shrink-0 text-muted-foreground/70" />
-          <span className="truncate flex-1 text-foreground/80">{conn.name}</span>
+          <span className="truncate flex-1 text-foreground/80" title={conn.name}>
+            {conn.name}
+          </span>
           <span
             className="w-2.5 h-2.5 rounded-full shrink-0 border border-border/30"
-            style={{ backgroundColor: conn.color ?? undefined }}
-            title={conn.color ? `Custom color: ${conn.color}` : conn.kind}
+            style={{ backgroundColor: indicatorColor }}
+            title={conn.color ? `Custom: ${conn.color}` : status}
           />
           <Badge
             variant="outline"
@@ -271,7 +277,7 @@ export function Sidebar() {
           <span className="text-xs font-medium text-muted-foreground">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />
         </div>
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-x-auto overflow-y-auto [scrollbar-width:thin] [&::-webkit-scrollbar:vertical]:hidden">
           <div className="p-2 space-y-2">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -285,7 +291,7 @@ export function Sidebar() {
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
         <div className="border-t border-border p-1.5 shrink-0">
           <button
             onClick={() => navigateTo(view === 'api-settings' ? 'workspace' : 'api-settings')}

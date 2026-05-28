@@ -72,7 +72,9 @@ function TableNode({ data }: NodeProps) {
             ) : (
               <span className="size-1.5 rounded-full bg-transparent shrink-0" />
             )}
-            <span className="font-mono text-foreground/90 truncate">{col.name}</span>
+            <span className="font-mono text-foreground/90 truncate" title={col.name}>
+              {col.name}
+            </span>
             <span className="ml-auto text-muted-foreground/60 shrink-0">{col.type}</span>
           </div>
         ))}
