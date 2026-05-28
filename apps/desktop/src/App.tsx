@@ -45,7 +45,18 @@ function TabBar() {
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
   const { data: connections } = useConnections();
 
-  // Memoize color lookup map to avoid O(n) find on every render
+  const activeConnection = connections?.find((c) => c.id === activeConnectionId);
+
+  // Filter tabs to only show matching current connection type
+  const visibleTabs = useMemo(() => {
+    if (!activeConnection) return [];
+    return openedTabs.filter((tab) => {
+      if (activeConnection.kind === 'redis') return tab.type === 'redis';
+      if (activeConnection.kind === 'mongodb') return tab.type === 'mongo';
+      return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
+    });
+  }, [openedTabs, activeConnection]);
+
   const connectionColorMap = useMemo(() => {
     if (!connections) return new Map<string, string>();
     return new Map(connections.map((c) => [c.id, c.color ?? '']));
@@ -53,7 +64,7 @@ function TabBar() {
 
   return (
     <div className="flex items-center h-8 border-b border-border bg-muted/20 shrink-0 overflow-x-auto">
-      {openedTabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const connColor = connectionColorMap.get(tab.connectionId) || null;
         return (
           <div
@@ -92,24 +103,27 @@ function TabBar() {
           </div>
         );
       })}
-      {activeConnectionId && (
-        <button
-          className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
-          onClick={() => openNewQueryTab(activeConnectionId)}
-          title="New Query"
-        >
-          <Plus className="size-3.5" />
-        </button>
-      )}
-      {activeConnectionId && (
-        <button
-          className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
-          onClick={() => openGraphTab(activeConnectionId)}
-          title="Schema Graph"
-        >
-          <Share2 className="size-3.5" />
-        </button>
-      )}
+      {activeConnection &&
+        activeConnection.kind !== 'redis' &&
+        activeConnection.kind !== 'mongodb' &&
+        activeConnectionId && (
+          <>
+            <button
+              className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
+              onClick={() => openNewQueryTab(activeConnectionId)}
+              title="New Query"
+            >
+              <Plus className="size-3.5" />
+            </button>
+            <button
+              className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
+              onClick={() => openGraphTab(activeConnectionId)}
+              title="Schema Graph"
+            >
+              <Share2 className="size-3.5" />
+            </button>
+          </>
+        )}
     </div>
   );
 }
@@ -150,7 +164,6 @@ function Workspace() {
     );
   }
 
-  // Filter tabs to only show tabs matching current connection type
   const visibleTabs = openedTabs.filter((tab) => {
     if (!activeConnection) return false;
     switch (activeConnection.kind) {

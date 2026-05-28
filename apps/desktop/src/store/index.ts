@@ -142,10 +142,10 @@ export function setExpandedConnections(ids: string[]) {
 }
 
 export function setConnectionStatus(id: string, status: 'connected' | 'disconnected') {
-  appStore.setState((state) => ({
-    ...state,
-    connectionStatus: { ...state.connectionStatus, [id]: status },
-  }));
+  appStore.setState((state) => {
+    if (state.connectionStatus[id] === status) return state;
+    return { ...state, connectionStatus: { ...state.connectionStatus, [id]: status } };
+  });
 }
 
 export function setTheme(theme: 'light' | 'dark' | 'system') {
