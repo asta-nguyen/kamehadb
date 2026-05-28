@@ -27,11 +27,22 @@ import {
   Terminal,
   Sparkles,
   Settings2,
+  Share2,
+  BarChart3,
 } from 'lucide-react';
 import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
 import { MongoExplorer } from './mongo-explorer';
-import { appStore, setActiveConnection, openTab, openNewQueryTab, navigateTo, toggleExpandedConnection } from '@/store';
+import {
+  appStore,
+  setActiveConnection,
+  openTab,
+  openNewQueryTab,
+  openGraphTab,
+  openDatabaseStatsTab,
+  navigateTo,
+  toggleExpandedConnection,
+} from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
 const kindColors: Record<string, string> = {
@@ -104,6 +115,10 @@ function ConnectionItem({
             <MoreVertical className="size-3.5" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={2}>
+            <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
+              <Share2 className="size-3.5 mr-2" />
+              Graph
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowEdit(true)}>Edit</DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
               Delete
@@ -150,6 +165,24 @@ function ConnectionItem({
               >
                 <Terminal className="size-3.5" />
                 <span>New Query</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openDatabaseStatsTab(conn.id)}
+                className="w-full justify-start gap-1.5 px-2 text-muted-foreground/80"
+              >
+                <BarChart3 className="size-3.5" />
+                <span>Database Stats</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openGraphTab(conn.id)}
+                className="w-full justify-start gap-1.5 px-2 text-muted-foreground/80"
+              >
+                <Share2 className="size-3.5" />
+                <span>Graph</span>
               </Button>
               <SchemaTree
                 connectionId={conn.id}
