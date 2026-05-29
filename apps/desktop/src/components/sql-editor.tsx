@@ -130,6 +130,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     [handleRun],
   );
 
+  useEffect(() => {
+    if (!('autoRun' in tab) || !tab.autoRun) return;
+    clearTabAutoRun(tab.id);
+    void handleRun();
+  }, [tab, handleRun]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">

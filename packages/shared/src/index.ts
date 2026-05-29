@@ -366,6 +366,7 @@ export type AIChatMessage = {
 export type AIChatRequest = {
   connectionId?: string;
   messages: AIChatMessage[];
+  latestMessage?: AIChatMessage;
   provider?: AIProvider;
   model?: string;
 };
@@ -396,7 +397,7 @@ export type ApiError = {
 export type WorkspaceTab =
   | {
       id: string;
-      type: 'table' | 'query' | 'redis' | 'graph' | 'stats' | 'database-stats';
+      type: 'table' | 'query' | 'redis' | 'graph' | 'stats' | 'database-stats' | 'ai-chat';
       title: string;
       connectionId: string;
       sql?: string;
@@ -413,6 +414,7 @@ export type AppStoreState = {
   activeSchemaId: string | null;
   activeTableId: string | null;
   activeMongoDatabase: string | null;
+  aiPanelConnectionId: string | null;
   openedTabs: WorkspaceTab[];
   activeTabId: string | null;
   sidebarCollapsed: boolean;

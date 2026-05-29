@@ -206,6 +206,15 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
 
   const aiChat = useAiChat(connectionId);
 
+  const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
+
+  // Load chat history on mount
+  useEffect(() => {
+    if (chatHistory?.messages) {
+      setMessages(chatHistory.messages.map((m) => ({ role: m.role, content: m.content })));
+    }
+  }, [chatHistory]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -254,7 +263,10 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
     setInput('');
 
     try {
-      const res = await aiChat.mutateAsync({ messages: [...snapshot, userMsg] });
+      const res = await aiChat.mutateAsync({
+        messages: [...snapshot, userMsg],
+        latestMessage: userMsg,
+      });
       setMessages((prev) => [...prev, res.message]);
     } catch (err) {
       setMessages((prev) => [
@@ -322,8 +334,9 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
             >
               <X className="size-3.5" />
             </button>
-          </div>
+          )}
         </div>
+      </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin" ref={scrollRef}>
           <div className="p-4">
@@ -339,13 +352,14 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
               </div>
             )}
 
-            {messages.map((msg, i) => (
-              <MessageBubble key={i} msg={msg} connectionId={connectionId} />
-            ))}
+          {messages.map((msg, i) => (
+            <MessageBubble key={i} msg={msg} connectionId={connectionId} />
+          ))}
 
             {aiChat.isPending && <TypingIndicator />}
           </div>
         </div>
+      </div>
 
         <div className="border-t border-border/40 p-3 shrink-0 bg-gradient-to-t from-background to-background/80">
           <div className="flex gap-2 items-end">
@@ -370,6 +384,7 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
             Enter to send · Shift+Enter for new line
           </p>
         </div>
+        <p className="text-xs text-muted-foreground/60 mt-1">Enter to send, Shift+Enter for new line</p>
       </div>
     </aside>
   );

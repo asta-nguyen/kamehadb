@@ -216,19 +216,17 @@ function Workspace() {
 }
 
 function MainLayout() {
-  const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
+  const aiPanelConnectionId = useStore(appStore, (state) => state.aiPanelConnectionId);
 
   return (
     <div className="flex-1 flex overflow-hidden">
       <main className="flex-1 bg-background flex flex-col overflow-hidden">
         <TabBar />
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 overflow-hidden">
-            <Workspace />
-          </div>
-          <AIChatPanel connectionId={activeConnectionId} />
+        <div className="flex-1 overflow-hidden">
+          <Workspace />
         </div>
       </main>
+      {aiPanelConnectionId && <AIChatPanel connectionId={aiPanelConnectionId} onClose={closeAiChatPanel} />}
     </div>
   );
 }
