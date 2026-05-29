@@ -247,7 +247,8 @@ aiRouter.post(
 // GET /ai/chat-history/:connectionId
 aiRouter.get('/chat-history/:connectionId', async (c) => {
   const connectionId = c.req.param('connectionId');
-  const limit = parseInt(c.req.query('limit') ?? '50', 10);
+  const parsed = parseInt(c.req.query('limit') ?? '50', 10);
+  const limit = Number.isNaN(parsed) ? 50 : Math.min(Math.max(parsed, 1), 200);
   const messages = metadataStore.getChatMessages(connectionId, limit);
   return c.json({ messages });
 });

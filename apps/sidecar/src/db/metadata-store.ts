@@ -119,13 +119,31 @@ export function initMetadataStore(dbPath: string): void {
       connection_id TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
       content TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL
     );
   `);
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_chat_connection ON chat_messages(connection_id);
   `);
+
+  // Migration: Normalize chat_messages.created_at to ISO 8601 format
+  // Rows inserted before this migration may have SQLite datetime('now') format (YYYY-MM-DD HH:MM:SS)
+  try {
+    getDb()
+      .prepare(
+        `
+        UPDATE chat_messages
+        SET created_at = printf('%s.000Z', created_at)
+        WHERE created_at NOT LIKE '%Z'
+          AND created_at NOT LIKE '%+%'
+          AND created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] *'
+      `,
+      )
+      .run();
+  } catch {
+    // Migration already applied or no rows to update
+  }
 
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
