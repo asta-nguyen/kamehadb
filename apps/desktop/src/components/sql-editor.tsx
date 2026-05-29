@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 import { Play, Loader2, AlertCircle, Clock, Download } from 'lucide-react';
-import { updateTabSql } from '@/store';
+import { clearTabAutoRun, updateTabSql } from '@/store';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { downloadResult } from '@/lib/export';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
@@ -122,6 +122,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     },
     [handleRun],
   );
+
+  useEffect(() => {
+    if (!('autoRun' in tab) || !tab.autoRun) return;
+    clearTabAutoRun(tab.id);
+    void handleRun();
+  }, [tab, handleRun]);
 
   return (
     <div className="flex flex-col h-full">

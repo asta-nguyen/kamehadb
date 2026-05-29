@@ -15,17 +15,78 @@ const providerConfigSchema = z.object({
   apiKey: z.string().optional(),
 });
 
-function buildSystemPrompt(ddl: string | null): string {
-  let prompt = `You are a SQL expert assistant embedded in a database admin tool called kamehadb. Your job is to help users write and understand SQL queries.
+async function buildMongoSchemaContext(adapter: ReturnType<typeof createMongoDbAdapter>): Promise<string | null> {
+  try {
+    const databases = await adapter.listDatabases();
+
+    if (databases.length === 0) {
+      return null;
+    }
+
+    const lines: string[] = [];
+    lines.push('MongoDB Databases:');
+    lines.push('');
+
+    // Filter out system databases
+    const userDatabases = databases.filter((db) => !['admin', 'local', 'config'].includes(db.name));
+
+    for (const db of userDatabases.slice(0, 10)) {
+      // Limit to 10 databases
+      lines.push(`## ${db.name}`);
+
+      const collections = await adapter.listCollections(db.name);
+
+      for (const coll of collections.slice(0, 10)) {
+        // Limit to 10 collections per database
+        const stats = await adapter.getCollectionStats(db.name, coll.name);
+        lines.push(`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`);
+
+        // Get a sample document to show field structure
+        if (stats.documentCount > 0) {
+          const result = await adapter.findDocuments({
+            collection: coll.name,
+            database: db.name,
+            limit: 1,
+          });
+          if (result.documents.length > 0) {
+            const sample = result.documents[0];
+            const fields = Object.keys(sample)
+              .slice(0, 15)
+              .map((k) => {
+                const v = sample[k];
+                const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+                return `  ${k}: ${type}`;
+              });
+            lines.push('Fields:');
+            lines.push(fields.join('\n'));
+          }
+        }
+      }
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  } catch {
+    return null;
+  }
+}
+
+function buildSystemPrompt(ddl: string | null, mongoSchema: string | null): string {
+  let prompt = `You are a database assistant embedded in a database admin tool called kamehadb. Your job is to help users write queries and understand their data.
 
 Rules:
-- Generate ONLY valid SQL queries — no commentary outside SQL blocks unless the user asks.
-- Use \`\`\`sql ... \`\`\` code blocks for queries.
-- Default to read-only SELECT queries. If the user asks for writes, note the risk.
+- Generate ONLY valid queries — no commentary outside code blocks unless the user asks.
+- Use \`\`\`sql ... \`\`\` for SQL queries.
+- Use MongoDB aggregation pipeline syntax in \`\`\`javascript ... \`\`\` for MongoDB queries.
+- Default to read-only queries. If the user asks for writes, note the risk.
 - Be concise.`;
 
   if (ddl) {
     prompt += `\n\nThe current database schema is:\n\n${ddl}`;
+  }
+
+  if (mongoSchema) {
+    prompt += `\n\n${mongoSchema}`;
   }
 
   return prompt;
@@ -44,6 +105,12 @@ aiRouter.post(
           content: z.string(),
         }),
       ),
+      latestMessage: z
+        .object({
+          role: z.enum(['user', 'assistant', 'system']),
+          content: z.string(),
+        })
+        .optional(),
       provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']).optional(),
       model: z.string().optional(),
     }),
@@ -51,6 +118,11 @@ aiRouter.post(
   async (c) => {
     try {
       const body = c.req.valid('json');
+
+      // Persist only the newest user message; full history is still passed for model context.
+      if (body.connectionId && body.latestMessage?.role === 'user') {
+        metadataStore.saveChatMessage(body.connectionId, 'user', body.latestMessage.content);
+      }
 
       const settings = metadataStore.getAISettings();
       // Resolve which provider config to use
@@ -73,17 +145,27 @@ aiRouter.post(
 
       // Build schema context if connectionId provided
       let ddl: string | null = null;
+      let mongoSchema: string | null = null;
       if (body.connectionId) {
         try {
           const profile = metadataStore.getProfile(body.connectionId);
-          if (profile && profile.kind !== 'mongodb') {
-            const password = metadataStore.getProfilePassword(body.connectionId);
-            const adapter = createSqlAdapter(profile, password);
-            if (adapter) {
+          if (profile) {
+            if (profile.kind === 'mongodb') {
+              const adapter = createMongoDbAdapter(profile);
               try {
-                ddl = await buildSchemaContext(adapter);
+                mongoSchema = await buildMongoSchemaContext(adapter);
               } finally {
                 await adapter.close();
+              }
+            } else {
+              const password = metadataStore.getProfilePassword(body.connectionId);
+              const adapter = createSqlAdapter(profile, password);
+              if (adapter) {
+                try {
+                  ddl = await buildSchemaContext(adapter);
+                } finally {
+                  await adapter.close();
+                }
               }
             }
           }
@@ -92,11 +174,17 @@ aiRouter.post(
         }
       }
 
-      const systemPrompt = buildSystemPrompt(ddl);
+      const systemPrompt = buildSystemPrompt(ddl, mongoSchema);
+      console.log('System prompt:', systemPrompt);
       const messages: AIChatMessage[] = [{ role: 'system', content: systemPrompt }, ...body.messages];
 
       const llmProvider = createProvider(providerName, config);
       const result = await llmProvider.chat(messages);
+
+      // Save assistant response to history
+      if (body.connectionId) {
+        metadataStore.saveChatMessage(body.connectionId, 'assistant', result.content);
+      }
 
       return c.json({
         message: {
@@ -155,3 +243,18 @@ aiRouter.post(
     }
   },
 );
+
+// GET /ai/chat-history/:connectionId
+aiRouter.get('/chat-history/:connectionId', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const limit = parseInt(c.req.query('limit') ?? '50', 10);
+  const messages = metadataStore.getChatMessages(connectionId, limit);
+  return c.json({ messages });
+});
+
+// DELETE /ai/chat-history/:connectionId
+aiRouter.delete('/chat-history/:connectionId', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  metadataStore.clearChatMessages(connectionId);
+  return c.json({ success: true });
+});

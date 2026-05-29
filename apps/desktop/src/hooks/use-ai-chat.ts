@@ -23,19 +23,41 @@ export function useAiChat(connectionId?: string | null) {
   return useMutation({
     mutationFn: async ({
       messages,
+      latestMessage,
       provider,
       model,
     }: {
       messages: AIChatMessage[];
+      latestMessage?: AIChatMessage;
       provider?: string;
       model?: string;
     }): Promise<AIChatResponse> => {
       return api.aiChat({
         connectionId: connectionId ?? undefined,
         messages,
+        latestMessage,
         provider: provider as AIProvider | undefined,
         model,
       });
+    },
+  });
+}
+
+export function useChatHistory(connectionId: string | null, limit = 50) {
+  return useQuery({
+    queryKey: ['chat-history', connectionId],
+    queryFn: () => api.getChatHistory(connectionId!, limit),
+    enabled: !!connectionId,
+    staleTime: 0, // Always fresh for chat
+  });
+}
+
+export function useClearChatHistory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (connectionId: string) => api.clearChatHistory(connectionId),
+    onSuccess: (_, connectionId) => {
+      queryClient.setQueryData(['chat-history', connectionId], { messages: [] });
     },
   });
 }
