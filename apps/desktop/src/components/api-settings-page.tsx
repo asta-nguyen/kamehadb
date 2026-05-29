@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo, type ReactNode } from 'react';
-import { ArrowLeft, Bot, Cloud, Loader2, Save, ServerCog, Sparkles } from 'lucide-react';
+import { useEffect, useState, useMemo, useCallback, type ReactNode } from 'react';
+import { ArrowLeft, Bot, Cloud, Loader2, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { navigateTo } from '@/store';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
@@ -98,7 +99,7 @@ function normalizeSettings(settings: AISettings): AISettings {
 }
 
 function providerNeedsApiKey(provider: AIProvider) {
-  return provider !== 'ollama-local';
+  return provider !== 'ollama-local' && provider !== '9router';
 }
 
 function providerNeedsBaseUrl(provider: AIProvider) {
@@ -111,14 +112,6 @@ function getProviderStatus(provider: AIProvider, config: AIProviderConfig) {
   if (providerNeedsApiKey(provider) && !config.apiKey?.trim()) return 'Missing API key';
   if (providerNeedsBaseUrl(provider) && !config.baseUrl?.trim()) return 'Needs base URL';
   return 'Configured';
-}
-
-function getSetActiveBlockedReason(provider: AIProvider, config: AIProviderConfig, isAlreadyActive: boolean) {
-  if (isAlreadyActive) return 'This provider is already active.';
-  if (!config.enabled) return 'Enable this provider before making it active.';
-  const status = getProviderStatus(provider, config);
-  if (status !== 'Configured') return `Complete this provider setup first: ${status.toLowerCase()}.`;
-  return null;
 }
 
 function Field({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
@@ -155,6 +148,33 @@ export function ApiSettingsPage() {
     [draftSettings, savedSnapshot],
   );
 
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+
+  const fetchModels = useCallback(async () => {
+    const baseUrl = selectedConfig.baseUrl?.trim();
+    if (!baseUrl) return;
+    setModelsLoading(true);
+    try {
+      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { data?: { id: string }[] };
+      const models = data.data?.map((m) => m.id).filter(Boolean) ?? [];
+      setAvailableModels(models);
+    } catch {
+      setAvailableModels([]);
+    } finally {
+      setModelsLoading(false);
+    }
+  }, [selectedConfig.baseUrl]);
+
+  useEffect(() => {
+    setAvailableModels([]);
+    if (selectedConfig.baseUrl?.trim()) {
+      fetchModels();
+    }
+  }, [selectedProvider, selectedConfig.baseUrl, fetchModels]);
+
   function updateProvider(provider: AIProvider, updates: Partial<AIProviderConfig>) {
     setDraftSettings((current) => ({
       ...current,
@@ -188,11 +208,6 @@ export function ApiSettingsPage() {
   const SelectedIcon = PROVIDER_META[selectedProvider].icon;
   const activeStatus = getProviderStatus(draftSettings.activeProvider, activeConfig);
   const selectedStatus = getProviderStatus(selectedProvider, selectedConfig);
-  const setActiveBlockedReason = getSetActiveBlockedReason(
-    selectedProvider,
-    selectedConfig,
-    selectedProvider === draftSettings.activeProvider,
-  );
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-background overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-border/80">
@@ -290,27 +305,33 @@ export function ApiSettingsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {selectedProvider !== draftSettings.activeProvider && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          setDraftSettings((current) => ({
-                            ...current,
-                            activeProvider: selectedProvider,
-                          }))
-                        }
-                        disabled={setActiveBlockedReason !== null}
-                      >
-                        Set Active
-                      </Button>
-                    )}
                     <button
                       type="button"
                       role="switch"
                       aria-checked={selectedConfig.enabled}
                       aria-label={`${PROVIDER_META[selectedProvider].label} toggle`}
-                      onClick={() => updateProvider(selectedProvider, { enabled: !selectedConfig.enabled })}
+                      onClick={() => {
+                        const enabling = !selectedConfig.enabled;
+                        setDraftSettings((current) => {
+                          const newActive = enabling
+                            ? selectedProvider
+                            : selectedProvider === current.activeProvider
+                              ? (PROVIDER_ORDER.find((p) => p !== selectedProvider && current.providers[p].enabled) ??
+                                current.activeProvider)
+                              : current.activeProvider;
+                          return {
+                            ...current,
+                            activeProvider: newActive,
+                            providers: {
+                              ...current.providers,
+                              [selectedProvider]: {
+                                ...current.providers[selectedProvider],
+                                enabled: enabling,
+                              },
+                            },
+                          };
+                        });
+                      }}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         selectedConfig.enabled ? 'bg-primary' : 'bg-muted'
                       }`}
@@ -326,13 +347,52 @@ export function ApiSettingsPage() {
 
                 {/* Form Fields */}
                 <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
-                  <Field label="Model" description="The default model for AI chat.">
-                    <Input
-                      value={selectedConfig.model}
-                      onChange={(e) => updateProvider(selectedProvider, { model: e.target.value })}
-                      placeholder={PROVIDER_META[selectedProvider].modelPlaceholder}
-                      className="h-9"
-                    />
+                  <Field
+                    label="Model"
+                    description="The default model for AI chat. Select from available models or type a custom name."
+                  >
+                    <div className="flex gap-2">
+                      {availableModels.length > 0 ? (
+                        <Select
+                          value={selectedConfig.model || undefined}
+                          onValueChange={(v) => {
+                            if (v != null) updateProvider(selectedProvider, { model: v });
+                          }}
+                        >
+                          <SelectTrigger className="h-9 flex-1">
+                            <SelectValue placeholder="Select a model..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableModels.map((model) => (
+                              <SelectItem key={model} value={model}>
+                                {model}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          value={selectedConfig.model}
+                          onChange={(e) => updateProvider(selectedProvider, { model: e.target.value })}
+                          placeholder={PROVIDER_META[selectedProvider].modelPlaceholder}
+                          className="h-9 flex-1"
+                        />
+                      )}
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 size-9"
+                        onClick={fetchModels}
+                        disabled={modelsLoading || !selectedConfig.baseUrl?.trim()}
+                        title="Fetch available models"
+                      >
+                        {modelsLoading ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3.5" />
+                        )}
+                      </Button>
+                    </div>
                   </Field>
 
                   <Field

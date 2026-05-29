@@ -124,4 +124,8 @@ export const api = {
       undefined,
       true,
     ),
+
+  // Redis API
+  getRedisStats: (connectionId: string) =>
+    request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined, true),
 };

@@ -23,12 +23,15 @@ function SchemaItem({
     <div className="select-none">
       <button
         onClick={onToggle}
-        className="w-full group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs hover:bg-muted/70 transition-colors"
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs hover:bg-muted/70 transition-colors"
       >
-        <ChevronDown className={`size-3 text-muted-foreground/60 shrink-0 ${expanded ? '' : 'hidden'}`} />
-        <ChevronRight className={`size-3 text-muted-foreground/60 shrink-0 ${expanded ? 'hidden' : ''}`} />
-        <Database className="size-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-        <span className="font-medium text-foreground/80 group-hover:text-foreground transition-colors">{schema}</span>
+        {expanded ? (
+          <ChevronDown className="size-3 text-muted-foreground/60 shrink-0" />
+        ) : (
+          <ChevronRight className="size-3 text-muted-foreground/60 shrink-0" />
+        )}
+        <Database className="size-3.5 text-muted-foreground/60 shrink-0" />
+        <span className="font-medium text-foreground/80">{schema}</span>
         {expanded && tables && (
           <span className="ml-auto text-xs text-muted-foreground/50 tabular-nums">{tables.length}</span>
         )}
@@ -69,12 +72,10 @@ function TableItem({
       <button
         onClick={() => onSelect(table.id)}
         onDoubleClick={() => setExpanded(!expanded)}
-        className="group w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs hover:bg-muted/50 transition-colors"
+        className="w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs hover:bg-muted/50 transition-colors"
       >
-        <ChevronDown className={`size-2.5 text-muted-foreground/50 shrink-0 ${expanded ? '' : 'hidden'}`} />
-        <ChevronRight className={`size-2.5 text-muted-foreground/50 shrink-0 ${expanded ? 'hidden' : ''}`} />
-        <Table2 className="size-3 text-muted-foreground/70 group-hover:text-foreground transition-colors" />
-        <span className="truncate text-foreground/80 group-hover:text-foreground transition-colors">{table.name}</span>
+        <Table2 className="size-3 text-muted-foreground/70 shrink-0" />
+        <span className="truncate text-foreground/80">{table.name}</span>
       </button>
       {expanded && (
         <div className="mt-0.5 ml-4 pl-2 space-y-0">
@@ -86,13 +87,10 @@ function TableItem({
             columns?.map((col) => (
               <div
                 key={col.name}
-                className="group/row flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-muted/30 transition-colors"
+                className="flex items-center gap-1.5 px-1.5 py-0.5 rounded hover:bg-muted/30 transition-colors"
               >
                 <Columns3 className="size-2.5 text-muted-foreground/50 shrink-0" />
-                <span
-                  className="truncate text-xs text-foreground/70 group-hover/row:text-foreground transition-colors"
-                  title={col.name}
-                >
+                <span className="truncate text-xs text-foreground/70" title={col.name}>
                   {col.name}
                 </span>
                 {col.primaryKey && <span className="size-1.5 rounded-full bg-primary shrink-0" title="Primary Key" />}

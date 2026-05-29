@@ -28,9 +28,6 @@ export function setActiveMongoDatabase(database: string | null) {
   appStore.setState((state) => ({ ...state, activeMongoDatabase: database }));
 }
 
-let queryCounter = 0;
-let mongoCounter = 0;
-
 export function openTab(tab: WorkspaceTab) {
   appStore.setState((state) => {
     const exists = state.openedTabs.find((t) => t.id === tab.id);
@@ -43,24 +40,25 @@ export function openTab(tab: WorkspaceTab) {
   });
 }
 
-export function openNewQueryTab(connectionId: string) {
-  queryCounter++;
+export function openNewQueryTab(connectionId: string, sql?: string, autoRun = false) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'query').length;
   const tab: WorkspaceTab = {
     id: `query-${nanoid()}`,
     type: 'query',
-    title: `Query ${queryCounter}`,
+    title: `Query ${tabCount + 1}`,
     connectionId,
-    sql: 'SELECT * FROM ',
+    sql: sql ?? 'SELECT * FROM ',
+    autoRun,
   };
   openTab(tab);
 }
 
 export function openMongoTab(connectionId: string, database: string, collection: string) {
-  mongoCounter++;
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'mongo').length;
   const tab: WorkspaceTab = {
-    id: `mongo-${connectionId}-${database}-${collection}-${mongoCounter}`,
+    id: `mongo-${nanoid()}`,
     type: 'mongo',
-    title: collection,
+    title: collection || `Mongo Query ${tabCount + 1}`,
     connectionId,
     database,
     collection,
@@ -109,6 +107,13 @@ export function updateTabSql(tabId: string, sql: string) {
   appStore.setState((state) => ({
     ...state,
     openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, sql } : t)),
+  }));
+}
+
+export function updateTabAutoRun(tabId: string, autoRun: boolean) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, autoRun } : t)),
   }));
 }
 
@@ -174,3 +179,9 @@ export function applyTheme(theme: 'light' | 'dark' | 'system') {
     root.classList.toggle('dark', theme === 'dark');
   }
 }
+
+export function setActiveTab(tabId: string | null) {
+  appStore.setState((state) => ({ ...state, activeTabId: tabId }));
+}
+
+export { updateTabSql as setTabSql };

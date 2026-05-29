@@ -14,16 +14,7 @@ import { ApiSettingsPage } from '@/components/api-settings-page';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { AIChatPanel } from '@/components/ai-chat-panel';
-import {
-  appStore,
-  openNewQueryTab,
-  openGraphTab,
-  closeTab,
-  toggleTheme,
-  applyTheme,
-  openDatabaseStatsTab,
-  openRedisTab,
-} from '@/store';
+import { appStore, openNewQueryTab, openGraphTab, closeTab, setTheme, applyTheme, openDatabaseStatsTab } from '@/store';
 import {
   X,
   Terminal,
@@ -43,19 +34,11 @@ function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
-  const { data: connections } = useConnections();
+  const { data: connections, isLoading } = useConnections();
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
 
-  // Filter tabs to only show matching current connection type
-  const visibleTabs = useMemo(() => {
-    if (!activeConnection) return [];
-    return openedTabs.filter((tab) => {
-      if (activeConnection.kind === 'redis') return tab.type === 'redis';
-      if (activeConnection.kind === 'mongodb') return tab.type === 'mongo';
-      return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
-    });
-  }, [openedTabs, activeConnection]);
+  const visibleTabs = activeConnectionId && (activeConnection || isLoading) ? openedTabs : [];
 
   const connectionColorMap = useMemo(() => {
     if (!connections) return new Map<string, string>();
@@ -72,7 +55,9 @@ function TabBar() {
             className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-xs shrink-0 select-none ${
               tab.id === activeTabId ? 'bg-background border-b-2 border-b-primary' : 'hover:bg-muted/50'
             }`}
-            onClick={() => appStore.setState((s) => ({ ...s, activeTabId: tab.id }))}
+            onClick={() =>
+              appStore.setState((s) => ({ ...s, activeTabId: tab.id, activeConnectionId: tab.connectionId }))
+            }
           >
             {connColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: connColor }} />}
             {tab.type === 'query' ? (
@@ -136,21 +121,12 @@ function Workspace() {
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
 
-  // Auto-open appropriate view for connection type when no matching tabs open
+  // Auto-open appropriate view for connection type when no tabs open
   useEffect(() => {
-    if (!activeConnectionId || !activeConnection) return;
+    if (!activeConnectionId || !activeConnection || openedTabs.length > 0) return;
 
-    const hasMatchingTab = openedTabs.some((tab) => {
-      if (activeConnection.kind === 'redis') return tab.type === 'redis';
-      if (activeConnection.kind === 'mongodb') return tab.type === 'mongo';
-      return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
-    });
-
-    if (!hasMatchingTab) {
-      if (activeConnection.kind === 'redis') {
-        openRedisTab(activeConnectionId);
-      }
-    }
+    // No tabs - show default empty state (user can click Stats from sidebar)
+    return;
   }, [activeConnectionId, activeConnection?.kind, openedTabs]);
 
   if (!activeConnectionId) {
@@ -164,17 +140,7 @@ function Workspace() {
     );
   }
 
-  const visibleTabs = openedTabs.filter((tab) => {
-    if (!activeConnection) return false;
-    switch (activeConnection.kind) {
-      case 'redis':
-        return tab.type === 'redis';
-      case 'mongodb':
-        return tab.type === 'mongo';
-      default:
-        return ['query', 'table', 'graph', 'database-stats', 'table-stats'].includes(tab.type);
-    }
-  });
+  const visibleTabs = openedTabs;
 
   if (visibleTabs.length === 0) {
     if (activeConnection?.kind === 'mongodb') {
@@ -270,24 +236,57 @@ function MainLayout() {
 function ThemeToggle() {
   const theme = useStore(appStore, (state) => state.theme);
 
-  const Icon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
-  const label = theme === 'light' ? 'Light mode' : theme === 'dark' ? 'Dark mode' : 'System theme';
-
   return (
-    <button
-      onClick={toggleTheme}
-      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-      title={label}
-    >
-      <Icon className="size-4" />
-    </button>
+    <div className="relative flex items-center bg-muted/40 rounded-md border border-border/30 shadow-sm">
+      <div
+        className="absolute top-1 bottom-1 w-[calc(33.333%-4px)] bg-background rounded shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-200 ease-out will-change-transform"
+        style={{
+          left: '4px',
+          transform: `translateX(${theme === 'light' ? '0' : theme === 'system' ? 'calc(100% + 4px)' : 'calc(200% + 8px)'})`,
+        }}
+      />
+      <button
+        onClick={() => setTheme('light')}
+        className="relative z-10 w-7 h-7 flex items-center justify-center rounded transition-colors duration-150 text-muted-foreground/50 hover:text-foreground"
+        title="Light"
+        aria-label="Light"
+        aria-pressed={theme === 'light'}
+      >
+        <Sun className="size-[15px] shrink-0" />
+      </button>
+      <button
+        onClick={() => setTheme('system')}
+        className="relative z-10 w-7 h-7 flex items-center justify-center rounded transition-colors duration-150 text-muted-foreground/50 hover:text-foreground"
+        title="System"
+        aria-label="System"
+        aria-pressed={theme === 'system'}
+      >
+        <Monitor className="size-[15px] shrink-0" />
+      </button>
+      <button
+        onClick={() => setTheme('dark')}
+        className="relative z-10 w-7 h-7 flex items-center justify-center rounded transition-colors duration-150 text-muted-foreground/50 hover:text-foreground"
+        title="Dark"
+        aria-label="Dark"
+        aria-pressed={theme === 'dark'}
+      >
+        <Moon className="size-[15px] shrink-0" />
+      </button>
+    </div>
   );
 }
 
 function Header() {
   return (
     <header className="h-9 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background">
-      <span className="font-semibold text-sm">kamehadb</span>
+      <div className="flex items-center gap-3">
+        <img alt="kamehadb" className="h-5 w-5 object-contain rounded" src="/logo.png" />
+        <div className="flex items-baseline">
+          <span className="font-mono text-sm font-bold tracking-widest text-foreground/90">KAME</span>
+          <span className="font-mono text-sm font-black tracking-widest text-foreground">HA</span>
+          <span className="font-mono text-sm font-bold tracking-widest text-primary ml-0.5">DB</span>
+        </div>
+      </div>
       <ThemeToggle />
     </header>
   );

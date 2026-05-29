@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 import { Play, Loader2, AlertCircle, Clock, Download } from 'lucide-react';
-import { updateTabSql } from '@/store';
+import { updateTabSql, updateTabAutoRun } from '@/store';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { downloadResult } from '@/lib/export';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
@@ -55,6 +55,13 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     }
   }, [sql, runQuery]);
 
+  // Auto-run on mount if flag is set
+  useEffect(() => {
+    if ('autoRun' in tab && tab.autoRun && sql.trim()) {
+      updateTabAutoRun(tab.id, false);
+      void handleRun();
+    }
+  }, [tab, sql, handleRun]);
   const handleChange = useCallback(
     (value: string | undefined) => {
       const v = value ?? '';

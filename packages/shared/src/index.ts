@@ -262,12 +262,29 @@ export type GetTtlInput = {
   key: string;
 };
 
+export type RedisStats = {
+  version: string;
+  connectedClients: number;
+  blockedClients: number;
+  totalConnections: number;
+  totalCommands: number;
+  usedMemory: number;
+  usedMemoryPeak: number;
+  maxMemory?: number;
+  totalKeys: number;
+  expiringKeys: number;
+  avgTtl: number;
+  uptimeSeconds: number;
+  hitRate?: number;
+};
+
 // Redis adapter contract
 export interface RedisAdapter {
   testConnection(): Promise<TestConnectionResult>;
   scanKeys(input: ScanKeysInput): Promise<KeyPage>;
   getKey(input: GetKeyInput): Promise<RedisValue>;
   getTtl(input: GetTtlInput): Promise<number>;
+  getStats(): Promise<RedisStats>;
   close(): Promise<void>;
 }
 
@@ -383,6 +400,7 @@ export type WorkspaceTab =
       title: string;
       connectionId: string;
       sql?: string;
+      autoRun?: boolean;
     }
   | { id: string; type: 'mongo'; title: string; connectionId: string; database: string; collection: string }
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string };
