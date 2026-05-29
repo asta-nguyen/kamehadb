@@ -16,37 +16,26 @@ const providerConfigSchema = z.object({
   apiKey: z.string().optional(),
 });
 
-async function buildMongoSchemaContext(adapter: ReturnType<typeof createMongoDbAdapter>): Promise<string | null> {
+async function buildMongoSchemaContext(
+  adapter: ReturnType<typeof createMongoDbAdapter>,
+  database?: string,
+): Promise<string | null> {
   try {
-    const databases = await adapter.listDatabases();
-
-    if (databases.length === 0) {
-      return null;
-    }
-
     const lines: string[] = [];
-    lines.push('MongoDB Databases:');
-    lines.push('');
 
-    // Filter out system databases
-    const userDatabases = databases.filter((db) => !['admin', 'local', 'config'].includes(db.name));
-
-    for (const db of userDatabases.slice(0, 10)) {
-      // Limit to 10 databases
-      lines.push(`## ${db.name}`);
-
-      const collections = await adapter.listCollections(db.name);
+    if (database) {
+      // Get schema for specific database
+      lines.push(`## Database: ${database}`);
+      const collections = await adapter.listCollections(database);
 
       for (const coll of collections.slice(0, 10)) {
-        // Limit to 10 collections per database
-        const stats = await adapter.getCollectionStats(db.name, coll.name);
+        const stats = await adapter.getCollectionStats(database, coll.name);
         lines.push(`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`);
 
-        // Get a sample document to show field structure
         if (stats.documentCount > 0) {
           const result = await adapter.findDocuments({
             collection: coll.name,
-            database: db.name,
+            database,
             limit: 1,
           });
           if (result.documents.length > 0) {
@@ -63,7 +52,44 @@ async function buildMongoSchemaContext(adapter: ReturnType<typeof createMongoDbA
           }
         }
       }
-      lines.push('');
+    } else {
+      // Get schema for all databases (fallback)
+      const databases = await adapter.listDatabases();
+      if (databases.length === 0) return null;
+
+      lines.push('MongoDB Databases:');
+      const userDatabases = databases.filter((db) => !['admin', 'local', 'config'].includes(db.name));
+
+      for (const db of userDatabases.slice(0, 10)) {
+        lines.push(`## ${db.name}`);
+        const collections = await adapter.listCollections(db.name);
+
+        for (const coll of collections.slice(0, 10)) {
+          const stats = await adapter.getCollectionStats(db.name, coll.name);
+          lines.push(`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`);
+
+          if (stats.documentCount > 0) {
+            const result = await adapter.findDocuments({
+              collection: coll.name,
+              database: db.name,
+              limit: 1,
+            });
+            if (result.documents.length > 0) {
+              const sample = result.documents[0];
+              const fields = Object.keys(sample)
+                .slice(0, 15)
+                .map((k) => {
+                  const v = sample[k];
+                  const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+                  return `  ${k}: ${type}`;
+                });
+              lines.push('Fields:');
+              lines.push(fields.join('\n'));
+            }
+          }
+        }
+        lines.push('');
+      }
     }
 
     return lines.join('\n');
@@ -100,6 +126,7 @@ aiRouter.post(
     'json',
     z.object({
       connectionId: z.string().optional(),
+      mongoDatabase: z.string().optional(),
       messages: z.array(
         z.object({
           role: z.enum(['user', 'assistant', 'system']),
@@ -122,7 +149,7 @@ aiRouter.post(
 
       // Persist only the newest user message; full history is still passed for model context.
       if (body.connectionId && body.latestMessage?.role === 'user') {
-        metadataStore.saveChatMessage(body.connectionId, 'user', body.latestMessage.content);
+        metadataStore.saveChatMessage(body.connectionId, 'user', body.latestMessage.content, body.mongoDatabase);
       }
 
       const settings = metadataStore.getAISettings();
@@ -149,8 +176,15 @@ aiRouter.post(
       let mongoSchema: string | null = null;
       if (body.connectionId) {
         // Try to get from cache first
-        ddl = getCached<string>(`ai-schema:${body.connectionId}:sql`, CACHE_TTL.AI_SCHEMA);
-        mongoSchema = getCached<string>(`ai-schema:${body.connectionId}:mongo`, CACHE_TTL.AI_SCHEMA);
+        const cacheKey = body.mongoDatabase
+          ? `ai-schema:${body.connectionId}:mongo:${body.mongoDatabase}`
+          : `ai-schema:${body.connectionId}:sql`;
+
+        if (body.mongoDatabase) {
+          mongoSchema = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
+        } else {
+          ddl = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
+        }
 
         if (!ddl && !mongoSchema) {
           try {
@@ -159,8 +193,8 @@ aiRouter.post(
               if (profile.kind === 'mongodb') {
                 const adapter = createMongoDbAdapter(profile);
                 try {
-                  mongoSchema = await buildMongoSchemaContext(adapter);
-                  setCache(`ai-schema:${body.connectionId}:mongo`, mongoSchema);
+                  mongoSchema = await buildMongoSchemaContext(adapter, body.mongoDatabase);
+                  setCache(cacheKey, mongoSchema);
                 } finally {
                   await adapter.close();
                 }
@@ -170,7 +204,7 @@ aiRouter.post(
                 if (adapter) {
                   try {
                     ddl = await buildSchemaContext(adapter);
-                    setCache(`ai-schema:${body.connectionId}:sql`, ddl);
+                    setCache(cacheKey, ddl);
                   } finally {
                     await adapter.close();
                   }
@@ -192,7 +226,7 @@ aiRouter.post(
 
       // Save assistant response to history
       if (body.connectionId) {
-        metadataStore.saveChatMessage(body.connectionId, 'assistant', result.content);
+        metadataStore.saveChatMessage(body.connectionId, 'assistant', result.content, body.mongoDatabase);
       }
 
       return c.json({
@@ -258,20 +292,23 @@ aiRouter.get('/chat-history/:connectionId', async (c) => {
   const connectionId = c.req.param('connectionId');
   const parsed = parseInt(c.req.query('limit') ?? '50', 10);
   const limit = Number.isNaN(parsed) ? 50 : Math.min(Math.max(parsed, 1), 200);
-  const messages = metadataStore.getChatMessages(connectionId, limit);
+  const mongoDatabase = c.req.query('database') || undefined;
+  const messages = metadataStore.getChatMessages(connectionId, limit, mongoDatabase);
   return c.json({ messages });
 });
 
 // DELETE /ai/chat-history/:connectionId
 aiRouter.delete('/chat-history/:connectionId', async (c) => {
   const connectionId = c.req.param('connectionId');
-  metadataStore.clearChatMessages(connectionId);
+  const mongoDatabase = c.req.query('database') || undefined;
+  metadataStore.clearChatMessages(connectionId, mongoDatabase);
   return c.json({ success: true });
 });
 
 // POST /ai/clear-schema-cache/:connectionId
 aiRouter.post('/clear-schema-cache/:connectionId', async (c) => {
   const connectionId = c.req.param('connectionId');
-  clearSchemaCache(connectionId);
+  const mongoDatabase = c.req.query('database') || undefined;
+  clearSchemaCache(connectionId, mongoDatabase);
   return c.json({ success: true });
 });

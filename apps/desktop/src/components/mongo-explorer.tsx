@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from '@tanstack/react-store';
 import { useMongoDatabases, useMongoCollections } from '@/hooks/use-mongo';
-import { Database, Table2, Eye, Clock, Loader2, Search } from 'lucide-react';
-import { openMongoTab, setActiveMongoDatabase, appStore } from '@/store';
+import { Database, Table2, Eye, Clock, Loader2, Search, Sparkles } from 'lucide-react';
+import { openMongoTab, setActiveMongoDatabase, openAiChatPanel, appStore } from '@/store';
 import type { CollectionInfo } from '@kamehadb/shared';
 
 const typeIcons: Record<CollectionInfo['type'], React.ComponentType<{ className?: string }>> = {
@@ -145,6 +145,17 @@ function DatabaseNode({
           {dbName}
         </span>
         {collections && <span className="ml-auto text-xs text-muted-foreground">{collections.length}</span>}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+            openAiChatPanel(connectionId);
+          }}
+          className="p-1 rounded hover:bg-primary/10 text-muted-foreground/60 hover:text-primary transition-colors"
+          title="Start AI Chat"
+        >
+          <Sparkles className="size-3" />
+        </button>
         {expanded ? (
           <svg
             xmlns="http://www.w3.org/2000/svg"

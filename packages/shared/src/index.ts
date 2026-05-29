@@ -348,6 +348,7 @@ export type AIChatMessage = {
 
 export type AIChatRequest = {
   connectionId?: string;
+  mongoDatabase?: string;
   messages: AIChatMessage[];
   latestMessage?: AIChatMessage;
   provider?: AIProvider;

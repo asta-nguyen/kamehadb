@@ -30,6 +30,15 @@ export function clearConnectionCache(connectionId: string) {
   }
 }
 
-export function clearSchemaCache(connectionId: string) {
-  cache.delete(`ai-schema:${connectionId}`);
+export function clearSchemaCache(connectionId: string, mongoDatabase?: string) {
+  if (mongoDatabase) {
+    cache.delete(`ai-schema:${connectionId}:mongo:${mongoDatabase}`);
+  } else {
+    // Clear all schema caches for this connection
+    for (const key of cache.keys()) {
+      if (key.includes(`ai-schema:${connectionId}`)) {
+        cache.delete(key);
+      }
+    }
+  }
 }
