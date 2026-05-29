@@ -113,6 +113,33 @@ redisRouter.post(
   },
 );
 
+// POST /redis/:connectionId/command
+redisRouter.post(
+  '/:connectionId/command',
+  zValidator(
+    'json',
+    z.object({
+      command: z
+        .string()
+        .min(1)
+        .refine((s) => s.trim().length > 0, { message: 'command cannot be empty or whitespace' }),
+    }),
+  ),
+  async (c) => {
+    try {
+      const adapter = await getAdapter(c.req.param('connectionId'));
+      try {
+        const result = await adapter.runCommand(c.req.valid('json').command);
+        return c.json(result);
+      } finally {
+        await adapter.close().catch(() => {});
+      }
+    } catch (err) {
+      return handleError(c, err, 'runCommand');
+    }
+  },
+);
+
 // GET /redis/:connectionId/stats
 redisRouter.get('/:connectionId/stats', async (c) => {
   try {

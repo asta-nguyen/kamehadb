@@ -27,6 +27,14 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const { data: databases, isLoading: loadingDatabases } = useMongoDatabases(connectionId);
 
+  // Reset state when switching connections
+  useEffect(() => {
+    setSelectedDb(null);
+    setExpandedDbs(new Set());
+    setSearchQuery('');
+    setSelectedCollection(null);
+  }, [connectionId]);
+
   // Auto-select and auto-expand first database when it loads
   useEffect(() => {
     if (databases?.length && !selectedDb) {
@@ -35,7 +43,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
       setExpandedDbs(new Set([first]));
       setActiveMongoDatabase(first);
     }
-  }, [databases]);
+  }, [connectionId, databases, selectedDb]);
 
   const toggleDb = (name: string) => {
     setExpandedDbs((prev) => {

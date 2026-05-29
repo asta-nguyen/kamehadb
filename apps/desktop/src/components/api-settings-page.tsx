@@ -150,13 +150,28 @@ export function ApiSettingsPage() {
 
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [showCustomModel, setShowCustomModel] = useState(false);
 
   const fetchModels = useCallback(async () => {
-    const baseUrl = selectedConfig.baseUrl?.trim();
+    const provider = selectedProvider;
+    const config = selectedConfig;
+    let baseUrl = config.baseUrl?.trim().replace(/\/+$/, '') ?? '';
+    let apiKey = config.apiKey ?? '';
+    switch (provider) {
+      case 'ollama-local':
+        baseUrl = baseUrl || 'http://localhost:11434/v1';
+        apiKey = apiKey || 'ollama';
+        break;
+      case 'openai':
+        baseUrl = baseUrl || 'https://api.openai.com/v1';
+        break;
+    }
     if (!baseUrl) return;
     setModelsLoading(true);
     try {
-      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`);
+      const headers: Record<string, string> = {};
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      const res = await fetch(`${baseUrl}/models`, { headers });
       if (!res.ok) return;
       const data = (await res.json()) as { data?: { id: string }[] };
       const models = data.data?.map((m) => m.id).filter(Boolean) ?? [];
@@ -166,10 +181,11 @@ export function ApiSettingsPage() {
     } finally {
       setModelsLoading(false);
     }
-  }, [selectedConfig.baseUrl]);
+  }, [selectedProvider, selectedConfig]);
 
   useEffect(() => {
     setAvailableModels([]);
+    setShowCustomModel(false);
     if (selectedConfig.baseUrl?.trim()) {
       fetchModels();
     }
@@ -352,11 +368,15 @@ export function ApiSettingsPage() {
                     description="The default model for AI chat. Select from available models or type a custom name."
                   >
                     <div className="flex gap-2">
-                      {availableModels.length > 0 ? (
+                      {availableModels.length > 0 && !showCustomModel ? (
                         <Select
-                          value={selectedConfig.model || undefined}
+                          value={availableModels.includes(selectedConfig.model) ? selectedConfig.model : undefined}
                           onValueChange={(v) => {
-                            if (v != null) updateProvider(selectedProvider, { model: v });
+                            if (v === '__custom') {
+                              setShowCustomModel(true);
+                            } else if (v) {
+                              updateProvider(selectedProvider, { model: v });
+                            }
                           }}
                         >
                           <SelectTrigger className="h-9 flex-1">
@@ -368,6 +388,7 @@ export function ApiSettingsPage() {
                                 {model}
                               </SelectItem>
                             ))}
+                            <SelectItem value="__custom">Custom…</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (

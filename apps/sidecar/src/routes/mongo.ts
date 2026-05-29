@@ -79,6 +79,7 @@ mongoRouter.post(
       sort: z.record(z.union([z.literal(1), z.literal(-1)])).optional(),
       skip: z.number().int().nonnegative().optional(),
       limit: z.number().int().min(1).max(1000).optional(),
+      search: z.string().optional(),
     }),
   ),
   async (c) => {
@@ -201,6 +202,32 @@ mongoRouter.get('/:connectionId/stats', async (c) => {
     return handleError(c, err, 'getCollectionStats');
   }
 });
+
+// POST /mongo/:connectionId/command
+mongoRouter.post(
+  '/:connectionId/command',
+  zValidator(
+    'json',
+    z.object({
+      database: z.string().optional(),
+      command: z.record(z.unknown()),
+    }),
+  ),
+  async (c) => {
+    try {
+      const adapter = await getAdapter(c.req.param('connectionId'));
+      try {
+        const { database, command } = c.req.valid('json');
+        const result = await adapter.runCommand(database || '', command);
+        return c.json(result);
+      } finally {
+        await adapter.close();
+      }
+    } catch (err) {
+      return handleError(c, err, 'runCommand');
+    }
+  },
+);
 
 // GET /mongo/:connectionId/test
 mongoRouter.get('/:connectionId/test', async (c) => {

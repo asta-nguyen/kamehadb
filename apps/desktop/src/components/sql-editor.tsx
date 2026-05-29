@@ -132,7 +132,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
 
   useEffect(() => {
     if (!('autoRun' in tab) || !tab.autoRun) return;
-    clearTabAutoRun(tab.id);
+    updateTabAutoRun(tab.id, false);
     void handleRun();
   }, [tab, handleRun]);
 

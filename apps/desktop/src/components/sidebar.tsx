@@ -38,13 +38,15 @@ import {
   appStore,
   setActiveConnection,
   openTab,
-  openNewQueryTab,
   openGraphTab,
   navigateTo,
   toggleExpandedConnection,
   setConnectionStatus,
   openDatabaseStatsTab,
+  openAiChatPanel,
   openRedisTab,
+  openRedisQueryTab,
+  openMongoQueryTab,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
@@ -151,7 +153,7 @@ function ConnectionItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={4}>
             {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
-              <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
+              <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
                 <Sparkles className="size-3.5 mr-2" />
                 AI Chat
               </DropdownMenuItem>
@@ -163,13 +165,45 @@ function ConnectionItem({
               </DropdownMenuItem>
             )}
             {conn.kind === 'mongodb' && (
-              <DropdownMenuItem onClick={() => openDatabaseStatsTab(conn.id)}>
-                <BarChart3 className="size-3.5 mr-2" />
-                Stats
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  openMongoQueryTab(conn.id, appStore.state.activeMongoDatabase ?? 'admin', '');
+                }}
+              >
+                <Terminal className="size-3.5 mr-2" />
+                Aggregation
               </DropdownMenuItem>
             )}
+            {conn.kind === 'redis' && (
+              <>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setActiveConnection(conn.id);
+                    openRedisQueryTab(conn.id);
+                  }}
+                >
+                  <Terminal className="size-3.5 mr-2" />
+                  Query
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setActiveConnection(conn.id);
+                    openRedisTab(conn.id);
+                  }}
+                >
+                  <BarChart3 className="size-3.5 mr-2" />
+                  Stats
+                </DropdownMenuItem>
+              </>
+            )}
             {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
-              <DropdownMenuItem onClick={() => openDatabaseStatsTab(conn.id)}>
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  openDatabaseStatsTab(conn.id);
+                }}
+              >
                 <BarChart3 className="size-3.5 mr-2" />
                 Stats
               </DropdownMenuItem>
@@ -213,18 +247,11 @@ function ConnectionItem({
       {expanded && conn.kind !== 'redis' && (
         <div className="mt-1 ml-3 pl-2 border-l border-border/60 space-y-0.5">
           {conn.kind === 'mongodb' ? (
-            <MongoExplorer key={conn.id} connectionId={conn.id} />
+            <>
+              <MongoExplorer key={conn.id} connectionId={conn.id} />
+            </>
           ) : (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openNewQueryTab(conn.id)}
-                className="w-full justify-start gap-1.5 px-2 text-muted-foreground/80"
-              >
-                <Terminal className="size-3.5" />
-                <span>New Query</span>
-              </Button>
               <SchemaTree
                 key={conn.id}
                 connectionId={conn.id}

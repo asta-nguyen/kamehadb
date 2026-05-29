@@ -139,4 +139,11 @@ export const api = {
   // Redis API
   getRedisStats: (connectionId: string) =>
     request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined, true),
+
+  runRedisCommand: (connectionId: string, command: string) =>
+    request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
+
+  // MongoDB command
+  runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
+    request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }, true),
 };
