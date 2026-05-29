@@ -8,6 +8,8 @@
     "dev": "concurrently \"pnpm --filter @kamehadb/sidecar dev\" \"pnpm --filter @kamehadb/desktop dev\"",
     "dev:desktop": "pnpm --filter @kamehadb/desktop dev",
     "dev:sidecar": "pnpm --filter @kamehadb/sidecar dev",
+    "dev:landing": "pnpm --filter @kamehadb/landing dev",
+    "dev:all": "concurrently \"pnpm dev:landing\" \"pnpm dev:desktop\" \"pnpm dev:sidecar\"",
     "build": "pnpm --filter @kamehadb/shared build && pnpm --filter @kamehadb/sidecar build && pnpm --filter @kamehadb/desktop build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",

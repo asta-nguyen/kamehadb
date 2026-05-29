@@ -73,7 +73,7 @@ kamehadb/
 pnpm test
 ```
 
-## macOS Test Builds
+## macOS Gatekeeper
 
 Unsigned macOS builds can still be used for local testing, but Gatekeeper may show messages such as `"KamehaDB" is damaged and can't be opened` or `"KamehaDB" cannot be opened because Apple cannot check it for malicious software`.
 
