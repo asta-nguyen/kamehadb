@@ -24,53 +24,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AIChatMessage } from '@kamehadb/shared';
 
-hljs.registerLanguage('sql', sql);
-
-function getConnectionId(propId: string | null): string | null {
-  return propId ?? appStore.state.activeConnectionId;
-}
-
 type AIChatPanelProps = {
   connectionId: string | null;
-  width?: number;
-  onWidthChange?: (width: number) => void;
+  onClose?: () => void;
 };
-
-function highlightSql(sql: string): string {
-  return hljs.highlight(sql, { language: 'sql' }).value;
-}
-
-type BlockType = 'text' | 'sql' | 'error';
-
-function extractSqlBlocks(content: string): { type: BlockType; value: string }[] {
-  const blocks: { type: BlockType; value: string }[] = [];
-
-  const errorMatch = content.match(/^error[:\s]*(.+)$/is);
-  if (errorMatch) {
-    blocks.push({ type: 'error', value: errorMatch[1].trim() });
-    content = content.slice(errorMatch[0].length).trim();
-  }
-
-  const regex = /```sql\n?([\s\S]*?)```/gi;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      const text = content.slice(lastIndex, match.index).trim();
-      if (text) blocks.push({ type: 'text', value: text });
-    }
-    blocks.push({ type: 'sql', value: match[1].trim() });
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < content.length) {
-    const text = content.slice(lastIndex).trim();
-    if (text) blocks.push({ type: 'text', value: text });
-  }
-
-  return blocks;
-}
 
 function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void; onRun: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -119,24 +76,30 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
           </Tooltip>
         </div>
       </div>
-      <pre
-        className="p-3 text-xs leading-relaxed font-mono overflow-x-auto text-foreground [&_span.keyword]:text-primary [&_span.string]:text-green-600 dark:[&_span.string]:text-green-400 [&_span.number]:text-orange-600 dark:[&_span.number]:text-orange-400 [&_span-comment]:text-muted-foreground/60"
-        dangerouslySetInnerHTML={{ __html: highlightSql(sql) }}
-      />
+      <pre className="p-2 text-xs font-mono overflow-x-auto text-foreground">{sql}</pre>
     </div>
   );
 }
 
-function ErrorBlock({ message }: { message: string }) {
-  return (
-    <div className="border border-destructive/30 rounded-lg overflow-hidden bg-destructive/5 my-2">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 border-b border-destructive/20">
-        <AlertCircle className="size-3 text-destructive" />
-        <span className="text-xs font-medium text-destructive/80 uppercase tracking-wider">Error</span>
-      </div>
-      <p className="p-3 text-xs text-destructive/90 leading-relaxed">{message}</p>
-    </div>
-  );
+function extractSqlBlocks(content: string): { type: 'text' | 'sql'; value: string }[] {
+  const blocks: { type: 'text' | 'sql'; value: string }[] = [];
+  const regex = /```sql\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      blocks.push({ type: 'text', value: content.slice(lastIndex, match.index).trim() });
+    }
+    blocks.push({ type: 'sql', value: match[1].trim() });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    blocks.push({ type: 'text', value: content.slice(lastIndex).trim() });
+  }
+
+  return blocks;
 }
 
 function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId: string | null }) {
@@ -144,10 +107,8 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="group bg-primary/10 text-sm rounded-2xl rounded-br-md px-3.5 py-2 max-w-[85%] text-foreground/90">
-          {msg.content}
-        </div>
+      <div className="flex justify-end mb-3">
+        <div className="bg-primary/10 text-sm rounded-lg px-3 py-2 max-w-[85%]">{msg.content}</div>
       </div>
     );
   }
@@ -155,37 +116,26 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
   const blocks = extractSqlBlocks(msg.content);
 
   return (
-    <div className="mb-4">
+    <div className="flex gap-2 mb-3">
+      <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+        <Bot className="size-3.5 text-primary" />
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-1.5">AI Assistant</div>
+        <div className="text-xs font-medium text-muted-foreground mb-1">AI</div>
         {blocks.map((block, i) =>
           block.type === 'sql' ? (
             <SqlBlock
               key={i}
               sql={block.value}
               onInsert={() => {
-                const connId = getConnectionId(connectionId);
-                if (!connId) {
-                  toast.error('Please select a database first');
-                  return;
-                }
-                const sql = block.value.trim();
-                if (!sql) return;
-                openNewQueryTab(connId, sql);
+                if (!connectionId) return;
+                openQueryTabWithSql(connectionId, block.value, false);
               }}
               onRun={() => {
-                const connId = getConnectionId(connectionId);
-                if (!connId) {
-                  toast.error('Please select a database first');
-                  return;
-                }
-                const sql = block.value.trim();
-                if (!sql) return;
-                openNewQueryTab(connId, sql, true);
+                if (!connectionId) return;
+                openQueryTabWithSql(connectionId, block.value, true);
               }}
             />
-          ) : block.type === 'error' ? (
-            <ErrorBlock key={i} message={block.value} />
           ) : (
             block.value && (
               <div
@@ -202,21 +152,7 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
   );
 }
 
-function TypingIndicator() {
-  return (
-    <div className="flex gap-0.5 items-center pt-4 mb-4">
-      <span
-        className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]"
-        style={{ animationDelay: '0ms' }}
-      />
-      <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
-      <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
-    </div>
-  );
-}
-
-export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChatPanelProps) {
-  const [open, setOpen] = useState(false);
+export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
@@ -228,8 +164,6 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
   const sendingRef = useRef(false);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(0);
 
   const aiChat = useAiChat(connectionId);
   const clearChatHistory = useClearChatHistory();
@@ -249,36 +183,6 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, aiChat.isPending]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    startXRef.current = e.clientX;
-    startWidthRef.current = panelWidth;
-  };
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const delta = startXRef.current - e.clientX;
-      const newWidth = Math.max(280, Math.min(560, startWidthRef.current + delta));
-      setPanelWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      onWidthChange?.(panelWidth);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing, panelWidth, onWidthChange]);
 
   async function handleSend() {
     const text = input.trim();
@@ -414,51 +318,53 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
         </TooltipProvider>
       </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin" ref={scrollRef}>
-          <div className="p-4">
-            {messages.length === 0 && !aiChat.isPending && (
-              <div className="flex text-center py-12 text-muted-foreground">
-                <div className="m-auto">
-                  <div className="size-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-3 ring-1 ring-primary/10">
-                    <Bot className="size-5 text-primary/60" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground/70 mb-1">Ask me to write SQL</p>
-                  <p className="text-xs text-muted-foreground/60">e.g. "show me users who signed up last month"</p>
-                </div>
-              </div>
-            )}
+      <div className="flex-1 overflow-auto" ref={scrollRef}>
+        <div className="p-3">
+          {messages.length === 0 && !aiChat.isPending && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Bot className="size-8 mx-auto mb-2 opacity-40" />
+              <p className="text-xs">Ask me to write SQL queries</p>
+              <p className="text-xs mt-1">e.g. "show me users who signed up last month"</p>
+            </div>
+          )}
 
           {messages.map((msg, i) => (
             <MessageBubble key={i} msg={msg} connectionId={connectionId} />
           ))}
 
-            {aiChat.isPending && <TypingIndicator />}
-          </div>
+          {aiChat.isPending && (
+            <div className="flex gap-2 mb-3">
+              <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Bot className="size-3.5 text-primary" />
+              </div>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Loader2 className="size-3 animate-spin" />
+                Thinking...
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-        <div className="border-t border-border/40 p-3 shrink-0 bg-gradient-to-t from-background to-background/80">
-          <div className="flex gap-2 items-end">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask AI to write SQL..."
-              rows={2}
-              className="flex-1 text-sm bg-muted/50 rounded-lg px-3 py-2 resize-none outline-none placeholder:text-muted-foreground/40 border border-transparent focus:border-primary/30 transition-colors"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || aiChat.isPending}
-              className="size-9 shrink-0 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 disabled:pointer-events-none disabled:opacity-50 inline-flex items-center justify-center transition-colors"
-            >
-              {aiChat.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground/40 mt-1.5 text-center">
-            Enter to send · Shift+Enter for new line
-          </p>
+      <div className="border-t border-border p-2 shrink-0">
+        <div className="flex gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask AI to write SQL..."
+            rows={2}
+            className="flex-1 text-sm bg-muted rounded-md px-2 py-1.5 resize-none outline-none placeholder:text-muted-foreground/50"
+          />
+          <Button
+            size="icon"
+            className="size-8 shrink-0 self-end"
+            onClick={handleSend}
+            disabled={!input.trim() || aiChat.isPending}
+          >
+            {aiChat.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+          </Button>
         </div>
         <p className="text-xs text-muted-foreground/60 mt-1">Enter to send, Shift+Enter for new line</p>
       </div>
