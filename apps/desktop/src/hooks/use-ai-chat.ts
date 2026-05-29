@@ -26,11 +26,13 @@ export function useAiChat(connectionId?: string | null) {
       latestMessage,
       provider,
       model,
+      signal,
     }: {
       messages: AIChatMessage[];
       latestMessage?: AIChatMessage;
       provider?: string;
       model?: string;
+      signal?: AbortSignal;
     }): Promise<AIChatResponse> => {
       return api.aiChat({
         connectionId: connectionId ?? undefined,
@@ -38,6 +40,7 @@ export function useAiChat(connectionId?: string | null) {
         latestMessage,
         provider: provider as AIProvider | undefined,
         model,
+        signal,
       });
     },
   });

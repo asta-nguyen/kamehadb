@@ -19,6 +19,7 @@ import {
   Trash2,
   Hash,
   RefreshCw,
+  StopCircle,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -102,13 +103,26 @@ function extractSqlBlocks(content: string): { type: 'text' | 'sql'; value: strin
   return blocks;
 }
 
-function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId: string | null }) {
+function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; connectionId: string | null }) {
+  const [copied, setCopied] = useState(false);
   const isUser = msg.role === 'user';
+
+  function formatTime(date?: Date) {
+    if (!date) return '';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 
   if (isUser) {
     return (
       <div className="flex justify-end mb-3">
-        <div className="bg-primary/10 text-sm rounded-lg px-3 py-2 max-w-[85%]">{msg.content}</div>
+        <div className="group max-w-[85%]">
+          {msg.timestamp && (
+            <div className="text-xs text-muted-foreground/50 text-right mb-0.5 px-1">{formatTime(msg.timestamp)}</div>
+          )}
+          <div className="bg-primary/10 text-sm rounded-2xl rounded-br-md px-3 py-2 text-foreground/90">
+            {msg.content}
+          </div>
+        </div>
       </div>
     );
   }
@@ -117,11 +131,35 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
 
   return (
     <div className="flex gap-2 mb-3">
-      <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+      <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
         <Bot className="size-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-muted-foreground mb-1">AI</div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">AI Assistant</span>
+          {msg.timestamp && <span className="text-xs text-muted-foreground/40">{formatTime(msg.timestamp)}</span>}
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-5 ml-auto"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(msg.content);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  } catch (err) {
+                    console.error('Failed to copy:', err);
+                  }
+                }}
+              >
+                {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy response</TooltipContent>
+          </Tooltip>
+        </div>
         {blocks.map((block, i) =>
           block.type === 'sql' ? (
             <SqlBlock
@@ -152,8 +190,17 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
   );
 }
 
+type MessageWithTimestamp = AIChatMessage & { timestamp?: Date };
+
+const SUGGESTION_PROMPTS = [
+  'Show all tables in the database',
+  'Count rows in each table',
+  'Find tables with indexes',
+  'Show database schema',
+];
+
 export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
-  const [messages, setMessages] = useState<AIChatMessage[]>([]);
+  const [messages, setMessages] = useState<MessageWithTimestamp[]>([]);
   const [input, setInput] = useState('');
   const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
   const { data: connections } = useConnections();
@@ -162,6 +209,7 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
@@ -190,17 +238,21 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
     if (sendingRef.current) return;
     sendingRef.current = true;
 
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     const snapshot = messagesRef.current;
-    const userMsg: AIChatMessage = { role: 'user', content: text };
+    const userMsg: MessageWithTimestamp = { role: 'user', content: text, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
 
     try {
       const res = await aiChat.mutateAsync({
-        messages: [...snapshot, userMsg],
-        latestMessage: userMsg,
+        messages: [...snapshot, { role: userMsg.role, content: userMsg.content }],
+        latestMessage: { role: userMsg.role, content: userMsg.content },
+        signal: abortControllerRef.current.signal,
       });
-      setMessages((prev) => [...prev, res.message]);
+      setMessages((prev) => [...prev, { ...res.message, timestamp: new Date() }]);
       // Update session token count
       if (res.usage) {
         setSessionTokens((prev) => ({
@@ -209,16 +261,34 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
         }));
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Request was cancelled
+        return;
+      }
       setMessages((prev) => [
         ...prev,
         {
-          role: 'assistant',
+          role: 'assistant' as const,
           content: `Error: ${err instanceof Error ? err.message : 'AI request failed'}`,
+          timestamp: new Date(),
         },
       ]);
     } finally {
       sendingRef.current = false;
+      abortControllerRef.current = null;
     }
+  }
+
+  function handleStop() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      sendingRef.current = false;
+    }
+  }
+
+  function handleSuggestionClick(text: string) {
+    setInput(text);
+    inputRef.current?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -321,10 +391,23 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
       <div className="flex-1 overflow-auto" ref={scrollRef}>
         <div className="p-3">
           {messages.length === 0 && !aiChat.isPending && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Bot className="size-8 mx-auto mb-2 opacity-40" />
-              <p className="text-xs">Ask me to write SQL queries</p>
-              <p className="text-xs mt-1">e.g. "show me users who signed up last month"</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <div className="size-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-3 ring-1 ring-primary/10">
+                <Bot className="size-5 text-primary/60" />
+              </div>
+              <p className="text-sm font-medium text-foreground/70 mb-1">Ask me to write SQL</p>
+              <p className="text-xs text-muted-foreground/60 mb-4">Try one of these:</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {SUGGESTION_PROMPTS.map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSuggestionClick(prompt)}
+                    className="text-xs px-3 py-1.5 rounded-full bg-muted/60 hover:bg-muted border border-border/50 hover:border-primary/30 transition-colors text-muted-foreground/80 hover:text-foreground"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -357,14 +440,20 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
             rows={2}
             className="flex-1 text-sm bg-muted rounded-md px-2 py-1.5 resize-none outline-none placeholder:text-muted-foreground/50"
           />
-          <Button
-            size="icon"
-            className="size-8 shrink-0 self-end"
-            onClick={handleSend}
-            disabled={!input.trim() || aiChat.isPending}
-          >
-            {aiChat.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-          </Button>
+          {aiChat.isPending ? (
+            <Tooltip>
+              <TooltipTrigger>
+                <Button size="icon" className="size-8 shrink-0 self-end" onClick={handleStop}>
+                  <StopCircle className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Stop generation</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button size="icon" className="size-8 shrink-0 self-end" onClick={handleSend} disabled={!input.trim()}>
+              <Send className="size-3.5" />
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground/60 mt-1">Enter to send, Shift+Enter for new line</p>
       </div>

@@ -14,12 +14,19 @@ export function getApiBase(): string {
   return apiBase;
 }
 
-export async function request<T>(method: string, path: string, body?: unknown, useSidecar = false): Promise<T> {
+export async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  useSidecar = false,
+  signal?: AbortSignal,
+): Promise<T> {
   const base = useSidecar ? sidecarBase : apiBase;
   const res = await fetch(`${base}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   if (res.status === 204) return undefined as T;
@@ -66,8 +73,8 @@ export const api = {
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
     request<{ success: boolean }>('POST', '/ai/settings', input),
 
-  aiChat: (input: import('@kamehadb/shared').AIChatRequest) =>
-    request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input),
+  aiChat: (input: import('@kamehadb/shared').AIChatRequest & { signal?: AbortSignal }) =>
+    request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input, false, input.signal),
 
   getChatHistory: (connectionId: string, limit = 50) =>
     request<{
