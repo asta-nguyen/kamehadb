@@ -76,13 +76,24 @@ export const api = {
   aiChat: (input: import('@kamehadb/shared').AIChatRequest & { signal?: AbortSignal }) =>
     request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input, false, input.signal),
 
-  getChatHistory: (connectionId: string, limit = 50) =>
-    request<{
-      messages: { id: string; connectionId: string; role: 'user' | 'assistant'; content: string; createdAt: string }[];
-    }>('GET', `/ai/chat-history/${connectionId}?limit=${limit}`),
+  getChatHistory: (connectionId: string, limit = 50, mongoDatabase?: string) => {
+    const dbParam = mongoDatabase ? `&database=${encodeURIComponent(mongoDatabase)}` : '';
+    return request<{
+      messages: {
+        id: string;
+        connectionId: string;
+        mongoDatabase?: string;
+        role: 'user' | 'assistant';
+        content: string;
+        createdAt: string;
+      }[];
+    }>(`GET`, `/ai/chat-history/${connectionId}?limit=${limit}${dbParam}`);
+  },
 
-  clearChatHistory: (connectionId: string) =>
-    request<{ success: boolean }>('DELETE', `/ai/chat-history/${connectionId}`),
+  clearChatHistory: (connectionId: string, mongoDatabase?: string) => {
+    const dbParam = mongoDatabase ? `?database=${encodeURIComponent(mongoDatabase)}` : '';
+    return request<{ success: boolean }>('DELETE', `/ai/chat-history/${connectionId}${dbParam}`);
+  },
 
   clearSchemaCache: (connectionId: string) =>
     request<{ success: boolean }>('POST', `/ai/clear-schema-cache/${connectionId}`),

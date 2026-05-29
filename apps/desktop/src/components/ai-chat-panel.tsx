@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useAiChat, useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
-import { openQueryTabWithSql, navigateTo } from '@/store';
+import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
 import {
   Bot,
   Send,
@@ -13,14 +13,20 @@ import {
   Play,
   Copy,
   Check,
-  Settings2,
   Database,
-  X,
-  Trash2,
-  Hash,
+  MoreHorizontal,
+  Settings2,
   RefreshCw,
+  Trash2,
   StopCircle,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AIChatMessage } from '@kamehadb/shared';
@@ -204,7 +210,6 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
   const [input, setInput] = useState('');
   const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
   const { data: connections } = useConnections();
-  const { data: chatHistory } = useChatHistory(connectionId);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -218,6 +223,10 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
   const clearSchemaCache = useClearSchemaCache();
 
   const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
+  const isMongoDb = currentConnection?.kind === 'mongodb';
+  const mongoDatabase = isMongoDb ? (appStore.state.activeMongoDatabase ?? undefined) : undefined;
+
+  const { data: chatHistory } = useChatHistory(connectionId, 50, mongoDatabase);
 
   // Load chat history on mount
   useEffect(() => {
@@ -251,6 +260,7 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
         messages: [...snapshot, { role: userMsg.role, content: userMsg.content }],
         latestMessage: { role: userMsg.role, content: userMsg.content },
         signal: abortControllerRef.current.signal,
+        mongoDatabase,
       });
       setMessages((prev) => [...prev, { ...res.message, timestamp: new Date() }]);
       // Update session token count
@@ -302,90 +312,112 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
 
   function handleClearHistory() {
     if (!connectionId) return;
-    clearChatHistory.mutate(connectionId);
+    clearChatHistory.mutate({ connectionId, mongoDatabase });
     setMessages([]);
     setSessionTokens({ input: 0, output: 0 });
   }
 
   function handleRefreshSchema() {
     if (!connectionId) return;
-    clearSchemaCache.mutate(connectionId);
+    clearSchemaCache.mutate({ connectionId });
   }
 
   return (
     <aside className="w-120 border-l border-border bg-background flex flex-col shrink-0 h-full">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="size-3.5 text-primary" />
-          <span className="text-xs font-medium">AI Assistant</span>
-          {sessionTokens.input > 0 && (
-            <Tooltip>
-              <TooltipTrigger>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground/60 cursor-default">
-                  <Hash className="size-3" />
-                  <span>{(sessionTokens.input + sessionTokens.output).toLocaleString()}</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="text-xs">
-                  <div>Input: {sessionTokens.input.toLocaleString()} tokens</div>
-                  <div>Output: {sessionTokens.output.toLocaleString()} tokens</div>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-        <TooltipProvider>
-          <div className="flex items-center gap-1">
-            {currentConnection && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 text-xs">
-                <Database className="size-3 text-muted-foreground" />
-                {currentConnection.color && (
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentConnection.color }} />
-                )}
-                <span className="text-muted-foreground max-w-24 truncate">{currentConnection.name}</span>
-              </div>
-            )}
-            <Tooltip>
-              <TooltipTrigger>
-                <Button variant="ghost" size="icon" className="size-7" onClick={() => navigateTo('api-settings')}>
-                  <Settings2 className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>API Settings</TooltipContent>
-            </Tooltip>
-            {currentConnection && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <Button variant="ghost" size="icon" className="size-7" onClick={handleRefreshSchema}>
-                    <RefreshCw className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Refresh schema cache</TooltipContent>
-              </Tooltip>
-            )}
-            {messages.length > 0 && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <Button variant="ghost" size="icon" className="size-7" onClick={handleClearHistory}>
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Clear history</TooltipContent>
-              </Tooltip>
-            )}
-            {onClose && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <Button variant="ghost" size="icon" className="size-7" onClick={onClose}>
-                    <X className="size-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Close AI Assistant</TooltipContent>
-              </Tooltip>
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-border shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-primary" />
+            <span className="text-sm font-medium">AI Assistant</span>
+            {sessionTokens.input > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <span className="text-xs text-muted-foreground/50 px-1.5 py-0.5 rounded bg-muted/60">
+                      {(sessionTokens.input + sessionTokens.output).toLocaleString()} tokens
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="text-xs">
+                      <div>Input: {sessionTokens.input.toLocaleString()}</div>
+                      <div>Output: {sessionTokens.output.toLocaleString()}</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
-        </TooltipProvider>
+
+          <div className="flex items-center gap-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <Button variant="ghost" size="icon" className="size-7">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigateTo('api-settings')}>
+                  <Settings2 className="size-4" />
+                  Settings
+                </DropdownMenuItem>
+                {currentConnection && (
+                  <>
+                    <DropdownMenuItem onClick={handleRefreshSchema}>
+                      <RefreshCw className="size-4" />
+                      Refresh Schema
+                    </DropdownMenuItem>
+                    {messages.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleClearHistory} variant="destructive">
+                          <Trash2 className="size-4" />
+                          Clear Chat
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {onClose && (
+              <Button variant="ghost" size="icon" className="size-7" onClick={onClose}>
+                <span className="sr-only">Close</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-4"
+                >
+                  <path d="M18 6 6l-12 12M6 6l12 12" />
+                </svg>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Connection info */}
+        {currentConnection && (
+          <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+            <Database className="size-3" />
+            {currentConnection.color && (
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentConnection.color }} />
+            )}
+            <span className="truncate">{currentConnection.name}</span>
+            {mongoDatabase && (
+              <>
+                <span className="text-muted-foreground/40">/</span>
+                <span className="text-muted-foreground/70 truncate">{mongoDatabase}</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-auto" ref={scrollRef}>
