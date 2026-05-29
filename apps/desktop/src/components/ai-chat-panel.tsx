@@ -1,10 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
-import { useAiChat } from '@/hooks/use-ai-chat';
-import { appStore, openNewQueryTab, navigateTo } from '@/store';
-import { Bot, Send, Loader2, X, Sparkles, Terminal, Play, Copy, Check, Settings2, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import hljs from 'highlight.js';
-import sql from 'highlight.js/lib/languages/sql';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { useAiChat, useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
+import { useConnections } from '@/hooks/use-connections';
+import { openQueryTabWithSql, navigateTo } from '@/store';
+import {
+  Bot,
+  Send,
+  Loader2,
+  Sparkles,
+  Terminal,
+  Play,
+  Copy,
+  Check,
+  Settings2,
+  Database,
+  X,
+  Trash2,
+  Hash,
+  RefreshCw,
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { AIChatMessage } from '@kamehadb/shared';
 
 hljs.registerLanguage('sql', sql);
@@ -59,41 +76,47 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
   const [copied, setCopied] = useState(false);
 
   return (
-    <div className="border border-border/50 rounded-lg overflow-hidden bg-card my-2 shadow-sm">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border/30">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-medium text-muted-foreground/70 uppercase tracking-wider">SQL</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(sql);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              } catch (err) {
-                console.error('Failed to copy SQL:', err);
-              }
-            }}
-            className="p-1 rounded-sm hover:bg-accent/70 text-muted-foreground hover:text-foreground transition-colors"
-            title="Copy"
-          >
-            {copied ? <Check className="size-2.5" /> : <Copy className="size-2.5" />}
-          </button>
-          <button
-            onClick={onInsert}
-            className="p-1 rounded-sm hover:bg-accent/70 text-muted-foreground hover:text-foreground transition-colors"
-            title="Insert into editor"
-          >
-            <Terminal className="size-2.5" />
-          </button>
-          <button
-            onClick={onRun}
-            className="p-1 rounded-sm hover:bg-accent/70 text-muted-foreground hover:text-foreground transition-colors"
-            title="Run"
-          >
-            <Play className="size-2.5" />
-          </button>
+    <div className="border rounded-md overflow-hidden bg-card my-2">
+      <div className="flex items-center justify-between px-2 py-1 bg-muted border-b border-border">
+        <span className="text-xs text-muted-foreground">sql</span>
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(sql);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  } catch (err) {
+                    console.error('Failed to copy SQL:', err);
+                  }
+                }}
+              >
+                {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy SQL</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button variant="ghost" size="icon" className="size-6" onClick={onInsert}>
+                <Terminal className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Insert into editor</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button variant="ghost" size="icon" className="size-6" onClick={onRun}>
+                <Play className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Run SQL</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <pre
@@ -165,9 +188,12 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
             <ErrorBlock key={i} message={block.value} />
           ) : (
             block.value && (
-              <p key={i} className="text-sm text-foreground/80 leading-relaxed mb-2 first:mt-0 last:mb-0">
-                {block.value}
-              </p>
+              <div
+                key={i}
+                className="text-sm [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded-md [&_pre]:overflow-x-auto"
+              >
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
+              </div>
             )
           ),
         )}
@@ -193,8 +219,9 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [panelWidth, setPanelWidth] = useState(width);
-  const [isResizing, setIsResizing] = useState(false);
+  const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
+  const { data: connections } = useConnections();
+  const { data: chatHistory } = useChatHistory(connectionId);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -205,6 +232,8 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
   const startWidthRef = useRef(0);
 
   const aiChat = useAiChat(connectionId);
+  const clearChatHistory = useClearChatHistory();
+  const clearSchemaCache = useClearSchemaCache();
 
   const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
 
@@ -268,6 +297,13 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
         latestMessage: userMsg,
       });
       setMessages((prev) => [...prev, res.message]);
+      // Update session token count
+      if (res.usage) {
+        setSessionTokens((prev) => ({
+          input: prev.input + (res.usage?.inputTokens ?? 0),
+          output: prev.output + (res.usage?.outputTokens ?? 0),
+        }));
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -290,52 +326,92 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 size-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-50"
-        title="Open AI Chat"
-      >
-        <Sparkles className="size-5" />
-      </button>
-    );
+  function handleClearHistory() {
+    if (!connectionId) return;
+    clearChatHistory.mutate(connectionId);
+    setMessages([]);
+    setSessionTokens({ input: 0, output: 0 });
+  }
+
+  function handleRefreshSchema() {
+    if (!connectionId) return;
+    clearSchemaCache.mutate(connectionId);
   }
 
   return (
-    <aside
-      className="flex h-full border-l border-border/50 bg-gradient-to-b from-background via-background/95 to-muted/20"
-      style={{ width: panelWidth, minWidth: panelWidth }}
-    >
-      <div
-        onMouseDown={handleMouseDown}
-        className={`w-1 cursor-col-resize shrink-0 transition-all duration-200 ${
-          isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border/60'
-        }`}
-      />
-      <div className="flex flex-col h-full flex-1 min-w-0">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 shrink-0 bg-gradient-to-r from-background to-transparent">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-3.5 text-primary" />
-            <span className="text-xs font-medium">AI Assistant</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => navigateTo('api-settings')}
-              className="p-1.5 rounded-md hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors"
-              title="API Settings"
-            >
-              <Settings2 className="size-3.5" />
-            </button>
-            <button
-              onClick={() => setOpen(false)}
-              className="p-1.5 rounded-md hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors"
-              title="Close AI Panel"
-            >
-              <X className="size-3.5" />
-            </button>
+    <aside className="w-120 border-l border-border bg-background flex flex-col shrink-0 h-full">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="size-3.5 text-primary" />
+          <span className="text-xs font-medium">AI Assistant</span>
+          {sessionTokens.input > 0 && (
+            <Tooltip>
+              <TooltipTrigger>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground/60 cursor-default">
+                  <Hash className="size-3" />
+                  <span>{(sessionTokens.input + sessionTokens.output).toLocaleString()}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs">
+                  <div>Input: {sessionTokens.input.toLocaleString()} tokens</div>
+                  <div>Output: {sessionTokens.output.toLocaleString()} tokens</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
+        <TooltipProvider>
+          <div className="flex items-center gap-1">
+            {currentConnection && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 text-xs">
+                <Database className="size-3 text-muted-foreground" />
+                {currentConnection.color && (
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentConnection.color }} />
+                )}
+                <span className="text-muted-foreground max-w-24 truncate">{currentConnection.name}</span>
+              </div>
+            )}
+            <Tooltip>
+              <TooltipTrigger>
+                <Button variant="ghost" size="icon" className="size-7" onClick={() => navigateTo('api-settings')}>
+                  <Settings2 className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>API Settings</TooltipContent>
+            </Tooltip>
+            {currentConnection && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7" onClick={handleRefreshSchema}>
+                    <RefreshCw className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh schema cache</TooltipContent>
+              </Tooltip>
+            )}
+            {messages.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7" onClick={handleClearHistory}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear history</TooltipContent>
+              </Tooltip>
+            )}
+            {onClose && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7" onClick={onClose}>
+                    <X className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Close AI Assistant</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </TooltipProvider>
       </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin" ref={scrollRef}>

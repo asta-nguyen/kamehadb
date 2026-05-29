@@ -207,7 +207,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                   {result.columns.map((col) => (
                     <div
                       key={col.name}
-                      className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
+                      className="px-3 py-1 border-r last:border-r-0 truncate"
                       title={row[col.name] === null ? '' : String(row[col.name])}
                     >
                       {row[col.name] === null ? (
