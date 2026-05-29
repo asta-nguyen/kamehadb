@@ -44,6 +44,7 @@ import {
   toggleExpandedConnection,
   setConnectionStatus,
   openDatabaseStatsTab,
+  openAiChatPanel,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
@@ -147,6 +148,10 @@ function ConnectionItem({
             <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={4}>
+            <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
+              <Sparkles className="size-3.5 mr-2" />
+              AI Chat
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
               <Share2 className="size-3.5 mr-2" />
               Graph

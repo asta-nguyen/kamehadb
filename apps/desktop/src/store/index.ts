@@ -8,6 +8,7 @@ const initialState: AppStoreState = {
   activeSchemaId: null,
   activeTableId: null,
   activeMongoDatabase: null,
+  aiPanelConnectionId: null,
   openedTabs: [],
   activeTabId: null,
   sidebarCollapsed: false,
@@ -53,6 +54,20 @@ export function openNewQueryTab(connectionId: string) {
     sql: 'SELECT * FROM ',
   };
   openTab(tab);
+}
+
+export function openQueryTabWithSql(connectionId: string, sql: string, autoRun = false) {
+  queryCounter++;
+  const tab: WorkspaceTab = {
+    id: `query-${nanoid()}`,
+    type: 'query',
+    title: `Query ${queryCounter}`,
+    connectionId,
+    sql,
+    autoRun,
+  };
+  openTab(tab);
+  return tab.id;
 }
 
 export function openMongoTab(connectionId: string, database: string, collection: string) {
@@ -105,10 +120,32 @@ export function openTableStatsTab(connectionId: string, tableId: string) {
   });
 }
 
+export function openAiChatPanel(connectionId: string) {
+  appStore.setState((state) => ({
+    ...state,
+    activeConnectionId: connectionId,
+    aiPanelConnectionId: connectionId,
+  }));
+}
+
+export function closeAiChatPanel() {
+  appStore.setState((state) => ({
+    ...state,
+    aiPanelConnectionId: null,
+  }));
+}
+
 export function updateTabSql(tabId: string, sql: string) {
   appStore.setState((state) => ({
     ...state,
     openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, sql } : t)),
+  }));
+}
+
+export function clearTabAutoRun(tabId: string) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, autoRun: false } : t)),
   }));
 }
 

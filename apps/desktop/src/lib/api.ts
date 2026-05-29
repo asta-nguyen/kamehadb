@@ -69,6 +69,14 @@ export const api = {
   aiChat: (input: import('@kamehadb/shared').AIChatRequest) =>
     request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input),
 
+  getChatHistory: (connectionId: string, limit = 50) =>
+    request<{
+      messages: { id: string; connectionId: string; role: 'user' | 'assistant'; content: string; createdAt: string }[];
+    }>('GET', `/ai/chat-history/${connectionId}?limit=${limit}`),
+
+  clearChatHistory: (connectionId: string) =>
+    request<{ success: boolean }>('DELETE', `/ai/chat-history/${connectionId}`),
+
   // PostgreSQL stats
   getTableStats: (connectionId: string, tableId: string) =>
     request<import('@kamehadb/shared').TableStats>(

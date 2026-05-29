@@ -113,6 +113,38 @@ export function initMetadataStore(dbPath: string): void {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      connection_id TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chat_connection ON chat_messages(connection_id);
+  `);
+
+  // Migration: Normalize chat_messages.created_at to ISO 8601 format
+  // Rows inserted before this migration may have SQLite datetime('now') format (YYYY-MM-DD HH:MM:SS)
+  try {
+    getDb()
+      .prepare(
+        `
+        UPDATE chat_messages
+        SET created_at = printf('%s.000Z', created_at)
+        WHERE created_at NOT LIKE '%Z'
+          AND created_at NOT LIKE '%+%'
+          AND created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] *'
+      `,
+      )
+      .run();
+  } catch {
+    // Migration already applied or no rows to update
+  }
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
@@ -399,4 +431,51 @@ export function closeMetadataStore(): void {
     db.close();
     db = null;
   }
+}
+
+// Chat message functions
+export interface ChatMessage {
+  id: string;
+  connectionId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export function saveChatMessage(connectionId: string, role: 'user' | 'assistant', content: string): ChatMessage {
+  const id = nanoid();
+  const now = new Date().toISOString();
+
+  getDb()
+    .prepare(
+      `INSERT INTO chat_messages (id, connection_id, role, content, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(id, connectionId, role, content, now);
+
+  return { id, connectionId, role, content, createdAt: now };
+}
+
+export function getChatMessages(connectionId: string, limit = 50): ChatMessage[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT id, connection_id, role, content, created_at
+       FROM chat_messages
+       WHERE connection_id = ?
+       ORDER BY created_at ASC
+       LIMIT ?`,
+    )
+    .all(connectionId, limit) as Record<string, unknown>[];
+
+  return rows.map((row) => ({
+    id: row.id as string,
+    connectionId: row.connection_id as string,
+    role: row.role as 'user' | 'assistant',
+    content: row.content as string,
+    createdAt: row.created_at as string,
+  }));
+}
+
+export function clearChatMessages(connectionId: string): void {
+  getDb().prepare('DELETE FROM chat_messages WHERE connection_id = ?').run(connectionId);
 }
