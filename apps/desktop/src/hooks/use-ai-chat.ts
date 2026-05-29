@@ -61,3 +61,9 @@ export function useClearChatHistory() {
     },
   });
 }
+
+export function useClearSchemaCache() {
+  return useMutation({
+    mutationFn: (connectionId: string) => api.clearSchemaCache(connectionId),
+  });
+}

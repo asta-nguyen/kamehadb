@@ -1,9 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAiChat, useChatHistory } from '@/hooks/use-ai-chat';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { useAiChat, useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
 import { openQueryTabWithSql, navigateTo } from '@/store';
-import { Bot, Send, Loader2, Sparkles, Terminal, Play, Copy, Check, Settings2, Database, X } from 'lucide-react';
+import {
+  Bot,
+  Send,
+  Loader2,
+  Sparkles,
+  Terminal,
+  Play,
+  Copy,
+  Check,
+  Settings2,
+  Database,
+  X,
+  Trash2,
+  Hash,
+  RefreshCw,
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { AIChatMessage } from '@kamehadb/shared';
 
 type AIChatPanelProps = {
@@ -19,35 +37,43 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
       <div className="flex items-center justify-between px-2 py-1 bg-muted border-b border-border">
         <span className="text-xs text-muted-foreground">sql</span>
         <div className="flex items-center gap-0.5">
-          <button
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(sql);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              } catch (err) {
-                console.error('Failed to copy SQL:', err);
-              }
-            }}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-            title="Copy"
-          >
-            {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-          </button>
-          <button
-            onClick={onInsert}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-            title="Insert into editor"
-          >
-            <Terminal className="size-3" />
-          </button>
-          <button
-            onClick={onRun}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground"
-            title="Run"
-          >
-            <Play className="size-3" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(sql);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1500);
+                  } catch (err) {
+                    console.error('Failed to copy SQL:', err);
+                  }
+                }}
+              >
+                {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Copy SQL</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button variant="ghost" size="icon" className="size-6" onClick={onInsert}>
+                <Terminal className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Insert into editor</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button variant="ghost" size="icon" className="size-6" onClick={onRun}>
+                <Play className="size-3" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Run SQL</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <pre className="p-2 text-xs font-mono overflow-x-auto text-foreground">{sql}</pre>
@@ -112,9 +138,12 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
             />
           ) : (
             block.value && (
-              <p key={i} className="text-sm whitespace-pre-wrap mb-1">
-                {block.value}
-              </p>
+              <div
+                key={i}
+                className="text-sm [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded-md [&_pre]:overflow-x-auto"
+              >
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
+              </div>
             )
           ),
         )}
@@ -126,6 +155,7 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
 export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
   const { data: connections } = useConnections();
   const { data: chatHistory } = useChatHistory(connectionId);
 
@@ -136,6 +166,8 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
   messagesRef.current = messages;
 
   const aiChat = useAiChat(connectionId);
+  const clearChatHistory = useClearChatHistory();
+  const clearSchemaCache = useClearSchemaCache();
 
   const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
 
@@ -169,6 +201,13 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
         latestMessage: userMsg,
       });
       setMessages((prev) => [...prev, res.message]);
+      // Update session token count
+      if (res.usage) {
+        setSessionTokens((prev) => ({
+          input: prev.input + (res.usage?.inputTokens ?? 0),
+          output: prev.output + (res.usage?.outputTokens ?? 0),
+        }));
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -191,40 +230,92 @@ export function AIChatPanel({ connectionId, onClose }: AIChatPanelProps) {
     }
   }
 
+  function handleClearHistory() {
+    if (!connectionId) return;
+    clearChatHistory.mutate(connectionId);
+    setMessages([]);
+    setSessionTokens({ input: 0, output: 0 });
+  }
+
+  function handleRefreshSchema() {
+    if (!connectionId) return;
+    clearSchemaCache.mutate(connectionId);
+  }
+
   return (
-    <aside className="w-80 border-l border-border bg-background flex flex-col shrink-0 h-full">
+    <aside className="w-120 border-l border-border bg-background flex flex-col shrink-0 h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <div className="flex items-center gap-1.5">
           <Sparkles className="size-3.5 text-primary" />
           <span className="text-xs font-medium">AI Assistant</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {currentConnection && (
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 text-xs">
-              <Database className="size-3 text-muted-foreground" />
-              {currentConnection.color && (
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentConnection.color }} />
-              )}
-              <span className="text-muted-foreground max-w-24 truncate">{currentConnection.name}</span>
-            </div>
-          )}
-          <button
-            onClick={() => navigateTo('api-settings')}
-            className="p-1 rounded hover:bg-muted text-muted-foreground"
-            title="API Settings"
-          >
-            <Settings2 className="size-3.5" />
-          </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1 rounded hover:bg-muted text-muted-foreground"
-              title="Close AI Assistant"
-            >
-              <X className="size-3.5" />
-            </button>
+          {sessionTokens.input > 0 && (
+            <Tooltip>
+              <TooltipTrigger>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground/60 cursor-default">
+                  <Hash className="size-3" />
+                  <span>{(sessionTokens.input + sessionTokens.output).toLocaleString()}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs">
+                  <div>Input: {sessionTokens.input.toLocaleString()} tokens</div>
+                  <div>Output: {sessionTokens.output.toLocaleString()} tokens</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
+        <TooltipProvider>
+          <div className="flex items-center gap-1">
+            {currentConnection && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 text-xs">
+                <Database className="size-3 text-muted-foreground" />
+                {currentConnection.color && (
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentConnection.color }} />
+                )}
+                <span className="text-muted-foreground max-w-24 truncate">{currentConnection.name}</span>
+              </div>
+            )}
+            <Tooltip>
+              <TooltipTrigger>
+                <Button variant="ghost" size="icon" className="size-7" onClick={() => navigateTo('api-settings')}>
+                  <Settings2 className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>API Settings</TooltipContent>
+            </Tooltip>
+            {currentConnection && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7" onClick={handleRefreshSchema}>
+                    <RefreshCw className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Refresh schema cache</TooltipContent>
+              </Tooltip>
+            )}
+            {messages.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7" onClick={handleClearHistory}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Clear history</TooltipContent>
+              </Tooltip>
+            )}
+            {onClose && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7" onClick={onClose}>
+                    <X className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Close AI Assistant</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </TooltipProvider>
       </div>
 
       <div className="flex-1 overflow-auto" ref={scrollRef}>

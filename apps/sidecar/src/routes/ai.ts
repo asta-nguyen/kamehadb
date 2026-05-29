@@ -5,6 +5,7 @@ import * as metadataStore from '../db/metadata-store.js';
 import { createProvider, validateProviderConfig } from '../ai/provider.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
 import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
+import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
 import type { AIChatMessage, AIProvider } from '@kamehadb/shared';
 
 export const aiRouter = new Hono();
@@ -147,30 +148,38 @@ aiRouter.post(
       let ddl: string | null = null;
       let mongoSchema: string | null = null;
       if (body.connectionId) {
-        try {
-          const profile = metadataStore.getProfile(body.connectionId);
-          if (profile) {
-            if (profile.kind === 'mongodb') {
-              const adapter = createMongoDbAdapter(profile);
-              try {
-                mongoSchema = await buildMongoSchemaContext(adapter);
-              } finally {
-                await adapter.close();
-              }
-            } else {
-              const password = metadataStore.getProfilePassword(body.connectionId);
-              const adapter = createSqlAdapter(profile, password);
-              if (adapter) {
+        // Try to get from cache first
+        ddl = getCached<string>(`ai-schema:${body.connectionId}:sql`, CACHE_TTL.AI_SCHEMA);
+        mongoSchema = getCached<string>(`ai-schema:${body.connectionId}:mongo`, CACHE_TTL.AI_SCHEMA);
+
+        if (!ddl && !mongoSchema) {
+          try {
+            const profile = metadataStore.getProfile(body.connectionId);
+            if (profile) {
+              if (profile.kind === 'mongodb') {
+                const adapter = createMongoDbAdapter(profile);
                 try {
-                  ddl = await buildSchemaContext(adapter);
+                  mongoSchema = await buildMongoSchemaContext(adapter);
+                  setCache(`ai-schema:${body.connectionId}:mongo`, mongoSchema);
                 } finally {
                   await adapter.close();
                 }
+              } else {
+                const password = metadataStore.getProfilePassword(body.connectionId);
+                const adapter = createSqlAdapter(profile, password);
+                if (adapter) {
+                  try {
+                    ddl = await buildSchemaContext(adapter);
+                    setCache(`ai-schema:${body.connectionId}:sql`, ddl);
+                  } finally {
+                    await adapter.close();
+                  }
+                }
               }
             }
+          } catch {
+            // Silently fail, LLM can work without schema
           }
-        } catch {
-          // Silently fail, LLM can work without schema
         }
       }
 
@@ -257,5 +266,12 @@ aiRouter.get('/chat-history/:connectionId', async (c) => {
 aiRouter.delete('/chat-history/:connectionId', async (c) => {
   const connectionId = c.req.param('connectionId');
   metadataStore.clearChatMessages(connectionId);
+  return c.json({ success: true });
+});
+
+// POST /ai/clear-schema-cache/:connectionId
+aiRouter.post('/clear-schema-cache/:connectionId', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  clearSchemaCache(connectionId);
   return c.json({ success: true });
 });
