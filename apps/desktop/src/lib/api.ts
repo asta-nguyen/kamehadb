@@ -77,6 +77,9 @@ export const api = {
   clearChatHistory: (connectionId: string) =>
     request<{ success: boolean }>('DELETE', `/ai/chat-history/${connectionId}`),
 
+  clearSchemaCache: (connectionId: string) =>
+    request<{ success: boolean }>('POST', `/ai/clear-schema-cache/${connectionId}`),
+
   // PostgreSQL stats
   getTableStats: (connectionId: string, tableId: string) =>
     request<import('@kamehadb/shared').TableStats>(
