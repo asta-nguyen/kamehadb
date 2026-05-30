@@ -1,4 +1,7 @@
-import { Button } from '@/components/ui/button';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -6,60 +9,153 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAiChat, useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
-import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
-import type { AIChatMessage } from '@kamehadb/shared';
-import hljs from 'highlight.js';
+import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
+import hljs from 'highlight.js/lib/core';
 import sql from 'highlight.js/lib/languages/sql';
-import {
-  AlertCircle,
-  Bot,
-  Check,
-  Copy,
-  Database,
-  Loader2,
-  MoreHorizontal,
-  Play,
-  RefreshCw,
-  Send,
-  Settings2,
-  Sparkles,
-  StopCircle,
-  Terminal,
-  Trash2,
-  X,
-} from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import javascript from 'highlight.js/lib/languages/javascript';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { AIChatMessage } from '@kamehadb/shared';
+import {
+  Bot,
+  Send,
+  Loader2,
+  Sparkles,
+  Terminal,
+  Play,
+  Copy,
+  Check,
+  Database,
+  MoreHorizontal,
+  Settings2,
+  RefreshCw,
+  Trash2,
+  StopCircle,
+  X,
+} from 'lucide-react';
 
 hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('javascript', javascript);
+
+type CodeLanguage = 'sql' | 'javascript' | 'redis';
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+function highlightCode(code: string, language: CodeLanguage): string {
+  if (language === 'redis') return escapeHtml(code);
+  return hljs.highlight(code, { language }).value;
+}
 
 type AIChatPanelProps = {
   connectionId: string | null;
   width?: number;
-  onWidthChange?: (width: number) => void;
   onClose?: () => void;
 };
 
-function highlightSql(sql: string): string {
-  return hljs.highlight(sql, { language: 'sql' }).value;
+function QueryBlock({
+  code,
+  language,
+  onInsert,
+  onRun,
+}: {
+  code: string;
+  language: CodeLanguage;
+  onInsert?: () => void;
+  onRun?: () => void;
+}) {
+  const [isCopied, setIsCopied] = useState(false);
+  const canOpenSql = language === 'sql' && onInsert && onRun;
+  const languageLabel = language === 'javascript' ? 'mongodb' : language;
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 1500);
+    } catch (err) {
+      console.error('Failed to copy query:', err);
+    }
+  }, [code]);
+
+  return (
+    <div className="my-2 overflow-hidden rounded-md border border-border/70 bg-card shadow-sm">
+      <div className="flex items-center justify-between border-b border-border/70 bg-muted/45 px-2 py-1">
+        <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">{languageLabel}</span>
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger
+              aria-label={`Copy ${languageLabel}`}
+              className={buttonVariants({
+                variant: 'ghost',
+                size: 'icon',
+                className: 'size-6 text-muted-foreground hover:text-foreground',
+              })}
+              onClick={handleCopy}
+            >
+              {isCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            </TooltipTrigger>
+            <TooltipContent>Copy {languageLabel}</TooltipContent>
+          </Tooltip>
+          {canOpenSql && (
+            <>
+              <Tooltip>
+                <TooltipTrigger
+                  aria-label="Insert SQL into editor"
+                  className={buttonVariants({
+                    variant: 'ghost',
+                    size: 'icon',
+                    className: 'size-6 text-muted-foreground hover:text-foreground',
+                  })}
+                  onClick={onInsert}
+                >
+                  <Terminal className="size-3" />
+                </TooltipTrigger>
+                <TooltipContent>Insert into editor</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger
+                  aria-label="Run SQL"
+                  className={buttonVariants({
+                    variant: 'ghost',
+                    size: 'icon',
+                    className: 'size-6 text-muted-foreground hover:text-foreground',
+                  })}
+                  onClick={onRun}
+                >
+                  <Play className="size-3" />
+                </TooltipTrigger>
+                <TooltipContent>Run SQL</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </div>
+      </div>
+      <pre
+        className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]"
+        dangerouslySetInnerHTML={{ __html: highlightCode(code, language) }}
+      />
+    </div>
+  );
 }
 
-type BlockType = 'text' | 'sql' | 'error';
+function normalizeCodeLanguage(language: string): CodeLanguage {
+  const normalized = language.toLowerCase();
+  if (normalized === 'javascript' || normalized === 'js' || normalized === 'json') return 'javascript';
+  if (normalized === 'redis') return 'redis';
+  return 'sql';
+}
 
-function extractSqlBlocks(content: string): { type: BlockType; value: string }[] {
-  const blocks: { type: BlockType; value: string }[] = [];
-
-  const errorMatch = content.match(/^error\b[:\s]*(.+)$/is);
-  if (errorMatch) {
-    blocks.push({ type: 'error', value: errorMatch[1].trim() });
-    content = content.slice(errorMatch[0].length).trim();
-  }
-
-  const regex = /```sql\n?([\s\S]*?)```/gi;
+function extractCodeBlocks(content: string): { type: 'text' | 'code'; value: string; language?: CodeLanguage }[] {
+  const blocks: { type: 'text' | 'code'; value: string; language?: CodeLanguage }[] = [];
+  const regex = /```(sql|javascript|js|json|redis)\n?([\s\S]*?)```/gi;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -68,7 +164,7 @@ function extractSqlBlocks(content: string): { type: BlockType; value: string }[]
       const text = content.slice(lastIndex, match.index).trim();
       if (text) blocks.push({ type: 'text', value: text });
     }
-    blocks.push({ type: 'sql', value: match[1].trim() });
+    blocks.push({ type: 'code', language: normalizeCodeLanguage(match[1]), value: match[2].trim() });
     lastIndex = match.index + match[0].length;
   }
 
@@ -80,96 +176,22 @@ function extractSqlBlocks(content: string): { type: BlockType; value: string }[]
   return blocks;
 }
 
-function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void; onRun: () => void }) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <div className="border border-border/50 rounded-lg overflow-hidden bg-card my-2 shadow-sm">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border/30">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-medium text-muted-foreground/70 uppercase tracking-wider">SQL</span>
-        </div>
-        <div className="flex items-center gap-0.5">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button variant="ghost" size="icon-xs">
-                  {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-                </Button>
-              }
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(sql);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                } catch (err) {
-                  console.error('Failed to copy SQL:', err);
-                }
-              }}
-            />
-            <TooltipContent>Copy SQL</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button variant="ghost" size="icon-xs">
-                  <Terminal className="size-3" />
-                </Button>
-              }
-              onClick={onInsert}
-            />
-            <TooltipContent>Insert into editor</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button variant="ghost" size="icon-xs">
-                  <Play className="size-3" />
-                </Button>
-              }
-              onClick={onRun}
-            />
-            <TooltipContent>Run SQL</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-      <pre
-        className="p-3 text-xs leading-relaxed font-mono overflow-x-auto text-foreground [&_.hljs-keyword]:text-primary [&_.hljs-string]:text-green-600 dark:[&_.hljs-string]:text-green-400 [&_.hljs-number]:text-orange-600 dark:[&_.hljs-number]:text-orange-400 [&_.hljs-comment]:text-muted-foreground/60"
-        dangerouslySetInnerHTML={{ __html: highlightSql(sql) }}
-      />
-    </div>
-  );
-}
-
-function ErrorBlock({ message }: { message: string }) {
-  return (
-    <div className="border border-destructive/30 rounded-lg overflow-hidden bg-destructive/5 my-2">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 border-b border-destructive/20">
-        <AlertCircle className="size-3 text-destructive" />
-        <span className="text-xs font-medium text-destructive/80 uppercase tracking-wider">Error</span>
-      </div>
-      <p className="p-3 text-xs text-destructive/90 leading-relaxed">{message}</p>
-    </div>
-  );
-}
-
 function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; connectionId: string | null }) {
-  const [copied, setCopied] = useState(false);
-  const isUser = msg.role === 'user';
+  const [isCopied, setIsCopied] = useState(false);
 
   function formatTime(date?: Date) {
     if (!date) return '';
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  if (isUser) {
+  if (msg.role === 'user') {
     return (
-      <div className="flex justify-end mb-3">
-        <div className="group max-w-[85%]">
+      <div className="mb-3 flex justify-end">
+        <div className="group max-w-[88%]">
           {msg.timestamp && (
-            <div className="text-xs text-muted-foreground/50 text-right mb-0.5 px-1">{formatTime(msg.timestamp)}</div>
+            <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatTime(msg.timestamp)}</div>
           )}
-          <div className="bg-primary/10 text-sm rounded-2xl rounded-br-md px-3 py-2 text-foreground/90">
+          <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
             {msg.content}
           </div>
         </div>
@@ -177,63 +199,71 @@ function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; conne
     );
   }
 
-  const blocks = extractSqlBlocks(msg.content);
-  const resolveConnectionId = () => connectionId ?? appStore.state.activeConnectionId;
-  const insertSqlToEditor = (sql: string) => {
-    const targetConnectionId = resolveConnectionId();
-    if (!targetConnectionId) return;
-    openQueryTabWithSql(targetConnectionId, sql, false);
-  };
-  const runSqlImmediately = (sql: string) => {
-    const targetConnectionId = resolveConnectionId();
-    if (!targetConnectionId) return;
-    openQueryTabWithSql(targetConnectionId, sql, true);
+  const blocks = extractCodeBlocks(msg.content);
+
+  const handleCopyResponse = async () => {
+    try {
+      await navigator.clipboard.writeText(msg.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 1500);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   return (
-    <div className="flex gap-2 mb-3">
-      <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+    <div className="group mb-3 flex gap-2">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
         <Bot className="size-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">AI Assistant</span>
+          <span className="text-xs font-medium text-muted-foreground/70">Assistant</span>
           {msg.timestamp && <span className="text-xs text-muted-foreground/40">{formatTime(msg.timestamp)}</span>}
           <Tooltip>
             <TooltipTrigger
-              render={
-                <Button variant="ghost" size="icon-xs" className="ml-auto">
-                  {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-                </Button>
-              }
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(msg.content);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                } catch (err) {
-                  console.error('Failed to copy:', err);
-                }
-              }}
-            />
+              aria-label="Copy response"
+              className={buttonVariants({
+                variant: 'ghost',
+                size: 'icon',
+                className:
+                  'ml-auto size-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
+              })}
+              onClick={handleCopyResponse}
+            >
+              {isCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
+            </TooltipTrigger>
             <TooltipContent>Copy response</TooltipContent>
           </Tooltip>
         </div>
         {blocks.map((block, i) =>
-          block.type === 'sql' ? (
-            <SqlBlock
+          block.type === 'code' ? (
+            <QueryBlock
               key={i}
-              sql={block.value}
-              onInsert={() => insertSqlToEditor(block.value)}
-              onRun={() => runSqlImmediately(block.value)}
+              code={block.value}
+              language={block.language ?? 'sql'}
+              onInsert={
+                block.language === 'sql'
+                  ? () => {
+                      if (!connectionId) return;
+                      openQueryTabWithSql(connectionId, block.value, false);
+                    }
+                  : undefined
+              }
+              onRun={
+                block.language === 'sql'
+                  ? () => {
+                      if (!connectionId) return;
+                      openQueryTabWithSql(connectionId, block.value, true);
+                    }
+                  : undefined
+              }
             />
-          ) : block.type === 'error' ? (
-            <ErrorBlock key={i} message={block.value} />
           ) : (
             block.value && (
               <div
                 key={i}
-                className="text-sm [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded-md [&_pre]:overflow-x-auto"
+                className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
               </div>
@@ -247,14 +277,41 @@ function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; conne
 
 type MessageWithTimestamp = AIChatMessage & { timestamp?: Date };
 
-const SUGGESTION_PROMPTS = [
-  'Show all tables in the database',
-  'Count rows in each table',
-  'Find tables with indexes',
-  'Show database schema',
-];
+const CHAT_MODE_CONFIG = {
+  sql: {
+    title: 'Ask me to write SQL',
+    placeholder: 'Ask AI to write SQL...',
+    iconClass: 'bg-primary/10 text-primary ring-primary/15',
+    chipClass: 'hover:border-primary/30',
+    suggestions: [
+      'Show all tables in the database',
+      'Count rows in each table',
+      'Find tables with indexes',
+      'Show database schema',
+    ],
+  },
+  mongodb: {
+    title: 'Ask me to write MongoDB queries',
+    placeholder: 'Ask AI to write MongoDB queries...',
+    iconClass: 'bg-primary/10 text-primary ring-primary/15',
+    chipClass: 'hover:border-primary/30',
+    suggestions: [
+      'Show collections in this database',
+      'Count documents per collection',
+      'Find collections with indexes',
+      'Show sample documents',
+    ],
+  },
+  redis: {
+    title: 'Ask me for Redis commands',
+    placeholder: 'Ask AI for Redis commands...',
+    iconClass: 'bg-destructive/10 text-destructive ring-destructive/20',
+    chipClass: 'hover:border-destructive/40',
+    suggestions: ['Show keys by pattern', 'Find keys with TTL', 'Check Redis memory usage', 'Explain Redis INFO stats'],
+  },
+} as const;
 
-export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange }: AIChatPanelProps) {
+export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelProps) {
   const [panelWidth, setPanelWidth] = useState(width);
   const [isResizing, setIsResizing] = useState(false);
   const [messages, setMessages] = useState<MessageWithTimestamp[]>([]);
@@ -278,10 +335,15 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
   const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
   const isMongoDb = currentConnection?.kind === 'mongodb';
   const mongoDatabase = isMongoDb ? (appStore.state.activeMongoDatabase ?? undefined) : undefined;
+  const chatMode =
+    currentConnection?.kind === 'mongodb'
+      ? CHAT_MODE_CONFIG.mongodb
+      : currentConnection?.kind === 'redis'
+        ? CHAT_MODE_CONFIG.redis
+        : CHAT_MODE_CONFIG.sql;
 
   const { data: chatHistory } = useChatHistory(connectionId, 50, mongoDatabase);
 
-  // Load chat history on mount
   useEffect(() => {
     if (chatHistory?.messages) {
       setMessages(chatHistory.messages.map((m) => ({ role: m.role, content: m.content })));
@@ -294,47 +356,12 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
     }
   }, [messages, aiChat.isPending]);
 
-  useEffect(() => {
-    setPanelWidth(width);
-  }, [width]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    startXRef.current = e.clientX;
-    startWidthRef.current = panelWidth;
-  };
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const delta = startXRef.current - e.clientX;
-      const newWidth = Math.max(280, Math.min(560, startWidthRef.current + delta));
-      setPanelWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      onWidthChange?.(panelWidth);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing, panelWidth, onWidthChange]);
-
-  async function handleSend() {
-    const text = input.trim();
+  async function handleSend(textOverride?: string) {
+    const text = (textOverride ?? input).trim();
     if (!text) return;
     if (sendingRef.current) return;
     sendingRef.current = true;
 
-    // Create new AbortController for this request
     abortControllerRef.current = new AbortController();
 
     const snapshot = messagesRef.current;
@@ -350,7 +377,6 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
         mongoDatabase,
       });
       setMessages((prev) => [...prev, { ...res.message, timestamp: new Date() }]);
-      // Update session token count
       if (res.usage) {
         setSessionTokens((prev) => ({
           input: prev.input + (res.usage?.inputTokens ?? 0),
@@ -359,7 +385,6 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // Request was cancelled
         return;
       }
       setMessages((prev) => [
@@ -384,8 +409,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
   }
 
   function handleSuggestionClick(text: string) {
-    setInput(text);
-    inputRef.current?.focus();
+    void handleSend(text);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -409,28 +433,60 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
     clearSchemaCache.mutate({ connectionId });
   }
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    startXRef.current = e.clientX;
+    startWidthRef.current = panelWidth;
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = startXRef.current - e.clientX;
+      const newWidth = Math.max(280, Math.min(600, startWidthRef.current + delta));
+      setPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
   return (
-    <aside
-      className="flex h-full border-l border-border/50 bg-linear-to-b from-background via-background/95 to-muted/20"
-      style={{ width: panelWidth, minWidth: panelWidth }}
-    >
+    <aside className="border-l border-border bg-background flex shrink-0 h-full" style={{ width: panelWidth }}>
       <div
         onMouseDown={handleMouseDown}
-        className={`w-1 cursor-col-resize shrink-0 transition-all duration-200 ${
+        className={`w-1 cursor-col-resize shrink-0 transition-colors ${
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border/60'
         }`}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="border-b border-border px-3 py-2 shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <Sparkles className="size-4 shrink-0 text-primary" />
-              <span className="truncate text-sm font-medium">AI Assistant</span>
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-border bg-muted/10 px-3 py-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={`flex size-6 items-center justify-center rounded-md ring-1 ${chatMode.iconClass}`}>
+                  <Sparkles className="size-3.5" />
+                </span>
+                <span className="truncate text-sm font-medium">AI Assistant</span>
+              </div>
               {sessionTokens.input > 0 && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger className="rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground/50">
-                      {(sessionTokens.input + sessionTokens.output).toLocaleString()} tokens
+                    <TooltipTrigger>
+                      <span className="mt-1 inline-flex rounded bg-muted/70 px-1.5 py-0.5 text-xs text-muted-foreground/70">
+                        {(sessionTokens.input + sessionTokens.output).toLocaleString()} tokens
+                      </span>
                     </TooltipTrigger>
                     <TooltipContent>
                       <div className="text-xs">
@@ -443,15 +499,18 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
               )}
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-1">
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  render={
-                    <Button variant="ghost" size="icon-sm">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
-                  }
-                />
+                  aria-label="AI assistant menu"
+                  className={buttonVariants({
+                    variant: 'ghost',
+                    size: 'icon',
+                    className: 'size-7 text-muted-foreground hover:text-foreground',
+                  })}
+                >
+                  <MoreHorizontal className="size-4" />
+                </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => navigateTo('api-settings')}>
                     <Settings2 className="size-4" />
@@ -477,46 +536,55 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
                 </DropdownMenuContent>
               </DropdownMenu>
               {onClose && (
-                <Button variant="ghost" size="icon-sm" onClick={onClose}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 text-muted-foreground hover:text-foreground"
+                  onClick={onClose}
+                >
                   <span className="sr-only">Close</span>
                   <X className="size-4" />
                 </Button>
               )}
             </div>
           </div>
+          <p className="mt-1 text-xs text-muted-foreground/60">Enter to send, Shift+Enter for new line</p>
 
           {currentConnection && (
-            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="mt-2 flex h-6 max-w-full items-center gap-1.5 rounded-md bg-muted/45 px-2 text-xs text-muted-foreground ring-1 ring-border/40">
               <Database className="size-3 shrink-0" />
               {currentConnection.color && (
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: currentConnection.color }} />
+                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: currentConnection.color }} />
               )}
               <span className="truncate">{currentConnection.name}</span>
               {mongoDatabase && (
                 <>
-                  <span className="text-muted-foreground/40">/</span>
-                  <span className="truncate text-muted-foreground/70">{mongoDatabase}</span>
+                  <span className="shrink-0 text-muted-foreground/40">/</span>
+                  <span className="text-muted-foreground/70 truncate">{mongoDatabase}</span>
                 </>
               )}
             </div>
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto" ref={scrollRef}>
-          <div className="p-3">
+        <div className="flex-1 overflow-auto" ref={scrollRef}>
+          <div className="p-3 pb-4">
             {messages.length === 0 && !aiChat.isPending && (
-              <div className="py-6 text-center text-muted-foreground">
-                <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 ring-1 ring-primary/10">
-                  <Bot className="size-5 text-primary/60" />
+              <div className="py-5 text-muted-foreground">
+                <div
+                  className={`mx-auto mb-3 flex size-11 items-center justify-center rounded-xl ring-1 ${chatMode.iconClass}`}
+                >
+                  <Bot className="size-5" />
                 </div>
-                <p className="mb-1 text-sm font-medium text-foreground/70">Ask me to write SQL</p>
-                <p className="mb-4 text-xs text-muted-foreground/60">Try one of these:</p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {SUGGESTION_PROMPTS.map((prompt, i) => (
+                <p className="mb-1 text-center text-sm font-medium text-foreground/80">{chatMode.title}</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                  {chatMode.suggestions.map((prompt, i) => (
                     <button
                       key={i}
+                      type="button"
                       onClick={() => handleSuggestionClick(prompt)}
-                      className="rounded-full border border-border/50 bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground/80 transition-colors hover:border-primary/30 hover:bg-muted hover:text-foreground"
+                      disabled={aiChat.isPending}
+                      className={`rounded-full border border-border/50 bg-muted/35 px-2.5 py-1.5 text-xs text-muted-foreground/85 transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
                     >
                       {prompt}
                     </button>
@@ -531,10 +599,10 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
 
             {aiChat.isPending && (
               <div className="mb-3 flex gap-2">
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
                   <Bot className="size-3.5 text-primary" />
                 </div>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <div className="flex h-7 items-center gap-1.5 rounded-md bg-muted/45 px-2 text-sm text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" />
                   Thinking...
                 </div>
@@ -543,36 +611,34 @@ export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange 
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-border p-2">
-          <div className="flex gap-2">
-            <textarea
+        <div className="shrink-0 border-t border-border bg-muted/10 p-2">
+          <div className="flex items-end gap-2 rounded-lg border border-border/70 bg-background p-1.5 shadow-sm transition-shadow focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/25">
+            <Textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask AI to write SQL..."
+              placeholder={chatMode.placeholder}
               rows={2}
-              className="min-h-16 flex-1 resize-none rounded-md bg-muted px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground/50"
+              className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
             />
             {aiChat.isPending ? (
               <Tooltip>
                 <TooltipTrigger
-                  render={
-                    <Button size="icon" className="shrink-0 self-end">
-                      <StopCircle className="size-3.5" />
-                    </Button>
-                  }
+                  aria-label="Stop generation"
+                  className={buttonVariants({ size: 'icon', className: 'size-8 shrink-0' })}
                   onClick={handleStop}
-                />
+                >
+                  <StopCircle className="size-3.5" />
+                </TooltipTrigger>
                 <TooltipContent>Stop generation</TooltipContent>
               </Tooltip>
             ) : (
-              <Button size="icon" className="shrink-0 self-end" onClick={handleSend} disabled={!input.trim()}>
+              <Button size="icon" className="size-8 shrink-0" onClick={() => handleSend()} disabled={!input.trim()}>
                 <Send className="size-3.5" />
               </Button>
             )}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground/60">Enter to send, Shift+Enter for new line</p>
         </div>
       </div>
     </aside>

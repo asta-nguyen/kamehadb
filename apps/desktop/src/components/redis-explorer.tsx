@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useRedisKeys, useRedisKeyDetails } from '@/hooks/use-redis';
-import { Loader2, Search, Box, Hash, List, Type, Clock, X } from 'lucide-react';
+import { useRedisKeys, useRedisKeyDetails, useRedisStats } from '@/hooks/use-redis';
+import { Loader2, Search, Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,8 +28,10 @@ interface RedisExplorerProps {
 export function RedisExplorer({ connectionId }: RedisExplorerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [showStats, setShowStats] = useState(false);
 
   const { data: keysResult, isLoading: loadingKeys } = useRedisKeys(connectionId, searchQuery || '*');
+  const { data: stats, isLoading: loadingStats, error: statsError } = useRedisStats(connectionId, showStats);
 
   const filteredKeys = useMemo(() => {
     if (!keysResult?.keys) return [];
@@ -133,7 +135,52 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
             })
           )}
         </div>
-        <div className="px-2 py-1 border-t border-border text-xs text-muted-foreground">{filteredKeys.length} keys</div>
+        <div className="px-2 py-1 border-t border-border flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">{filteredKeys.length} keys</span>
+          <button
+            onClick={() => setShowStats(!showStats)}
+            className={`p-1 rounded hover:bg-muted transition-colors ${showStats ? 'text-primary' : 'text-muted-foreground'}`}
+            title="Show stats"
+          >
+            <BarChart3 className="size-3" />
+          </button>
+        </div>
+        {showStats && (
+          <div className="px-3 py-2 border-t border-border bg-muted/30">
+            {loadingStats ? (
+              <Loader2 className="size-4 animate-spin text-muted-foreground mx-auto" />
+            ) : statsError ? (
+              <div className="text-xs text-destructive">
+                Error: {statsError instanceof Error ? statsError.message : 'Failed to load stats'}
+              </div>
+            ) : stats ? (
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Cpu className="size-3" />
+                  <span>{stats.version}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <HardDrive className="size-3" />
+                  <span>{stats.totalKeys} keys</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Users className="size-3" />
+                  <span>{stats.connectedClients} clients</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span>Memory:</span>
+                  <span>{Math.round(stats.usedMemory / 1024 / 1024)} MB</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span>Uptime:</span>
+                  <span>{Math.round(stats.uptimeSeconds / 3600)}h</span>
+                </div>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">No stats data</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Key details panel */}
