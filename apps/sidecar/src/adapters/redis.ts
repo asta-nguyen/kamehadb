@@ -8,6 +8,7 @@ import type {
   GetKeyInput,
   GetTtlInput,
   KeyEntry,
+  RedisStats,
 } from '@kamehadb/shared';
 
 interface RedisConfig {
@@ -129,6 +130,67 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
     async getTtl(input: GetTtlInput): Promise<number> {
       const redis = getClient();
       return await redis.ttl(input.key);
+    },
+
+    async getStats(): Promise<RedisStats> {
+      const redis = getClient();
+      const info = await redis.info('all');
+
+      const parseInfo = (section: string): Record<string, string> => {
+        const match = info.match(new RegExp(`# ${section}([\\s\\S]*?)(?=# |$)`));
+        if (!match) return {};
+        const result: Record<string, string> = {};
+        for (const line of match[1].split('\n')) {
+          const [key, ...valParts] = line.split(':');
+          if (key && valParts.length) {
+            result[key.trim()] = valParts.join(':').trim();
+          }
+        }
+        return result;
+      };
+
+      const server = parseInfo('Server');
+      const clients = parseInfo('Clients');
+      const memory = parseInfo('Memory');
+      const stats = parseInfo('Stats');
+      const keyspace = parseInfo('Keyspace');
+
+      // Parse keyspace info (format: db0:keys=123,expires=5,avg_ttl=3600000)
+      let totalKeys = 0;
+      let totalExpiring = 0;
+      let avgTtl = 0;
+      for (const line of info.split('\n')) {
+        const km = line.match(/^db(\d+):keys=(\d+),expires=(\d+),avg_ttl=(\d+)/);
+        if (km) {
+          totalKeys += parseInt(km[2], 10);
+          totalExpiring += parseInt(km[3], 10);
+          avgTtl = parseInt(km[4], 10) || avgTtl;
+        }
+      }
+
+      return {
+        version: server.redis_version || 'unknown',
+        connectedClients: parseInt(clients.connected_clients || '0', 10),
+        blockedClients: parseInt(clients.blocked_clients || '0', 10),
+        totalConnections: parseInt(stats.total_connections_received || '0', 10),
+        totalCommands: parseInt(stats.total_commands_processed || '0', 10),
+        usedMemory: parseInt(memory.used_memory || '0', 10),
+        usedMemoryPeak: parseInt(memory.used_memory_peak || '0', 10),
+        maxMemory: memory.maxmemory ? parseInt(memory.maxmemory, 10) : undefined,
+        totalKeys,
+        expiringKeys: totalExpiring,
+        avgTtl,
+        uptimeSeconds: parseInt(server.uptime_in_seconds || '0', 10),
+        hitRate:
+          stats.keyspace_hits && stats.keyspace_misses
+            ? (() => {
+                const hits = parseInt(stats.keyspace_hits, 10);
+                const misses = parseInt(stats.keyspace_misses, 10);
+                const total = hits + misses;
+                return total > 0 ? (hits / total) * 100 : 0;
+              })()
+            : undefined,
+      };
     },
 
     async close(): Promise<void> {
