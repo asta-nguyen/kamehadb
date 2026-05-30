@@ -81,6 +81,11 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --syntax-keyword: oklch(0.45 0.2 280);
+  --syntax-string: oklch(0.55 0.2 145);
+  --syntax-number: oklch(0.55 0.15 25);
+  --syntax-comment: oklch(0.5 0 0);
+  --syntax-function: oklch(0.55 0.15 250);
 }
 
 .dark {
@@ -115,8 +120,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-  --syntax-string: oklch(0.71 0.15 155);
-  --syntax-number: oklch(0.77 0.17 70);
+  --syntax-keyword: oklch(0.65 0.2 280);
+  --syntax-string: oklch(0.75 0.18 145);
+  --syntax-number: oklch(0.75 0.15 25);
+  --syntax-comment: oklch(0.55 0 0);
+  --syntax-function: oklch(0.7 0.15 250);
 }
 
 @layer base {
@@ -153,5 +161,29 @@
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--muted-foreground) transparent;
+  }
+
+  /* SQL Syntax Highlighting */
+  .hljs-keyword {
+    color: var(--syntax-keyword);
+  }
+  .hljs-string {
+    color: var(--syntax-string);
+  }
+  .hljs-number {
+    color: var(--syntax-number);
+  }
+  .hljs-comment {
+    color: var(--syntax-comment);
+    font-style: italic;
+  }
+  .hljs-built_in {
+    color: var(--syntax-function);
+  }
+  .hljs-title {
+    color: var(--syntax-function);
+  }
+  .hljs-attr {
+    color: var(--syntax-function);
   }
 }

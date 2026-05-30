@@ -35,11 +35,11 @@ export function useRedisTtl(connectionId: string | null, key: string | null) {
   });
 }
 
-export function useRedisStats(connectionId: string | null) {
+export function useRedisStats(connectionId: string | null, enabled = true) {
   return useQuery({
     queryKey: ['redis-stats', connectionId],
     queryFn: () => api.getRedisStats(connectionId!),
-    enabled: !!connectionId,
+    enabled: !!connectionId && enabled,
     staleTime: 10000,
     retry: 1,
   });

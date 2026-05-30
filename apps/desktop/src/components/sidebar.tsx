@@ -37,7 +37,6 @@ import { api } from '@/lib/api';
 import {
   appStore,
   setActiveConnection,
-  openTab,
   openGraphTab,
   navigateTo,
   toggleExpandedConnection,
@@ -132,7 +131,7 @@ function ConnectionItem({
                 : conn.kind === 'redis'
                   ? 'bg-destructive/10 text-destructive'
                   : conn.kind === 'mongodb'
-                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                    ? 'bg-primary/10 text-primary'
                     : 'bg-muted text-muted-foreground'
             }`}
           >
@@ -152,12 +151,10 @@ function ConnectionItem({
             <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={4}>
-            {conn.kind !== 'redis' && (
-              <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
-                <Sparkles className="size-3.5 mr-2" />
-                AI Chat
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
+              <Sparkles className="size-3.5 mr-2" />
+              AI Chat
+            </DropdownMenuItem>
             {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
               <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
                 <Share2 className="size-3.5 mr-2" />
@@ -255,14 +252,25 @@ function ConnectionItem({
               <SchemaTree
                 key={conn.id}
                 connectionId={conn.id}
-                onSelectTable={(tableId) =>
-                  openTab({
+                onSelectTable={(tableId) => {
+                  const newTab = {
                     id: `${conn.id}:${tableId}`,
-                    type: 'table',
+                    type: 'table' as const,
                     title: tableId,
                     connectionId: conn.id,
-                  })
-                }
+                  };
+                  const existingTab = appStore.state.openedTabs.find((t) => t.id === newTab.id);
+                  if (existingTab) {
+                    appStore.setState((s) => ({ ...s, activeTabId: newTab.id }));
+                  } else {
+                    appStore.setState((s) => ({
+                      ...s,
+                      view: 'workspace',
+                      openedTabs: [...s.openedTabs, newTab],
+                      activeTabId: newTab.id,
+                    }));
+                  }
+                }}
               />
             </>
           )}

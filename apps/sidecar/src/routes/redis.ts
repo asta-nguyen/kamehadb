@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import * as metadataStore from '../db/metadata-store.js';
 import { createRedisDbAdapter } from '../adapters/factory.js';
+import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
+import type { RedisStats } from '@kamehadb/shared';
 
 export const redisRouter = new Hono();
 
@@ -142,10 +144,16 @@ redisRouter.post(
 
 // GET /redis/:connectionId/stats
 redisRouter.get('/:connectionId/stats', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const cacheKey = `redis:${connectionId}:stats`;
+  const cached = getCached<RedisStats>(cacheKey, CACHE_TTL.STATS);
+  if (cached) return c.json(cached);
+
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
+    const adapter = await getAdapter(connectionId);
     try {
       const result = await adapter.getStats();
+      setCache(cacheKey, result);
       return c.json(result);
     } finally {
       await adapter.close().catch(() => {});

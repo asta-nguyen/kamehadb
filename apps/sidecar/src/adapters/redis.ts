@@ -156,13 +156,14 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
       const stats = parseInfo('Stats');
       const keyspace = parseInfo('Keyspace');
 
-      // Parse keyspace info (format: db0:keys=123,expires=5,avg_ttl=3600000)
+      // Parse keyspace info for the selected logical DB (format: db0:keys=123,expires=5,avg_ttl=3600000)
       let totalKeys = 0;
       let totalExpiring = 0;
       let avgTtl = 0;
+      const selectedDb = config.database ?? 0;
       for (const line of info.split('\n')) {
         const km = line.match(/^db(\d+):keys=(\d+),expires=(\d+),avg_ttl=(\d+)/);
-        if (km) {
+        if (km && parseInt(km[1], 10) === selectedDb) {
           totalKeys += parseInt(km[2], 10);
           totalExpiring += parseInt(km[3], 10);
           avgTtl = parseInt(km[4], 10) || avgTtl;
