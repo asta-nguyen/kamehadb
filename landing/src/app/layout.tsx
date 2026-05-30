@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import Providers from './providers';
 import './globals.css';
 
 const inter = Inter({
@@ -7,17 +8,72 @@ const inter = Inter({
   subsets: ['latin'],
 });
 
+const siteUrl = 'https://kamehadb.com';
+
 export const metadata: Metadata = {
-  title: 'KamehaDB - Database Management Reimagined',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'KamehaDB - Database Management Reimagined',
+    template: '%s | KamehaDB',
+  },
   description:
-    'Connect to any database, explore schemas visually, and query with AI. The modern database management tool built for developers.',
-  icons: {
-    icon: [
+    'Connect to PostgreSQL, MySQL, SQLite, MongoDB, and Redis — all from one unified interface. Explore schemas visually, query with AI, and manage databases effortlessly.',
+  keywords: [
+    'database management',
+    'database client',
+    'SQL editor',
+    'PostgreSQL',
+    'MySQL',
+    'SQLite',
+    'MongoDB',
+    'Redis',
+    'AI query',
+    'schema visualization',
+    'ER diagram',
+    'database GUI',
+    'Tauri',
+    'open source',
+  ],
+  authors: [{ name: 'KamehaDB', url: siteUrl }],
+  creator: 'KamehaDB',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: siteUrl,
+    siteName: 'KamehaDB',
+    title: 'KamehaDB - Database Management Reimagined',
+    description:
+      'Connect to any database, explore schemas visually, and query with AI. The modern database management tool built for developers.',
+    images: [
       {
-        url: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%236366f1'/><text x='50' y='65' font-size='50' font-weight='bold' fill='white' text-anchor='middle'>K</text></svg>",
-        type: 'image/svg+xml',
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'KamehaDB - Database Management Reimagined',
       },
     ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'KamehaDB - Database Management Reimagined',
+    description: 'Connect to any database, explore schemas visually, and query with AI.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon-16x16.png',
+    apple: '/apple-touch-icon.png',
   },
 };
 
@@ -27,8 +83,38 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className={`${inter.variable} min-h-full flex flex-col antialiased`}>{children}</body>
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'SoftwareApplication',
+              name: 'KamehaDB',
+              description:
+                'Connect to PostgreSQL, MySQL, SQLite, MongoDB, and Redis — all from one unified interface. Explore schemas visually, query with AI, and manage databases effortlessly.',
+              url: siteUrl,
+              applicationCategory: 'DeveloperApplication',
+              operatingSystem: 'Windows, macOS, Linux',
+              offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'USD',
+              },
+              softwareRequirements: 'Node.js 18+',
+              author: {
+                '@type': 'Organization',
+                name: 'KamehaDB',
+                url: siteUrl,
+              },
+            }),
+          }}
+        />
+      </head>
+      <body className={`${inter.variable} min-h-full flex flex-col antialiased`}>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

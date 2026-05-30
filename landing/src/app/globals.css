@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   /* Brand Colors */
@@ -30,6 +31,16 @@
   --space-section: 64px;
 }
 
+.dark {
+  --color-canvas: #0b0f1a;
+  --color-surface-soft: #111827;
+  --color-surface-strong: #1e293b;
+  --color-border: #1e293b;
+  --color-ink: #f1f5f9;
+  --color-body: #cbd5e1;
+  --color-muted: #94a3b8;
+}
+
 @theme inline {
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -44,6 +55,9 @@ body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 html {

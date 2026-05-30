@@ -24,7 +24,7 @@ There is also a separate marketing/docs site in `landing/`, but it is not part o
 
 ## Workspace And Package Boundaries
 
-- The pnpm workspace includes only `apps/*` and `packages/*`.
+- The pnpm workspace includes only `apps/*`, `packages/*`, and `landing`.
 - `landing/` has its own `package-lock.json` and is managed separately with npm.
 - Root scripts target the pnpm workspace only. Do not assume they affect `landing/`.
 
@@ -78,12 +78,10 @@ pnpm --filter @kamehadb/sidecar dev
 pnpm --filter @kamehadb/sidecar build
 pnpm --filter @kamehadb/sidecar start
 
-# Landing site (separate project)
-cd landing
-npm install
-npm run dev
-npm run build
-npm run lint
+# Landing site
+pnpm --filter @kamehadb/landing dev
+pnpm --filter @kamehadb/landing build
+pnpm --filter @kamehadb/landing lint
 ```
 
 ## Current Architecture
@@ -201,6 +199,31 @@ git push origin v0.1.0-rc.1
 ```
 
 If a release is missing app bundles, inspect `.github/workflows/release.yml` and verify the tag points at the intended commit.
+
+## Changelog
+
+All user-facing changes must be recorded in `CHANGELOG.md` at the repo root before merging to main.
+
+Format follows [Keep a Changelog](https://keepachangelog.com/):
+
+```markdown
+## [Unreleased]
+
+### Added
+
+- New feature description
+
+### Fixed
+
+- Bug fix description
+```
+
+Rules:
+
+- Every PR that changes behavior (feat, fix, UI change) must add an entry under `[Unreleased]`
+- When releasing, move `[Unreleased]` entries into a new version section with the date
+- Group entries by type: `Added`, `Changed`, `Fixed`, `Removed`
+- The landing page `/changelog` reads this file at build time — no code changes needed, just update the markdown
 
 ## Agent Notes
 
