@@ -21,8 +21,6 @@ const initialState: AppStoreState = {
 
 export const appStore = new Store<AppStoreState>(initialState);
 
-let queryCounter = 0;
-
 export function setActiveConnection(id: string | null) {
   appStore.setState((state) => ({ ...state, activeConnectionId: id, activeMongoDatabase: null }));
 }
@@ -43,7 +41,7 @@ export function openTab(tab: WorkspaceTab) {
   });
 }
 
-export function openNewQueryTab(connectionId: string, sql?: string, autoRun = false) {
+export function openNewQueryTab(connectionId: string, sql?: string, shouldAutoRun = false) {
   const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'query').length;
   const tab: WorkspaceTab = {
     id: `query-${nanoid()}`,
@@ -51,20 +49,20 @@ export function openNewQueryTab(connectionId: string, sql?: string, autoRun = fa
     title: `Query ${tabCount + 1}`,
     connectionId,
     sql: sql ?? 'SELECT * FROM ',
-    autoRun,
+    autoRun: shouldAutoRun,
   };
   openTab(tab);
 }
 
-export function openQueryTabWithSql(connectionId: string, sql: string, autoRun = false) {
-  queryCounter++;
+export function openQueryTabWithSql(connectionId: string, sql: string, shouldAutoRun = false) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'query').length;
   const tab: WorkspaceTab = {
     id: `query-${nanoid()}`,
     type: 'query',
-    title: `Query ${queryCounter}`,
+    title: `Query ${tabCount + 1}`,
     connectionId,
     sql,
-    autoRun,
+    autoRun: shouldAutoRun,
   };
   openTab(tab);
   return tab.id;
@@ -180,11 +178,17 @@ export function updateTabPipeline(tabId: string, pipeline: string) {
     openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, pipeline } : t)),
   }));
 }
-
 export function updateTabAutoRun(tabId: string, autoRun: boolean) {
   appStore.setState((state) => ({
     ...state,
     openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, autoRun } : t)),
+  }));
+}
+
+export function clearTabAutoRun(tabId: string) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, autoRun: false } : t)),
   }));
 }
 

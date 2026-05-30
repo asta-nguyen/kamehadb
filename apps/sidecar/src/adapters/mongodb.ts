@@ -207,6 +207,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const collection: Collection = targetDb.collection(input.collection);
 
       const pipeline = input.pipeline || [];
+      const start = performance.now();
       const limit = Math.min(input.limit || 100, 1000);
       const skip = input.skip || 0;
 
@@ -241,6 +242,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
         documents,
         totalCount,
         hasMore,
+        durationMs: Math.round(performance.now() - start),
       };
     },
 

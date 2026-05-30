@@ -199,7 +199,7 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
       const trimmed = command.trim();
       const parts = trimmed.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [];
       if (parts.length === 0) throw new Error('Empty command');
-      const cmd = parts[0];
+      const cmd = parts[0]!;
       const args = parts.slice(1).map((a) => a.replace(/^["']|["']$/g, ''));
       const start = Date.now();
       const result = await redis.call(cmd, ...args);

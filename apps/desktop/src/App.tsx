@@ -1,47 +1,47 @@
-import { useStore } from '@tanstack/react-store';
-import { useMemo, useEffect } from 'react';
-import { Toaster } from '@/components/ui/sonner';
-import { useConnections } from '@/hooks/use-connections';
-import { Sidebar } from '@/components/sidebar';
-import { TableView } from '@/components/table-view';
-import { SqlEditor } from '@/components/sql-editor';
-import { SchemaGraph } from '@/components/schema-graph';
+import { AIChatPanel } from '@/components/ai-chat-panel';
+import { ApiSettingsPage } from '@/components/api-settings-page';
+import { DatabaseStats } from '@/components/database-stats';
 import { MongoView } from '@/components/mongo-view';
 import { RedisView } from '@/components/redis-view';
-import { RedisQuery } from '@/components/redis-query';
 import { MongoQuery } from '@/components/mongo-query';
+import { RedisQuery } from '@/components/redis-query';
+import { SchemaGraph } from '@/components/schema-graph';
+import { Sidebar } from '@/components/sidebar';
+import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
-import { DatabaseStats } from '@/components/database-stats';
-import { ApiSettingsPage } from '@/components/api-settings-page';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TableView } from '@/components/table-view';
 import { Button } from '@/components/ui/button';
-import { AIChatPanel } from '@/components/ai-chat-panel';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { useConnections } from '@/hooks/use-connections';
 import {
   appStore,
-  openNewQueryTab,
-  openGraphTab,
-  closeTab,
-  setTheme,
   applyTheme,
-  openDatabaseStatsTab,
-  openRedisQueryTab,
-  openMongoQueryTab,
   closeAiChatPanel,
+  closeTab,
+  openDatabaseStatsTab,
+  openGraphTab,
+  openMongoQueryTab,
+  openNewQueryTab,
+  openRedisQueryTab,
+  setTheme,
 } from '@/store';
+import { useStore } from '@tanstack/react-store';
 import {
-  X,
-  Terminal,
-  Table2,
+  Activity,
+  BarChart3,
+  Box,
+  Database,
+  Monitor,
+  Moon,
   Plus,
   Share2,
-  Database,
   Sun,
-  Moon,
-  Monitor,
-  BarChart3,
-  Activity,
-  Box,
+  Table2,
+  Terminal,
+  X,
 } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -288,7 +288,7 @@ function ThemeToggle() {
         aria-label="Light"
         aria-pressed={theme === 'light'}
       >
-        <Sun className="size-[15px] shrink-0" />
+        <Sun className="size-3.75 shrink-0" />
       </button>
       <button
         onClick={() => setTheme('system')}
@@ -297,7 +297,7 @@ function ThemeToggle() {
         aria-label="System"
         aria-pressed={theme === 'system'}
       >
-        <Monitor className="size-[15px] shrink-0" />
+        <Monitor className="size-3.75 shrink-0" />
       </button>
       <button
         onClick={() => setTheme('dark')}
@@ -306,7 +306,7 @@ function ThemeToggle() {
         aria-label="Dark"
         aria-pressed={theme === 'dark'}
       >
-        <Moon className="size-[15px] shrink-0" />
+        <Moon className="size-3.75 shrink-0" />
       </button>
     </div>
   );

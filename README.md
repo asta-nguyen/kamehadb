@@ -94,6 +94,38 @@ xattr -dr com.apple.quarantine "/Volumes/KamehaDB/KamehaDB.app"
 
 You can also disable Gatekeeper globally with `sudo spctl --master-disable`, but that is broader than necessary and should not be left enabled long-term.
 
+### Build for Local Machine
+
+If you see "Target does not exist" error, add the required Rust targets first:
+
+```bash
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+```
+
+Then build for your local machine:
+
+```bash
+# Apple Silicon (M1/M2/M3)
+cd apps/desktop && pnpm tauri build --target aarch64-apple-darwin
+
+# Intel Mac
+cd apps/desktop && pnpm tauri build --target x86_64-apple-darwin
+```
+
+# Linux
+
+```bash
+# Build for Linux
+cd apps/desktop && pnpm tauri build --target x86_64-unknown-linux-gnu
+```
+
+# Windows
+
+```bash
+# Build for Windows
+cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
+```
+
 ## Tech Stack
 
 - **Desktop**: Tauri v2, React 19, Vite, Tailwind CSS, shadcn/ui, tanstack (query, store, table)
