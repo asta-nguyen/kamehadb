@@ -1,11 +1,11 @@
+import { useState } from 'react';
 import { formatBytes, formatNumber } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Server, Users, RefreshCw, AlertTriangle, Clock, Radio, Loader2 } from 'lucide-react';
+import { Server, Users, RefreshCw, AlertTriangle, Clock, Radio, Loader2, Copy, Check } from 'lucide-react';
 import { useDatabaseSizes } from '@/hooks/use-schema';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -15,6 +15,18 @@ type DatabaseStatsProps = {
 };
 
 export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
+  const [copiedPid, setCopiedPid] = useState<number | null>(null);
+
+  const handleCopyQuery = async (pid: number, query: string) => {
+    try {
+      await navigator.clipboard.writeText(query);
+      setCopiedPid(pid);
+      setTimeout(() => setCopiedPid(null), 1500);
+    } catch {
+      setCopiedPid(null);
+    }
+  };
+
   const {
     data: sizes,
     isLoading: sizesLoading,
@@ -184,38 +196,85 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
             </Card>
           ) : (
             <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
-                      <TableHead>PID</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Application</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead>Query</TableHead>
-                      <TableHead>Duration</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="border-t overflow-auto bg-background">
+                <table className="w-full text-xs table-fixed" style={{ minWidth: 640 }}>
+                  <thead className="sticky top-0 z-10 bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 60 }}>
+                        PID
+                      </th>
+                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
+                        User
+                      </th>
+                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 100 }}>
+                        Application
+                      </th>
+                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
+                        Client
+                      </th>
+                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
+                        State
+                      </th>
+                      <th className="px-3 py-2 font-medium text-muted-foreground text-left">Query</th>
+                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
+                        Duration
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {connections && connections.length > 0 ? (
                       connections.map((conn) => (
-                        <TableRow key={conn.pid} style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
-                          <TableCell className="font-mono text-xs">{conn.pid}</TableCell>
-                          <TableCell className="text-sm">{conn.usename}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{conn.applicationName || '-'}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{conn.clientAddr || 'local'}</TableCell>
-                          <TableCell>
+                        <tr key={conn.pid} className="border-b last:border-b-0 even:bg-muted/20 hover:bg-muted/30">
+                          <td className="px-3 py-2 font-mono text-xs truncate" title={String(conn.pid)}>
+                            {conn.pid}
+                          </td>
+                          <td className="px-3 py-2 text-sm truncate" title={conn.usename}>
+                            {conn.usename}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm text-muted-foreground truncate"
+                            title={conn.applicationName || '-'}
+                          >
+                            {conn.applicationName || '-'}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm text-muted-foreground truncate"
+                            title={conn.clientAddr || 'local'}
+                          >
+                            {conn.clientAddr || 'local'}
+                          </td>
+                          <td className="px-3 py-2">
                             <Badge
                               variant={getStateColor(conn.state) as 'default' | 'secondary' | 'outline' | 'destructive'}
                             >
                               {conn.state}
                             </Badge>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate text-sm" title={conn.query || '-'}>
-                            {conn.query || '-'}
-                          </TableCell>
-                          <TableCell className="text-sm">
+                          </td>
+                          <td className="px-3 py-2 text-sm group" title={conn.query || '-'}>
+                            <div className="flex items-center gap-1">
+                              <span className="truncate min-w-0">{conn.query || '-'}</span>
+                              {conn.query && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                                  onClick={() => handleCopyQuery(conn.pid, conn.query!)}
+                                  title="Copy query"
+                                  aria-label="Copy query"
+                                >
+                                  {copiedPid === conn.pid ? (
+                                    <Check className="size-3 text-green-500" />
+                                  ) : (
+                                    <Copy className="size-3" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm truncate"
+                            title={conn.durationSeconds > 0 ? `${conn.durationSeconds}s` : '-'}
+                          >
                             {conn.durationSeconds > 0 ? (
                               <span className={conn.durationSeconds > 60 ? 'text-destructive' : ''}>
                                 {conn.durationSeconds}s
@@ -223,19 +282,19 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
                             ) : (
                               '-'
                             )}
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       ))
                     ) : (
-                      <TableRow style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <tr>
+                        <td colSpan={7} className="text-center text-muted-foreground py-8">
                           No active connections
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     )}
-                  </TableBody>
-                </Table>
-              </CardContent>
+                  </tbody>
+                </table>
+              </div>
             </Card>
           )}
         </TabsContent>

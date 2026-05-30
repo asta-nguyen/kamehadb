@@ -112,3 +112,18 @@ redisRouter.post(
     }
   },
 );
+
+// GET /redis/:connectionId/stats
+redisRouter.get('/:connectionId/stats', async (c) => {
+  try {
+    const adapter = await getAdapter(c.req.param('connectionId'));
+    try {
+      const result = await adapter.getStats();
+      return c.json(result);
+    } finally {
+      await adapter.close().catch(() => {});
+    }
+  } catch (err) {
+    return handleError(c, err, 'getStats');
+  }
+});
