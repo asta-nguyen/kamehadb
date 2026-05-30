@@ -151,28 +151,51 @@ export function ApiSettingsPage() {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
 
-  const fetchModels = useCallback(async () => {
-    const baseUrl = selectedConfig.baseUrl?.trim();
-    if (!baseUrl) return;
-    setModelsLoading(true);
-    try {
-      const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`);
-      if (!res.ok) return;
-      const data = (await res.json()) as { data?: { id: string }[] };
-      const models = data.data?.map((m) => m.id).filter(Boolean) ?? [];
-      setAvailableModels(models);
-    } catch {
-      setAvailableModels([]);
-    } finally {
-      setModelsLoading(false);
+  const modelsWithCustom = useMemo(() => {
+    const savedModel = selectedConfig.model;
+    if (!savedModel || availableModels.includes(savedModel)) {
+      return availableModels;
     }
-  }, [selectedConfig.baseUrl]);
+    return [savedModel, ...availableModels];
+  }, [availableModels, selectedConfig.model]);
+
+  const fetchModels = useCallback(
+    async (signal: AbortSignal) => {
+      const baseUrl = selectedConfig.baseUrl?.trim();
+      if (!baseUrl) return;
+      setModelsLoading(true);
+      try {
+        const headers: HeadersInit = {};
+        if (selectedConfig.apiKey) {
+          headers['Authorization'] = `Bearer ${selectedConfig.apiKey}`;
+        }
+        const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, { signal });
+        if (!res.ok) return;
+        const data = (await res.json()) as { data?: { id: string }[] };
+        const models = data.data?.map((m) => m.id).filter(Boolean) ?? [];
+        setAvailableModels(models);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setAvailableModels([]);
+      } finally {
+        setModelsLoading(false);
+      }
+    },
+    [selectedConfig.apiKey, selectedConfig.baseUrl],
+  );
+
+  const handleFetchModels = () => {
+    const controller = new AbortController();
+    fetchModels(controller.signal);
+  };
 
   useEffect(() => {
+    const controller = new AbortController();
     setAvailableModels([]);
     if (selectedConfig.baseUrl?.trim()) {
-      fetchModels();
+      fetchModels(controller.signal);
     }
+    return () => controller.abort();
   }, [selectedProvider, selectedConfig.baseUrl, fetchModels]);
 
   function updateProvider(provider: AIProvider, updates: Partial<AIProviderConfig>) {
@@ -352,7 +375,7 @@ export function ApiSettingsPage() {
                     description="The default model for AI chat. Select from available models or type a custom name."
                   >
                     <div className="flex gap-2">
-                      {availableModels.length > 0 ? (
+                      {modelsWithCustom.length > 0 ? (
                         <Select
                           value={selectedConfig.model || undefined}
                           onValueChange={(v) => {
@@ -363,7 +386,7 @@ export function ApiSettingsPage() {
                             <SelectValue placeholder="Select a model..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {availableModels.map((model) => (
+                            {modelsWithCustom.map((model) => (
                               <SelectItem key={model} value={model}>
                                 {model}
                               </SelectItem>
@@ -382,7 +405,7 @@ export function ApiSettingsPage() {
                         variant="outline"
                         size="icon"
                         className="shrink-0 size-9"
-                        onClick={fetchModels}
+                        onClick={handleFetchModels}
                         disabled={modelsLoading || !selectedConfig.baseUrl?.trim()}
                         title="Fetch available models"
                       >

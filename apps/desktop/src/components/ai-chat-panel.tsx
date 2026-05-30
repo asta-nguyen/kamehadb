@@ -53,7 +53,7 @@ type BlockType = 'text' | 'sql' | 'error';
 function extractSqlBlocks(content: string): { type: BlockType; value: string }[] {
   const blocks: { type: BlockType; value: string }[] = [];
 
-  const errorMatch = content.match(/^error[:\s]*(.+)$/is);
+  const errorMatch = content.match(/^error\b[:\s]*(.+)$/is);
   if (errorMatch) {
     blocks.push({ type: 'error', value: errorMatch[1].trim() });
     content = content.slice(errorMatch[0].length).trim();
@@ -134,7 +134,7 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
         </div>
       </div>
       <pre
-        className="p-3 text-xs leading-relaxed font-mono overflow-x-auto text-foreground [&_span.keyword]:text-primary [&_span.string]:text-green-600 dark:[&_span.string]:text-green-400 [&_span.number]:text-orange-600 dark:[&_span.number]:text-orange-400 [&_span-comment]:text-muted-foreground/60"
+        className="p-3 text-xs leading-relaxed font-mono overflow-x-auto text-foreground [&_.hljs-keyword]:text-primary [&_.hljs-string]:text-green-600 dark:[&_.hljs-string]:text-green-400 [&_.hljs-number]:text-orange-600 dark:[&_.hljs-number]:text-orange-400 [&_.hljs-comment]:text-muted-foreground/60"
         dangerouslySetInnerHTML={{ __html: highlightSql(sql) }}
       />
     </div>

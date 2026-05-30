@@ -175,7 +175,7 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
         totalConnections: parseInt(stats.total_connections_received || '0', 10),
         totalCommands: parseInt(stats.total_commands_processed || '0', 10),
         usedMemory: parseInt(memory.used_memory || '0', 10),
-        usedMemoryPeak: parseInt(memory.used_memory_peak_rss || '0', 10),
+        usedMemoryPeak: parseInt(memory.used_memory_peak || '0', 10),
         maxMemory: memory.maxmemory ? parseInt(memory.maxmemory, 10) : undefined,
         totalKeys,
         expiringKeys: totalExpiring,

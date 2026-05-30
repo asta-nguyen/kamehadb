@@ -62,6 +62,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       void handleRun();
     }
   }, [tab, sql, handleRun]);
+
   const handleChange = useCallback(
     (value: string | undefined) => {
       const v = value ?? '';
