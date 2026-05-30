@@ -1,22 +1,22 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useRunQuery } from '@/hooks/use-query';
+import { api } from '@/lib/api';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { useRunQuery } from '@/hooks/use-query';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Play, Loader2, AlertCircle, Clock, Download } from 'lucide-react';
-import { clearTabAutoRun, updateTabSql } from '@/store';
-import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
-import { downloadResult } from '@/lib/export';
-import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { downloadResult } from '@/lib/export';
+import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
+import { clearTabAutoRun, updateTabAutoRun, updateTabSql } from '@/store';
+import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
+import { AlertCircle, Clock, Download, Loader2, Play } from 'lucide-react';
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
@@ -54,6 +54,14 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       setError(err instanceof Error ? err.message : 'Query failed');
     }
   }, [sql, runQuery]);
+
+  // Auto-run on mount if flag is set
+  useEffect(() => {
+    if ('autoRun' in tab && tab.autoRun && sql.trim()) {
+      updateTabAutoRun(tab.id, false);
+      void handleRun();
+    }
+  }, [tab, sql, handleRun]);
 
   const handleChange = useCallback(
     (value: string | undefined) => {

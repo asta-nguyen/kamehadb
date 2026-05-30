@@ -1,9 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useStore } from '@tanstack/react-store';
-import { useMongoDatabases, useMongoCollections } from '@/hooks/use-mongo';
-import { Database, Table2, Eye, Clock, Loader2, Search, Sparkles } from 'lucide-react';
-import { openMongoTab, setActiveMongoDatabase, openAiChatPanel, appStore } from '@/store';
+import { useMongoCollections, useMongoDatabases } from '@/hooks/use-mongo';
+import { openAiChatPanel, openMongoTab, setActiveMongoDatabase } from '@/store';
 import type { CollectionInfo } from '@kamehadb/shared';
+import { Clock, Database, Eye, Loader2, Search, Sparkles, Table2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const typeIcons: Record<CollectionInfo['type'], React.ComponentType<{ className?: string }>> = {
   collection: Table2,
@@ -22,22 +21,21 @@ interface MongoExplorerProps {
 }
 
 export function MongoExplorer({ connectionId }: MongoExplorerProps) {
-  const storedDb = useStore(appStore, (s) => s.activeMongoDatabase);
-  const [selectedDb, setSelectedDb] = useState<string | null>(storedDb);
+  const [selectedDb, setSelectedDb] = useState<string | null>(null);
   const [expandedDbs, setExpandedDbs] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const { data: databases, isLoading: loadingDatabases } = useMongoDatabases(connectionId);
 
-  // Auto-select and auto-expand first database
+  // Auto-select and auto-expand first database when it loads
   useEffect(() => {
-    if (!selectedDb && databases?.length) {
+    if (databases?.length && !selectedDb) {
       const first = databases[0].name;
       setSelectedDb(first);
       setExpandedDbs(new Set([first]));
       setActiveMongoDatabase(first);
     }
-  }, [databases, selectedDb]);
+  }, [databases]);
 
   const toggleDb = (name: string) => {
     setExpandedDbs((prev) => {

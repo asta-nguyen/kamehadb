@@ -28,6 +28,7 @@ async function getSqlAdapter(connectionId: string) {
 
   const adapter = createSqlAdapter(profile, password);
   if (!adapter) {
+    console.warn(`[SQL] Unsupported connection kind for ${connectionId}: ${profile.kind}`);
     return {
       testConnection: () => Promise.resolve({ success: false, message: `Unsupported for ${profile.kind}` }),
       listDatabases: () => Promise.resolve([]),

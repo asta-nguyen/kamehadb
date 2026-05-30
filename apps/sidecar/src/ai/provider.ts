@@ -50,7 +50,6 @@ export function validateProviderConfig(provider: AIProvider, config: AIProviderC
       return null;
     case '9router':
       if (!config.baseUrl) return 'Base URL is required for 9Router';
-      if (!config.apiKey) return 'API key is required for 9Router';
       return null;
   }
 }
@@ -67,12 +66,16 @@ class OpenAICompatibleProvider implements LLMProvider {
   }
 
   async chat(messages: AIChatMessage[], signal?: AbortSignal): Promise<ChatResult> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
+    }
+
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model: this.model,
         messages,

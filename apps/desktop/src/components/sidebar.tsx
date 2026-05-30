@@ -44,6 +44,7 @@ import {
   toggleExpandedConnection,
   setConnectionStatus,
   openDatabaseStatsTab,
+  openRedisTab,
   openAiChatPanel,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
@@ -102,7 +103,9 @@ function ConnectionItem({
           onClick={() => {
             onSelect();
             checkConnectionHealth();
-            if (conn.kind !== 'redis') {
+            if (conn.kind === 'redis') {
+              openRedisTab(conn.id);
+            } else {
               toggleExpandedConnection(conn.id);
             }
           }}
@@ -122,13 +125,13 @@ function ConnectionItem({
             {conn.name}
           </span>
           <span
-            className={`text-[10px] px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${
+            className={`text-xs px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${
               conn.kind === 'postgres'
                 ? 'bg-primary/10 text-primary'
                 : conn.kind === 'redis'
                   ? 'bg-destructive/10 text-destructive'
                   : conn.kind === 'mongodb'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
                     : 'bg-muted text-muted-foreground'
             }`}
           >
@@ -148,18 +151,30 @@ function ConnectionItem({
             <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={4}>
-            <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
-              <Sparkles className="size-3.5 mr-2" />
-              AI Chat
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
-              <Share2 className="size-3.5 mr-2" />
-              Graph
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openDatabaseStatsTab(conn.id)}>
-              <BarChart3 className="size-3.5 mr-2" />
-              Stats
-            </DropdownMenuItem>
+            {conn.kind !== 'redis' && (
+              <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
+                <Sparkles className="size-3.5 mr-2" />
+                AI Chat
+              </DropdownMenuItem>
+            )}
+            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
+              <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
+                <Share2 className="size-3.5 mr-2" />
+                Graph
+              </DropdownMenuItem>
+            )}
+            {conn.kind === 'mongodb' && (
+              <DropdownMenuItem onClick={() => openDatabaseStatsTab(conn.id)}>
+                <BarChart3 className="size-3.5 mr-2" />
+                Stats
+              </DropdownMenuItem>
+            )}
+            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
+              <DropdownMenuItem onClick={() => openDatabaseStatsTab(conn.id)}>
+                <BarChart3 className="size-3.5 mr-2" />
+                Stats
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => setShowEdit(true)}>
               <Settings2 className="size-3.5 mr-2" />
               Edit
@@ -196,11 +211,11 @@ function ConnectionItem({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {expanded && (
+      {expanded && conn.kind !== 'redis' && (
         <div className="mt-1 ml-3 pl-2 border-l border-border/60 space-y-0.5">
           {conn.kind === 'mongodb' ? (
-            <MongoExplorer connectionId={conn.id} />
-          ) : conn.kind === 'redis' ? null : ( // Redis uses workspace tabs, not sidebar
+            <MongoExplorer key={conn.id} connectionId={conn.id} />
+          ) : (
             <>
               <Button
                 variant="ghost"
@@ -212,6 +227,7 @@ function ConnectionItem({
                 <span>New Query</span>
               </Button>
               <SchemaTree
+                key={conn.id}
                 connectionId={conn.id}
                 onSelectTable={(tableId) =>
                   openTab({
@@ -259,10 +275,10 @@ function ConnectionGroup({
     <div className="space-y-0.5">
       <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/30">
         <Database className="size-3.5 text-muted-foreground/50" />
-        <span className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+        <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">
           {GROUP_LABELS[kind] ?? kind}
         </span>
-        <span className="ml-auto text-[10px] text-muted-foreground/40 tabular-nums">{conns.length}</span>
+        <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">{conns.length}</span>
       </div>
       {conns.map((conn) => (
         <ConnectionItem
