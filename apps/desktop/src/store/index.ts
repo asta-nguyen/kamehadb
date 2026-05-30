@@ -162,6 +162,10 @@ export function closeTab(tabId: string) {
   });
 }
 
+export function closeAllTabs() {
+  appStore.setState((state) => ({ ...state, openedTabs: [], activeTabId: null }));
+}
+
 export function navigateTo(view: AppView) {
   appStore.setState((state) => ({ ...state, view }));
 }
