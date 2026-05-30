@@ -1,22 +1,22 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useRunQuery } from '@/hooks/use-query';
+import { api } from '@/lib/api';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { useRunQuery } from '@/hooks/use-query';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Play, Loader2, AlertCircle, Clock, Download } from 'lucide-react';
-import { updateTabSql, updateTabAutoRun } from '@/store';
-import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
-import { downloadResult } from '@/lib/export';
-import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { downloadResult } from '@/lib/export';
+import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
+import { clearTabAutoRun, updateTabAutoRun, updateTabSql } from '@/store';
+import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
+import { AlertCircle, Clock, Download, Loader2, Play } from 'lucide-react';
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
@@ -130,6 +130,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     [handleRun],
   );
 
+  useEffect(() => {
+    if (!('autoRun' in tab) || !tab.autoRun) return;
+    clearTabAutoRun(tab.id);
+    void handleRun();
+  }, [tab, handleRun]);
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
@@ -201,7 +207,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                   {result.columns.map((col) => (
                     <div
                       key={col.name}
-                      className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
+                      className="px-3 py-1 border-r last:border-r-0 truncate"
                       title={row[col.name] === null ? '' : String(row[col.name])}
                     >
                       {row[col.name] === null ? (

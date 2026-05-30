@@ -1,22 +1,47 @@
-import { useState, useRef, useEffect } from 'react';
-import { useAiChat } from '@/hooks/use-ai-chat';
-import { appStore, openNewQueryTab, navigateTo } from '@/store';
-import { Bot, Send, Loader2, X, Sparkles, Terminal, Play, Copy, Check, Settings2, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAiChat, useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
+import { useConnections } from '@/hooks/use-connections';
+import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
+import type { AIChatMessage } from '@kamehadb/shared';
 import hljs from 'highlight.js';
 import sql from 'highlight.js/lib/languages/sql';
-import type { AIChatMessage } from '@kamehadb/shared';
+import {
+  AlertCircle,
+  Bot,
+  Check,
+  Copy,
+  Database,
+  Loader2,
+  MoreHorizontal,
+  Play,
+  RefreshCw,
+  Send,
+  Settings2,
+  Sparkles,
+  StopCircle,
+  Terminal,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 hljs.registerLanguage('sql', sql);
-
-function getConnectionId(propId: string | null): string | null {
-  return propId ?? appStore.state.activeConnectionId;
-}
 
 type AIChatPanelProps = {
   connectionId: string | null;
   width?: number;
   onWidthChange?: (width: number) => void;
+  onClose?: () => void;
 };
 
 function highlightSql(sql: string): string {
@@ -64,36 +89,48 @@ function SqlBlock({ sql, onInsert, onRun }: { sql: string; onInsert: () => void;
         <div className="flex items-center gap-2">
           <span className="text-xs font-mono font-medium text-muted-foreground/70 uppercase tracking-wider">SQL</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(sql);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              } catch (err) {
-                console.error('Failed to copy SQL:', err);
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button variant="ghost" size="icon-xs">
+                  {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+                </Button>
               }
-            }}
-            className="p-1 rounded-sm hover:bg-accent/70 text-muted-foreground hover:text-foreground transition-colors"
-            title="Copy"
-          >
-            {copied ? <Check className="size-2.5" /> : <Copy className="size-2.5" />}
-          </button>
-          <button
-            onClick={onInsert}
-            className="p-1 rounded-sm hover:bg-accent/70 text-muted-foreground hover:text-foreground transition-colors"
-            title="Insert into editor"
-          >
-            <Terminal className="size-2.5" />
-          </button>
-          <button
-            onClick={onRun}
-            className="p-1 rounded-sm hover:bg-accent/70 text-muted-foreground hover:text-foreground transition-colors"
-            title="Run"
-          >
-            <Play className="size-2.5" />
-          </button>
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(sql);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                } catch (err) {
+                  console.error('Failed to copy SQL:', err);
+                }
+              }}
+            />
+            <TooltipContent>Copy SQL</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button variant="ghost" size="icon-xs">
+                  <Terminal className="size-3" />
+                </Button>
+              }
+              onClick={onInsert}
+            />
+            <TooltipContent>Insert into editor</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button variant="ghost" size="icon-xs">
+                  <Play className="size-3" />
+                </Button>
+              }
+              onClick={onRun}
+            />
+            <TooltipContent>Run SQL</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <pre
@@ -116,58 +153,90 @@ function ErrorBlock({ message }: { message: string }) {
   );
 }
 
-function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId: string | null }) {
+function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; connectionId: string | null }) {
+  const [copied, setCopied] = useState(false);
   const isUser = msg.role === 'user';
+
+  function formatTime(date?: Date) {
+    if (!date) return '';
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="group bg-primary/10 text-sm rounded-2xl rounded-br-md px-3.5 py-2 max-w-[85%] text-foreground/90">
-          {msg.content}
+      <div className="flex justify-end mb-3">
+        <div className="group max-w-[85%]">
+          {msg.timestamp && (
+            <div className="text-xs text-muted-foreground/50 text-right mb-0.5 px-1">{formatTime(msg.timestamp)}</div>
+          )}
+          <div className="bg-primary/10 text-sm rounded-2xl rounded-br-md px-3 py-2 text-foreground/90">
+            {msg.content}
+          </div>
         </div>
       </div>
     );
   }
 
   const blocks = extractSqlBlocks(msg.content);
+  const resolveConnectionId = () => connectionId ?? appStore.state.activeConnectionId;
+  const insertSqlToEditor = (sql: string) => {
+    const targetConnectionId = resolveConnectionId();
+    if (!targetConnectionId) return;
+    openQueryTabWithSql(targetConnectionId, sql, false);
+  };
+  const runSqlImmediately = (sql: string) => {
+    const targetConnectionId = resolveConnectionId();
+    if (!targetConnectionId) return;
+    openQueryTabWithSql(targetConnectionId, sql, true);
+  };
 
   return (
-    <div className="mb-4">
+    <div className="flex gap-2 mb-3">
+      <div className="size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+        <Bot className="size-3.5 text-primary" />
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-1.5">AI Assistant</div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider">AI Assistant</span>
+          {msg.timestamp && <span className="text-xs text-muted-foreground/40">{formatTime(msg.timestamp)}</span>}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button variant="ghost" size="icon-xs" className="ml-auto">
+                  {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+                </Button>
+              }
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(msg.content);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                } catch (err) {
+                  console.error('Failed to copy:', err);
+                }
+              }}
+            />
+            <TooltipContent>Copy response</TooltipContent>
+          </Tooltip>
+        </div>
         {blocks.map((block, i) =>
           block.type === 'sql' ? (
             <SqlBlock
               key={i}
               sql={block.value}
-              onInsert={() => {
-                const connId = getConnectionId(connectionId);
-                if (!connId) {
-                  toast.error('Please select a database first');
-                  return;
-                }
-                const sql = block.value.trim();
-                if (!sql) return;
-                openNewQueryTab(connId, sql);
-              }}
-              onRun={() => {
-                const connId = getConnectionId(connectionId);
-                if (!connId) {
-                  toast.error('Please select a database first');
-                  return;
-                }
-                const sql = block.value.trim();
-                if (!sql) return;
-                openNewQueryTab(connId, sql, true);
-              }}
+              onInsert={() => insertSqlToEditor(block.value)}
+              onRun={() => runSqlImmediately(block.value)}
             />
           ) : block.type === 'error' ? (
             <ErrorBlock key={i} message={block.value} />
           ) : (
             block.value && (
-              <p key={i} className="text-sm text-foreground/80 leading-relaxed mb-2 first:mt-0 last:mb-0">
-                {block.value}
-              </p>
+              <div
+                key={i}
+                className="text-sm [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:rounded-md [&_pre]:overflow-x-auto"
+              >
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
+              </div>
             )
           ),
         )}
@@ -176,41 +245,58 @@ function MessageBubble({ msg, connectionId }: { msg: AIChatMessage; connectionId
   );
 }
 
-function TypingIndicator() {
-  return (
-    <div className="flex gap-0.5 items-center pt-4 mb-4">
-      <span
-        className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]"
-        style={{ animationDelay: '0ms' }}
-      />
-      <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
-      <span className="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
-    </div>
-  );
-}
+type MessageWithTimestamp = AIChatMessage & { timestamp?: Date };
 
-export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChatPanelProps) {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<AIChatMessage[]>([]);
-  const [input, setInput] = useState('');
+const SUGGESTION_PROMPTS = [
+  'Show all tables in the database',
+  'Count rows in each table',
+  'Find tables with indexes',
+  'Show database schema',
+];
+
+export function AIChatPanel({ connectionId, onClose, width = 360, onWidthChange }: AIChatPanelProps) {
   const [panelWidth, setPanelWidth] = useState(width);
   const [isResizing, setIsResizing] = useState(false);
+  const [messages, setMessages] = useState<MessageWithTimestamp[]>([]);
+  const [input, setInput] = useState('');
+  const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
+  const { data: connections } = useConnections();
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
 
   const aiChat = useAiChat(connectionId);
+  const clearChatHistory = useClearChatHistory();
+  const clearSchemaCache = useClearSchemaCache();
+
+  const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
+  const isMongoDb = currentConnection?.kind === 'mongodb';
+  const mongoDatabase = isMongoDb ? (appStore.state.activeMongoDatabase ?? undefined) : undefined;
+
+  const { data: chatHistory } = useChatHistory(connectionId, 50, mongoDatabase);
+
+  // Load chat history on mount
+  useEffect(() => {
+    if (chatHistory?.messages) {
+      setMessages(chatHistory.messages.map((m) => ({ role: m.role, content: m.content })));
+    }
+  }, [chatHistory]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, aiChat.isPending]);
+
+  useEffect(() => {
+    setPanelWidth(width);
+  }, [width]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -248,25 +334,58 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
     if (sendingRef.current) return;
     sendingRef.current = true;
 
+    // Create new AbortController for this request
+    abortControllerRef.current = new AbortController();
+
     const snapshot = messagesRef.current;
-    const userMsg: AIChatMessage = { role: 'user', content: text };
+    const userMsg: MessageWithTimestamp = { role: 'user', content: text, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
 
     try {
-      const res = await aiChat.mutateAsync({ messages: [...snapshot, userMsg] });
-      setMessages((prev) => [...prev, res.message]);
+      const res = await aiChat.mutateAsync({
+        messages: [...snapshot, { role: userMsg.role, content: userMsg.content }],
+        latestMessage: { role: userMsg.role, content: userMsg.content },
+        signal: abortControllerRef.current.signal,
+        mongoDatabase,
+      });
+      setMessages((prev) => [...prev, { ...res.message, timestamp: new Date() }]);
+      // Update session token count
+      if (res.usage) {
+        setSessionTokens((prev) => ({
+          input: prev.input + (res.usage?.inputTokens ?? 0),
+          output: prev.output + (res.usage?.outputTokens ?? 0),
+        }));
+      }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Request was cancelled
+        return;
+      }
       setMessages((prev) => [
         ...prev,
         {
-          role: 'assistant',
+          role: 'assistant' as const,
           content: `Error: ${err instanceof Error ? err.message : 'AI request failed'}`,
+          timestamp: new Date(),
         },
       ]);
     } finally {
       sendingRef.current = false;
+      abortControllerRef.current = null;
     }
+  }
+
+  function handleStop() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      sendingRef.current = false;
+    }
+  }
+
+  function handleSuggestionClick(text: string) {
+    setInput(text);
+    inputRef.current?.focus();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -278,21 +397,21 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 size-12 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-50"
-        title="Open AI Chat"
-      >
-        <Sparkles className="size-5" />
-      </button>
-    );
+  function handleClearHistory() {
+    if (!connectionId) return;
+    clearChatHistory.mutate({ connectionId, mongoDatabase });
+    setMessages([]);
+    setSessionTokens({ input: 0, output: 0 });
+  }
+
+  function handleRefreshSchema() {
+    if (!connectionId) return;
+    clearSchemaCache.mutate({ connectionId });
   }
 
   return (
     <aside
-      className="flex h-full border-l border-border/50 bg-gradient-to-b from-background via-background/95 to-muted/20"
+      className="flex h-full border-l border-border/50 bg-linear-to-b from-background via-background/95 to-muted/20"
       style={{ width: panelWidth, minWidth: panelWidth }}
     >
       <div
@@ -301,40 +420,107 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border/60'
         }`}
       />
-      <div className="flex flex-col h-full flex-1 min-w-0">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 shrink-0 bg-gradient-to-r from-background to-transparent">
-          <div className="flex items-center gap-2">
-            <Sparkles className="size-3.5 text-primary" />
-            <span className="text-xs font-medium">AI Assistant</span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="border-b border-border px-3 py-2 shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <Sparkles className="size-4 shrink-0 text-primary" />
+              <span className="truncate text-sm font-medium">AI Assistant</span>
+              {sessionTokens.input > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="rounded bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground/50">
+                      {(sessionTokens.input + sessionTokens.output).toLocaleString()} tokens
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-xs">
+                        <div>Input: {sessionTokens.input.toLocaleString()}</div>
+                        <div>Output: {sessionTokens.output.toLocaleString()}</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="ghost" size="icon-sm">
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigateTo('api-settings')}>
+                    <Settings2 className="size-4" />
+                    Settings
+                  </DropdownMenuItem>
+                  {currentConnection && (
+                    <>
+                      <DropdownMenuItem onClick={handleRefreshSchema}>
+                        <RefreshCw className="size-4" />
+                        Refresh Schema
+                      </DropdownMenuItem>
+                      {messages.length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={handleClearHistory} variant="destructive">
+                            <Trash2 className="size-4" />
+                            Clear Chat
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {onClose && (
+                <Button variant="ghost" size="icon-sm" onClick={onClose}>
+                  <span className="sr-only">Close</span>
+                  <X className="size-4" />
+                </Button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => navigateTo('api-settings')}
-              className="p-1.5 rounded-md hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors"
-              title="API Settings"
-            >
-              <Settings2 className="size-3.5" />
-            </button>
-            <button
-              onClick={() => setOpen(false)}
-              className="p-1.5 rounded-md hover:bg-muted/70 text-muted-foreground hover:text-foreground transition-colors"
-              title="Close AI Panel"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
+
+          {currentConnection && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Database className="size-3 shrink-0" />
+              {currentConnection.color && (
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: currentConnection.color }} />
+              )}
+              <span className="truncate">{currentConnection.name}</span>
+              {mongoDatabase && (
+                <>
+                  <span className="text-muted-foreground/40">/</span>
+                  <span className="truncate text-muted-foreground/70">{mongoDatabase}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin" ref={scrollRef}>
-          <div className="p-4">
+        <div className="min-h-0 flex-1 overflow-auto" ref={scrollRef}>
+          <div className="p-3">
             {messages.length === 0 && !aiChat.isPending && (
-              <div className="flex text-center py-12 text-muted-foreground">
-                <div className="m-auto">
-                  <div className="size-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mx-auto mb-3 ring-1 ring-primary/10">
-                    <Bot className="size-5 text-primary/60" />
-                  </div>
-                  <p className="text-sm font-medium text-foreground/70 mb-1">Ask me to write SQL</p>
-                  <p className="text-xs text-muted-foreground/60">e.g. "show me users who signed up last month"</p>
+              <div className="py-6 text-center text-muted-foreground">
+                <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 ring-1 ring-primary/10">
+                  <Bot className="size-5 text-primary/60" />
+                </div>
+                <p className="mb-1 text-sm font-medium text-foreground/70">Ask me to write SQL</p>
+                <p className="mb-4 text-xs text-muted-foreground/60">Try one of these:</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {SUGGESTION_PROMPTS.map((prompt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSuggestionClick(prompt)}
+                      className="rounded-full border border-border/50 bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground/80 transition-colors hover:border-primary/30 hover:bg-muted hover:text-foreground"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -343,12 +529,22 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
               <MessageBubble key={i} msg={msg} connectionId={connectionId} />
             ))}
 
-            {aiChat.isPending && <TypingIndicator />}
+            {aiChat.isPending && (
+              <div className="mb-3 flex gap-2">
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Bot className="size-3.5 text-primary" />
+                </div>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" />
+                  Thinking...
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="border-t border-border/40 p-3 shrink-0 bg-gradient-to-t from-background to-background/80">
-          <div className="flex gap-2 items-end">
+        <div className="shrink-0 border-t border-border p-2">
+          <div className="flex gap-2">
             <textarea
               ref={inputRef}
               value={input}
@@ -356,19 +552,27 @@ export function AIChatPanel({ connectionId, width = 360, onWidthChange }: AIChat
               onKeyDown={handleKeyDown}
               placeholder="Ask AI to write SQL..."
               rows={2}
-              className="flex-1 text-sm bg-muted/50 rounded-lg px-3 py-2 resize-none outline-none placeholder:text-muted-foreground/40 border border-transparent focus:border-primary/30 transition-colors"
+              className="min-h-16 flex-1 resize-none rounded-md bg-muted px-2 py-1.5 text-sm outline-none placeholder:text-muted-foreground/50"
             />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || aiChat.isPending}
-              className="size-9 shrink-0 rounded-lg bg-primary text-primary-foreground hover:bg-primary/80 disabled:pointer-events-none disabled:opacity-50 inline-flex items-center justify-center transition-colors"
-            >
-              {aiChat.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            </button>
+            {aiChat.isPending ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button size="icon" className="shrink-0 self-end">
+                      <StopCircle className="size-3.5" />
+                    </Button>
+                  }
+                  onClick={handleStop}
+                />
+                <TooltipContent>Stop generation</TooltipContent>
+              </Tooltip>
+            ) : (
+              <Button size="icon" className="shrink-0 self-end" onClick={handleSend} disabled={!input.trim()}>
+                <Send className="size-3.5" />
+              </Button>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground/40 mt-1.5 text-center">
-            Enter to send · Shift+Enter for new line
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground/60">Enter to send, Shift+Enter for new line</p>
         </div>
       </div>
     </aside>

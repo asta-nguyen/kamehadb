@@ -1,34 +1,43 @@
-import { useStore } from '@tanstack/react-store';
-import { useMemo, useEffect } from 'react';
-import { Toaster } from '@/components/ui/sonner';
-import { useConnections } from '@/hooks/use-connections';
-import { Sidebar } from '@/components/sidebar';
-import { TableView } from '@/components/table-view';
-import { SqlEditor } from '@/components/sql-editor';
-import { SchemaGraph } from '@/components/schema-graph';
+import { AIChatPanel } from '@/components/ai-chat-panel';
+import { ApiSettingsPage } from '@/components/api-settings-page';
+import { DatabaseStats } from '@/components/database-stats';
 import { MongoView } from '@/components/mongo-view';
 import { RedisView } from '@/components/redis-view';
+import { SchemaGraph } from '@/components/schema-graph';
+import { Sidebar } from '@/components/sidebar';
+import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
-import { DatabaseStats } from '@/components/database-stats';
-import { ApiSettingsPage } from '@/components/api-settings-page';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TableView } from '@/components/table-view';
 import { Button } from '@/components/ui/button';
-import { AIChatPanel } from '@/components/ai-chat-panel';
-import { appStore, openNewQueryTab, openGraphTab, closeTab, setTheme, applyTheme, openDatabaseStatsTab } from '@/store';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { useConnections } from '@/hooks/use-connections';
 import {
-  X,
-  Terminal,
-  Table2,
+  applyTheme,
+  appStore,
+  closeAiChatPanel,
+  closeTab,
+  openDatabaseStatsTab,
+  openGraphTab,
+  openNewQueryTab,
+  setTheme,
+} from '@/store';
+import { useStore } from '@tanstack/react-store';
+import {
+  Activity,
+  BarChart3,
+  Box,
+  Database,
+  Monitor,
+  Moon,
   Plus,
   Share2,
-  Database,
   Sun,
-  Moon,
-  Monitor,
-  BarChart3,
-  Activity,
-  Box,
+  Table2,
+  Terminal,
+  X,
 } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -216,19 +225,17 @@ function Workspace() {
 }
 
 function MainLayout() {
-  const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
+  const aiPanelConnectionId = useStore(appStore, (state) => state.aiPanelConnectionId);
 
   return (
     <div className="flex-1 flex overflow-hidden">
       <main className="flex-1 bg-background flex flex-col overflow-hidden">
         <TabBar />
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 overflow-hidden">
-            <Workspace />
-          </div>
-          <AIChatPanel connectionId={activeConnectionId} />
+        <div className="flex-1 overflow-hidden">
+          <Workspace />
         </div>
       </main>
+      {aiPanelConnectionId && <AIChatPanel connectionId={aiPanelConnectionId} onClose={closeAiChatPanel} />}
     </div>
   );
 }

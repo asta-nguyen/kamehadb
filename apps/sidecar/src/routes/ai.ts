@@ -5,6 +5,7 @@ import * as metadataStore from '../db/metadata-store.js';
 import { createProvider, validateProviderConfig } from '../ai/provider.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
 import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
+import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
 import type { AIChatMessage, AIProvider } from '@kamehadb/shared';
 
 export const aiRouter = new Hono();
@@ -15,17 +16,104 @@ const providerConfigSchema = z.object({
   apiKey: z.string().optional(),
 });
 
-function buildSystemPrompt(ddl: string | null): string {
-  let prompt = `You are a SQL expert assistant embedded in a database admin tool called kamehadb. Your job is to help users write and understand SQL queries.
+async function buildMongoSchemaContext(
+  adapter: ReturnType<typeof createMongoDbAdapter>,
+  database?: string,
+): Promise<string | null> {
+  try {
+    const lines: string[] = [];
+
+    if (database) {
+      // Get schema for specific database
+      lines.push(`## Database: ${database}`);
+      const collections = await adapter.listCollections(database);
+
+      for (const coll of collections.slice(0, 10)) {
+        const stats = await adapter.getCollectionStats(database, coll.name);
+        lines.push(`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`);
+
+        if (stats.documentCount > 0) {
+          const result = await adapter.findDocuments({
+            collection: coll.name,
+            database,
+            limit: 1,
+          });
+          if (result.documents.length > 0) {
+            const sample = result.documents[0];
+            const fields = Object.keys(sample)
+              .slice(0, 15)
+              .map((k) => {
+                const v = sample[k];
+                const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+                return `  ${k}: ${type}`;
+              });
+            lines.push('Fields:');
+            lines.push(fields.join('\n'));
+          }
+        }
+      }
+    } else {
+      // Get schema for all databases (fallback)
+      const databases = await adapter.listDatabases();
+      if (databases.length === 0) return null;
+
+      lines.push('MongoDB Databases:');
+      const userDatabases = databases.filter((db) => !['admin', 'local', 'config'].includes(db.name));
+
+      for (const db of userDatabases.slice(0, 10)) {
+        lines.push(`## ${db.name}`);
+        const collections = await adapter.listCollections(db.name);
+
+        for (const coll of collections.slice(0, 10)) {
+          const stats = await adapter.getCollectionStats(db.name, coll.name);
+          lines.push(`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`);
+
+          if (stats.documentCount > 0) {
+            const result = await adapter.findDocuments({
+              collection: coll.name,
+              database: db.name,
+              limit: 1,
+            });
+            if (result.documents.length > 0) {
+              const sample = result.documents[0];
+              const fields = Object.keys(sample)
+                .slice(0, 15)
+                .map((k) => {
+                  const v = sample[k];
+                  const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+                  return `  ${k}: ${type}`;
+                });
+              lines.push('Fields:');
+              lines.push(fields.join('\n'));
+            }
+          }
+        }
+        lines.push('');
+      }
+    }
+
+    return lines.join('\n');
+  } catch {
+    return null;
+  }
+}
+
+function buildSystemPrompt(ddl: string | null, mongoSchema: string | null): string {
+  let prompt = `You are a database assistant embedded in a database admin tool called kamehadb. Your job is to help users write queries and understand their data.
 
 Rules:
-- Generate ONLY valid SQL queries — no commentary outside SQL blocks unless the user asks.
-- Use \`\`\`sql ... \`\`\` code blocks for queries.
-- Default to read-only SELECT queries. If the user asks for writes, note the risk.
+- Generate ONLY valid queries — no commentary outside code blocks unless the user asks.
+- Use \`\`\`sql ... \`\`\` for SQL queries.
+- Use MongoDB aggregation pipeline syntax in \`\`\`javascript ... \`\`\` for MongoDB queries.
+- Default to read-only queries. If the user asks for writes, note the risk.
 - Be concise.`;
 
   if (ddl) {
     prompt += `\n\nThe current database schema is:\n\n${ddl}`;
+  }
+
+  if (mongoSchema) {
+    prompt += `\n\n${mongoSchema}`;
   }
 
   return prompt;
@@ -38,12 +126,19 @@ aiRouter.post(
     'json',
     z.object({
       connectionId: z.string().optional(),
+      mongoDatabase: z.string().optional(),
       messages: z.array(
         z.object({
           role: z.enum(['user', 'assistant', 'system']),
           content: z.string(),
         }),
       ),
+      latestMessage: z
+        .object({
+          role: z.enum(['user', 'assistant', 'system']),
+          content: z.string(),
+        })
+        .optional(),
       provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']).optional(),
       model: z.string().optional(),
     }),
@@ -51,6 +146,11 @@ aiRouter.post(
   async (c) => {
     try {
       const body = c.req.valid('json');
+
+      // Persist only the newest user message; full history is still passed for model context.
+      if (body.connectionId && body.latestMessage?.role === 'user') {
+        metadataStore.saveChatMessage(body.connectionId, 'user', body.latestMessage.content, body.mongoDatabase);
+      }
 
       const settings = metadataStore.getAISettings();
       // Resolve which provider config to use
@@ -73,30 +173,61 @@ aiRouter.post(
 
       // Build schema context if connectionId provided
       let ddl: string | null = null;
+      let mongoSchema: string | null = null;
       if (body.connectionId) {
-        try {
-          const profile = metadataStore.getProfile(body.connectionId);
-          if (profile && profile.kind !== 'mongodb') {
-            const password = metadataStore.getProfilePassword(body.connectionId);
-            const adapter = createSqlAdapter(profile, password);
-            if (adapter) {
-              try {
-                ddl = await buildSchemaContext(adapter);
-              } finally {
-                await adapter.close();
+        // Try to get from cache first
+        const cacheKey = body.mongoDatabase
+          ? `ai-schema:${body.connectionId}:mongo:${body.mongoDatabase}`
+          : `ai-schema:${body.connectionId}:sql`;
+
+        if (body.mongoDatabase) {
+          mongoSchema = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
+        } else {
+          ddl = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
+        }
+
+        if (!ddl && !mongoSchema) {
+          try {
+            const profile = metadataStore.getProfile(body.connectionId);
+            if (profile) {
+              if (profile.kind === 'mongodb') {
+                const adapter = createMongoDbAdapter(profile);
+                try {
+                  mongoSchema = await buildMongoSchemaContext(adapter, body.mongoDatabase);
+                  setCache(cacheKey, mongoSchema);
+                } finally {
+                  await adapter.close();
+                }
+              } else {
+                const password = metadataStore.getProfilePassword(body.connectionId);
+                const adapter = createSqlAdapter(profile, password);
+                if (adapter) {
+                  try {
+                    ddl = await buildSchemaContext(adapter);
+                    setCache(cacheKey, ddl);
+                  } finally {
+                    await adapter.close();
+                  }
+                }
               }
             }
+          } catch {
+            // Silently fail, LLM can work without schema
           }
-        } catch {
-          // Silently fail, LLM can work without schema
         }
       }
 
-      const systemPrompt = buildSystemPrompt(ddl);
+      const systemPrompt = buildSystemPrompt(ddl, mongoSchema);
+      console.log('System prompt:', systemPrompt);
       const messages: AIChatMessage[] = [{ role: 'system', content: systemPrompt }, ...body.messages];
 
       const llmProvider = createProvider(providerName, config);
       const result = await llmProvider.chat(messages);
+
+      // Save assistant response to history
+      if (body.connectionId) {
+        metadataStore.saveChatMessage(body.connectionId, 'assistant', result.content, body.mongoDatabase);
+      }
 
       return c.json({
         message: {
@@ -155,3 +286,29 @@ aiRouter.post(
     }
   },
 );
+
+// GET /ai/chat-history/:connectionId
+aiRouter.get('/chat-history/:connectionId', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const parsed = parseInt(c.req.query('limit') ?? '50', 10);
+  const limit = Number.isNaN(parsed) ? 50 : Math.min(Math.max(parsed, 1), 200);
+  const mongoDatabase = c.req.query('database') || undefined;
+  const messages = metadataStore.getChatMessages(connectionId, limit, mongoDatabase);
+  return c.json({ messages });
+});
+
+// DELETE /ai/chat-history/:connectionId
+aiRouter.delete('/chat-history/:connectionId', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const mongoDatabase = c.req.query('database') || undefined;
+  metadataStore.clearChatMessages(connectionId, mongoDatabase);
+  return c.json({ success: true });
+});
+
+// POST /ai/clear-schema-cache/:connectionId
+aiRouter.post('/clear-schema-cache/:connectionId', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const mongoDatabase = c.req.query('database') || undefined;
+  clearSchemaCache(connectionId, mongoDatabase);
+  return c.json({ success: true });
+});

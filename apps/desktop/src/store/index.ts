@@ -8,6 +8,7 @@ const initialState: AppStoreState = {
   activeSchemaId: null,
   activeTableId: null,
   activeMongoDatabase: null,
+  aiPanelConnectionId: null,
   openedTabs: [],
   activeTabId: null,
   sidebarCollapsed: false,
@@ -40,7 +41,7 @@ export function openTab(tab: WorkspaceTab) {
   });
 }
 
-export function openNewQueryTab(connectionId: string, sql?: string, autoRun = false) {
+export function openNewQueryTab(connectionId: string, sql?: string, shouldAutoRun = false) {
   const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'query').length;
   const tab: WorkspaceTab = {
     id: `query-${nanoid()}`,
@@ -48,9 +49,23 @@ export function openNewQueryTab(connectionId: string, sql?: string, autoRun = fa
     title: `Query ${tabCount + 1}`,
     connectionId,
     sql: sql ?? 'SELECT * FROM ',
-    autoRun,
+    autoRun: shouldAutoRun,
   };
   openTab(tab);
+}
+
+export function openQueryTabWithSql(connectionId: string, sql: string, shouldAutoRun = false) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'query').length;
+  const tab: WorkspaceTab = {
+    id: `query-${nanoid()}`,
+    type: 'query',
+    title: `Query ${tabCount + 1}`,
+    connectionId,
+    sql,
+    autoRun: shouldAutoRun,
+  };
+  openTab(tab);
+  return tab.id;
 }
 
 export function openMongoTab(connectionId: string, database: string, collection: string) {
@@ -103,6 +118,21 @@ export function openTableStatsTab(connectionId: string, tableId: string) {
   });
 }
 
+export function openAiChatPanel(connectionId: string) {
+  appStore.setState((state) => ({
+    ...state,
+    activeConnectionId: connectionId,
+    aiPanelConnectionId: connectionId,
+  }));
+}
+
+export function closeAiChatPanel() {
+  appStore.setState((state) => ({
+    ...state,
+    aiPanelConnectionId: null,
+  }));
+}
+
 export function updateTabSql(tabId: string, sql: string) {
   appStore.setState((state) => ({
     ...state,
@@ -114,6 +144,13 @@ export function updateTabAutoRun(tabId: string, autoRun: boolean) {
   appStore.setState((state) => ({
     ...state,
     openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, autoRun } : t)),
+  }));
+}
+
+export function clearTabAutoRun(tabId: string) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, autoRun: false } : t)),
   }));
 }
 

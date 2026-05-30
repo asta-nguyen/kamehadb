@@ -113,6 +113,46 @@ export function initMetadataStore(dbPath: string): void {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      connection_id TEXT NOT NULL,
+      mongo_database TEXT,
+      role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chat_connection ON chat_messages(connection_id);
+  `);
+
+  // Migration: Add mongo_database column if it doesn't exist
+  try {
+    db.exec('ALTER TABLE chat_messages ADD COLUMN mongo_database TEXT');
+  } catch {
+    // Column already exists, ignore
+  }
+
+  // Migration: Normalize chat_messages.created_at to ISO 8601 format
+  // Rows inserted before this migration may have SQLite datetime('now') format (YYYY-MM-DD HH:MM:SS)
+  try {
+    getDb()
+      .prepare(
+        `
+        UPDATE chat_messages
+        SET created_at = printf('%s.000Z', created_at)
+        WHERE created_at NOT LIKE '%Z'
+          AND created_at NOT LIKE '%+%'
+          AND created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] *'
+      `,
+      )
+      .run();
+  } catch {
+    // Migration already applied or no rows to update
+  }
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
@@ -398,5 +438,65 @@ export function closeMetadataStore(): void {
   if (db) {
     db.close();
     db = null;
+  }
+}
+
+// Chat message functions
+export interface ChatMessage {
+  id: string;
+  connectionId: string;
+  mongoDatabase?: string | null;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export function saveChatMessage(
+  connectionId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  mongoDatabase?: string | null,
+): ChatMessage {
+  const id = nanoid();
+  const now = new Date().toISOString();
+
+  getDb()
+    .prepare(
+      `INSERT INTO chat_messages (id, connection_id, mongo_database, role, content, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(id, connectionId, mongoDatabase ?? null, role, content, now);
+
+  return { id, connectionId, mongoDatabase, role, content, createdAt: now };
+}
+
+export function getChatMessages(connectionId: string, limit = 50, mongoDatabase?: string | null): ChatMessage[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT id, connection_id, mongo_database, role, content, created_at
+       FROM chat_messages
+       WHERE connection_id = ? AND (mongo_database IS ? OR (mongo_database IS NULL AND ? IS NULL))
+       ORDER BY created_at ASC
+       LIMIT ?`,
+    )
+    .all(connectionId, mongoDatabase ?? null, mongoDatabase ?? null, limit) as Record<string, unknown>[];
+
+  return rows.map((row) => ({
+    id: row.id as string,
+    connectionId: row.connection_id as string,
+    mongoDatabase: row.mongo_database as string | null,
+    role: row.role as 'user' | 'assistant',
+    content: row.content as string,
+    createdAt: row.created_at as string,
+  }));
+}
+
+export function clearChatMessages(connectionId: string, mongoDatabase?: string | null): void {
+  if (mongoDatabase) {
+    getDb()
+      .prepare('DELETE FROM chat_messages WHERE connection_id = ? AND mongo_database = ?')
+      .run(connectionId, mongoDatabase);
+  } else {
+    getDb().prepare('DELETE FROM chat_messages WHERE connection_id = ? AND mongo_database IS NULL').run(connectionId);
   }
 }

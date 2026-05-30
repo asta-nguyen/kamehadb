@@ -14,12 +14,19 @@ export function getApiBase(): string {
   return apiBase;
 }
 
-export async function request<T>(method: string, path: string, body?: unknown, useSidecar = false): Promise<T> {
+export async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  useSidecar = false,
+  signal?: AbortSignal,
+): Promise<T> {
   const base = useSidecar ? sidecarBase : apiBase;
   const res = await fetch(`${base}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
+    signal,
   });
 
   if (res.status === 204) return undefined as T;
@@ -66,8 +73,30 @@ export const api = {
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
     request<{ success: boolean }>('POST', '/ai/settings', input),
 
-  aiChat: (input: import('@kamehadb/shared').AIChatRequest) =>
-    request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input),
+  aiChat: (input: import('@kamehadb/shared').AIChatRequest & { signal?: AbortSignal }) =>
+    request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input, false, input.signal),
+
+  getChatHistory: (connectionId: string, limit = 50, mongoDatabase?: string) => {
+    const dbParam = mongoDatabase ? `&database=${encodeURIComponent(mongoDatabase)}` : '';
+    return request<{
+      messages: {
+        id: string;
+        connectionId: string;
+        mongoDatabase?: string;
+        role: 'user' | 'assistant';
+        content: string;
+        createdAt: string;
+      }[];
+    }>(`GET`, `/ai/chat-history/${connectionId}?limit=${limit}${dbParam}`);
+  },
+
+  clearChatHistory: (connectionId: string, mongoDatabase?: string) => {
+    const dbParam = mongoDatabase ? `?database=${encodeURIComponent(mongoDatabase)}` : '';
+    return request<{ success: boolean }>('DELETE', `/ai/chat-history/${connectionId}${dbParam}`);
+  },
+
+  clearSchemaCache: (connectionId: string) =>
+    request<{ success: boolean }>('POST', `/ai/clear-schema-cache/${connectionId}`),
 
   // PostgreSQL stats
   getTableStats: (connectionId: string, tableId: string) =>

@@ -94,10 +94,15 @@ class OpenAICompatibleProvider implements LLMProvider {
       usage?: { prompt_tokens: number; completion_tokens: number };
     };
 
+    const inputTokens =
+      body.usage?.prompt_tokens ?? Math.ceil(messages.reduce((acc, m) => acc + m.content.length, 0) / 4);
+    const outputTokens =
+      body.usage?.completion_tokens ?? Math.ceil((body.choices[0]?.message?.content ?? '').length / 4);
+
     return {
       content: body.choices[0]?.message?.content ?? '',
-      inputTokens: body.usage?.prompt_tokens ?? 0,
-      outputTokens: body.usage?.completion_tokens ?? 0,
+      inputTokens,
+      outputTokens,
     };
   }
 }
