@@ -88,6 +88,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
     },
 
     async findDocuments(input: FindDocumentsInput): Promise<DocumentResult> {
+      const start = performance.now();
       const mongoClient = await ensureConnected();
       const targetDb = input.database
         ? mongoClient.db(input.database)
@@ -102,11 +103,35 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const skip = input.skip || 0;
       const limit = Math.min(input.limit || 100, 1000);
 
+      // Server-side text search across string fields
+      let queryFilter: Record<string, unknown> = { ...filter };
+      if (input.search) {
+        const sampleDoc = await collection.findOne();
+        if (sampleDoc) {
+          const stringFields = Object.keys(sampleDoc as Record<string, unknown>).filter(
+            (k) => typeof (sampleDoc as Record<string, unknown>)[k] === 'string',
+          );
+          if (stringFields.length > 0) {
+            const searchRegex = String(input.search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const searchClause: Record<string, unknown> = {
+              $or: stringFields.map((field) => ({
+                [field]: { $regex: searchRegex, $options: 'i' },
+              })),
+            };
+            if (Object.keys(queryFilter).length > 0) {
+              queryFilter = { $and: [queryFilter, searchClause] };
+            } else {
+              queryFilter = searchClause;
+            }
+          }
+        }
+      }
+
       // Fetch limit + 1 to determine if there are more results
       const [countResult, findResults] = await Promise.all([
-        collection.countDocuments(filter),
+        collection.countDocuments(queryFilter),
         collection
-          .find(filter, {
+          .find(queryFilter, {
             projection,
             sort,
             skip,
@@ -126,11 +151,20 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
         }
       }
 
+      const durationMs = Math.round(performance.now() - start);
+
       return {
         documents,
         totalCount: countResult,
         hasMore,
+        durationMs,
       };
+    },
+
+    async runCommand(database: string, command: Record<string, unknown>): Promise<unknown> {
+      const mongoClient = await ensureConnected();
+      const targetDb = database ? mongoClient.db(database) : mongoClient.db(activeDbName || config.database);
+      return await targetDb.command(command);
     },
 
     async updateDocument(
@@ -173,16 +207,21 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const collection: Collection = targetDb.collection(input.collection);
 
       const pipeline = input.pipeline || [];
+      const start = performance.now();
       const limit = Math.min(input.limit || 100, 1000);
+      const skip = input.skip || 0;
 
       const finalPipeline = [...pipeline];
+      if (skip > 0) {
+        finalPipeline.push({ $skip: skip } as Record<string, unknown>);
+      }
       // Only add limit if not already present in pipeline
       if (!finalPipeline.some((stage) => '$limit' in stage)) {
         finalPipeline.push({ $limit: limit + 1 } as Record<string, unknown>);
       }
 
-      // Get total count by running the pipeline with $count (minus any existing limit stage)
-      const countPipeline = pipeline.filter((stage) => !('$limit' in stage));
+      // Get total count by running the pipeline with $count (minus any existing limit/skip stage)
+      const countPipeline = pipeline.filter((stage) => !('$limit' in stage) && !('$skip' in stage));
       countPipeline.push({ $count: 'total' } as Record<string, unknown>);
       const countResult = await collection.aggregate([...countPipeline, { $limit: 10001 }]).toArray();
       const totalCount = countResult[0]?.total ?? 0;
@@ -203,6 +242,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
         documents,
         totalCount,
         hasMore,
+        durationMs: Math.round(performance.now() - start),
       };
     },
 

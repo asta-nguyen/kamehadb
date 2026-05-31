@@ -1,7 +1,8 @@
 import { useMongoCollections, useMongoDatabases } from '@/hooks/use-mongo';
-import { openAiChatPanel, openMongoTab, setActiveMongoDatabase } from '@/store';
+import { appStore, openAiChatPanel, setActiveMongoDatabase } from '@/store';
 import type { CollectionInfo } from '@kamehadb/shared';
 import { Clock, Database, Eye, Loader2, Search, Sparkles, Table2 } from 'lucide-react';
+import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const typeIcons: Record<CollectionInfo['type'], React.ComponentType<{ className?: string }>> = {
@@ -27,6 +28,14 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const { data: databases, isLoading: loadingDatabases } = useMongoDatabases(connectionId);
 
+  // Reset state when switching connections
+  useEffect(() => {
+    setSelectedDb(null);
+    setExpandedDbs(new Set());
+    setSearchQuery('');
+    setSelectedCollection(null);
+  }, [connectionId]);
+
   // Auto-select and auto-expand first database when it loads
   useEffect(() => {
     if (databases?.length && !selectedDb) {
@@ -35,7 +44,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
       setExpandedDbs(new Set([first]));
       setActiveMongoDatabase(first);
     }
-  }, [databases]);
+  }, [connectionId, databases, selectedDb]);
 
   const toggleDb = (name: string) => {
     setExpandedDbs((prev) => {
@@ -127,7 +136,31 @@ function DatabaseNode({
   const handleCollectionClick = useCallback(
     (collection: CollectionInfo) => {
       onSelectCollection(`${dbName}:${collection.name}`);
-      openMongoTab(connectionId, dbName, collection.name);
+      const newTab = {
+        id: `mongo-${nanoid()}`,
+        type: 'mongo' as const,
+        title: collection.name,
+        connectionId,
+        database: dbName,
+        collection: collection.name,
+      };
+      const existingTab = appStore.state.openedTabs.find(
+        (t) =>
+          t.type === 'mongo' &&
+          t.connectionId === connectionId &&
+          t.database === dbName &&
+          t.collection === collection.name,
+      );
+      if (existingTab) {
+        appStore.setState((s) => ({ ...s, view: 'workspace', activeTabId: existingTab.id }));
+      } else {
+        appStore.setState((s) => ({
+          ...s,
+          view: 'workspace',
+          openedTabs: [...s.openedTabs, newTab],
+          activeTabId: newTab.id,
+        }));
+      }
     },
     [connectionId, dbName, onSelectCollection],
   );

@@ -34,3 +34,13 @@ export function useRedisTtl(connectionId: string | null, key: string | null) {
     mutationFn: () => api.request<{ ttl: number }>('POST', `/redis/${connectionId}/ttl`, { key }),
   });
 }
+
+export function useRedisStats(connectionId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['redis-stats', connectionId],
+    queryFn: () => api.getRedisStats(connectionId!),
+    enabled: !!connectionId && enabled,
+    staleTime: 10000,
+    retry: 1,
+  });
+}

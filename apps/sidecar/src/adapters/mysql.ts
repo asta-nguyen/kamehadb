@@ -213,6 +213,22 @@ export function createMysqlAdapter(connection: {
       const offset = input.offset ?? 0;
       const limit = input.limit ?? 100;
       let sql = `SELECT * FROM ${escapeId(schema!)}.${escapeId(table)}`;
+      const params: unknown[] = [];
+
+      if (input.search) {
+        const [colRows] = await pool.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position`,
+          [schema, table],
+        );
+        const searchCols = (colRows as any[]).map((r: any) => r.column_name as string);
+        if (searchCols.length > 0) {
+          const clauses = searchCols.map((col) => {
+            params.push(`%${input.search}%`);
+            return `${escapeId(col)} LIKE ?`;
+          });
+          sql += ` WHERE ${clauses.join(' OR ')}`;
+        }
+      }
 
       if (input.sortColumn) {
         sql += ` ORDER BY ${escapeId(input.sortColumn)} ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;

@@ -6,7 +6,7 @@ import { createProvider, validateProviderConfig } from '../ai/provider.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
 import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
 import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
-import type { AIChatMessage, AIProvider } from '@kamehadb/shared';
+import type { AIChatMessage, AIProvider, DbKind } from '@kamehadb/shared';
 
 export const aiRouter = new Hono();
 const providerConfigSchema = z.object({
@@ -98,15 +98,26 @@ async function buildMongoSchemaContext(
   }
 }
 
-function buildSystemPrompt(ddl: string | null, mongoSchema: string | null): string {
+function buildSystemPrompt(ddl: string | null, mongoSchema: string | null, connectionKind?: DbKind): string {
   let prompt = `You are a database assistant embedded in a database admin tool called kamehadb. Your job is to help users write queries and understand their data.
 
 Rules:
 - Generate ONLY valid queries — no commentary outside code blocks unless the user asks.
 - Use \`\`\`sql ... \`\`\` for SQL queries.
 - Use MongoDB aggregation pipeline syntax in \`\`\`javascript ... \`\`\` for MongoDB queries.
+- Use Redis CLI command syntax in \`\`\`redis ... \`\`\` for Redis commands.
 - Default to read-only queries. If the user asks for writes, note the risk.
 - Be concise.`;
+
+  if (connectionKind === 'redis') {
+    prompt += `\n\nCurrent connection type: Redis.
+For Redis requests, answer with Redis CLI commands, not SQL. Prefer read-only commands such as SCAN, TYPE, TTL, MEMORY USAGE, INFO, DBSIZE, HGETALL, LRANGE, SMEMBERS, and ZRANGE.`;
+  } else if (connectionKind === 'mongodb') {
+    prompt += `\n\nCurrent connection type: MongoDB.
+For MongoDB requests, answer with MongoDB filter, find, or aggregation syntax, not SQL.`;
+  } else if (connectionKind) {
+    prompt += `\n\nCurrent connection type: ${connectionKind}.`;
+  }
 
   if (ddl) {
     prompt += `\n\nThe current database schema is:\n\n${ddl}`;
@@ -174,7 +185,11 @@ aiRouter.post(
       // Build schema context if connectionId provided
       let ddl: string | null = null;
       let mongoSchema: string | null = null;
+      let connectionKind: DbKind | undefined;
       if (body.connectionId) {
+        const profile = metadataStore.getProfile(body.connectionId);
+        connectionKind = profile?.kind;
+
         // Try to get from cache first
         const cacheKey = body.mongoDatabase
           ? `ai-schema:${body.connectionId}:mongo:${body.mongoDatabase}`
@@ -188,7 +203,6 @@ aiRouter.post(
 
         if (!ddl && !mongoSchema) {
           try {
-            const profile = metadataStore.getProfile(body.connectionId);
             if (profile) {
               if (profile.kind === 'mongodb') {
                 const adapter = createMongoDbAdapter(profile);
@@ -198,7 +212,7 @@ aiRouter.post(
                 } finally {
                   await adapter.close();
                 }
-              } else {
+              } else if (profile.kind !== 'redis') {
                 const password = metadataStore.getProfilePassword(body.connectionId);
                 const adapter = createSqlAdapter(profile, password);
                 if (adapter) {
@@ -217,7 +231,7 @@ aiRouter.post(
         }
       }
 
-      const systemPrompt = buildSystemPrompt(ddl, mongoSchema);
+      const systemPrompt = buildSystemPrompt(ddl, mongoSchema, connectionKind);
       console.log('System prompt:', systemPrompt);
       const messages: AIChatMessage[] = [{ role: 'system', content: systemPrompt }, ...body.messages];
 

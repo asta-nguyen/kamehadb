@@ -108,6 +108,31 @@ export function openRedisTab(connectionId: string) {
   });
 }
 
+export function openRedisQueryTab(connectionId: string) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'redis-query').length;
+  const tab: WorkspaceTab = {
+    id: `redis-query-${nanoid()}`,
+    type: 'redis-query',
+    title: `Redis Query ${tabCount + 1}`,
+    connectionId,
+    command: '',
+  };
+  openTab(tab);
+}
+
+export function openMongoQueryTab(connectionId: string, database: string, collection: string) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'mongo-query').length;
+  const tab: WorkspaceTab = {
+    id: `mongo-query-${nanoid()}`,
+    type: 'mongo-query',
+    title: `Aggregate ${collection || tabCount + 1}`,
+    connectionId,
+    database,
+    collection,
+  };
+  openTab(tab);
+}
+
 export function openTableStatsTab(connectionId: string, tableId: string) {
   openTab({
     id: `${connectionId}:${tableId}:stats`,
@@ -140,6 +165,19 @@ export function updateTabSql(tabId: string, sql: string) {
   }));
 }
 
+export function updateTabCommand(tabId: string, command: string) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, command } : t)),
+  }));
+}
+
+export function updateTabPipeline(tabId: string, pipeline: string) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, pipeline } : t)),
+  }));
+}
 export function updateTabAutoRun(tabId: string, autoRun: boolean) {
   appStore.setState((state) => ({
     ...state,
@@ -160,6 +198,10 @@ export function closeTab(tabId: string) {
     const activeTabId = state.activeTabId === tabId ? (tabs[tabs.length - 1]?.id ?? null) : state.activeTabId;
     return { ...state, openedTabs: tabs, activeTabId };
   });
+}
+
+export function closeAllTabs() {
+  appStore.setState((state) => ({ ...state, openedTabs: [], activeTabId: null }));
 }
 
 export function navigateTo(view: AppView) {
