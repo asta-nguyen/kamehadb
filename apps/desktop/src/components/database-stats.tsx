@@ -45,11 +45,33 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
     );
   }
 
-  if (currentConnection?.kind === 'redis') {
+  if (!currentConnection) {
+    return (
+      <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
+        <AlertTriangle className="size-5" />
+        <span className="text-sm">Connection not found</span>
+      </div>
+    );
+  }
+
+  if (currentConnection.kind === 'redis') {
     return <RedisDatabaseStats connectionId={connectionId} />;
   }
 
-  return <SqlDatabaseStats connectionId={connectionId} />;
+  if (
+    currentConnection.kind === 'postgres' ||
+    currentConnection.kind === 'mysql' ||
+    currentConnection.kind === 'sqlite'
+  ) {
+    return <SqlDatabaseStats connectionId={connectionId} />;
+  }
+
+  return (
+    <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
+      <AlertTriangle className="size-5" />
+      <span className="text-sm">Unsupported database kind</span>
+    </div>
+  );
 }
 
 function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
