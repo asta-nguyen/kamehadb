@@ -261,7 +261,7 @@ function ConnectionItem({
                   };
                   const existingTab = appStore.state.openedTabs.find((t) => t.id === newTab.id);
                   if (existingTab) {
-                    appStore.setState((s) => ({ ...s, activeTabId: newTab.id }));
+                    appStore.setState((s) => ({ ...s, view: 'workspace', activeTabId: newTab.id }));
                   } else {
                     appStore.setState((s) => ({
                       ...s,

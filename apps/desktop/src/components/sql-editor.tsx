@@ -55,14 +55,6 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     }
   }, [sql, runQuery]);
 
-  // Auto-run on mount if flag is set
-  useEffect(() => {
-    if ('autoRun' in tab && tab.autoRun && sql.trim()) {
-      updateTabAutoRun(tab.id, false);
-      void handleRun();
-    }
-  }, [tab, sql, handleRun]);
-
   const handleChange = useCallback(
     (value: string | undefined) => {
       const v = value ?? '';
