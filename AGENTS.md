@@ -27,6 +27,7 @@ There is also a separate marketing/docs site in `landing/`, but it is not part o
 - The pnpm workspace includes only `apps/*`, `packages/*`, and `landing`.
 - `landing/` has its own `package-lock.json` and is managed separately with npm.
 - Root scripts target the pnpm workspace only. Do not assume they affect `landing/`.
+- Landing site image generation: use `node scripts/capture-images.mjs` to update the AI Compare panel screenshots in `public/images/`.
 
 ## Commands
 
@@ -82,6 +83,8 @@ pnpm --filter @kamehadb/sidecar start
 pnpm --filter @kamehadb/landing dev
 pnpm --filter @kamehadb/landing build
 pnpm --filter @kamehadb/landing lint
+npm --prefix landing run build # Standard build for landing
+node landing/scripts/capture-images.mjs # Regenerate AI compare panels
 ```
 
 ## Current Architecture
@@ -198,37 +201,37 @@ git tag v0.1.0-rc.1
 git push origin v0.1.0-rc.1
 ```
 
-If a release is missing app bundles, inspect `.github/workflows/release.yml` and verify the tag points at the intended commit.
+## Behavioral Guidelines
 
-## Changelog
+These guidelines prioritize caution and precision over speed.
 
-All user-facing changes must be recorded in `CHANGELOG.md` at the repo root before merging to main.
+### 1. Think Before Coding
 
-Format follows [Keep a Changelog](https://keepachangelog.com/):
+- **No Assumptions**: Surface tradeoffs explicitly. If uncertain or multiple interpretations exist, ask before picking.
+- **Push Back**: If a simpler approach exists or the requested path is flawed, suggest an alternative.
+- **Clarify First**: If a request is unclear, stop and name the specific confusion.
 
-```markdown
-## [Unreleased]
+### 2. Simplicity First
 
-### Added
+- **Minimum Viable Code**: Implement only what is asked. No speculative features or "future-proofing."
+- **No Over-Abstraction**: Avoid abstractions for single-use code.
+- **Surgical Error Handling**: Do not add error handling for impossible scenarios.
+- **Aggressive Simplification**: If a solution is overcomplicated, rewrite it to be simpler.
 
-- New feature description
+### 3. Surgical Changes
 
-### Fixed
+- **Zero Collateral Damage**: Do not "improve" adjacent code, comments, or formatting.
+- **Style Match**: Match the existing codebase style strictly, even if you prefer another pattern.
+- **Orphan Cleanup**: Remove imports/variables that YOUR changes made unused. Do not touch pre-existing dead code unless asked.
+- **Traceability**: Every changed line must trace directly back to the user's request.
 
-- Bug fix description
-```
+### 4. Goal-Driven Execution
 
-Rules:
+- **Verifiable Goals**: Transform "fix bug" into "write reproducing test $\rightarrow$ make it pass."
+- **Structured Plans**: For multi-step tasks, define: `[Step] $\rightarrow$ verify: [check]`.
+- **Verification Gate**: No task is "done" until success criteria are verified via tool output.
 
-- Every PR that changes behavior (feat, fix, UI change) must add an entry under `[Unreleased]`
-- When releasing, move `[Unreleased]` entries into a new version section with the date
-- Group entries by type: `Added`, `Changed`, `Fixed`, `Removed`
-- The landing page `/changelog` reads this file at build time — no code changes needed, just update the markdown
+## Operational Rules
 
-## Agent Notes
-
-- Prefer `rg` for search and `pnpm --filter ...` for targeted package commands.
-- Do not assume `landing/` is part of the pnpm workspace.
-- Do not assume the sidecar runs on `localhost:3001`; the current default is `127.0.0.1:3170`.
-- Keep shared type changes in `packages/shared` synchronized with both sidecar routes and desktop hooks/components.
-- Redis and MongoDB are already implemented; do not treat them as future work unless the specific feature is actually missing.
+- **Package Manager**: ALWAYS use `pnpm` for this project, except for the `landing/` directory which is managed via `npm`.
+- **Changelog**: All user-facing changes must be recorded in `CHANGELOG.md` under `[Unreleased]` before merging.

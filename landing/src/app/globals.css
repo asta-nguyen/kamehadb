@@ -2,27 +2,27 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  /* Brand Colors */
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-gradient-start: #6366f1;
-  --color-gradient-end: #a855f7;
-  --color-secondary: #8b5cf6;
+  /* Brand Colors — Amber & Rose */
+  --color-primary: #f59e0b;
+  --color-primary-hover: #d97706;
+  --color-gradient-start: #f59e0b;
+  --color-gradient-end: #f43f5e;
+  --color-secondary: #fb923c;
 
-  /* Surface Colors */
+  /* Surface Colors — Dark Industrial (dark-first) */
   --color-canvas: #ffffff;
-  --color-surface-soft: #f8fafc;
-  --color-surface-strong: #f1f5f9;
-  --color-border: #e2e8f0;
+  --color-surface-soft: #fafafa;
+  --color-surface-strong: #f4f4f5;
+  --color-border: #e4e4e7;
 
   /* Text Colors */
-  --color-ink: #0f172a;
-  --color-body: #334155;
-  --color-muted: #64748b;
+  --color-ink: #09090b;
+  --color-body: #3f3f46;
+  --color-muted: #71717a;
 
   /* Typography */
-  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --font-sans: var(--font-outfit), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 
   /* Spacing */
   --space-sm: 16px;
@@ -32,22 +32,31 @@
 }
 
 .dark {
-  --color-canvas: #0b0f1a;
-  --color-surface-soft: #111827;
-  --color-surface-strong: #1e293b;
-  --color-border: #1e293b;
+  --color-canvas: #0a0a0f;
+  --color-surface-soft: #12121a;
+  --color-surface-strong: #1c1c2a;
+  --color-border: #27273a;
   --color-ink: #f1f5f9;
-  --color-body: #cbd5e1;
-  --color-muted: #94a3b8;
+  --color-body: #a1a1aa;
+  --color-muted: #71717a;
 }
 
 @theme inline {
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
-  --color-indigo-50: #eef2ff;
-  --color-indigo-500: var(--color-primary);
-  --color-indigo-600: var(--color-primary-hover);
-  --color-purple-500: var(--color-gradient-end);
+  --color-canvas: var(--color-canvas);
+  --color-surface-soft: var(--color-surface-soft);
+  --color-surface-strong: var(--color-surface-strong);
+  --color-border: var(--color-border);
+  --color-ink: var(--color-ink);
+  --color-body: var(--color-body);
+  --color-muted: var(--color-muted);
+  --color-amber-50: #fffbeb;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: var(--color-primary);
+  --color-amber-600: var(--color-primary-hover);
+  --color-rose-400: #fb7185;
+  --color-rose-500: var(--color-gradient-end);
   --color-emerald-400: #34d399;
 }
 
@@ -62,6 +71,7 @@ body {
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 /* Custom scrollbar */
@@ -81,6 +91,13 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-muted);
+}
+
+/* Terminal cursor blink */
+@keyframes blink {
+  50% {
+    color: transparent;
+  }
 }
 
 /* Selection */

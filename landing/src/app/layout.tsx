@@ -1,12 +1,7 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import Providers from './providers';
+import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
-
-const inter = Inter({
-  variable: '--font-inter',
-  subsets: ['latin'],
-});
+import Providers from './providers';
 
 const siteUrl = 'https://kamehadb.com';
 
@@ -83,7 +78,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${outfit.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           type="application/ld+json"
@@ -112,7 +111,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} min-h-full flex flex-col antialiased`}>
+      <body className={`${outfit.variable} ${jetbrainsMono.variable} min-h-full flex flex-col antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

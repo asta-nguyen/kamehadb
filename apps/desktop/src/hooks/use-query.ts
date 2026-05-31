@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { isQuerySafe } from '@/lib/sql-safety';
+import { isQuerySafe } from '@kamehadb/shared';
 import type { QueryResult } from '@kamehadb/shared';
 
 export function useRunQuery(connectionId: string | null) {
