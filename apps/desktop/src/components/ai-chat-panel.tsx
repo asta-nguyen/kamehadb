@@ -138,6 +138,12 @@ function QueryBlock({
           )}
         </div>
       </div>
+      {/* highlight.js v11+ strips/ignores unescaped HTML tags (like <script>)
+          rather than emitting entities, so user-supplied tags won't render.
+          This safety depends on using hljs.highlight (v11+) and must be
+          revisited if the highlighter or version changes. If you swap to a
+          different highlighter or feed pre-escaped HTML into highlightCode,
+          add explicit sanitization (e.g. DOMPurify) here. */}
       <pre
         className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]"
         dangerouslySetInnerHTML={{ __html: highlightCode(code, language) }}

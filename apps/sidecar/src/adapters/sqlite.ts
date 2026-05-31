@@ -139,15 +139,29 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       const offset = input.offset ?? 0;
       const limit = input.limit ?? 100;
       let sql = `SELECT * FROM "${input.tableId}"`;
+      const params: unknown[] = [];
+
+      if (input.search) {
+        const colResult = db.prepare(`PRAGMA table_info("${input.tableId}")`).all() as { name: string }[];
+        const searchCols = colResult.map((r) => r.name);
+        if (searchCols.length > 0) {
+          const clauses = searchCols.map((col) => {
+            params.push(`%${input.search}%`);
+            return `"${col}" LIKE ?`;
+          });
+          sql += ` WHERE ${clauses.join(' OR ')}`;
+        }
+      }
 
       if (input.sortColumn) {
         sql += ` ORDER BY "${input.sortColumn}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
       }
+      params.push(limit, offset);
       sql += ` LIMIT ? OFFSET ?`;
 
       const start = performance.now();
       const stmt = db.prepare(sql);
-      const rows = stmt.all(limit, offset) as Record<string, unknown>[];
+      const rows = stmt.all(...params) as Record<string, unknown>[];
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] =
