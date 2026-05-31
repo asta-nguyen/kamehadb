@@ -88,7 +88,7 @@ connectionsRouter.get('/:id/health', async (c) => {
         result = await createRedisDbAdapter(profile, password).testConnection();
         break;
       case 'sqlite':
-        result = testSqliteConnection(profile.filePath);
+        result = await testSqliteConnection(profile.filePath);
         break;
       case 'mysql':
         result = await testMysqlConnection({
@@ -154,7 +154,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
         });
         break;
       case 'sqlite':
-        result = testSqliteConnection(input.filePath);
+        result = await testSqliteConnection(input.filePath);
         break;
       case 'mongodb':
         if (!input.connectionString) {
