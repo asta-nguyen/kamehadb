@@ -197,6 +197,7 @@ sqlRouter.post(
       schema: z.string().optional(),
       offset: z.number().optional(),
       limit: z.number().optional(),
+      search: z.string().optional(),
       sortColumn: z.string().optional(),
       sortDirection: z.enum(['asc', 'desc']).optional(),
       filters: z

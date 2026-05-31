@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
+import { debounce } from '@tanstack/pacer';
 import { useMongoDocuments, useMongoCollectionStats } from '@/hooks/use-mongo';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
@@ -22,6 +23,11 @@ import {
   Save,
   X,
   Activity,
+  ChevronLeft,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -29,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { WorkspaceTab } from '@kamehadb/shared';
 
@@ -51,52 +58,81 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
 
   const [activeTab, setActiveTab] = useState<'data' | 'stats'>('data');
   const [viewMode, setViewMode] = useState<'list' | 'table'>('table');
-  const [filterStr, setFilterStr] = useState('{}');
+  const [searchText, setSearchText] = useState('');
   const [sortStr, setSortStr] = useState('');
-  const [limitStr, setLimitStr] = useState('100');
-  const [debouncedFilter, setDebouncedFilter] = useState<Record<string, unknown>>({});
-  const [debouncedSort, setDebouncedSort] = useState<Record<string, 1 | -1> | undefined>(undefined);
-  const [debouncedLimit, setDebouncedLimit] = useState(100);
+  const [page, setPage] = useState(0);
+  const [querySearch, setQuerySearch] = useState('');
+  const pageLimit = 20;
+  const [querySort, setQuerySort] = useState('');
+
+  const debouncedSetSearch = useRef(
+    debounce(
+      (v: string) => {
+        setQuerySearch(v);
+        setPage(0);
+      },
+      { wait: 300 },
+    ),
+  ).current;
+
+  const handleSearchChange = useCallback(
+    (v: string) => {
+      setSearchText(v);
+      debouncedSetSearch(v);
+    },
+    [debouncedSetSearch],
+  );
+
+  const handleSortChange = useCallback((v: string) => {
+    setSortStr(v);
+    setQuerySort(v);
+    setPage(0);
+  }, []);
+
+  const toggleSortField = useCallback((field: string | null) => {
+    if (!field) return;
+    setSortStr((prev) => {
+      try {
+        const parsed = JSON.parse(prev);
+        if (typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed)[0] === field) {
+          const dir = Object.values(parsed)[0];
+          if (dir === 1) {
+            const next = JSON.stringify({ [field]: -1 });
+            setQuerySort(next);
+            return next;
+          }
+          if (dir === -1) {
+            setQuerySort('');
+            return '';
+          }
+        }
+      } catch {}
+      const next = JSON.stringify({ [field]: 1 });
+      setQuerySort(next);
+      return next;
+    });
+    setPage(0);
+  }, []);
 
   const { data: statsData, isLoading: statsLoading } = useMongoCollectionStats(connectionId, database, collection);
 
-  const filterValid = useMemo(() => parseJsonSafe(filterStr), [filterStr]);
-  const sortValid = useMemo(() => parseJsonSafe(sortStr), [sortStr]);
+  const sortParsed = useMemo(() => {
+    const parsed = parseJsonSafe(querySort);
+    if (!parsed) return undefined;
+    if (typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    return Object.values(parsed).every((v) => v === 1 || v === -1) ? (parsed as Record<string, 1 | -1>) : undefined;
+  }, [querySort]);
 
-  // Debounce filter/sort/limit changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedFilter(parseJsonSafe(filterStr) ?? {});
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [filterStr]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (sortStr) {
-        const parsed = parseJsonSafe(sortStr);
-        setDebouncedSort(parsed as Record<string, 1 | -1> | undefined);
-      } else {
-        setDebouncedSort(undefined);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [sortStr]);
-
-  useEffect(() => {
-    const val = parseInt(limitStr, 10);
-    if (!isNaN(val) && val > 0) {
-      setDebouncedLimit(Math.min(val, 10000));
-    }
-  }, [limitStr]);
-
+  const skip = page * pageLimit;
   const { data, isLoading, error, isFetching, refetch } = useMongoDocuments(
     connectionId,
     database,
     collection,
-    debouncedFilter,
-    debouncedSort,
-    debouncedLimit,
+    {},
+    sortParsed ?? {},
+    pageLimit,
+    skip,
+    querySearch || undefined,
   );
 
   const [expandedDocs, setExpandedDocs] = useState<Set<number>>(new Set());
@@ -164,11 +200,31 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     [connectionId, collection, database, queryClient],
   );
 
+  const currentSortLabel = useMemo(() => {
+    try {
+      const parsed = JSON.parse(sortStr);
+      const entry = Object.entries(parsed)[0];
+      if (entry && (entry[1] === 1 || entry[1] === -1)) {
+        return `${entry[0]} ${entry[1] === 1 ? '↑' : '↓'}`;
+      }
+    } catch {}
+    return null;
+  }, [sortStr]);
+
+  const currentSortField = useMemo(() => {
+    try {
+      const parsed = JSON.parse(sortStr);
+      const entry = Object.entries(parsed)[0];
+      if (entry && (entry[1] === 1 || entry[1] === -1)) return entry[0];
+    } catch {}
+    return '';
+  }, [sortStr]);
+
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="px-4 py-2 border-b border-border">
+        <div className="flex items-center gap-2 mb-2">
           <Badge variant="outline" className="text-xs font-mono">
             {database}
           </Badge>
@@ -177,37 +233,48 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         </div>
 
         {/* Controls */}
-        <div className="flex flex-wrap gap-2 items-end">
-          <div className="flex-1 min-w-64">
-            <label className="text-xs text-muted-foreground mb-1 block">Filter (JSON)</label>
-            <Input
-              value={filterStr}
-              onChange={(e) => setFilterStr(e.target.value)}
-              placeholder='{"status": "active"}'
-              className="h-8 text-xs font-mono"
-            />
+        <div className="flex flex-wrap gap-1.5 items-end">
+          <div className="flex-1 min-w-48">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                value={searchText}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search all fields..."
+                className="h-7 pl-7 text-xs"
+              />
+            </div>
           </div>
-          <div className="w-36">
-            <label className="text-xs text-muted-foreground mb-1 block">Sort (JSON)</label>
-            <Input
-              value={sortStr}
-              onChange={(e) => setSortStr(e.target.value)}
-              placeholder='{"_id": 1}'
-              className="h-8 text-xs font-mono"
-            />
-          </div>
-          <div className="w-20">
-            <label className="text-xs text-muted-foreground mb-1 block">Limit</label>
-            <Input
-              value={limitStr}
-              onChange={(e) => setLimitStr(e.target.value)}
-              type="number"
-              min="1"
-              max="10000"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div className="flex items-end gap-1">
+          <div className="flex items-end gap-1 self-end">
+            <div className="flex items-center gap-1">
+              <Select value={currentSortField} onValueChange={toggleSortField}>
+                <SelectTrigger className="h-7 w-28 text-xs gap-1.5 px-2">
+                  <ArrowUpDown className="size-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  {data?.documents[0] &&
+                    Object.keys(data.documents[0]).map((field) => (
+                      <SelectItem key={field} value={field} className="text-xs">
+                        {field}
+                      </SelectItem>
+                    ))}
+                  <div className="border-t border-border my-1" />
+                  <div className="px-2 py-1 text-[10px] text-muted-foreground">Click again to toggle direction</div>
+                </SelectContent>
+              </Select>
+              {currentSortLabel && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleSortChange('')}
+                  className="h-7 w-7"
+                  title="Clear sort"
+                >
+                  <X className="size-3" />
+                </Button>
+              )}
+            </div>
             <Button
               variant="outline"
               size="icon"
@@ -246,20 +313,6 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             </DropdownMenu>
           </div>
         </div>
-
-        {/* JSON validation */}
-        {filterValid === null && filterStr !== '{}' && (
-          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-            <AlertCircle className="size-3" />
-            Invalid JSON in filter
-          </p>
-        )}
-        {sortStr && sortValid === null && (
-          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-            <AlertCircle className="size-3" />
-            Invalid JSON in sort
-          </p>
-        )}
       </div>
 
       {/* Tabs */}
@@ -280,9 +333,9 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="data" className="flex-1 min-h-0">
+        <TabsContent value="data" className="flex-1 flex flex-col min-h-0">
           {/* Documents */}
-          <div className="flex-1 overflow-auto p-4">
+          <div className="p-4">
             {isLoading ? (
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -292,56 +345,169 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
                 <AlertCircle className="size-5 mr-2" />
                 {error instanceof Error ? error.message : 'Failed to load documents'}
               </div>
-            ) : !data?.documents.length ? (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">No documents found</div>
             ) : viewMode === 'table' ? (
-              <DocumentTableView
-                documents={data.documents}
-                connectionId={connectionId}
-                collection={collection}
-                database={database}
-                onDelete={handleDeleteDocument}
-                onUpdate={() =>
-                  queryClient.invalidateQueries({ queryKey: ['mongo-documents', connectionId, database, collection] })
-                }
-              />
+              <div className="overflow-auto border rounded-md">
+                {!data?.documents.length ? (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground">No documents found</div>
+                ) : (
+                  <DocumentTableView
+                    documents={data.documents}
+                    connectionId={connectionId}
+                    collection={collection}
+                    database={database}
+                    onDelete={handleDeleteDocument}
+                    onUpdate={() =>
+                      queryClient.invalidateQueries({
+                        queryKey: ['mongo-documents', connectionId, database, collection],
+                      })
+                    }
+                    sortStr={sortStr}
+                    onSortChange={toggleSortField}
+                  />
+                )}
+                {data && (
+                  <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3">
+                    <span>{data.documents.length} rows</span>
+                    <span className="ml-auto">{data.durationMs}ms</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>Page</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={page + 1}
+                          onChange={(e) => {
+                            const p = parseInt(e.target.value, 10);
+                            if (!isNaN(p) && p >= 1) {
+                              const maxPage = Math.max(0, Math.ceil(data.totalCount / pageLimit) - 1);
+                              setPage(Math.min(p - 1, maxPage));
+                            }
+                          }}
+                          className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={page === 0}
+                          onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        >
+                          <ChevronLeft className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={!data.hasMore}
+                          onClick={() => setPage((p) => p + 1)}
+                        >
+                          <ChevronRight className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+                        <Download className="size-3" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleExportJSON}>Export as JSON</DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportCSV}>Export as CSV</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
-                {/* Meta */}
-                <div className="text-xs text-muted-foreground mb-3 flex items-center justify-between">
-                  <span>
-                    {data.documents.length} document{data.documents.length !== 1 ? 's' : ''} returned
-                    {data.hasMore && <span className="text-muted-foreground ml-1">(has more)</span>}
-                  </span>
-                  {isFetching && (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Loader2 className="size-3 animate-spin" />
-                      Loading...
-                    </span>
-                  )}
-                </div>
-
-                {/* Document cards */}
-                <div className="space-y-2" role="list">
-                  {data.documents.map((doc: Record<string, unknown>, index: number) => (
-                    <DocumentCard
-                      key={doc._id ? String(doc._id) : index}
-                      doc={doc}
-                      isExpanded={expandedDocs.has(index)}
-                      onToggle={() => toggleDoc(index)}
-                      onDelete={() => handleDeleteDocument(doc)}
-                      onUpdate={() =>
-                        queryClient.invalidateQueries({
-                          queryKey: ['mongo-documents', connectionId, database, collection],
-                        })
-                      }
-                      connectionId={connectionId}
-                      collection={collection}
-                      database={database}
-                      tabIndex={0}
-                    />
-                  ))}
-                </div>
+                {!data?.documents.length ? (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground">No documents found</div>
+                ) : (
+                  <>
+                    <div className="text-xs text-muted-foreground mb-2 flex items-center justify-between">
+                      <span>
+                        {data.documents.length} document{data.documents.length !== 1 ? 's' : ''} returned
+                        {data.hasMore && <span className="text-muted-foreground ml-1">(has more)</span>}
+                      </span>
+                      {isFetching && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Loader2 className="size-3 animate-spin" />
+                          Loading...
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-2" role="list">
+                      {data.documents.map((doc: Record<string, unknown>, index: number) => (
+                        <DocumentCard
+                          key={doc._id ? String(doc._id) : index}
+                          doc={doc}
+                          isExpanded={expandedDocs.has(index)}
+                          onToggle={() => toggleDoc(index)}
+                          onDelete={() => handleDeleteDocument(doc)}
+                          onUpdate={() =>
+                            queryClient.invalidateQueries({
+                              queryKey: ['mongo-documents', connectionId, database, collection],
+                            })
+                          }
+                          connectionId={connectionId}
+                          collection={collection}
+                          database={database}
+                          tabIndex={0}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+                {data && (
+                  <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3 mt-2">
+                    <span>{data.documents.length} rows</span>
+                    <span className="ml-auto">{data.durationMs}ms</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>Page</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={page + 1}
+                          onChange={(e) => {
+                            const p = parseInt(e.target.value, 10);
+                            if (!isNaN(p) && p >= 1) {
+                              const maxPage = Math.max(0, Math.ceil(data.totalCount / pageLimit) - 1);
+                              setPage(Math.min(p - 1, maxPage));
+                            }
+                          }}
+                          className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={page === 0}
+                          onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        >
+                          <ChevronLeft className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={!data.hasMore}
+                          onClick={() => setPage((p) => p + 1)}
+                        >
+                          <ChevronRight className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+                        <Download className="size-3" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleExportJSON}>Export as JSON</DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportCSV}>Export as CSV</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -513,7 +679,7 @@ function DocumentCard({
       <button
         onClick={onToggle}
         onKeyDown={handleKeyDown}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-muted/30 hover:bg-muted/50 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="w-full flex items-center gap-2 px-2 py-1 bg-muted/30 hover:bg-muted/50 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary/50"
         tabIndex={tabIndex}
         aria-expanded={isExpanded}
       >
@@ -533,7 +699,7 @@ function DocumentCard({
         </span>
       </button>
       {isExpanded && (
-        <div className="px-3 py-2 border-t border-border bg-background relative group">
+        <div className="px-2 py-1 border-t border-border bg-background relative group">
           <div className="absolute top-2 right-2 flex items-center gap-1">
             <button
               onClick={handleDelete}
@@ -621,6 +787,8 @@ interface DocumentTableViewProps {
   database: string;
   onDelete: (doc: Record<string, unknown>) => void;
   onUpdate: () => void;
+  sortStr: string;
+  onSortChange: (field: string) => void;
 }
 
 function DocumentTableView({
@@ -630,6 +798,8 @@ function DocumentTableView({
   database,
   onDelete,
   onUpdate,
+  sortStr,
+  onSortChange,
 }: DocumentTableViewProps) {
   const [editCell, setEditCell] = useState<{ row: number; key: string } | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -641,6 +811,19 @@ function DocumentTableView({
     documents.forEach((doc) => Object.keys(doc).forEach((k) => keys.add(k)));
     return Array.from(keys);
   }, [documents]);
+
+  const currentSort = useMemo(() => {
+    try {
+      const parsed = JSON.parse(sortStr);
+      if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const entry = Object.entries(parsed)[0];
+        if (entry && (entry[1] === 1 || entry[1] === -1)) {
+          return { field: entry[0], dir: entry[1] as 1 | -1 };
+        }
+      }
+    } catch {}
+    return null;
+  }, [sortStr]);
 
   const startEdit = useCallback((row: number, key: string, currentValue: unknown) => {
     setEditCell({ row, key });
@@ -717,21 +900,44 @@ function DocumentTableView({
   const tableMinWidth = 32 + columns.length * 120 + 80;
 
   return (
-    <div className="border rounded-md overflow-auto bg-background">
+    <div className="bg-background overflow-auto">
       <table className="w-full text-xs table-fixed" style={{ minWidth: tableMinWidth }}>
-        <thead className="sticky top-0 z-10 bg-muted/50">
-          <tr>
-            <th className="px-2 py-1.5 font-medium text-muted-foreground text-left" style={{ width: 32 }}>
+        <thead>
+          <tr className="bg-muted border-b border-border">
+            <th
+              className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px]"
+              style={{ width: 32 }}
+            >
               #
             </th>
-            {columns.map((col) => (
-              <th key={col} className="px-2 py-1.5 font-medium text-muted-foreground text-left" style={{ width: 120 }}>
-                <span className="truncate block" title={col}>
-                  {col}
-                </span>
-              </th>
-            ))}
-            <th className="px-2 py-1.5 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
+            {columns.map((col) => {
+              const isSorted = currentSort?.field === col;
+              return (
+                <th
+                  key={col}
+                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80"
+                  style={{ width: 120 }}
+                  onClick={() => onSortChange(col)}
+                >
+                  <span className="truncate inline-flex items-center gap-1" title={col}>
+                    {col}
+                    {isSorted ? (
+                      currentSort.dir === 1 ? (
+                        <ArrowUp className="size-3 shrink-0" />
+                      ) : (
+                        <ArrowDown className="size-3 shrink-0" />
+                      )
+                    ) : (
+                      <ArrowUp className="size-2.5 shrink-0 text-muted-foreground/30" />
+                    )}
+                  </span>
+                </th>
+              );
+            })}
+            <th
+              className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px]"
+              style={{ width: 80 }}
+            >
               Actions
             </th>
           </tr>
@@ -740,9 +946,9 @@ function DocumentTableView({
           {documents.map((doc, rowIndex) => (
             <tr
               key={doc._id ? String(doc._id) : rowIndex}
-              className="border-b last:border-b-0 bg-background even:bg-muted/20 hover:bg-muted/30"
+              className="border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors"
             >
-              <td className="px-2 py-1.5 text-muted-foreground">{rowIndex + 1}</td>
+              <td className="px-2 py-0.5 text-muted-foreground">{rowIndex + 1}</td>
               {columns.map((col) => {
                 const value = doc[col];
                 const isEditing = editCell?.row === rowIndex && editCell?.key === col;

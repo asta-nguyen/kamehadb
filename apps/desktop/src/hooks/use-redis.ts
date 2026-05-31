@@ -1,16 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-export function useRedisStats(connectionId: string | null, enabled = true) {
-  return useQuery({
-    queryKey: ['redis-stats', connectionId],
-    queryFn: () => api.getRedisStats(connectionId!),
-    enabled: !!connectionId && enabled,
-    staleTime: 30000,
-    retry: 1,
-  });
-}
-
 export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?: number) {
   return useQuery({
     queryKey: ['redis-keys', connectionId, pattern, cursor],
@@ -42,5 +32,15 @@ export function useRedisKeyDetails(connectionId: string | null, key: string | nu
 export function useRedisTtl(connectionId: string | null, key: string | null) {
   return useMutation({
     mutationFn: () => api.request<{ ttl: number }>('POST', `/redis/${connectionId}/ttl`, { key }),
+  });
+}
+
+export function useRedisStats(connectionId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ['redis-stats', connectionId],
+    queryFn: () => api.getRedisStats(connectionId!),
+    enabled: !!connectionId && enabled,
+    staleTime: 10000,
+    retry: 1,
   });
 }

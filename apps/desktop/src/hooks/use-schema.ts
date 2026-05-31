@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 const SCHEMA_CACHE_TIME = 5 * 60 * 1000;
@@ -60,6 +60,7 @@ export function usePreviewRows(connectionId: string | null, input: import('@kame
     queryFn: () => api.request<import('@kamehadb/shared').QueryResult>('POST', `/sql/${connectionId}/preview`, input!),
     enabled: !!connectionId && !!input,
     staleTime: STATS_CACHE_TIME,
+    placeholderData: keepPreviousData,
   });
 }
 

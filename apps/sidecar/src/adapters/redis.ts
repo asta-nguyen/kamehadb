@@ -9,6 +9,7 @@ import type {
   GetTtlInput,
   KeyEntry,
   RedisStats,
+  RedisCommandResult,
 } from '@kamehadb/shared';
 
 interface RedisConfig {
@@ -192,6 +193,18 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
               })()
             : undefined,
       };
+    },
+
+    async runCommand(command: string): Promise<RedisCommandResult> {
+      const redis = getClient();
+      const trimmed = command.trim();
+      const parts = trimmed.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [];
+      if (parts.length === 0) throw new Error('Empty command');
+      const cmd = parts[0]!;
+      const args = parts.slice(1).map((a) => a.replace(/^["']|["']$/g, ''));
+      const start = Date.now();
+      const result = await redis.call(cmd, ...args);
+      return { result, command: trimmed, durationMs: Date.now() - start };
     },
 
     async close(): Promise<void> {

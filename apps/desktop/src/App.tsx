@@ -1,5 +1,7 @@
 import { MongoView } from '@/components/mongo-view';
 import { RedisView } from '@/components/redis-view';
+import { MongoQuery } from '@/components/mongo-query';
+import { RedisQuery } from '@/components/redis-query';
 import { SchemaGraph } from '@/components/schema-graph';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
@@ -13,14 +15,16 @@ import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnections } from '@/hooks/use-connections';
 import {
-  applyTheme,
   appStore,
+  applyTheme,
   closeAiChatPanel,
   closeAllTabs,
   closeTab,
   openDatabaseStatsTab,
   openGraphTab,
+  openMongoQueryTab,
   openNewQueryTab,
+  openRedisQueryTab,
   setTheme,
 } from '@/store';
 import { useStore } from '@tanstack/react-store';
@@ -47,6 +51,7 @@ function TabBar() {
   const { data: connections, isLoading } = useConnections();
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
+  const activeTab = openedTabs.find((t) => t.id === activeTabId);
 
   const visibleTabs = activeConnectionId && (activeConnection || isLoading) ? openedTabs : [];
 
@@ -70,11 +75,11 @@ function TabBar() {
             }
           >
             {connColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: connColor }} />}
-            {tab.type === 'query' ? (
+            {tab.type === 'query' || tab.type === 'redis-query' ? (
               <Terminal className="size-3" />
             ) : tab.type === 'graph' ? (
               <Share2 className="size-3" />
-            ) : tab.type === 'mongo' ? (
+            ) : tab.type === 'mongo' || tab.type === 'mongo-query' ? (
               <Database className="size-3" />
             ) : tab.type === 'redis' ? (
               <Box className="size-3" />
@@ -98,27 +103,49 @@ function TabBar() {
           </div>
         );
       })}
-      {activeConnection &&
-        activeConnection.kind !== 'redis' &&
-        activeConnection.kind !== 'mongodb' &&
-        activeConnectionId && (
-          <>
+      {activeConnectionId && (
+        <>
+          {activeTab && (activeTab.type === 'redis-query' || activeTab.type === 'redis') ? (
             <button
               className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
-              onClick={() => openNewQueryTab(activeConnectionId)}
-              title="New Query"
+              onClick={() => openRedisQueryTab(activeConnectionId)}
+              title="Redis Query"
             >
-              <Plus className="size-3.5" />
+              <Terminal className="size-3.5" />
             </button>
+          ) : activeTab && (activeTab.type === 'mongo-query' || activeTab.type === 'mongo') ? (
             <button
               className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
-              onClick={() => openGraphTab(activeConnectionId)}
-              title="Schema Graph"
+              onClick={() => {
+                const mongoDb = appStore.state.activeMongoDatabase;
+                const database = 'database' in activeTab ? activeTab.database : (mongoDb ?? 'admin');
+                const collection = 'collection' in activeTab ? activeTab.collection : '';
+                openMongoQueryTab(activeConnectionId, database, collection);
+              }}
+              title="New Aggregation"
             >
-              <Share2 className="size-3.5" />
+              <Database className="size-3.5" />
             </button>
-          </>
-        )}
+          ) : activeConnection ? (
+            <>
+              <button
+                className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => openNewQueryTab(activeConnectionId)}
+                title="New Query"
+              >
+                <Plus className="size-3.5" />
+              </button>
+              <button
+                className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => openGraphTab(activeConnectionId)}
+                title="Schema Graph"
+              >
+                <Share2 className="size-3.5" />
+              </button>
+            </>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
@@ -216,7 +243,9 @@ function Workspace() {
       {activeTab.type === 'table' && <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />}
       {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
       {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'mongo-query' && <MongoQuery tab={activeTab} connectionId={activeTab.connectionId} />}
       {activeTab.type === 'redis' && <RedisView connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'redis-query' && <RedisQuery tab={activeTab} connectionId={activeTab.connectionId} />}
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />

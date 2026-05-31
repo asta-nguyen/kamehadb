@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { get, post } from '@/lib/api';
 import type { CollectionInfo, DatabaseInfo, DocumentResult, FindDocumentsInput } from '@kamehadb/shared';
 
@@ -31,9 +31,18 @@ export function useMongoDocuments(
   filter: Record<string, unknown> = {},
   sort: Record<string, 1 | -1> = {},
   limit: number = 100,
+  skip: number = 0,
+  search?: string,
 ) {
   return useQuery({
-    queryKey: ['mongo', connectionId, database, collection, 'documents', JSON.stringify({ filter, sort, limit })],
+    queryKey: [
+      'mongo',
+      connectionId,
+      database,
+      collection,
+      'documents',
+      JSON.stringify({ filter, sort, limit, skip, search }),
+    ],
     queryFn: () => {
       const input: FindDocumentsInput = {
         collection: collection!,
@@ -41,11 +50,14 @@ export function useMongoDocuments(
         filter,
         sort,
         limit,
+        skip,
+        search,
       };
       return post<DocumentResult>(`/mongo/${connectionId}/find`, input);
     },
     enabled: !!connectionId && !!database && !!collection,
     staleTime: STATS_CACHE_TIME,
+    placeholderData: keepPreviousData,
   });
 }
 

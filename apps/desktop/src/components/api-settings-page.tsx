@@ -150,7 +150,6 @@ export function ApiSettingsPage() {
 
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
-
   const modelsWithCustom = useMemo(() => {
     const savedModel = selectedConfig.model;
     if (!savedModel || availableModels.includes(savedModel)) {
@@ -377,9 +376,11 @@ export function ApiSettingsPage() {
                     <div className="flex gap-2">
                       {modelsWithCustom.length > 0 ? (
                         <Select
-                          value={selectedConfig.model || undefined}
+                          value={availableModels.includes(selectedConfig.model) ? selectedConfig.model : undefined}
                           onValueChange={(v) => {
-                            if (v != null) updateProvider(selectedProvider, { model: v });
+                            if (v && v !== '__custom') {
+                              updateProvider(selectedProvider, { model: v });
+                            }
                           }}
                         >
                           <SelectTrigger className="h-9 flex-1">
@@ -391,6 +392,7 @@ export function ApiSettingsPage() {
                                 {model}
                               </SelectItem>
                             ))}
+                            <SelectItem value="__custom">Custom…</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (

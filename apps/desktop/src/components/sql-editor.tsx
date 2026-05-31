@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
-import { clearTabAutoRun, updateTabAutoRun, updateTabSql } from '@/store';
+import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
 import { AlertCircle, Clock, Download, Loader2, Play } from 'lucide-react';
 
@@ -133,7 +133,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
 
   useEffect(() => {
     if (!('autoRun' in tab) || !tab.autoRun) return;
-    clearTabAutoRun(tab.id);
+    updateTabAutoRun(tab.id, false);
     void handleRun();
   }, [tab, handleRun]);
 
