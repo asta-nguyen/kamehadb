@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
+import 'highlight.js/styles/github-dark-dimmed.css';
 import Providers from './providers';
 
 const siteUrl = 'https://kamehadb.astalife.co';

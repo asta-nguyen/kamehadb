@@ -2,6 +2,13 @@
 
 All notable changes to KamehaDB will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- New `apps/mcp-server` package: a Model Context Protocol (stdio) server that exposes KamehaDB saved connections to AI coding assistants. Ships with 8 tools — `list_connections`, `get_schema_summary`, `describe_table`, `search_schema`, `run_readonly_query`, `explain_query`, `scan_redis_keys`, `find_mongo_documents` — and a thin client over the existing sidecar HTTP API. Read-only mode is enforced server-side by the sidecar (`isQuerySafe`); mutations are surfaced to the model as `isError: true`. Compatible with Claude Code, Codex CLI, and OpenCode.
+- Syntax highlighting for JSON and TOML code blocks on the MCP page using highlight.js ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/e163e13))
+
 ## [v1.0.0] - 2026-06-01
 
 First stable release of KamehaDB — a local-first database GUI for PostgreSQL, MySQL, SQLite, MongoDB, and Redis.
