@@ -8,6 +8,9 @@ import { ThemeToggle } from '../../components/theme-toggle';
 export const metadata: Metadata = {
   title: 'Changelog',
   description: "See what's new in KamehaDB — new features, bug fixes, and improvements.",
+  alternates: {
+    canonical: '/changelog',
+  },
 };
 
 interface ChangeEntry {
@@ -18,6 +21,7 @@ interface ChangeEntry {
 interface Release {
   version: string;
   date: string | null;
+  description: string | null;
   changes: ChangeEntry[];
 }
 
@@ -26,14 +30,27 @@ function parseChangelog(content: string): Release[] {
   const lines = content.split('\n');
   let currentRelease: Release | null = null;
   let currentType: string | null = null;
+  let descriptionBuffer: string[] = [];
+
+  const flushDescription = () => {
+    if (currentRelease) {
+      const text = descriptionBuffer.join(' ').trim();
+      currentRelease.description = text.length > 0 ? text : null;
+    }
+    descriptionBuffer = [];
+  };
 
   for (const line of lines) {
     const versionMatch = line.match(/^## \[(.+?)\](?:\s*-\s*(.+))?$/);
     if (versionMatch) {
-      if (currentRelease) releases.push(currentRelease);
+      if (currentRelease) {
+        flushDescription();
+        releases.push(currentRelease);
+      }
       currentRelease = {
         version: versionMatch[1],
         date: versionMatch[2] || null,
+        description: null,
         changes: [],
       };
       currentType = null;
@@ -42,6 +59,7 @@ function parseChangelog(content: string): Release[] {
 
     const typeMatch = line.match(/^### (.+)$/);
     if (typeMatch && currentRelease) {
+      flushDescription();
       currentType = typeMatch[1];
       currentRelease.changes.push({ type: currentType, items: [] });
       continue;
@@ -51,11 +69,62 @@ function parseChangelog(content: string): Release[] {
     if (itemMatch && currentRelease && currentType) {
       const section = currentRelease.changes.find((c) => c.type === currentType);
       if (section) section.items.push(itemMatch[1]);
+      continue;
+    }
+
+    if (currentRelease && currentType === null && line.trim().length > 0) {
+      descriptionBuffer.push(line.trim());
     }
   }
 
-  if (currentRelease) releases.push(currentRelease);
+  if (currentRelease) {
+    flushDescription();
+    releases.push(currentRelease);
+  }
   return releases;
+}
+
+function MarkdownText({ text }: { text: string }) {
+  const tokenRegex = /(\*\*[^*]+\*\*)|(\[[^\]]+\]\([^)]+\))/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = tokenRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(<span key={key++}>{text.slice(lastIndex, match.index)}</span>);
+    }
+    if (match[1]) {
+      nodes.push(
+        <strong key={key++} className="font-semibold text-ink">
+          {match[1].slice(2, -2)}
+        </strong>,
+      );
+    } else if (match[2]) {
+      const linkMatch = match[2].match(/\[([^\]]+)\]\(([^)]+)\)/);
+      if (linkMatch) {
+        nodes.push(
+          <a
+            key={key++}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-amber-600 dark:text-amber-400 hover:underline"
+          >
+            {linkMatch[1]}
+          </a>,
+        );
+      }
+    }
+    lastIndex = tokenRegex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(<span key={key++}>{text.slice(lastIndex)}</span>);
+  }
+
+  return <>{nodes}</>;
 }
 
 const typeColors: Record<string, string> = {
@@ -123,6 +192,8 @@ export default function ChangelogPage() {
                       {release.date && <span className="text-sm text-muted font-medium">{release.date}</span>}
                     </div>
 
+                    {release.description && <p className="text-body leading-relaxed mb-5">{release.description}</p>}
+
                     <div className="space-y-5">
                       {release.changes.map((section) => (
                         <div key={section.type}>
@@ -134,8 +205,10 @@ export default function ChangelogPage() {
                           <ul className="space-y-2">
                             {section.items.map((item, i) => (
                               <li key={i} className="flex items-start gap-2 text-body leading-relaxed">
-                                <span className="text-muted mt-1.5 flex-shrink-0">•</span>
-                                <span>{item}</span>
+                                <span className="text-muted mt-1.5 shrink-0">•</span>
+                                <span className="flex-1">
+                                  <MarkdownText text={item} />
+                                </span>
                               </li>
                             ))}
                           </ul>

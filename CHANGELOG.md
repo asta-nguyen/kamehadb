@@ -2,35 +2,47 @@
 
 All notable changes to KamehaDB will be documented in this file.
 
-## [v0.1.0]
+## [v1.0.0] - 2026-06-01
+
+First stable release of KamehaDB — a local-first database GUI for PostgreSQL, MySQL, SQLite, MongoDB, and Redis.
+
+### Highlights
+
+- **AI Chat** — schema-aware assistant with persistent history, multi-provider support, markdown rendering, token tracking, and a Run button to execute SQL from the editor ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/1345ac3), [@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/9b30ff2))
+- **Landing page v2** — demo video, dark mode, motion animations, SEO, and the dedicated documentation site ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/1345ac3), [@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/9b30ff2))
+- **SQLite & MySQL parity** — table search, file picker, Browse button, and full database stats support matching Postgres ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/d0d2841))
+- **MongoDB & Redis UX** — collection filtering, debounced queries, copy actions, and improved navigation ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/f618456))
 
 ### Added
 
-- Persistent AI chat with connection-scoped history and improved UX
-- AI chat stop generation, message timestamps, copy button, and suggestion prompts
-- AI chat markdown rendering, token tracking, and schema caching
-- MongoDB database-scoped AI chat with improved UI and navigation
-- Run button that auto-executes SQL queries from the editor
-- Landing page v2 with demo video, Lucide icons, and motion animations
-- Landing page dark mode support with theme toggle
-- Changelog page with timeline UI and Keep a Changelog format
-- SEO metadata, Open Graph, Twitter cards, JSON-LD, robots.txt, and sitemap
-- Landing page migrated from npm to pnpm
-- Search filtering for SQLite table browsing (matches Postgres/MySQL behavior)
-- MySQL database stats support (getTableStats, getIndexStats, getDatabaseSizes)
-- SQLite file selection with Browse button and auto-fill name
+- AI chat: persistent connection-scoped history, timestamps, and copy button ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/1345ac3))
+- AI chat: markdown rendering, token tracking, and schema caching ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/38f64ea))
+- AI chat: database-scoped context for MongoDB ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/a318178))
+- Run button that auto-executes SQL queries from the editor ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/9b30ff2))
+- Landing page v2 with demo video, dark mode, and motion animations ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/092b6a1))
+- Changelog page with timeline UI and Keep a Changelog format ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/21f70ca))
+- SEO metadata, Open Graph, Twitter cards, JSON-LD, robots.txt, and sitemap ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/092b6a1))
+- SQLite file selection with Browse button and auto-fill name ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/d0d2841))
+- MySQL database stats support (tables, indexes, sizes) ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/d0d2841))
+- Search filtering for SQLite table browsing ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/21029fd))
+- Sidebar quick actions for schema graph and database stats ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/18b8a17))
 
 ### Fixed
 
-- Platform-specific build instructions and Redis memory metric
-- Chat message timestamp migration and history limit validation
-- Landing page dark/light mode toggle now switches correctly across pages
-- Landing site no longer participates in the root pnpm workspace
-- Landing page responsive layout and overflow fixes
-- SQLite connection test and health check missing await
-- SQLite index stats query returning incorrect results
-- Duplicate auto-run effect causing SQL queries to execute twice
-- Existing table tab not switching to workspace view when clicking sidebar
+- Landing page dark/light mode toggle now switches correctly across pages ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/21f70ca))
+- Landing site no longer participates in the root pnpm workspace ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/ea33a5d))
+- Landing page responsive layout and overflow ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/c37b191))
+- Platform-specific build instructions and Redis memory metric ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/71bb7f2))
+- SQLite connection test and health check missing await ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/d0d2841))
+- SQLite index stats query returning incorrect results ([@JoeJoeflyn](https://github.com/asta-nguyen/kamehadb/commit/d0d2841))
+- Duplicate auto-run effect causing SQL queries to execute twice ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/3dfcb6a))
+- Existing table tab not switching to workspace view on sidebar click ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/3dfcb6a))
+- Chat message timestamp migration and history limit validation ([@asta-nguyen](https://github.com/asta-nguyen/kamehadb/commit/5737145))
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
 
 ## [0.1.4-beta] - 2026-05-28
 

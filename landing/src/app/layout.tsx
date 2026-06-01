@@ -3,7 +3,7 @@ import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
 import Providers from './providers';
 
-const siteUrl = 'https://kamehadb.com';
+const siteUrl = 'https://kamehadb.astalife.co';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -47,6 +47,9 @@ export const metadata: Metadata = {
         alt: 'KamehaDB - Database Management Reimagined',
       },
     ],
+  },
+  alternates: {
+    canonical: '/',
   },
   twitter: {
     card: 'summary_large_image',
