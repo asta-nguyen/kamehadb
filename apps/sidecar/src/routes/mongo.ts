@@ -79,6 +79,7 @@ mongoRouter.post(
       sort: z.record(z.union([z.literal(1), z.literal(-1)])).optional(),
       skip: z.number().int().nonnegative().optional(),
       limit: z.number().int().min(1).max(1000).optional(),
+      search: z.string().optional(),
     }),
   ),
   async (c) => {
@@ -138,7 +139,14 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
+      const connectionId = c.req.param('connectionId');
+      const profile = metadataStore.getProfile(connectionId);
+      if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+      if (profile.readonly !== false) {
+        return c.json({ error: 'FORBIDDEN', message: 'Delete operations are not allowed in read-only mode' }, 403);
+      }
+
+      const adapter = await getAdapter(connectionId);
       try {
         const { collection, database, filter } = c.req.valid('json');
         const result = await adapter.deleteDocument(database || '', collection, filter);
@@ -168,7 +176,14 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
+      const connectionId = c.req.param('connectionId');
+      const profile = metadataStore.getProfile(connectionId);
+      if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+      if (profile.readonly !== false) {
+        return c.json({ error: 'FORBIDDEN', message: 'Update operations are not allowed in read-only mode' }, 403);
+      }
+
+      const adapter = await getAdapter(connectionId);
       try {
         const { collection, database, filter, update } = c.req.valid('json');
         const result = await adapter.updateDocument(database || '', collection, filter, update);
@@ -201,6 +216,32 @@ mongoRouter.get('/:connectionId/stats', async (c) => {
     return handleError(c, err, 'getCollectionStats');
   }
 });
+
+// POST /mongo/:connectionId/command
+mongoRouter.post(
+  '/:connectionId/command',
+  zValidator(
+    'json',
+    z.object({
+      database: z.string().optional(),
+      command: z.record(z.unknown()),
+    }),
+  ),
+  async (c) => {
+    try {
+      const adapter = await getAdapter(c.req.param('connectionId'));
+      try {
+        const { database, command } = c.req.valid('json');
+        const result = await adapter.runCommand(database || '', command);
+        return c.json(result);
+      } finally {
+        await adapter.close();
+      }
+    } catch (err) {
+      return handleError(c, err, 'runCommand');
+    }
+  },
+);
 
 // GET /mongo/:connectionId/test
 mongoRouter.get('/:connectionId/test', async (c) => {

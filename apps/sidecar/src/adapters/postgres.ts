@@ -320,15 +320,31 @@ export function createPostgresAdapter(connection: {
       const [schema, table] = input.tableId.split('.');
       const offset = input.offset ?? 0;
       const limit = input.limit ?? 100;
+      const params: unknown[] = [];
       let sql = `SELECT * FROM "${schema}"."${table}"`;
+
+      if (input.search) {
+        const colResult = await query(
+          `SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
+          [schema, table],
+        );
+        const searchCols = colResult.rows.map((r: any) => r.column_name as string);
+        if (searchCols.length > 0) {
+          const clauses = searchCols.map((col, i) => `"${col}"::text ILIKE $${i + 1}`);
+          sql += ` WHERE ${clauses.join(' OR ')}`;
+          params.push(...searchCols.map(() => `%${input.search!}%`));
+        }
+      }
 
       if (input.sortColumn) {
         sql += ` ORDER BY "${input.sortColumn}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
       }
-      sql += ` LIMIT $1 OFFSET $2`;
+
+      params.push(limit, offset);
+      sql += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
       const start = performance.now();
-      const result = await query(sql, [limit, offset]);
+      const result = await query(sql, params);
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] = result.fields.map((f) => ({

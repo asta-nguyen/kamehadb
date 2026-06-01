@@ -1,12 +1,31 @@
 import { useState } from 'react';
+import type { ComponentType } from 'react';
 import { formatBytes, formatNumber } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Server, Users, RefreshCw, AlertTriangle, Clock, Radio, Loader2, Copy, Check } from 'lucide-react';
+import {
+  Server,
+  Users,
+  RefreshCw,
+  AlertTriangle,
+  Clock,
+  Radio,
+  Loader2,
+  Copy,
+  Check,
+  Database,
+  Gauge,
+  HardDrive,
+  KeyRound,
+  TerminalSquare,
+  Timer,
+} from 'lucide-react';
 import { useDatabaseSizes } from '@/hooks/use-schema';
+import { useRedisStats } from '@/hooks/use-redis';
+import { useConnections } from '@/hooks/use-connections';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
@@ -15,6 +34,47 @@ type DatabaseStatsProps = {
 };
 
 export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
+  const { data: connections, isLoading: connectionsLoading } = useConnections();
+  const currentConnection = connections?.find((conn) => conn.id === connectionId);
+
+  if (connectionsLoading && !currentConnection) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!currentConnection) {
+    return (
+      <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
+        <AlertTriangle className="size-5" />
+        <span className="text-sm">Connection not found</span>
+      </div>
+    );
+  }
+
+  if (currentConnection.kind === 'redis') {
+    return <RedisDatabaseStats connectionId={connectionId} />;
+  }
+
+  if (
+    currentConnection.kind === 'postgres' ||
+    currentConnection.kind === 'mysql' ||
+    currentConnection.kind === 'sqlite'
+  ) {
+    return <SqlDatabaseStats connectionId={connectionId} />;
+  }
+
+  return (
+    <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
+      <AlertTriangle className="size-5" />
+      <span className="text-sm">Unsupported database kind</span>
+    </div>
+  );
+}
+
+function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
   const [copiedPid, setCopiedPid] = useState<number | null>(null);
 
   const handleCopyQuery = async (pid: number, query: string) => {
@@ -61,7 +121,7 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
   };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="h-full space-y-4 overflow-y-auto p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Database Analytics</h2>
         <div className="flex gap-2">
@@ -263,7 +323,7 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
                                   aria-label="Copy query"
                                 >
                                   {copiedPid === conn.pid ? (
-                                    <Check className="size-3 text-green-500" />
+                                    <Check className="size-3 text-primary" />
                                   ) : (
                                     <Copy className="size-3" />
                                   )}
@@ -301,4 +361,212 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
       </Tabs>
     </div>
   );
+}
+
+function RedisDatabaseStats({ connectionId }: DatabaseStatsProps) {
+  const { data: stats, isLoading, error, refetch, isFetching } = useRedisStats(connectionId);
+
+  const memoryPercent = stats?.maxMemory ? Math.min((stats.usedMemory / stats.maxMemory) * 100, 100) : undefined;
+  const peakPercent = stats?.usedMemoryPeak ? Math.min((stats.usedMemory / stats.usedMemoryPeak) * 100, 100) : 0;
+
+  return (
+    <div className="h-full space-y-4 overflow-y-auto p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Redis Analytics</h2>
+          <p className="text-sm text-muted-foreground">Runtime stats, memory, keyspace, and command activity</p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={() => refetch()} title="Refresh Redis stats" disabled={isFetching}>
+          <RefreshCw className={`size-4 ${isFetching ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <Card className="flex h-64 items-center justify-center">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        </Card>
+      ) : error ? (
+        <Card className="flex h-64 items-center justify-center text-muted-foreground">
+          <AlertTriangle className="mr-2 size-5" />
+          Failed to load Redis stats
+        </Card>
+      ) : stats ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              icon={Database}
+              label="Server"
+              value={`Redis ${stats.version}`}
+              description={`${formatDuration(stats.uptimeSeconds)} uptime`}
+            />
+            <MetricCard
+              icon={KeyRound}
+              label="Keys"
+              value={formatNumber(stats.totalKeys)}
+              description={`${formatNumber(stats.expiringKeys)} expiring`}
+            />
+            <MetricCard
+              icon={HardDrive}
+              label="Memory"
+              value={formatBytes(stats.usedMemory)}
+              description={`${formatBytes(stats.usedMemoryPeak)} peak`}
+            />
+            <MetricCard
+              icon={Users}
+              label="Clients"
+              value={formatNumber(stats.connectedClients)}
+              description={`${formatNumber(stats.blockedClients)} blocked`}
+            />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <HardDrive className="size-4" />
+                  Memory Usage
+                </CardTitle>
+                <CardDescription>
+                  {stats.maxMemory ? 'Current usage against configured maxmemory' : 'Current usage compared with peak'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Used</span>
+                    <span className="font-medium">{formatBytes(stats.usedMemory)}</span>
+                  </div>
+                  <Progress value={memoryPercent ?? peakPercent} className="h-2" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <div className="text-xs text-muted-foreground">Peak memory</div>
+                    <div className="mt-1 font-mono text-sm">{formatBytes(stats.usedMemoryPeak)}</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <div className="text-xs text-muted-foreground">Max memory</div>
+                    <div className="mt-1 font-mono text-sm">
+                      {stats.maxMemory && stats.maxMemory > 0 ? formatBytes(stats.maxMemory) : 'No limit'}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Gauge className="size-4" />
+                  Cache Health
+                </CardTitle>
+                <CardDescription>Hit-rate and key expiration overview</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Hit rate</span>
+                    <span className="font-medium">
+                      {stats.hitRate === undefined ? 'n/a' : `${stats.hitRate.toFixed(1)}%`}
+                    </span>
+                  </div>
+                  <Progress value={stats.hitRate ?? 0} className="h-2" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <div className="text-xs text-muted-foreground">Expiring keys</div>
+                    <div className="mt-1 font-mono text-sm">{formatNumber(stats.expiringKeys)}</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <div className="text-xs text-muted-foreground">Average TTL</div>
+                    <div className="mt-1 font-mono text-sm">{formatMilliseconds(stats.avgTtl)}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TerminalSquare className="size-4" />
+                Activity
+              </CardTitle>
+              <CardDescription>Command and connection counters reported by Redis INFO</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <TerminalSquare className="size-3.5" />
+                    Commands processed
+                  </div>
+                  <div className="mt-1 font-mono text-lg">{formatNumber(stats.totalCommands)}</div>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Users className="size-3.5" />
+                    Connections received
+                  </div>
+                  <div className="mt-1 font-mono text-lg">{formatNumber(stats.totalConnections)}</div>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Timer className="size-3.5" />
+                    Uptime
+                  </div>
+                  <div className="mt-1 font-mono text-lg">{formatDuration(stats.uptimeSeconds)}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card className="flex h-64 items-center justify-center text-muted-foreground">No Redis stats available</Card>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  description,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <Icon className="size-4" />
+          {label}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="truncate font-mono text-2xl font-semibold" title={value}>
+          {value}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function formatMilliseconds(ms: number): string {
+  if (ms <= 0) return 'n/a';
+  if (ms < 1000) return `${ms}ms`;
+  return formatDuration(Math.round(ms / 1000));
 }

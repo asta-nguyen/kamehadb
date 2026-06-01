@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Brand Colors — Amber & Rose */
+  --color-primary: #f59e0b;
+  --color-primary-hover: #d97706;
+  --color-gradient-start: #f59e0b;
+  --color-gradient-end: #f43f5e;
+  --color-secondary: #fb923c;
+
+  /* Surface Colors — Dark Industrial (dark-first) */
+  --color-canvas: #ffffff;
+  --color-surface-soft: #fafafa;
+  --color-surface-strong: #f4f4f5;
+  --color-border: #e4e4e7;
+
+  /* Text Colors */
+  --color-ink: #09090b;
+  --color-body: #3f3f46;
+  --color-muted: #71717a;
+
+  /* Typography */
+  --font-sans: var(--font-outfit), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* Spacing */
+  --space-sm: 16px;
+  --space-base: 24px;
+  --space-lg: 32px;
+  --space-section: 64px;
+}
+
+.dark {
+  --color-canvas: #0a0a0f;
+  --color-surface-soft: #12121a;
+  --color-surface-strong: #1c1c2a;
+  --color-border: #27273a;
+  --color-ink: #f1f5f9;
+  --color-body: #a1a1aa;
+  --color-muted: #71717a;
+}
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --color-canvas: var(--color-canvas);
+  --color-surface-soft: var(--color-surface-soft);
+  --color-surface-strong: var(--color-surface-strong);
+  --color-border: var(--color-border);
+  --color-ink: var(--color-ink);
+  --color-body: var(--color-body);
+  --color-muted: var(--color-muted);
+  --color-amber-50: #fffbeb;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: var(--color-primary);
+  --color-amber-600: var(--color-primary-hover);
+  --color-rose-400: #fb7185;
+  --color-rose-500: var(--color-gradient-end);
+  --color-emerald-400: #34d399;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-soft);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* Terminal cursor blink */
+@keyframes blink {
+  50% {
+    color: transparent;
+  }
+}
+
+/* Selection */
+::selection {
+  background: var(--color-primary);
+  color: white;
+}

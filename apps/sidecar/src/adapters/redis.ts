@@ -9,6 +9,7 @@ import type {
   GetTtlInput,
   KeyEntry,
   RedisStats,
+  RedisCommandResult,
 } from '@kamehadb/shared';
 
 interface RedisConfig {
@@ -155,13 +156,14 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
       const stats = parseInfo('Stats');
       const keyspace = parseInfo('Keyspace');
 
-      // Parse keyspace info (format: db0:keys=123,expires=5,avg_ttl=3600000)
+      // Parse keyspace info for the selected logical DB (format: db0:keys=123,expires=5,avg_ttl=3600000)
       let totalKeys = 0;
       let totalExpiring = 0;
       let avgTtl = 0;
+      const selectedDb = config.database ?? 0;
       for (const line of info.split('\n')) {
         const km = line.match(/^db(\d+):keys=(\d+),expires=(\d+),avg_ttl=(\d+)/);
-        if (km) {
+        if (km && parseInt(km[1], 10) === selectedDb) {
           totalKeys += parseInt(km[2], 10);
           totalExpiring += parseInt(km[3], 10);
           avgTtl = parseInt(km[4], 10) || avgTtl;
@@ -191,6 +193,18 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
               })()
             : undefined,
       };
+    },
+
+    async runCommand(command: string): Promise<RedisCommandResult> {
+      const redis = getClient();
+      const trimmed = command.trim();
+      const parts = trimmed.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [];
+      if (parts.length === 0) throw new Error('Empty command');
+      const cmd = parts[0]!;
+      const args = parts.slice(1).map((a) => a.replace(/^["']|["']$/g, ''));
+      const start = Date.now();
+      const result = await redis.call(cmd, ...args);
+      return { result, command: trimmed, durationMs: Date.now() - start };
     },
 
     async close(): Promise<void> {

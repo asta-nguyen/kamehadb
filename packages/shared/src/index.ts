@@ -137,6 +137,7 @@ export type PreviewRowsInput = {
   limit?: number;
   sortColumn?: string;
   sortDirection?: 'asc' | 'desc';
+  search?: string;
   filters?: { column: string; operator: string; value: string }[];
 };
 
@@ -285,6 +286,7 @@ export interface RedisAdapter {
   getKey(input: GetKeyInput): Promise<RedisValue>;
   getTtl(input: GetTtlInput): Promise<number>;
   getStats(): Promise<RedisStats>;
+  runCommand(command: string): Promise<RedisCommandResult>;
   close(): Promise<void>;
 }
 
@@ -299,6 +301,7 @@ export type DocumentResult = {
   documents: Record<string, unknown>[];
   totalCount: number;
   hasMore: boolean;
+  durationMs: number;
 };
 
 export type FindDocumentsInput = {
@@ -309,6 +312,7 @@ export type FindDocumentsInput = {
   sort?: Record<string, 1 | -1>;
   skip?: number;
   limit?: number;
+  search?: string;
 };
 
 export type AggregateInput = {
@@ -316,6 +320,13 @@ export type AggregateInput = {
   database?: string;
   pipeline: Record<string, unknown>[];
   limit?: number;
+  skip?: number;
+};
+
+export type RedisCommandResult = {
+  result: unknown;
+  command: string;
+  durationMs: number;
 };
 
 // MongoDB adapter contract
@@ -325,6 +336,7 @@ export interface MongoAdapter {
   listCollections(database?: string): Promise<CollectionInfo[]>;
   findDocuments(input: FindDocumentsInput): Promise<DocumentResult>;
   aggregate(input: AggregateInput): Promise<DocumentResult>;
+  runCommand(database: string, command: Record<string, unknown>): Promise<unknown>;
   deleteDocument(
     database: string,
     collection: string,
@@ -398,13 +410,30 @@ export type ApiError = {
 export type WorkspaceTab =
   | {
       id: string;
-      type: 'table' | 'query' | 'redis' | 'graph' | 'stats' | 'database-stats' | 'ai-chat';
+      type: 'table' | 'query' | 'redis-query' | 'redis' | 'graph' | 'stats' | 'database-stats';
       title: string;
       connectionId: string;
       sql?: string;
+      command?: string;
       autoRun?: boolean;
     }
-  | { id: string; type: 'mongo'; title: string; connectionId: string; database: string; collection: string }
+  | {
+      id: string;
+      type: 'mongo';
+      title: string;
+      connectionId: string;
+      database: string;
+      collection: string;
+    }
+  | {
+      id: string;
+      type: 'mongo-query';
+      title: string;
+      connectionId: string;
+      database: string;
+      collection: string;
+      pipeline?: string;
+    }
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string };
 
 export type AppView = 'workspace' | 'api-settings';
@@ -425,3 +454,46 @@ export type AppStoreState = {
   expandedConnections: string[];
   connectionStatus: Record<string, 'connected' | 'disconnected'>;
 };
+
+// SQL safety check constants and helper
+export const DESTRUCTIVE_KEYWORDS = [
+  'DROP',
+  'TRUNCATE',
+  'ALTER',
+  'CREATE',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'MERGE',
+  'GRANT',
+  'REVOKE',
+];
+
+export const SAFE_KEYWORDS = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
+
+export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
+  const normalized = sql.trim().toUpperCase();
+
+  // Skip empty/whitespace
+  if (!normalized) return { safe: true };
+
+  // Check for destructive keywords
+  for (const kw of DESTRUCTIVE_KEYWORDS) {
+    const regex = new RegExp(`\\b${kw}\\b`);
+    if (regex.test(normalized)) {
+      return { safe: false, reason: `${kw} statements are not allowed in read-only mode` };
+    }
+  }
+
+  // Check for safe keywords
+  for (const kw of SAFE_KEYWORDS) {
+    const regex = new RegExp(`^\\b${kw}\\b`);
+    if (regex.test(normalized)) {
+      return { safe: true };
+    }
+  }
+
+  // If it doesn't start with a recognized keyword, allow it through
+  // (might be a valid expression or comment)
+  return { safe: true };
+}

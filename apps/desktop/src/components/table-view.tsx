@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
+import { useState, useCallback, useRef } from 'react';
+import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
 import { TableStats } from '@/components/table-stats';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import {
@@ -20,7 +20,13 @@ import {
   Check,
   Activity,
   Download,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  X,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { downloadResult } from '@/lib/export';
 import {
   DropdownMenu,
@@ -39,44 +45,61 @@ type TableViewProps = {
 function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: string }) {
   const [offset, setOffset] = useState(0);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [querySearch, setQuerySearch] = useState('');
+  const [sortColumn, setSortColumn] = useState('');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const debouncedSetSearch = useRef(
+    debounce(
+      (v: string) => {
+        setQuerySearch(v);
+        setOffset(0);
+      },
+      { wait: 300 },
+    ),
+  ).current;
+
+  const handleSortColumnChange = useCallback(
+    (col: string) => {
+      if (sortColumn === col) {
+        if (sortDirection === 'asc') {
+          setSortDirection('desc');
+        } else {
+          setSortColumn('');
+          setSortDirection('asc');
+        }
+      } else {
+        setSortColumn(col);
+        setSortDirection('asc');
+      }
+      setOffset(0);
+    },
+    [sortColumn, sortDirection],
+  );
 
   const { data: columns } = useTableColumns(connectionId, tableId);
   const { data: result, isLoading } = usePreviewRows(connectionId, {
     tableId,
     offset,
     limit: PAGE_SIZE,
+    search: querySearch || undefined,
+    sortColumn: sortColumn || undefined,
+    sortDirection: sortColumn ? sortDirection : undefined,
   });
 
   const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const displayColumns = result?.columns ?? columns ?? [];
+  const tableMinWidth = 32 + displayColumns.length * 120;
 
-  const columnDefs = useMemo<ColumnDef<Record<string, unknown>>[]>(
-    () =>
-      (result?.columns ?? columns ?? []).map((col) => ({
-        id: col.name,
-        header: col.name,
-        accessorFn: (row: Record<string, unknown>) => row[col.name],
-        cell: ({ getValue }: { getValue: () => unknown }) => {
-          const value = getValue();
-          if (value === null) return <span className="text-muted-foreground italic">NULL</span>;
-          if (value === undefined) return <span className="text-muted-foreground">-</span>;
-          return String(value);
-        },
-        size: 150,
-      })),
-    [result, columns],
-  );
+  const formatCell = (value: unknown): string => {
+    if (value === null) return 'NULL';
+    if (value === undefined) return '-';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
 
-  const table = useReactTable({
-    data: result?.rows ?? [],
-    columns: columnDefs,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  const headerGroups = table.getHeaderGroups();
-  const gridTemplate =
-    headerGroups.length > 0 ? `2rem ${headerGroups[0].headers.map((h) => `${h.getSize()}px`).join(' ')}` : undefined;
-
-  if (isLoading) {
+  if (isLoading && !result) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -84,98 +107,184 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     );
   }
 
+  if (!result) return null;
+
   return (
     <>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="relative flex-1 max-w-64">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              debouncedSetSearch(e.target.value);
+            }}
+            placeholder="Search all fields..."
+            className="h-7 pl-7 text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <Select
+            value={sortColumn}
+            onValueChange={(v) => {
+              if (!v) return;
+              handleSortColumnChange(v);
+            }}
+          >
+            <SelectTrigger className="h-7 w-28 text-xs gap-1.5 px-2">
+              <ArrowUpDown className="size-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              {displayColumns.map((col) => (
+                <SelectItem key={col.name} value={col.name} className="text-xs">
+                  {col.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {sortColumn && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setSortColumn('');
+                setSortDirection('asc');
+                setOffset(0);
+              }}
+              className="h-7 w-7"
+              title="Clear sort"
+            >
+              <X className="size-3" />
+            </Button>
+          )}
+          {sortColumn && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+                setOffset(0);
+              }}
+              className="h-7 w-7 shrink-0"
+              title={`Sorted ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+            >
+              {sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+            </Button>
+          )}
+        </div>
+      </div>
       <div className="overflow-auto border rounded-md">
-        <Table className="text-xs">
-          <TableHeader>
-            {headerGroups.map((headerGroup) => (
-              <TableRow key={headerGroup.id} style={{ gridTemplateColumns: gridTemplate }}>
-                <TableHead className="px-2 py-1 text-left bg-muted/50">#</TableHead>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="px-3 py-1 text-left bg-muted/50 border-r whitespace-nowrap">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.map((row, i) => (
-              <TableRow
-                key={row.id}
-                className="cursor-pointer hover:bg-muted/30"
-                style={{ gridTemplateColumns: gridTemplate }}
-                onClick={() => setSelectedRow(row.original)}
+        <table className="w-full text-xs table-fixed" style={{ minWidth: tableMinWidth }}>
+          <thead>
+            <tr className="bg-muted border-b border-border">
+              <th
+                className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px]"
+                style={{ width: 32 }}
               >
-                <TableCell className="px-2 py-1 text-muted-foreground">{offset + i + 1}</TableCell>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
-                    title={String(cell.getValue() ?? '')}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
+                #
+              </th>
+              {displayColumns.map((col) => (
+                <th
+                  key={col.name}
+                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80"
+                  style={{ width: 120 }}
+                  onClick={() => handleSortColumnChange(col.name)}
+                >
+                  <span className="truncate inline-flex items-center gap-1" title={col.name}>
+                    {col.name}
+                    {sortColumn === col.name ? (
+                      sortDirection === 'asc' ? (
+                        <ArrowUp className="size-3 shrink-0" />
+                      ) : (
+                        <ArrowDown className="size-3 shrink-0" />
+                      )
+                    ) : (
+                      <ArrowUp className="size-2.5 shrink-0 text-muted-foreground/30" />
+                    )}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {result.rows.map((row, rowIndex) => (
+              <tr
+                key={rowIndex}
+                className="border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer"
+                onClick={() => setSelectedRow(row)}
+              >
+                <td className="px-2 py-0.5 text-muted-foreground">{offset + rowIndex + 1}</td>
+                {displayColumns.map((col) => {
+                  const value = row[col.name];
+                  return (
+                    <td
+                      key={col.name}
+                      className="px-1 py-1 overflow-hidden truncate max-w-60"
+                      title={formatCell(value)}
+                    >
+                      {value === null ? (
+                        <span className="text-muted-foreground italic">null</span>
+                      ) : value === undefined ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : typeof value === 'object' ? (
+                        <span className="text-primary">{JSON.stringify(value)}</span>
+                      ) : (
+                        <span>{String(value)}</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
         {result && (
           <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3">
             <span>{result.rowCount} rows</span>
-            {result.truncated && (
-              <Badge variant="outline" className="text-xs">
-                Truncated
-              </Badge>
-            )}
             <span className="ml-auto">{result.durationMs}ms</span>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={offset === 0}
-                onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-              >
-                <ChevronLeft className="size-3.5" />
-              </Button>
-              <span className="tabular-nums px-1">Page {page}</span>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={!result.truncated}
-                onClick={() => setOffset((o) => o + PAGE_SIZE)}
-              >
-                <ChevronRight className="size-3.5" />
-              </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span>Page</span>
+                <Input
+                  type="number"
+                  min={1}
+                  value={page}
+                  onChange={(e) => {
+                    const p = parseInt(e.target.value, 10);
+                    if (!isNaN(p) && p >= 1) setOffset((p - 1) * PAGE_SIZE);
+                  }}
+                  className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={offset === 0}
+                  onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+                >
+                  <ChevronLeft className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={!result.truncated}
+                  onClick={() => setOffset((o) => o + PAGE_SIZE)}
+                >
+                  <ChevronRight className="size-3.5" />
+                </Button>
+              </div>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
                 <Download className="size-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => {
-                    downloadResult(result, 'csv');
-                  }}
-                >
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    downloadResult(result, 'json');
-                  }}
-                >
-                  Export as JSON
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    downloadResult(result, 'sql');
-                  }}
-                >
-                  Export as SQL
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -192,7 +301,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           <SheetHeader className="shrink-0">
             <SheetTitle className="flex items-center gap-2">
               <FileJson className="size-4" />
-              Record #{selectedRow ? offset + result?.rows.indexOf(selectedRow)! + 1 : ''}
+              Record #{selectedRow && result ? offset + result.rows.indexOf(selectedRow) + 1 : ''}
             </SheetTitle>
           </SheetHeader>
           <RecordDetailTabs selectedRow={selectedRow} />
@@ -305,10 +414,12 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
   const { data: indexes } = useTableIndexes(connectionId, tableId);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
-        <Table2 className="size-4" />
-        <span className="text-sm font-medium">{tableId}</span>
+    <div className="flex flex-col h-full bg-background">
+      <div className="px-4 py-2 border-b border-border shrink-0">
+        <div className="flex items-center gap-2">
+          <Table2 className="size-4" />
+          <span className="text-sm font-medium">{tableId}</span>
+        </div>
       </div>
 
       <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
