@@ -1,184 +1,170 @@
 # AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance for coding agents working in this repository.
 
 ## Project Overview
 
-KamehaDB is a local-first, cross-platform database GUI built with Tauri, React, and Node.js. It connects to PostgreSQL, MySQL, SQLite, Redis (planned), and MongoDB — letting you browse schemas, run queries, and visualize relationships in a desktop app.
+KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, and Redis. It includes schema browsing, a Monaco SQL editor, PostgreSQL stats views, Redis and Mongo explorers, and an AI chat panel with schema-aware context.
+
+There is also a separate marketing/docs site in `landing/`, but it is not part of the pnpm workspace used by the desktop app and sidecar.
+
+## Repository Layout
+
+```text
+├── apps/
+│   ├── desktop/          # Tauri v2 + React 19 desktop app
+│   └── sidecar/          # Hono HTTP server + DB adapters + metadata SQLite
+├── packages/
+│   ├── shared/           # Shared Zod schemas, app state types, adapter contracts
+│   └── ui/               # Shared UI utilities/components
+├── landing/              # Separate Next.js marketing site (not in pnpm workspace)
+├── docker-compose.yml    # Local dev databases
+└── docker-init/          # Seed SQL for Postgres/MySQL/MariaDB
+```
+
+## Workspace And Package Boundaries
+
+- The pnpm workspace includes only `apps/*`, `packages/*`, and `landing`.
+- `landing/` has its own `package-lock.json` and is managed separately with npm.
+- Root scripts target the pnpm workspace only. Do not assume they affect `landing/`.
+- Landing site image generation: use `node scripts/capture-images.mjs` to update the AI Compare panel screenshots in `public/images/`.
 
 ## Commands
 
+### Workspace root
+
 ```bash
-# Install dependencies
+# Install workspace dependencies
 pnpm install
 
-# Run dev services (PostgreSQL, MySQL, MariaDB, Redis)
+# Start dev databases
 docker compose up -d
 
-# Run both sidecar and desktop in dev mode
+# Run sidecar + desktop together
 pnpm dev
 
-# Run only desktop (requires sidecar running separately)
+# Run only the desktop app
 pnpm dev:desktop
 
-# Run only sidecar backend
+# Run only the sidecar
 pnpm dev:sidecar
 
-# Build all packages (order: shared → sidecar → desktop)
+# Build shared -> sidecar -> desktop
 pnpm build
 
-# Type check all packages
+# Typecheck all workspace packages
 pnpm typecheck
 
-# Lint all packages
+# Lint all workspace packages that expose a lint script
 pnpm lint
 
-# Run tests
+# Run all workspace package tests that expose a test script
 pnpm test
 
-# Build Tauri desktop app
-pnpm tauri build
+# Run Tauri CLI in the desktop package
+pnpm tauri
 ```
 
-## Release Workflow
-
-The GitHub release pipeline builds desktop installers and uploads them to the GitHub Release assets. The default `Source code (zip)` and `Source code (tar.gz)` entries are added by GitHub automatically and are not installable app bundles.
+### Important package-level scripts
 
 ```bash
-# Push the commit that should be released
-git push origin <branch>
+# Desktop app
+pnpm --filter @kamehadb/desktop dev
+pnpm --filter @kamehadb/desktop build
+pnpm --filter @kamehadb/desktop test
+pnpm --filter @kamehadb/desktop tauri build
 
-# Create a version tag on that exact commit
-git tag v0.1.0-rc.1
+# Sidecar
+pnpm --filter @kamehadb/sidecar dev
+pnpm --filter @kamehadb/sidecar build
+pnpm --filter @kamehadb/sidecar start
 
-# Push the tag to trigger the Release workflow
-git push origin v0.1.0-rc.1
+# Landing site
+pnpm --filter @kamehadb/landing dev
+pnpm --filter @kamehadb/landing build
+pnpm --filter @kamehadb/landing lint
+npm --prefix landing run build # Standard build for landing
+node landing/scripts/capture-images.mjs # Regenerate AI compare panels
 ```
 
-### Versioning
+## Current Architecture
 
-Use Semantic Versioning with a leading `v` because the release workflow listens for tags matching `v*`.
+### Shared contract
 
-- Stable releases: `v0.1.0`, `v0.1.1`, `v1.0.0`
-- Pre-releases: `v0.1.0-alpha.1`, `v0.1.0-beta.1`, `v0.1.0-rc.1`
+`packages/shared/src/index.ts` is the source of truth for:
 
-Recommended meaning:
+- Connection profile schemas and validation
+- SQL, Redis, MongoDB, and AI-related types
+- App store state and workspace tab types
+- `SqlAdapter` and related contracts
 
-- `MAJOR`: breaking change or major product milestone
-- `MINOR`: new features without major breakage
-- `PATCH`: bug fixes and small improvements
-- `alpha`: early internal or experimental build
-- `beta`: feature-complete test build
-- `rc`: release candidate, expected to become stable if no blocking issues are found
+If frontend and backend disagree on data shape, fix `packages/shared` first.
 
-Typical progression:
+### Sidecar
 
-```text
-v0.1.0-alpha.1 -> v0.1.0-beta.1 -> v0.1.0-rc.1 -> v0.1.0 -> v0.1.1
-```
+`apps/sidecar/src/index.ts` starts a Hono server on `127.0.0.1`, default port `3170`.
 
-### Important Notes
+Key details:
 
-- GitHub Actions always runs the workflow files from the commit referenced by the tag.
-- If a tag points to an older commit, GitHub will run the older workflow and may produce a release with only source archives.
-- This project is a desktop Tauri app. Expected release assets are desktop bundles such as `.dmg`, `.msi`, `.exe`, `.deb`, `.AppImage`, or `.rpm`, not Android `.apk` files.
-- Manual release runs via `workflow_dispatch` must provide an existing git tag.
+- Metadata is stored in a local SQLite database via `better-sqlite3`
+- Default metadata DB path is `./kamehadb.db`
+- If `KAMEHADB_DATA_DIR` is set, the DB path becomes `${KAMEHADB_DATA_DIR}/kamehadb.db`
+- The sidecar prints `KAMEHADB_SIDECAR_PORT=<port>` on startup
 
-### Expected Release Assets
+Current route groups:
 
-A valid GitHub Release for this project should expose only user-facing desktop installers or bundles:
+- `/connections` for saved connection profiles and connection health checks
+- `/sql` for SQL metadata, query execution, preview rows, autocomplete, and PostgreSQL stats
+- `/mongo` for MongoDB databases, collections, documents, stats, update/delete
+- `/redis` for key scanning, value lookup, TTL lookup, and connection testing
+- `/ai` for provider settings, chat, schema cache, and chat history
 
-- macOS: `.dmg`
-- Windows: `.exe` and `.msi`
-- Linux: `.deb`, `.AppImage`, `.rpm`
+Important sidecar internals:
+
+- `apps/sidecar/src/db/metadata-store.ts` persists connections, AI settings, and chat history
+- `apps/sidecar/src/lib/cache.ts` caches schema and metadata results
+- `apps/sidecar/src/lib/sql-safety.ts` contains SQL safety helpers used by the backend
+- `apps/sidecar/src/ai/` contains provider abstraction and schema-context generation
+
+### Desktop app
+
+`apps/desktop/src/App.tsx` drives a tabbed workspace with connection-specific views.
+
+Main areas:
+
+- `components/sidebar.tsx` for connection and schema navigation
+- `components/sql-editor.tsx` for Monaco query editing and execution
+- `components/table-view.tsx` for SQL table browsing
+- `components/schema-graph.tsx` for ER diagrams
+- `components/database-stats.tsx` and `components/table-stats.tsx` for PostgreSQL metrics
+- `components/mongo-view.tsx` and `components/redis-view.tsx` for non-SQL engines
+- `components/ai-chat-panel.tsx` and `components/api-settings-page.tsx` for AI
+
+State and data flow:
+
+- `apps/desktop/src/store/index.ts` uses TanStack Store for workspace state
+- `apps/desktop/src/hooks/` contains TanStack Query-based data hooks
+- `apps/desktop/src/lib/api.ts` talks to the sidecar at `http://127.0.0.1:3170` by default
+- `apps/desktop/src/lib/sql-autocomplete.ts` contains client-side SQL completion logic
+
+## Database Support
+
+Supported now:
+
+- PostgreSQL
+- MySQL
+- SQLite
+- MongoDB
+- Redis
 
 Notes:
 
-- `Source code (zip)` and `Source code (tar.gz)` are added by GitHub automatically for tags.
-- Files such as `data.tar.gz`, raw binaries like `kamehadb`, or other unpacked internal artifacts should not be kept as release assets for end users.
+- PostgreSQL has the richest stats support
+- MySQL and SQLite go through the SQL adapter path
+- MongoDB uses a dedicated route and adapter flow
+- Redis uses a dedicated route and adapter flow, not the SQL route
 
-### If A Release Has Only Source Code Assets
-
-Check the `Release` workflow in GitHub Actions and verify these steps in each matrix job:
-
-- `Build Tauri app`
-- `Upload to Release`
-
-If a tag was created on the wrong commit, recreate it:
-
-```bash
-git tag -d v0.1.0-rc.1
-git push origin :refs/tags/v0.1.0-rc.1
-git tag v0.1.0-rc.1
-git push origin v0.1.0-rc.1
-```
-
-## Architecture
-
-```
-├── apps/
-│   ├── desktop/          # Tauri + React frontend (Vite, Tailwind)
-│   └── sidecar/          # Node.js backend (Hono + database adapters)
-├── packages/
-│   ├── shared/           # Zod schemas + TypeScript types for contracts
-│   └── ui/               # Shared React UI primitives
-└── docker-compose.yml    # Dev databases (Postgres, MySQL, Redis)
-```
-
-### Shared Package (`packages/shared/src/index.ts`)
-
-This is the core contract between frontend and backend. It contains:
-
-- Zod schemas for connection profiles and validation
-- `SqlAdapter`, `RedisAdapter`, `MongoAdapter` interfaces defining the API contract
-- TypeScript types for query results, table metadata, AI chat, etc.
-
-### Sidecar Backend (`apps/sidecar/src`)
-
-Hono-based HTTP server that implements database adapters:
-
-- `adapters/` — Database-specific implementations (postgres.ts, mysql.ts, sqlite.ts, mongodb.ts)
-- `routes/` — API endpoints (connections.ts, sql.ts, ai.ts, mongo.ts)
-- `db/` — Local SQLite for storing connection profiles and credentials
-
-### Desktop App (`apps/desktop/src`)
-
-React frontend with Tauri shell:
-
-- `components/` — Main UI components (table-view.tsx, sql-editor.tsx, schema-graph.tsx, ai-chat-panel.tsx, etc.)
-- `components/ui/` — shadcn/ui component library
-- `hooks/` — React hooks for state management
-- `store/` — TanStack Store for app state
-- `lib/` — Utilities and API client
-
-### Communication Pattern
-
-Desktop communicates with sidecar via fetch to `localhost:3001`:
-
-- TanStack Query for data fetching and caching
-- Direct Tauri commands for credential encryption/storage
-
-### Database Adapters
-
-Each adapter implements the `SqlAdapter` interface:
-
-```typescript
-interface SqlAdapter {
-  testConnection(): Promise<TestConnectionResult>;
-  listDatabases(): Promise<DatabaseInfo[]>;
-  listSchemas(database?: string): Promise<SchemaInfo[]>;
-  listTables(schema?: string): Promise<TableInfo[]>;
-  getTableColumns(tableId: string): Promise<ColumnInfo[]>;
-  getTableIndexes(tableId: string): Promise<IndexInfo[]>;
-  previewRows(input: PreviewRowsInput): Promise<QueryResult>;
-  runQuery(input: RunQueryInput): Promise<QueryResult>;
-  close(): Promise<void>;
-}
-```
-
-PostgreSQL adapter provides extended stats methods (`getIndexStats`, `getTableStats`, `getDatabaseSizes`, `getActiveConnections`).
-
-## Connection Defaults (Docker)
+## Connection Defaults For Docker
 
 | Engine     | Port | User   | Password | Database |
 | ---------- | ---- | ------ | -------- | -------- |
@@ -187,10 +173,65 @@ PostgreSQL adapter provides extended stats methods (`getIndexStats`, `getTableSt
 | MariaDB    | 3307 | kameha | kameha   | kamehadb |
 | Redis      | 6379 | —      | —        | —        |
 
-## Tech Stack
+## Testing And Verification
 
-- **Desktop**: Tauri v2, React 19, Vite, Tailwind CSS v4, shadcn/ui, tanstack
-- **Editor**: Monaco (via @monaco-editor/react)
-- **Sidecar**: Hono, pg, mysql2, better-sqlite3
-- **Graph**: ReactFlow + dagre for ER diagrams
-- **AI**: Multi-provider abstraction (OpenAI, Ollama, 9Router)
+- `pnpm test` currently depends mainly on workspace packages that expose a `test` script
+- The desktop package uses `vitest run`
+- CI currently runs `pnpm typecheck`, `pnpm --filter @kamehadb/desktop test`, `pnpm build`, and a full `tauri build`
+- When changing sidecar contracts, verify both `packages/shared` types and desktop usage
+- When changing desktop UI behavior, prefer running the desktop tests and a targeted app build
+
+## Release Workflow
+
+The checked-in GitHub workflow is `.github/workflows/release.yml`.
+
+Key facts:
+
+- Releases are triggered by tags matching `v*`
+- `workflow_dispatch` expects an existing tag input
+- The workflow creates a draft GitHub release, then builds platform bundles, then uploads assets
+- Expected uploaded assets are `.dmg`, `.exe`, `.msi`, `.deb`, `.AppImage`, and `.rpm`
+- GitHub still adds source archives automatically; those are not the installable app bundles
+
+Typical release flow:
+
+```bash
+git push origin <branch>
+git tag v0.1.0-rc.1
+git push origin v0.1.0-rc.1
+```
+
+## Behavioral Guidelines
+
+These guidelines prioritize caution and precision over speed.
+
+### 1. Think Before Coding
+
+- **No Assumptions**: Surface tradeoffs explicitly. If uncertain or multiple interpretations exist, ask before picking.
+- **Push Back**: If a simpler approach exists or the requested path is flawed, suggest an alternative.
+- **Clarify First**: If a request is unclear, stop and name the specific confusion.
+
+### 2. Simplicity First
+
+- **Minimum Viable Code**: Implement only what is asked. No speculative features or "future-proofing."
+- **No Over-Abstraction**: Avoid abstractions for single-use code.
+- **Surgical Error Handling**: Do not add error handling for impossible scenarios.
+- **Aggressive Simplification**: If a solution is overcomplicated, rewrite it to be simpler.
+
+### 3. Surgical Changes
+
+- **Zero Collateral Damage**: Do not "improve" adjacent code, comments, or formatting.
+- **Style Match**: Match the existing codebase style strictly, even if you prefer another pattern.
+- **Orphan Cleanup**: Remove imports/variables that YOUR changes made unused. Do not touch pre-existing dead code unless asked.
+- **Traceability**: Every changed line must trace directly back to the user's request.
+
+### 4. Goal-Driven Execution
+
+- **Verifiable Goals**: Transform "fix bug" into "write reproducing test $\rightarrow$ make it pass."
+- **Structured Plans**: For multi-step tasks, define: `[Step] $\rightarrow$ verify: [check]`.
+- **Verification Gate**: No task is "done" until success criteria are verified via tool output.
+
+## Operational Rules
+
+- **Package Manager**: ALWAYS use `pnpm` for this project, except for the `landing/` directory which is managed via `npm`.
+- **Changelog**: All user-facing changes must be recorded in `CHANGELOG.md` under `[Unreleased]` before merging.

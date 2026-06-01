@@ -139,7 +139,14 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
+      const connectionId = c.req.param('connectionId');
+      const profile = metadataStore.getProfile(connectionId);
+      if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+      if (profile.readonly !== false) {
+        return c.json({ error: 'FORBIDDEN', message: 'Delete operations are not allowed in read-only mode' }, 403);
+      }
+
+      const adapter = await getAdapter(connectionId);
       try {
         const { collection, database, filter } = c.req.valid('json');
         const result = await adapter.deleteDocument(database || '', collection, filter);
@@ -169,7 +176,14 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
+      const connectionId = c.req.param('connectionId');
+      const profile = metadataStore.getProfile(connectionId);
+      if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+      if (profile.readonly !== false) {
+        return c.json({ error: 'FORBIDDEN', message: 'Update operations are not allowed in read-only mode' }, 403);
+      }
+
+      const adapter = await getAdapter(connectionId);
       try {
         const { collection, database, filter, update } = c.req.valid('json');
         const result = await adapter.updateDocument(database || '', collection, filter, update);

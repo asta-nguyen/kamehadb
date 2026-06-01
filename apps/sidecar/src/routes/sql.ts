@@ -1,9 +1,10 @@
+import { zValidator } from '@hono/zod-validator';
+import { isQuerySafe } from '@kamehadb/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { zValidator } from '@hono/zod-validator';
-import { getCached, setCache, CACHE_TTL } from '../lib/cache.js';
+import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
 import * as metadataStore from '../db/metadata-store.js';
-import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
+import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 
 export const sqlRouter = new Hono();
 
@@ -241,6 +242,17 @@ sqlRouter.post(
       const connectionId = c.req.param('connectionId');
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+
+      if (profile.readonly !== false) {
+        const { query } = c.req.valid('json');
+        const safety = isQuerySafe(query);
+        if (!safety.safe) {
+          return c.json(
+            { error: 'FORBIDDEN', message: safety.reason ?? 'Query is not allowed in read-only mode' },
+            403,
+          );
+        }
+      }
 
       const password = metadataStore.getProfilePassword(connectionId);
       const adapter = await getSqlAdapter(connectionId);
