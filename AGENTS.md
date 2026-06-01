@@ -13,6 +13,7 @@ There is also a separate marketing/docs site in `landing/`, but it is not part o
 ```text
 ├── apps/
 │   ├── desktop/          # Tauri v2 + React 19 desktop app
+│   ├── mcp-server/       # MCP stdio server exposing saved connections to AI clients
 │   └── sidecar/          # Hono HTTP server + DB adapters + metadata SQLite
 ├── packages/
 │   ├── shared/           # Shared Zod schemas, app state types, adapter contracts

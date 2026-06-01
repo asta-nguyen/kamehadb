@@ -105,3 +105,9 @@ html {
   background: var(--color-primary);
   color: white;
 }
+
+/* highlight.js overrides for dark code blocks */
+.hljs {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+}

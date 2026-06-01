@@ -169,6 +169,28 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@22.19.19)(msw@2.14.6(@types/node@22.19.19)(typescript@5.8.3))(vite@7.3.3(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.3)(yaml@2.9.0))
 
+  apps/mcp-server:
+    dependencies:
+      '@kamehadb/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.29.0
+        version: 1.29.0(zod@3.25.76)
+      zod:
+        specifier: ^3
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22
+        version: 22.19.19
+      tsx:
+        specifier: ^4
+        version: 4.22.3
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
+
   apps/sidecar:
     dependencies:
       '@hono/node-server':

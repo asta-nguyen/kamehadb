@@ -171,6 +171,12 @@ export default function Home() {
             >
               Features
             </a>
+            <Link
+              href="/mcp"
+              className="text-body hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-sm font-medium hidden sm:block"
+            >
+              MCP
+            </Link>
             <a
               href="#install"
               className="text-body hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-sm font-medium hidden sm:block"
