@@ -2,7 +2,7 @@
 
 All notable changes to KamehaDB will be documented in this file.
 
-## [Unreleased]
+## [v0.1.0]
 
 ### Added
 
@@ -16,12 +16,21 @@ All notable changes to KamehaDB will be documented in this file.
 - Changelog page with timeline UI and Keep a Changelog format
 - SEO metadata, Open Graph, Twitter cards, JSON-LD, robots.txt, and sitemap
 - Landing page migrated from npm to pnpm
+- Search filtering for SQLite table browsing (matches Postgres/MySQL behavior)
+- MySQL database stats support (getTableStats, getIndexStats, getDatabaseSizes)
+- SQLite file selection with Browse button and auto-fill name
 
 ### Fixed
 
 - Platform-specific build instructions and Redis memory metric
 - Chat message timestamp migration and history limit validation
 - Landing page dark/light mode toggle now switches correctly across pages
+- Landing site no longer participates in the root pnpm workspace
+- Landing page responsive layout and overflow fixes
+- SQLite connection test and health check missing await
+- SQLite index stats query returning incorrect results
+- Duplicate auto-run effect causing SQL queries to execute twice
+- Existing table tab not switching to workspace view when clicking sidebar
 
 ## [0.1.4-beta] - 2026-05-28
 

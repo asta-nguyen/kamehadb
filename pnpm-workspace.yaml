@@ -1,7 +1,6 @@
 packages:
   - 'apps/*'
   - 'packages/*'
-  - 'landing'
 allowBuilds:
   better-sqlite3: true
   esbuild: true
