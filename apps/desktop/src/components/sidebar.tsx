@@ -156,7 +156,12 @@ function ConnectionItem({
               AI Chat
             </DropdownMenuItem>
             {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
-              <DropdownMenuItem onClick={() => openGraphTab(conn.id)}>
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  openGraphTab(conn.id);
+                }}
+              >
                 <Share2 className="size-3.5 mr-2" />
                 Graph
               </DropdownMenuItem>

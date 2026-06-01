@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
-import { Loader2, Plug, Plus, Database, File, Server, Box, Leaf, Check } from 'lucide-react';
+import { Loader2, Plug, Plus, Database, File, Server, Box, Leaf, Check, FolderOpen } from 'lucide-react';
 
 const KIND_ICONS: Record<DbKind, typeof Database> = {
   postgres: Database,
@@ -134,6 +134,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   const updateConnection = useUpdateConnection();
   const testConnection = useTestConnection();
   const resetRef = useRef(testConnection.reset);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   resetRef.current = testConnection.reset;
 
   const form = useForm<CreateConnectionProfileInput>({
@@ -163,6 +164,38 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     }, 5000);
     return () => clearTimeout(timer);
   }, [testConnection.data]);
+
+  // Auto-fill name and auto-test when SQLite file is selected
+  const filePath = form.watch('filePath');
+  useEffect(() => {
+    if (kind !== 'sqlite' || !filePath) return;
+
+    // Auto-fill name from filename if empty
+    const name = form.getValues('name');
+    if (!name) {
+      const fileName =
+        filePath
+          .split(/[\\/]/)
+          .pop()
+          ?.replace(/\.[^.]+$/, '') || filePath;
+      form.setValue('name', fileName);
+    }
+
+    // Auto-test connection
+    const timer = setTimeout(async () => {
+      try {
+        await testConnection.mutateAsync({
+          kind: 'sqlite',
+          filePath,
+          name: 'test',
+          readonly: true,
+        });
+      } catch {
+        // Ignore auto-test errors
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filePath, kind]);
 
   const handleUrlChange = useCallback(
     (value: string) => {
@@ -374,14 +407,41 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                     htmlFor="filePath"
                     className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
                   >
-                    File Path
+                    Database File
                   </Label>
-                  <Input
-                    id="filePath"
-                    {...form.register('filePath')}
-                    placeholder="/path/to/database.sqlite"
-                    className="h-9 font-mono text-xs"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="filePath"
+                      {...form.register('filePath')}
+                      placeholder="/path/to/database.sqlite"
+                      className="h-9 font-mono text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-9 gap-1.5 shrink-0"
+                    >
+                      <FolderOpen className="size-3.5" />
+                      Browse
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".db,.sqlite,.sqlite3,.sqlite2,*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          // In Tauri, File has a path property
+                          const path = (file as any).path || file.name;
+                          form.setValue('filePath', path);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
                 </div>
               ) : (
                 <>

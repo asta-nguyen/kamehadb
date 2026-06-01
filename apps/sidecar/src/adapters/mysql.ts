@@ -12,6 +12,9 @@ import type {
   RunQueryInput,
   QueryColumn,
   TableCompletions,
+  TableStats,
+  IndexStats,
+  DatabaseSize,
 } from '@kamehadb/shared';
 
 export async function testMysqlConnection(connection: {
@@ -270,6 +273,106 @@ export function createMysqlAdapter(connection: {
 
     async close(): Promise<void> {
       await pool.end();
+    },
+
+    async getTableStats(tableId: string): Promise<TableStats> {
+      const parts = tableId.split('.');
+      const schema = parts.length > 1 ? parts[0] : connection.database;
+      const table = parts.length > 1 ? parts[1] : tableId;
+
+      const [rows] = (await pool.query(
+        `SELECT
+          (SELECT COUNT(*) FROM ${escapeId(schema!)}.${escapeId(table)}) AS row_count,
+          (SELECT (data_length + index_length) FROM information_schema.TABLES WHERE table_schema = ? AND table_name = ?) AS total_bytes,
+          data_length AS data_bytes,
+          index_length AS index_bytes
+        FROM DUAL`,
+        [schema, table],
+      )) as [Record<string, unknown>[], any];
+
+      const stats = rows[0] || {};
+      return {
+        tableId,
+        name: table,
+        schema: schema!,
+        rowEstimate: Number(stats.row_count) || 0,
+        totalBytes: Number(stats.total_bytes) || 0,
+        indexesBytes: Number(stats.index_bytes) || 0,
+        toastBytes: 0,
+        bloatBytes: 0,
+        bloatPercent: 0,
+        lastVacuum: null,
+        lastAutovacuum: null,
+        lastAnalyze: null,
+        lastAutoanalyze: null,
+        vacuumCount: 0,
+        autovacuumCount: 0,
+        nLiveTup: Number(stats.row_count) || 0,
+        nDeadTup: 0,
+      };
+    },
+
+    async getIndexStats(tableId: string): Promise<IndexStats[]> {
+      const parts = tableId.split('.');
+      const schema = parts.length > 1 ? parts[0] : connection.database;
+      const table = parts.length > 1 ? parts[1] : tableId;
+
+      const [rows] = (await pool.query(
+        `SELECT
+          INDEX_NAME AS name,
+          COLUMN_NAME AS column_name,
+          NON_UNIQUE AS non_unique,
+          SEQ_IN_INDEX AS seq
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+        ORDER BY INDEX_NAME, SEQ_IN_INDEX`,
+        [schema, table],
+      )) as [Record<string, unknown>[], any];
+
+      const indexMap = new Map<string, IndexStats & { columns: string[] }>();
+      for (const row of rows) {
+        const name = row.name as string;
+        if (!indexMap.has(name)) {
+          indexMap.set(name, {
+            name,
+            table: tableId,
+            columns: [],
+            unique: row.non_unique === 0,
+            primary: name === 'PRIMARY',
+            sizeBytes: 0,
+            scans: 0,
+            reads: 0,
+            usagePercent: 0,
+          });
+        }
+        indexMap.get(name)!.columns.push(row.column_name as string);
+      }
+
+      return Array.from(indexMap.values());
+    },
+
+    async getDatabaseSizes(): Promise<DatabaseSize[]> {
+      const db = connection.database!;
+      const [rows] = (await pool.query(
+        `SELECT
+          TABLE_NAME AS table_name,
+          TABLE_ROWS AS row_estimate,
+          DATA_LENGTH + INDEX_LENGTH AS total_bytes,
+          INDEX_LENGTH AS index_bytes
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'
+        ORDER BY total_bytes DESC`,
+        [db],
+      )) as [Record<string, unknown>[], any];
+
+      return rows.map((row) => ({
+        schema: db,
+        table: row.table_name as string,
+        sizeBytes: Number(row.total_bytes) || 0,
+        indexBytes: Number(row.index_bytes) || 0,
+        totalBytes: Number(row.total_bytes) || 0,
+        rowEstimate: Number(row.row_estimate) || 0,
+      }));
     },
   };
 }

@@ -200,6 +200,8 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
     async getTableStats(tableId: string): Promise<TableStats> {
       const rowCount = db.prepare(`SELECT COUNT(*) as count FROM "${tableId}"`).get() as { count: number };
+
+      // SQLite doesn't have per-table sizes easily, use page stats
       const totalBytes = db
         .prepare(`SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()`)
         .get() as { size: number };
@@ -234,9 +236,6 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
       return indexes.map((idx) => {
         const cols = db.prepare(`PRAGMA index_info("${idx.name}")`).all() as { name: string }[];
-        const size = db
-          .prepare(`SELECT idx_blksize * len as size FROM sqlite_master WHERE type='index' AND name='${idx.name}'`)
-          .get() as { size: number } | undefined;
 
         return {
           name: idx.name,
@@ -244,7 +243,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
           columns: cols.map((c) => c.name),
           unique: !!idx.unique,
           primary: idx.origin === 'pk',
-          sizeBytes: size?.size || 0,
+          sizeBytes: 0, // SQLite doesn't expose index size easily
           scans: 0,
           reads: 0,
           usagePercent: 0,
@@ -254,22 +253,34 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
     async getDatabaseSizes(): Promise<DatabaseSize[]> {
       const tables = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'dbstat' ORDER BY name",
+        )
         .all() as { name: string }[];
 
-      return tables.map((t) => {
-        const info = db
-          .prepare(
-            `SELECT page_count * page_size as size, (SELECT COUNT(*) FROM "${t.name}") as rows FROM pragma_page_count(), pragma_page_size()`,
-          )
-          .get() as { size: number; rows: number };
+      // Get total DB size
+      const totalDb = db
+        .prepare(`SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()`)
+        .get() as { size: number };
+
+      // Get row counts for each table to estimate proportional size
+      const tablesWithCounts = tables.map((t) => {
+        const countResult = db.prepare(`SELECT COUNT(*) as cnt FROM "${t.name}"`).get() as { cnt: number };
+        return { name: t.name, rowCount: countResult.cnt };
+      });
+
+      const totalRows = tablesWithCounts.reduce((sum, t) => sum + t.rowCount, 0);
+
+      return tablesWithCounts.map((t) => {
+        // Estimate table size proportionally by row count
+        const estimatedSize = totalRows > 0 ? Math.round((t.rowCount / totalRows) * totalDb.size) : 0;
         return {
           schema: 'main',
           table: t.name,
-          sizeBytes: info.size,
+          sizeBytes: estimatedSize,
           indexBytes: 0,
-          totalBytes: info.size,
-          rowEstimate: info.rows,
+          totalBytes: estimatedSize,
+          rowEstimate: t.rowCount,
         };
       });
     },
