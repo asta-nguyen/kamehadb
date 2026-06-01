@@ -5,7 +5,20 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { ThemeToggle } from './theme-toggle';
-import { Database, Sparkles, MessageSquare, Workflow, Star, Apple, Monitor, Laptop } from 'lucide-react';
+import {
+  Database,
+  Sparkles,
+  MessageSquare,
+  Workflow,
+  Star,
+  Apple,
+  Monitor,
+  Laptop,
+  Gift,
+  Shield,
+  Brain,
+  Code2,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Compare } from './ui/compare';
@@ -34,6 +47,55 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     title: 'Schema Visualization',
     description:
       'Auto-detect table structures, field types, indexes, and relationships. Generate ER diagrams and understand any database instantly.',
+  },
+];
+
+const whyKamehadb: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  providers?: { name: string; color: string }[];
+}[] = [
+  {
+    icon: Gift,
+    title: '100% Free & Open Source',
+    description: 'No subscriptions, no premium tiers, no telemetry. The full source is on GitHub under MIT.',
+  },
+  {
+    icon: Shield,
+    title: 'Local-First & Private',
+    description:
+      'Connections, credentials, query history, and chat logs stay on your machine. We have no servers — there is nowhere for your data to go.',
+  },
+  {
+    icon: Brain,
+    title: 'Bring Your Own AI',
+    description:
+      'OpenAI, Ollama (local + cloud), 9router — pick the model that fits your workflow, or skip AI entirely.',
+    providers: [
+      {
+        name: 'OpenAI',
+        color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+      },
+      {
+        name: 'Ollama Local',
+        color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+      },
+      {
+        name: 'Ollama Cloud',
+        color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+      },
+      {
+        name: '9router',
+        color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+      },
+    ],
+  },
+  {
+    icon: Code2,
+    title: 'Open Standards',
+    description:
+      'Pure SQL, MongoDB aggregation pipelines, Redis protocol. No proprietary query language, no migration lock-in.',
   },
 ];
 
@@ -152,7 +214,7 @@ export default function Home() {
     <div className="min-h-screen bg-canvas font-sans antialiased">
       {/* Navigation */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-canvas/70 border-b border-border/60 before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-amber-500/30 before:to-transparent"
+        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-canvas/70 border-b border-border/60 before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-linear-to-r before:from-transparent before:via-amber-500/30 before:to-transparent"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -199,13 +261,27 @@ export default function Home() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-160 h-160 bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
         <div className="max-w-6xl mx-auto text-center relative">
           <motion.div
-            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-full text-sm font-medium mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex flex-wrap items-center justify-center gap-2 mb-8"
+            initial="hidden"
+            animate="visible"
+            variants={stagger}
           >
-            <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-            Now with AI-powered query generation
+            <motion.div
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-full text-sm font-medium"
+              variants={fadeUp}
+              transition={{ duration: 0.4 }}
+            >
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+              Now with AI-powered query generation
+            </motion.div>
+            <motion.div
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-medium"
+              variants={fadeUp}
+              transition={{ duration: 0.4 }}
+            >
+              <Gift className="w-3.5 h-3.5" />
+              100% Free & Open Source
+            </motion.div>
           </motion.div>
 
           <motion.h1
@@ -237,7 +313,7 @@ export default function Home() {
           >
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-strong/80 backdrop-blur-sm border border-border/50 rounded-full text-xs font-medium text-muted">
               <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-              <span className="tracking-tight">2+ stars on GitHub</span>
+              <span className="tracking-tight">3+ stars on GitHub</span>
             </div>
           </motion.div>
 
@@ -351,6 +427,54 @@ export default function Home() {
               </div>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Why KamehaDB - Value Props */}
+      <section className="py-16 md:py-24 px-4 md:px-6">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeading title="Free. Local. Yours." subtitle="Four principles. No asterisks." />
+
+          <div className="grid md:grid-cols-2 gap-5">
+            {whyKamehadb.map((item, index) => (
+              <motion.div
+                key={item.title}
+                className="group relative bg-white dark:bg-surface-strong/40 border border-slate-200 dark:border-[#27273a] rounded-2xl p-6 md:p-8 overflow-hidden transition-all duration-500 hover:border-amber-500/30 hover:shadow-2xl hover:shadow-amber-500/5 dark:hover:shadow-amber-500/10"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-80px' }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              >
+                <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-amber-500 to-rose-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-gradient-to-br from-amber-500/5 to-rose-500/5 rounded-full blur-2xl group-hover:from-amber-500/10 group-hover:to-rose-500/10 transition-all duration-700" />
+
+                <div className="relative">
+                  <motion.div
+                    className="w-12 h-12 bg-gradient-to-br from-amber-500 to-rose-500 rounded-xl flex items-center justify-center mb-5 shadow-lg shadow-amber-500/20"
+                    whileHover={{ rotate: 3, scale: 1.08 }}
+                    transition={{ type: 'spring', stiffness: 300 }}
+                  >
+                    <item.icon className="w-6 h-6 text-white" />
+                  </motion.div>
+                  <h3 className="text-lg font-bold text-ink mb-2">{item.title}</h3>
+                  <p className="text-sm text-body leading-relaxed">{item.description}</p>
+                  {item.providers && (
+                    <div className="flex flex-wrap gap-1.5 mt-4">
+                      {item.providers.map((provider) => (
+                        <span
+                          key={provider.name}
+                          className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${provider.color}`}
+                        >
+                          {provider.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
