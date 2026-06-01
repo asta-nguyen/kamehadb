@@ -7,12 +7,12 @@ import { testPostgresConnection } from '../adapters/postgres.js';
 import { testSqliteConnection } from '../adapters/sqlite.js';
 import { testMysqlConnection } from '../adapters/mysql.js';
 import { createMongoAdapter } from '../adapters/mongodb.js';
-import { createRedisDbAdapter } from '../adapters/factory.js';
+import { createRedisDbAdapter, createQdrantDbAdapter } from '../adapters/factory.js';
 import { clearConnectionCache } from '../lib/cache.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb']),
+  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -86,6 +86,9 @@ connectionsRouter.get('/:id/health', async (c) => {
         break;
       case 'redis':
         result = await createRedisDbAdapter(profile, password).testConnection();
+        break;
+      case 'qdrant':
+        result = await createQdrantDbAdapter(profile).testConnection();
         break;
       case 'sqlite':
         result = await testSqliteConnection(profile.filePath);
@@ -170,6 +173,9 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
         break;
       case 'redis':
         result = await createRedisDbAdapter(input, input.password).testConnection();
+        break;
+      case 'qdrant':
+        result = await createQdrantDbAdapter(input).testConnection();
         break;
       default:
         return c.json({ success: false, message: `Unsupported database kind: ${input.kind}` });

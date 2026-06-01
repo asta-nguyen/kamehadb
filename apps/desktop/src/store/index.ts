@@ -133,6 +133,58 @@ export function openMongoQueryTab(connectionId: string, database: string, collec
   openTab(tab);
 }
 
+export function openQdrantTab(connectionId: string, collection: string) {
+  openTab({
+    id: `${connectionId}:qdrant:${collection}`,
+    type: 'qdrant' as const,
+    title: collection,
+    connectionId,
+    collection,
+  });
+}
+
+export function openQdrantSearchTab(
+  connectionId: string,
+  collection?: string,
+  opts?: { mode?: 'text' | 'similar' | 'raw'; pointId?: string },
+) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'qdrant-search').length;
+  const tab: WorkspaceTab = {
+    id: `qdrant-search-${nanoid()}`,
+    type: 'qdrant-search',
+    title: opts?.pointId
+      ? `Similar to ${opts.pointId}`
+      : collection
+        ? `Search ${collection}`
+        : `Vector Search ${tabCount + 1}`,
+    connectionId,
+    collection,
+    mode: opts?.mode,
+    pointId: opts?.pointId,
+  };
+  openTab(tab);
+}
+
+export function openQdrantGraphTab(connectionId: string, collection: string) {
+  openTab({
+    id: `${connectionId}:qdrant-graph:${collection}`,
+    type: 'qdrant-graph' as const,
+    title: `Map: ${collection}`,
+    connectionId,
+    collection,
+  });
+}
+
+export function openQdrantStatsTab(connectionId: string, collection: string) {
+  openTab({
+    id: `${connectionId}:qdrant-stats:${collection}`,
+    type: 'qdrant-stats' as const,
+    title: `Stats: ${collection}`,
+    connectionId,
+    collection,
+  });
+}
+
 export function openTableStatsTab(connectionId: string, tableId: string) {
   openTab({
     id: `${connectionId}:${tableId}:stats`,

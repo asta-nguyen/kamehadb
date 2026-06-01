@@ -6,6 +6,12 @@ All notable changes to KamehaDB will be documented in this file.
 
 ### Added
 
+- Qdrant vector database support: connect, browse collections, and inspect points
+- Qdrant search with three modes: semantic text search (embeds text via the configured AI provider), find-similar by point ID, and raw-vector (advanced)
+- Qdrant payload filtering in the point browser and a per-point "find similar" action
+- Qdrant point browser pagination controls: adjustable page size and jump-to-page
+- Qdrant visual filter builder (field/condition/value rows) with payload field-name suggestions and an advanced-JSON escape hatch, replacing raw JSON filter input
+- Qdrant 3D vector map: PCA projection of embeddings into an interactive Three.js point cloud (rotate/zoom/pan), color and label points by payload field, hover for details, click to find similar; theme-aware background, lazy-loaded so Three.js stays out of the initial bundle
 - Persistent AI chat with connection-scoped history and improved UX
 - AI chat stop generation, message timestamps, copy button, and suggestion prompts
 - AI chat markdown rendering, token tracking, and schema caching

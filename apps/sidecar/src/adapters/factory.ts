@@ -1,9 +1,10 @@
-import type { ConnectionProfile, SqlAdapter, RedisAdapter } from '@kamehadb/shared';
+import type { ConnectionProfile, SqlAdapter, RedisAdapter, QdrantAdapter } from '@kamehadb/shared';
 import { createPostgresAdapter } from './postgres.js';
 import { createSqliteAdapter } from './sqlite.js';
 import { createMysqlAdapter } from './mysql.js';
 import { createMongoAdapter } from './mongodb.js';
 import { createRedisAdapter } from './redis.js';
+import { createQdrantAdapter } from './qdrant.js';
 
 export function createSqlAdapter(profile: ConnectionProfile, _password?: string): SqlAdapter | null {
   switch (profile.kind) {
@@ -59,5 +60,15 @@ export function createRedisDbAdapter(
     port: profile.port,
     password: _password,
     database,
+  });
+}
+
+export function createQdrantDbAdapter(profile: { kind: string; host?: string; port?: number }): QdrantAdapter {
+  if (profile.kind !== 'qdrant') {
+    throw new Error(`Expected qdrant, got ${profile.kind}`);
+  }
+  return createQdrantAdapter({
+    host: profile.host,
+    port: profile.port,
   });
 }
