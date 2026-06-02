@@ -1,6 +1,6 @@
 import { useStore } from '@tanstack/react-store';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { useConnections, useDeleteConnection } from '@/hooks/use-connections';
+import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,6 +29,7 @@ import {
   Share2,
   BarChart3,
   Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
@@ -49,6 +50,10 @@ import {
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
+function SpinningRefresh({ spinning, className = '' }: { spinning: boolean; className?: string }) {
+  return <RefreshCw className={`size-3.5 ${className} ${spinning ? 'animate-spin' : ''}`} />;
+}
+
 function ConnectionItem({
   conn,
   isActive,
@@ -64,6 +69,7 @@ function ConnectionItem({
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteConnection = useDeleteConnection();
+  const refreshConnection = useRefreshConnection();
   const healthCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const status = connectionStatus[conn.id] ?? 'connected';
@@ -146,6 +152,21 @@ function ConnectionItem({
           }}
           title={status}
         />
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            refreshConnection.mutate(conn.id);
+          }}
+          disabled={refreshConnection.isPending}
+          className="shrink-0 p-1 rounded hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-100"
+          title="Reload connection"
+          aria-label="Reload connection"
+        >
+          <SpinningRefresh
+            spinning={refreshConnection.isPending}
+            className="text-muted-foreground/60 hover:text-foreground"
+          />
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger className="shrink-0 p-1 rounded hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100">
             <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
@@ -154,6 +175,10 @@ function ConnectionItem({
             <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
               <Sparkles className="size-3.5 mr-2" />
               AI Chat
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
+              <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
+              Reload
             </DropdownMenuItem>
             {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
               <DropdownMenuItem
