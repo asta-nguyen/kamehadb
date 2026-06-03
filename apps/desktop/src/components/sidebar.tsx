@@ -28,12 +28,14 @@ import {
   Settings2,
   Share2,
   BarChart3,
+  Search,
   Trash2,
   RefreshCw,
 } from 'lucide-react';
 import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
 import { MongoExplorer } from './mongo-explorer';
+import { QdrantExplorer } from './qdrant-explorer';
 import { api } from '@/lib/api';
 import {
   appStore,
@@ -47,6 +49,7 @@ import {
   openMongoQueryTab,
   openRedisTab,
   openRedisQueryTab,
+  openQdrantSearchTab,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
@@ -180,7 +183,7 @@ function ConnectionItem({
               <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
               Reload
             </DropdownMenuItem>
-            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
+            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && conn.kind !== 'qdrant' && (
               <DropdownMenuItem
                 onClick={() => {
                   setActiveConnection(conn.id);
@@ -189,6 +192,17 @@ function ConnectionItem({
               >
                 <Share2 className="size-3.5 mr-2" />
                 Graph
+              </DropdownMenuItem>
+            )}
+            {conn.kind === 'qdrant' && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  openQdrantSearchTab(conn.id);
+                }}
+              >
+                <Search className="size-3.5 mr-2" />
+                Vector Search
               </DropdownMenuItem>
             )}
             {conn.kind === 'mongodb' && (
@@ -224,7 +238,7 @@ function ConnectionItem({
                 </DropdownMenuItem>
               </>
             )}
-            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
+            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && conn.kind !== 'qdrant' && (
               <DropdownMenuItem
                 onClick={() => {
                   setActiveConnection(conn.id);
@@ -277,6 +291,10 @@ function ConnectionItem({
             <>
               <MongoExplorer key={conn.id} connectionId={conn.id} />
             </>
+          ) : conn.kind === 'qdrant' ? (
+            <>
+              <QdrantExplorer key={conn.id} connectionId={conn.id} />
+            </>
           ) : (
             <>
               <SchemaTree
@@ -316,6 +334,7 @@ const GROUP_ORDER: Record<string, number> = {
   sqlite: 2,
   redis: 3,
   mongodb: 4,
+  qdrant: 5,
 };
 
 const GROUP_LABELS: Record<string, string> = {
@@ -324,6 +343,7 @@ const GROUP_LABELS: Record<string, string> = {
   sqlite: 'SQLite',
   redis: 'Redis',
   mongodb: 'MongoDB',
+  qdrant: 'Qdrant',
 };
 
 function ConnectionGroup({

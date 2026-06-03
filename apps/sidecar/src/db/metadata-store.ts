@@ -47,7 +47,7 @@ export function initMetadataStore(dbPath: string): void {
     CREATE TABLE IF NOT EXISTS connection_profiles (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb')),
+      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant')),
       host TEXT,
       port INTEGER,
       database TEXT,
@@ -82,6 +82,45 @@ export function initMetadataStore(dbPath: string): void {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN connection_string TEXT');
   } catch {
     // Column already exists, ignore
+  }
+
+  // Migration: widen the kind CHECK constraint to include newer engines (e.g. qdrant).
+  // SQLite bakes CHECK constraints into the table definition, so existing databases
+  // must rebuild the table to accept the new kind. Runs after the column migrations
+  // above so every column exists to copy.
+  const profilesSql = (
+    db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='connection_profiles'").get() as
+      | { sql: string }
+      | undefined
+  )?.sql;
+  if (profilesSql && !profilesSql.includes('qdrant')) {
+    db.exec(`
+      BEGIN TRANSACTION;
+      CREATE TABLE connection_profiles_new (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant')),
+        host TEXT,
+        port INTEGER,
+        database TEXT,
+        username TEXT,
+        password TEXT,
+        ssl INTEGER DEFAULT 0,
+        file_path TEXT,
+        readonly INTEGER DEFAULT 1,
+        color TEXT,
+        connection_string TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO connection_profiles_new
+        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
+               readonly, color, connection_string, created_at, updated_at
+        FROM connection_profiles;
+      DROP TABLE connection_profiles;
+      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
+      COMMIT;
+    `);
   }
 
   // Migrate ai_settings from old single-column schema if needed
