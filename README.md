@@ -1,7 +1,7 @@
 # KamehaDB
 
 <p align="center">
-  <a href="https://asta-nguyen.github.io/kamehadb">
+  <a href="https://kamehadb.astalife.co">
     <img src="apps/desktop/public/logo.png" width="100px" alt="KamehaDB logo" />
   </a>
 </p>
@@ -10,14 +10,14 @@
 
 ## Features
 
-- **AI-SQL Generation** — Chat with AI to generate, explain, and debug SQL queries. Supports OpenAI, Ollama (local/cloud), and 9Router. AI has access to your schema context for accurate query generation.
+- **AI-SQL Generation** — Chat with AI to generate, explain, and debug SQL queries. Supports OpenAI, Ollama (local & cloud), and 9Router. AI has access to your schema context for accurate query generation.
 - **Schema-Aware Context** — AI automatically knows your table structure, columns, types, and foreign key relationships when generating queries.
-- **Multi-engine support** — PostgreSQL, MySQL, SQLite, Redis, MongoDB
+- **Multi-engine support** — PostgreSQL, MySQL, SQLite, MongoDB, Redis
 - **Schema browser** — Browse databases, schemas, tables, columns, and indexes
 - **SQL editor** — Monaco-based editor with syntax highlighting, autocomplete, and FK-aware JOIN/ON suggestions
 - **ER diagram** — Auto-generated graph of tables and foreign key relationships (powered by ReactFlow + dagre)
 - **Connection URL** — paste `postgresql://`, `mysql://`, or `redis://` URIs to auto-fill connection fields
-- **Local-first** — All metadata stored locally via SQLite, credentials encrypted at rest
+- **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine
 
 ## Quick Start
 
@@ -41,6 +41,7 @@ Configure AI providers in the app settings (API Settings page):
 | Provider       | Default Model | Notes                                    |
 | -------------- | ------------- | ---------------------------------------- |
 | Ollama (local) | `llama3.2`    | Uses `http://localhost:11434` by default |
+| Ollama (cloud) | —             | Requires base URL and API key            |
 | OpenAI         | `gpt-4o`      | Requires API key                         |
 | 9Router        | Any model     | Requires base URL and API key            |
 
@@ -58,11 +59,12 @@ Configure AI providers in the app settings (API Settings page):
 ```
 kamehadb/
 ├── apps/
-│   ├── desktop/          # Tauri + React frontend (Vite, Tailwind, shadcn/ui)
-│   └── sidecar/          # Node.js backend (Hono, database adapters)
+│   ├── desktop/          # Tauri v2 + React 19 frontend (Vite, Tailwind v4)
+│   └── sidecar/          # Hono HTTP server + database adapters + metadata SQLite
 ├── packages/
-│   ├── shared/           # Shared types, Zod schemas, SQL adapter interface
+│   ├── shared/           # Shared Zod schemas, app state types, adapter contracts
 │   └── ui/               # Shared UI primitives
+├── landing/              # Next.js marketing & docs site (managed with npm, separate lockfile)
 ├── docker-compose.yml    # Dev databases
 └── docker-init/          # Seed SQL scripts for dev databases
 ```
@@ -112,14 +114,14 @@ cd apps/desktop && pnpm tauri build --target aarch64-apple-darwin
 cd apps/desktop && pnpm tauri build --target x86_64-apple-darwin
 ```
 
-# Linux
+### Linux
 
 ```bash
 # Build for Linux
 cd apps/desktop && pnpm tauri build --target x86_64-unknown-linux-gnu
 ```
 
-# Windows
+### Windows
 
 ```bash
 # Build for Windows
@@ -128,11 +130,11 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 
 ## Tech Stack
 
-- **Desktop**: Tauri v2, React 19, Vite, Tailwind CSS, shadcn/ui, tanstack (query, store, table)
-- **Editor**: Monaco (via @monaco-editor/react), custom SQL autocomplete with FK-aware JOIN/ON hints
-- **Sidecar**: Hono, PostgreSQL (`pg`), MySQL (`mysql2`), SQLite (`better-sqlite3`)
-- **Graph**: ReactFlow, dagre auto-layout
-- **AI**: Multi-provider abstraction (OpenAI, Ollama, 9Router)
+- **Desktop**: Tauri v2, React 19, Vite, Tailwind CSS v4, Base UI (`@base-ui/react`), TanStack (Query, Store, Table)
+- **Editor**: Monaco (via `@monaco-editor/react`), custom SQL autocomplete with FK-aware JOIN/ON hints, markdown rendering with `react-markdown`
+- **Sidecar**: Hono, PostgreSQL (`pg`), MySQL (`mysql2`), SQLite (`better-sqlite3`), MongoDB (`mongodb`), Redis (`ioredis`)
+- **Graph**: ReactFlow (`@xyflow/react`), dagre auto-layout
+- **AI**: Multi-provider abstraction (OpenAI, Ollama local/cloud, 9Router)
 
 ## Roadmap
 

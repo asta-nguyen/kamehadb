@@ -24,9 +24,9 @@ There is also a separate marketing/docs site in `landing/`, but it is not part o
 
 ## Workspace And Package Boundaries
 
-- The pnpm workspace includes only `apps/*`, `packages/*`, and `landing`.
+- The pnpm workspace includes only `apps/*` and `packages/*`.
 - `landing/` has its own `package-lock.json` and is managed separately with npm.
-- Root scripts target the pnpm workspace only. Do not assume they affect `landing/`.
+- Most root scripts target the pnpm workspace only. Do not assume they affect `landing/` unless they explicitly use `npm --prefix landing`.
 - Landing site image generation: use `node scripts/capture-images.mjs` to update the AI Compare panel screenshots in `public/images/`.
 
 ## Commands
@@ -80,10 +80,9 @@ pnpm --filter @kamehadb/sidecar build
 pnpm --filter @kamehadb/sidecar start
 
 # Landing site
-pnpm --filter @kamehadb/landing dev
-pnpm --filter @kamehadb/landing build
-pnpm --filter @kamehadb/landing lint
-npm --prefix landing run build # Standard build for landing
+npm --prefix landing run dev
+npm --prefix landing run build
+npm --prefix landing run lint
 node landing/scripts/capture-images.mjs # Regenerate AI compare panels
 ```
 
