@@ -2,6 +2,15 @@
 
 All notable changes to KamehaDB will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- New vector database dependency: **Qdrant v1.13.6** (added to `docker-compose.yml`, exposed on ports `6333` HTTP / `6334` gRPC, persistent volume `qdrant_data`). Required for AI schema retrieval. Start it with `docker compose up -d qdrant` (or `docker compose up -d` to start the full dev stack including Qdrant). The sidecar talks to it via `QDRANT_URL` (defaults to `http://127.0.0.1:6333`).
+- AI schema context now uses Qdrant vector search to retrieve only relevant table DDLs instead of injecting the full schema into the system prompt. The sidecar embeds each table's DDL into Qdrant on first use and searches by query similarity on each chat. Adds a new `QdrantSchemaStore` (`apps/sidecar/src/ai/qdrant-store.ts`) that handles collection creation, embedding upsert, and similarity search. If Qdrant is unreachable the sidecar falls back to the previous "send full DDL" path so chat still works, but schema retrieval will be slower and less precise.
+- AI chat system prompt now instructs the assistant to use case-insensitive substring matching on user-supplied terms, splitting on non-alphanumeric characters and ORing unanchored and prefix-anchored variants so the assistant handles punctuation, case, codes vs. names ("germany" ↔ "DE"), plurals, and synonyms correctly across PostgreSQL, MySQL, SQLite, MongoDB, and Redis. Prevents the assistant from silently returning empty result sets when stored values differ from the user's phrasing.
+- AI chat now also passes canonical term expansions (countries, US states, currencies, languages, common abbreviations) as data the assistant must consume verbatim in its WHERE filters, so user terms like "who lives in germany" reliably match rows stored as `DE` and "users in CA" match either Canada or California. Implemented as `expandTerms` / `renderExpansionsForPrompt` in `@kamehadb/shared` and called from the sidecar's `buildSystemPrompt`.
+
 ## [v1.0.0] - 2026-06-01
 
 First stable release of KamehaDB — a local-first database GUI for PostgreSQL, MySQL, SQLite, MongoDB, and Redis.

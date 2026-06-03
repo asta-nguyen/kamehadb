@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export { expandTerms, renderExpansionsForPrompt } from './term-expansion.js';
+export type { TermExpansion } from './term-expansion.js';
+
 // Database kind
 export type DbKind = 'postgres' | 'sqlite' | 'mysql' | 'redis' | 'mongodb';
 
@@ -130,6 +133,20 @@ export type IndexInfo = {
 };
 
 // API input types
+export type SchemaSearchMatch = {
+  schema: string;
+  table: string;
+  column?: string;
+  columnType?: string;
+  matchType: 'table' | 'column';
+};
+
+export type SchemaSearchInput = {
+  query: string;
+  schema?: string;
+  limit?: number;
+};
+
 export type PreviewRowsInput = {
   tableId: string;
   schema?: string;
@@ -164,6 +181,7 @@ export interface SqlAdapter {
   previewRows(input: PreviewRowsInput): Promise<QueryResult>;
   runQuery(input: RunQueryInput): Promise<QueryResult>;
   close(): Promise<void>;
+  searchSchema?(input: SchemaSearchInput): Promise<SchemaSearchMatch[]>;
   // Extended stats (PostgreSQL specific)
   getIndexStats?(tableId: string): Promise<IndexStats[]>;
   getTableStats?(tableId: string): Promise<TableStats>;

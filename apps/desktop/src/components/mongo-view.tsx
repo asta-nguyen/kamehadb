@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useMongoDocuments, useMongoCollectionStats } from '@/hooks/use-mongo';
+import { useColumnResize } from '@/hooks/use-column-resize';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
@@ -897,7 +898,8 @@ function DocumentTableView({
     }
   };
 
-  const tableMinWidth = 32 + columns.length * 120 + 80;
+  const { widths: colWidths, totalWidth, onMouseDown: onColResize } = useColumnResize(columns.length, 120);
+  const tableMinWidth = 32 + totalWidth + 80;
 
   return (
     <div className="bg-background overflow-auto">
@@ -910,17 +912,19 @@ function DocumentTableView({
             >
               #
             </th>
-            {columns.map((col) => {
+            {columns.map((col, i) => {
               const isSorted = currentSort?.field === col;
               return (
                 <th
                   key={col}
-                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80"
-                  style={{ width: 120 }}
+                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80 relative"
+                  style={{ width: colWidths[i] }}
                   onClick={() => onSortChange(col)}
                 >
-                  <span className="truncate inline-flex items-center gap-1" title={col}>
-                    {col}
+                  <div className="flex items-center gap-1 overflow-hidden pr-2">
+                    <span className="truncate" title={col}>
+                      {col}
+                    </span>
                     {isSorted ? (
                       currentSort.dir === 1 ? (
                         <ArrowUp className="size-3 shrink-0" />
@@ -930,7 +934,11 @@ function DocumentTableView({
                     ) : (
                       <ArrowUp className="size-2.5 shrink-0 text-muted-foreground/30" />
                     )}
-                  </span>
+                  </div>
+                  <div
+                    onMouseDown={(e) => onColResize(i, e)}
+                    className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/30 active:bg-primary/50"
+                  />
                 </th>
               );
             })}

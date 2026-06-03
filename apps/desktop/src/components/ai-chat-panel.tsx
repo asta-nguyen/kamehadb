@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAiChat, useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
+import { useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
 import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
 import hljs from 'highlight.js/lib/core';
@@ -18,6 +18,7 @@ import javascript from 'highlight.js/lib/languages/javascript';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AIChatMessage } from '@kamehadb/shared';
+import { aiChatStream } from '@/lib/api';
 import {
   Bot,
   Send,
@@ -322,6 +323,8 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const [isResizing, setIsResizing] = useState(false);
   const [messages, setMessages] = useState<MessageWithTimestamp[]>([]);
   const [input, setInput] = useState('');
+  const [streamingContent, setStreamingContent] = useState<string | null>(null);
+  const [sqlStatus, setSqlStatus] = useState<string | null>(null);
   const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
   const { data: connections } = useConnections();
 
@@ -334,7 +337,6 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
 
-  const aiChat = useAiChat(connectionId);
   const clearChatHistory = useClearChatHistory();
   const clearSchemaCache = useClearSchemaCache();
 
@@ -360,7 +362,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, aiChat.isPending]);
+  }, [messages, streamingContent]);
 
   async function handleSend(textOverride?: string) {
     const text = (textOverride ?? input).trim();
@@ -375,24 +377,46 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
 
+    setStreamingContent('');
+    setSqlStatus(null);
+
+    let accumulated = '';
+
     try {
-      const res = await aiChat.mutateAsync({
+      for await (const event of aiChatStream({
+        connectionId: connectionId ?? undefined,
+        mongoDatabase,
         messages: [...snapshot, { role: userMsg.role, content: userMsg.content }],
         latestMessage: { role: userMsg.role, content: userMsg.content },
         signal: abortControllerRef.current.signal,
-        mongoDatabase,
-      });
-      setMessages((prev) => [...prev, { ...res.message, timestamp: new Date() }]);
-      if (res.usage) {
-        setSessionTokens((prev) => ({
-          input: prev.input + (res.usage?.inputTokens ?? 0),
-          output: prev.output + (res.usage?.outputTokens ?? 0),
-        }));
+      })) {
+        if (event.type === 'chunk') {
+          accumulated += event.delta;
+          setStreamingContent(accumulated);
+          setSqlStatus(null);
+        } else if (event.type === 'sql_executing') {
+          setSqlStatus(`Executing ${event.count} SQL quer${event.count !== 1 ? 'ies' : 'y'}...`);
+        } else if (event.type === 'done') {
+          setMessages((prev) => [...prev, { role: 'assistant', content: accumulated, timestamp: new Date() }]);
+          setStreamingContent(null);
+          setSqlStatus(null);
+          if (event.inputTokens) {
+            setSessionTokens((prev) => ({
+              input: prev.input + event.inputTokens,
+              output: prev.output + event.outputTokens,
+            }));
+          }
+        } else if (event.type === 'error') {
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: `Error: ${event.message}`, timestamp: new Date() },
+          ]);
+          setStreamingContent(null);
+          setSqlStatus(null);
+        }
       }
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return;
-      }
+      if (err instanceof Error && err.name === 'AbortError') return;
       setMessages((prev) => [
         ...prev,
         {
@@ -401,6 +425,8 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
           timestamp: new Date(),
         },
       ]);
+      setStreamingContent(null);
+      setSqlStatus(null);
     } finally {
       sendingRef.current = false;
       abortControllerRef.current = null;
@@ -411,6 +437,8 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       sendingRef.current = false;
+      setStreamingContent(null);
+      setSqlStatus(null);
     }
   }
 
@@ -575,7 +603,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
 
         <div className="flex-1 overflow-auto" ref={scrollRef}>
           <div className="p-3 pb-4">
-            {messages.length === 0 && !aiChat.isPending && (
+            {messages.length === 0 && streamingContent === null && (
               <div className="py-5 text-muted-foreground">
                 <div
                   className={`mx-auto mb-3 flex size-11 items-center justify-center rounded-xl ring-1 ${chatMode.iconClass}`}
@@ -589,7 +617,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                       key={i}
                       type="button"
                       onClick={() => handleSuggestionClick(prompt)}
-                      disabled={aiChat.isPending}
+                      disabled={streamingContent !== null}
                       className={`rounded-full border border-border/50 bg-muted/35 px-2.5 py-1.5 text-xs text-muted-foreground/85 transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
                     >
                       {prompt}
@@ -603,14 +631,21 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
               <MessageBubble key={i} msg={msg} connectionId={connectionId} />
             ))}
 
-            {aiChat.isPending && (
+            {streamingContent !== null && (
+              <MessageBubble
+                msg={{ role: 'assistant' as const, content: streamingContent, timestamp: new Date() }}
+                connectionId={connectionId}
+              />
+            )}
+
+            {sqlStatus !== null && (
               <div className="mb-3 flex gap-2">
                 <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
-                  <Bot className="size-3.5 text-primary" />
+                  <Database className="size-3.5 text-primary" />
                 </div>
                 <div className="flex h-7 items-center gap-1.5 rounded-md bg-muted/45 px-2 text-sm text-muted-foreground">
                   <Loader2 className="size-3 animate-spin" />
-                  Thinking...
+                  {sqlStatus}
                 </div>
               </div>
             )}
@@ -628,7 +663,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
               rows={2}
               className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
             />
-            {aiChat.isPending ? (
+            {streamingContent !== null ? (
               <Tooltip>
                 <TooltipTrigger
                   aria-label="Stop generation"

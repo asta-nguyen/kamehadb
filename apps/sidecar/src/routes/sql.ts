@@ -188,6 +188,30 @@ sqlRouter.get('/:connectionId/completions', async (c) => {
   }
 });
 
+// Schema search
+sqlRouter.get('/:connectionId/search-schema', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const q = c.req.query('q');
+  if (!q) return c.json([]);
+
+  try {
+    const adapter = await getSqlAdapter(connectionId);
+    try {
+      if (!('searchSchema' in adapter)) {
+        return c.json({ error: 'NOT_SUPPORTED', message: 'Schema search not available for this database type' }, 400);
+      }
+      const schema = c.req.query('schema') || undefined;
+      const limit = c.req.query('limit') ? Number(c.req.query('limit')) : undefined;
+      const results = await adapter.searchSchema!({ query: q, schema, limit });
+      return c.json(results);
+    } finally {
+      await adapter.close();
+    }
+  } catch (err) {
+    return handleError(c, err, 'searchSchema');
+  }
+});
+
 // Preview rows
 sqlRouter.post(
   '/:connectionId/preview',

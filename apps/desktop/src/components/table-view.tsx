@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
+import { useColumnResize } from '@/hooks/use-column-resize';
 import { TableStats } from '@/components/table-stats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -90,7 +91,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const page = Math.floor(offset / PAGE_SIZE) + 1;
   const displayColumns = result?.columns ?? columns ?? [];
-  const tableMinWidth = 32 + displayColumns.length * 120;
+  const { widths: colWidths, totalWidth, onMouseDown: onColResize } = useColumnResize(displayColumns.length, 120);
+  const tableMinWidth = 32 + totalWidth;
 
   const formatCell = (value: unknown): string => {
     if (value === null) return 'NULL';
@@ -185,15 +187,17 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               >
                 #
               </th>
-              {displayColumns.map((col) => (
+              {displayColumns.map((col, i) => (
                 <th
                   key={col.name}
-                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80"
-                  style={{ width: 120 }}
+                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80 relative"
+                  style={{ width: colWidths[i] }}
                   onClick={() => handleSortColumnChange(col.name)}
                 >
-                  <span className="truncate inline-flex items-center gap-1" title={col.name}>
-                    {col.name}
+                  <div className="flex items-center gap-1 overflow-hidden pr-2">
+                    <span className="truncate" title={col.name}>
+                      {col.name}
+                    </span>
                     {sortColumn === col.name ? (
                       sortDirection === 'asc' ? (
                         <ArrowUp className="size-3 shrink-0" />
@@ -203,7 +207,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                     ) : (
                       <ArrowUp className="size-2.5 shrink-0 text-muted-foreground/30" />
                     )}
-                  </span>
+                  </div>
+                  <div
+                    onMouseDown={(e) => onColResize(i, e)}
+                    className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/30 active:bg-primary/50"
+                  />
                 </th>
               ))}
             </tr>
@@ -339,8 +347,9 @@ function formatJsonSyntax(json: string): React.ReactNode[] {
   });
 }
 
-function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown> | null }) {
+export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown> | null }) {
   const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleCopy = useCallback(async () => {
     if (!selectedRow) return;
@@ -348,6 +357,13 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }, [selectedRow]);
+
+  const handleCopyField = useCallback(async (key: string, value: unknown) => {
+    const text = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+    await navigator.clipboard.writeText(text);
+    setCopiedField(key);
+    setTimeout(() => setCopiedField(null), 1500);
+  }, []);
 
   if (!selectedRow) return null;
 
@@ -375,7 +391,7 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
                     <div className="text-xs font-medium truncate">{key}</div>
                     <span className="text-xs uppercase text-muted-foreground/50 tracking-wider">{typeLabel}</span>
                   </div>
-                  <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug">
+                  <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug group/field">
                     {value === null ? (
                       <span className="text-muted-foreground italic">null</span>
                     ) : typeof value === 'object' ? (
@@ -385,6 +401,18 @@ function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown
                     ) : (
                       <span className="text-foreground/90">{String(value)}</span>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleCopyField(key, value)}
+                      className="inline-flex items-center justify-center size-5 rounded opacity-0 group-hover/field:opacity-100 transition-opacity ml-1 align-middle hover:bg-muted-foreground/20"
+                      title="Copy value"
+                    >
+                      {copiedField === key ? (
+                        <Check className="size-3 text-primary" />
+                      ) : (
+                        <Copy className="size-3 text-muted-foreground" />
+                      )}
+                    </button>
                   </div>
                 </div>
               );
