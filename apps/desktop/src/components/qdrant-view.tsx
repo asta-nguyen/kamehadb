@@ -20,6 +20,12 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
   const [pageSize, setPageSize] = useState(10);
   const [pageInput, setPageInput] = useState('');
   const [jumping, setJumping] = useState(false);
+  // Bump to remount the filter builder and drop its internal rows/json state.
+  const [filterBuilderKey, setFilterBuilderKey] = useState(0);
+
+  // Qdrant scroll uses opaque cursor offsets, so a "jump" walks forward one page
+  // at a time. Cap the number of walks per Go-click to keep the sidecar safe.
+  const MAX_JUMP_PAGES = 50;
 
   const currentOffset = offsetStack[offsetStack.length - 1];
   const { data: stats } = useQdrantStats(connectionId, collection);
@@ -58,12 +64,13 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
   // Jump to an arbitrary page. Cached pages jump instantly; further pages are
   // reached by walking the scroll cursor forward (Qdrant has no random page access).
   const jumpToPage = async () => {
-    const target = parseInt(pageInput, 10);
-    if (!Number.isInteger(target) || target < 1) return;
-    if (target <= offsetStack.length) {
-      setOffsetStack((s) => s.slice(0, target));
+    const requested = parseInt(pageInput, 10);
+    if (!Number.isInteger(requested) || requested < 1) return;
+    if (requested <= offsetStack.length) {
+      setOffsetStack((s) => s.slice(0, requested));
       return;
     }
+    const target = Math.min(requested, offsetStack.length + MAX_JUMP_PAGES);
     setJumping(true);
     try {
       const stack = [...offsetStack];
@@ -140,7 +147,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
       </div>
 
       <div className="px-3 py-2 border-b border-border space-y-2">
-        <QdrantFilterBuilder onChange={setDraftFilter} fields={fields} />
+        <QdrantFilterBuilder key={filterBuilderKey} onChange={setDraftFilter} fields={fields} />
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={applyFilter}>
             Apply filter
@@ -151,6 +158,8 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
               size="sm"
               onClick={() => {
                 setAppliedFilter(undefined);
+                setDraftFilter(undefined);
+                setFilterBuilderKey((k) => k + 1);
                 resetPaging();
               }}
             >

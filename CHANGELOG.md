@@ -44,6 +44,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Qdrant vector map picked an arbitrary named vector** — `toNumericVector` now accepts an explicit `vectorName` and looks up the embedding by that key, with a single-key fallback when the name is omitted. Previously it always used `Object.values(vector)[0]`, which ran PCA on the wrong embedding for collections with multiple named vectors. ([@asta-nguyen])
 - **Qdrant filter builder accepted non-numeric range values** — range operators (`gt`/`gte`/`lt`/`lte`) now skip rows whose value is not a finite number instead of sending `NaN` to Qdrant. The combined filter is dropped when no valid conditions remain, matching the existing empty-state behavior. ([@asta-nguyen])
 - **Stale Qdrant stats after editing a connection** — the stats cache key now includes the connection profile's `updatedAt`, so updating host/port or any other connection field correctly evicts the previous result instead of returning stats from the old endpoint. ([@asta-nguyen])
+- **Unbounded Qdrant page jumps hammered the sidecar** — the "Go" page input is now capped at 50 pages per click; the cursor walk is clamped to `offsetStack.length + 50`, so the previous input (e.g. 10000) no longer triggers thousands of serial `scrollPoints` calls. ([@asta-nguyen])
+- **Clear button left the Qdrant filter builder's draft state intact** — clearing an applied filter now also resets the builder (via a remount) and the parent's draft filter, so a stale draft cannot be re-applied with a single click. ([@asta-nguyen])
 
 ### Contributors
 
