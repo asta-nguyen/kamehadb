@@ -164,4 +164,33 @@ export const api = {
   // MongoDB command
   runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
     request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }, true),
+
+  // Qdrant API
+  listQdrantCollections: (connectionId: string) =>
+    request<import('@kamehadb/shared').QdrantCollection[]>(
+      'GET',
+      `/qdrant/${connectionId}/collections`,
+      undefined,
+      true,
+    ),
+
+  scrollQdrantPoints: (connectionId: string, input: import('@kamehadb/shared').ScrollPointsInput) =>
+    request<import('@kamehadb/shared').QdrantPointPage>('POST', `/qdrant/${connectionId}/points`, input, true),
+
+  searchQdrant: (connectionId: string, input: import('@kamehadb/shared').QdrantSearchInput) =>
+    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/search`, input, true),
+
+  recommendQdrant: (connectionId: string, input: import('@kamehadb/shared').RecommendInput) =>
+    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/recommend`, input, true),
+
+  getQdrantStats: (connectionId: string, collection: string) =>
+    request<import('@kamehadb/shared').QdrantStats>(
+      'GET',
+      `/qdrant/${connectionId}/stats?collection=${encodeURIComponent(collection)}`,
+      undefined,
+      true,
+    ),
+
+  embedText: (text: string, model?: string) =>
+    request<{ vector: number[]; dimensions: number }>('POST', `/ai/embed`, { text, model }),
 };

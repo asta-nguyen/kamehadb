@@ -111,3 +111,36 @@ export function createProvider(provider: AIProvider, config: AIProviderConfig): 
   const resolved = resolveProviderConfig(provider, config);
   return new OpenAICompatibleProvider(resolved);
 }
+
+// Embed text into a vector using the provider's OpenAI-compatible /embeddings endpoint.
+// `model` overrides the provider's chat model, since embedding models differ (e.g. text-embedding-3-small).
+export async function createEmbedding(
+  provider: AIProvider,
+  config: AIProviderConfig,
+  text: string,
+  model?: string,
+  signal?: AbortSignal,
+): Promise<number[]> {
+  const resolved = resolveProviderConfig(provider, config);
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (resolved.apiKey) headers['Authorization'] = `Bearer ${resolved.apiKey}`;
+
+  const res = await fetch(`${resolved.baseUrl}/embeddings`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model: model?.trim() || resolved.model, input: text }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Embedding API error (${res.status}): ${errBody || res.statusText}`);
+  }
+
+  const body = (await res.json()) as { data?: { embedding: number[] }[] };
+  const vector = body.data?.[0]?.embedding;
+  if (!vector || !Array.isArray(vector)) {
+    throw new Error('Embedding response did not contain a vector');
+  }
+  return vector;
+}

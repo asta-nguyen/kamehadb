@@ -1,7 +1,9 @@
 import { MongoView } from '@/components/mongo-view';
 import { RedisView } from '@/components/redis-view';
+import { QdrantView } from '@/components/qdrant-view';
 import { MongoQuery } from '@/components/mongo-query';
 import { RedisQuery } from '@/components/redis-query';
+import { QdrantQuery } from '@/components/qdrant-query';
 import { SchemaGraph } from '@/components/schema-graph';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
@@ -32,17 +34,24 @@ import {
   Activity,
   BarChart3,
   Box,
+  Boxes,
   Database,
   Monitor,
   Moon,
   Plus,
+  Search,
   Share2,
   Sun,
   Table2,
   Terminal,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
+
+const QdrantVectorMap = lazy(() =>
+  import('@/components/qdrant-vector-map').then((m) => ({ default: m.QdrantVectorMap })),
+);
+const QdrantStatsPanel = lazy(() => import('@/components/qdrant-stats').then((m) => ({ default: m.QdrantStatsPanel })));
 
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -83,6 +92,14 @@ function TabBar() {
               <Database className="size-3" />
             ) : tab.type === 'redis' ? (
               <Box className="size-3" />
+            ) : tab.type === 'qdrant' ? (
+              <Boxes className="size-3" />
+            ) : tab.type === 'qdrant-search' ? (
+              <Search className="size-3" />
+            ) : tab.type === 'qdrant-graph' ? (
+              <Share2 className="size-3" />
+            ) : tab.type === 'qdrant-stats' ? (
+              <BarChart3 className="size-3" />
             ) : tab.type === 'stats' || tab.type === 'database-stats' ? (
               <BarChart3 className="size-3" />
             ) : tab.type === 'table-stats' ? (
@@ -126,7 +143,10 @@ function TabBar() {
             >
               <Database className="size-3.5" />
             </button>
-          ) : activeConnection ? (
+          ) : activeConnection &&
+            (activeConnection.kind === 'postgres' ||
+              activeConnection.kind === 'mysql' ||
+              activeConnection.kind === 'sqlite') ? (
             <>
               <button
                 className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
@@ -180,7 +200,7 @@ function Workspace() {
   const visibleTabs = openedTabs;
 
   if (visibleTabs.length === 0) {
-    if (activeConnection?.kind === 'mongodb') {
+    if (activeConnection?.kind === 'mongodb' || activeConnection?.kind === 'qdrant') {
       return (
         <div className="h-full flex items-center justify-center">
           <div className="text-center">
@@ -246,6 +266,24 @@ function Workspace() {
       {activeTab.type === 'mongo-query' && <MongoQuery tab={activeTab} connectionId={activeTab.connectionId} />}
       {activeTab.type === 'redis' && <RedisView connectionId={activeTab.connectionId} />}
       {activeTab.type === 'redis-query' && <RedisQuery tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'qdrant' && (
+        <QdrantView connectionId={activeTab.connectionId} collection={activeTab.collection} />
+      )}
+      {activeTab.type === 'qdrant-search' && <QdrantQuery tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'qdrant-graph' && (
+        <Suspense
+          fallback={
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading map…</div>
+          }
+        >
+          <QdrantVectorMap connectionId={activeTab.connectionId} collection={activeTab.collection} />
+        </Suspense>
+      )}
+      {activeTab.type === 'qdrant-stats' && (
+        <Suspense>
+          <QdrantStatsPanel connectionId={activeTab.connectionId} collection={activeTab.collection} />
+        </Suspense>
+      )}
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
