@@ -10,6 +10,11 @@ All notable changes to KamehaDB will be documented in this file.
 - AI schema context now uses Qdrant vector search to retrieve only relevant table DDLs instead of injecting the full schema into the system prompt. The sidecar embeds each table's DDL into Qdrant on first use and searches by query similarity on each chat. Adds a new `QdrantSchemaStore` (`apps/sidecar/src/ai/qdrant-store.ts`) that handles collection creation, embedding upsert, and similarity search. If Qdrant is unreachable the sidecar falls back to the previous "send full DDL" path so chat still works, but schema retrieval will be slower and less precise.
 - AI chat system prompt now instructs the assistant to use case-insensitive substring matching on user-supplied terms, splitting on non-alphanumeric characters and ORing unanchored and prefix-anchored variants so the assistant handles punctuation, case, codes vs. names ("germany" ↔ "DE"), plurals, and synonyms correctly across PostgreSQL, MySQL, SQLite, MongoDB, and Redis. Prevents the assistant from silently returning empty result sets when stored values differ from the user's phrasing.
 - AI chat now also passes canonical term expansions (countries, US states, currencies, languages, common abbreviations) as data the assistant must consume verbatim in its WHERE filters, so user terms like "who lives in germany" reliably match rows stored as `DE` and "users in CA" match either Canada or California. Implemented as `expandTerms` / `renderExpansionsForPrompt` in `@kamehadb/shared` and called from the sidecar's `buildSystemPrompt`.
+- Proactive Qdrant schema indexing at startup with enriched embedding text (column purpose, table purpose, DDL), hash-based incremental sync, and orphan cleanup. ([@opencode])
+- AI chat streaming via `@tanstack/ai` — server-side `POST /ai/chat` now streams SSE events; client uses `useChat()` for real-time response rendering with stop/cancel support. ([@opencode])
+- Server-side schema search for PostgreSQL, MySQL, and SQLite using ILIKE/LIKE queries. ([@opencode])
+- Client-side fuzzy table name filtering in the schema tree (`fuzzyMatch` in utils). ([@opencode])
+- Configurable row limit dropdown (10–500) in the table data view. ([@opencode])
 
 ## [v1.0.0] - 2026-06-01
 

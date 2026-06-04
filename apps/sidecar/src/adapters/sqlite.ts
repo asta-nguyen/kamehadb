@@ -16,6 +16,8 @@ import type {
   DatabaseSize,
   ConnectionInfo,
   TableCompletions,
+  SchemaSearchInput,
+  SchemaSearchMatch,
 } from '@kamehadb/shared';
 
 export function createSqliteAdapter(filePath: string): SqlAdapter {
@@ -44,6 +46,54 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
         id: r.name,
         name: r.name,
       }));
+    },
+
+    async searchSchema(input: SchemaSearchInput): Promise<SchemaSearchMatch[]> {
+      const term = `%${input.query}%`;
+      const limit = input.limit ?? 50;
+      const results: SchemaSearchMatch[] = [];
+
+      const tables = db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name LIKE ? ORDER BY name LIMIT ?`,
+        )
+        .all(term, limit) as { name: string }[];
+
+      for (const t of tables) {
+        results.push({ schema: 'main', table: t.name, matchType: 'table' });
+      }
+
+      if (results.length < limit) {
+        const allTables = db
+          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+          .all() as { name: string }[];
+
+        const colLimit = limit - results.length;
+        let colCount = 0;
+
+        for (const tbl of allTables) {
+          if (colCount >= colLimit) break;
+          const cols = db.prepare('SELECT * FROM pragma_table_info(?)').all(tbl.name) as {
+            name: string;
+            type: string;
+          }[];
+          for (const col of cols) {
+            if (col.name.toLowerCase().includes(input.query.toLowerCase())) {
+              results.push({
+                schema: 'main',
+                table: tbl.name,
+                column: col.name,
+                columnType: col.type || undefined,
+                matchType: 'column',
+              });
+              colCount++;
+              if (colCount >= colLimit) break;
+            }
+          }
+        }
+      }
+
+      return results;
     },
 
     async getTableColumns(tableId: string): Promise<ColumnInfo[]> {

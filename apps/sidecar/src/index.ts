@@ -9,6 +9,7 @@ import { sqlRouter } from './routes/sql.js';
 import { mongoRouter } from './routes/mongo.js';
 import { redisRouter } from './routes/redis.js';
 import { aiRouter } from './routes/ai.js';
+import { indexAllConnections } from './ai/indexer.js';
 
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
 
@@ -61,6 +62,9 @@ async function start() {
   log.info({ port: listeningPort }, 'Sidecar listening on 127.0.0.1');
 
   console.log(`KAMEHADB_SIDECAR_PORT=${listeningPort}`);
+
+  // Proactively index schemas for all SQL connections in the background
+  indexAllConnections().catch((err) => log.error(err, 'Schema indexing failed'));
 }
 
 // Graceful shutdown

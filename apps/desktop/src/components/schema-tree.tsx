@@ -1,18 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useSchemas, useTables, useTableColumns } from '@/hooks/use-schema';
+import { fuzzyMatch } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2, Search } from 'lucide-react';
-
-function fuzzyMatch(query: string, target: string): boolean {
-  const q = query.toLowerCase();
-  const t = target.toLowerCase();
-  let qi = 0;
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) qi++;
-  }
-  return qi === q.length;
-}
 
 function SchemaItem({
   connectionId,

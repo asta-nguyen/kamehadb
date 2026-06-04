@@ -11,7 +11,7 @@ export function useColumnResize(columnCount: number, defaultWidth = 120) {
       const th = (e.currentTarget as HTMLElement).closest('th') as HTMLElement;
       if (!th) return;
       const startX = e.clientX;
-      const startW = parseFloat(th.style.width) || defaultWidth;
+      const startW = th.getBoundingClientRect().width;
       refs.current = { idx: index, startX, startW, th, moved: false };
 
       const onMove = (me: MouseEvent) => {
@@ -27,7 +27,7 @@ export function useColumnResize(columnCount: number, defaultWidth = 120) {
           if (refs.current.moved) {
             const finalW = Math.max(40, parseFloat(refs.current.th.style.width) || defaultWidth);
             const i = refs.current.idx;
-            setWidths((prev) => {
+            setWidths((prev: number[]) => {
               const next = [...prev];
               next[i] = finalW;
               return next;
@@ -56,6 +56,6 @@ export function useColumnResize(columnCount: number, defaultWidth = 120) {
     [defaultWidth],
   );
 
-  const totalWidth = widths.reduce((sum, w) => sum + w, 0);
+  const totalWidth = widths.reduce((sum: number, w: number) => sum + w, 0);
   return { widths, totalWidth, onMouseDown, setWidths };
 }

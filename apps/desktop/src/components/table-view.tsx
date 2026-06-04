@@ -36,8 +36,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-const PAGE_SIZE = 50;
-
 type TableViewProps = {
   connectionId: string;
   tableId: string;
@@ -45,6 +43,7 @@ type TableViewProps = {
 
 function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: string }) {
   const [offset, setOffset] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
   const [searchText, setSearchText] = useState('');
   const [querySearch, setQuerySearch] = useState('');
@@ -83,13 +82,13 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   const { data: result, isLoading } = usePreviewRows(connectionId, {
     tableId,
     offset,
-    limit: PAGE_SIZE,
+    limit: pageSize,
     search: querySearch || undefined,
     sortColumn: sortColumn || undefined,
     sortDirection: sortColumn ? sortDirection : undefined,
   });
 
-  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const page = Math.floor(offset / pageSize) + 1;
   const displayColumns = result?.columns ?? columns ?? [];
   const { widths: colWidths, totalWidth, onMouseDown: onColResize } = useColumnResize(displayColumns.length, 120);
   const tableMinWidth = 32 + totalWidth;
@@ -249,7 +248,27 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           </tbody>
         </table>
         {result && (
-          <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3">
+          <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v));
+                  setOffset(0);
+                }}
+              >
+                <SelectTrigger className="h-7 w-16 text-xs gap-1 px-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 25, 50, 100, 200, 500].map((n) => (
+                    <SelectItem key={n} value={String(n)} className="text-xs">
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <span>{result.rowCount} rows</span>
             <span className="ml-auto">{result.durationMs}ms</span>
             <div className="flex items-center gap-2">
@@ -261,7 +280,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   value={page}
                   onChange={(e) => {
                     const p = parseInt(e.target.value, 10);
-                    if (!isNaN(p) && p >= 1) setOffset((p - 1) * PAGE_SIZE);
+                    if (!isNaN(p) && p >= 1) setOffset((p - 1) * pageSize);
                   }}
                   className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
@@ -271,7 +290,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   variant="ghost"
                   size="icon-sm"
                   disabled={offset === 0}
-                  onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+                  onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
                 >
                   <ChevronLeft className="size-3.5" />
                 </Button>
@@ -279,7 +298,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   variant="ghost"
                   size="icon-sm"
                   disabled={!result.truncated}
-                  onClick={() => setOffset((o) => o + PAGE_SIZE)}
+                  onClick={() => setOffset((o) => o + pageSize)}
                 >
                   <ChevronRight className="size-3.5" />
                 </Button>
