@@ -200,9 +200,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
                   </td>
                   <td className="px-3 py-1.5">
                     <button
-                      onClick={() =>
-                        openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: String(p.id) })
-                      }
+                      onClick={() => openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: p.id })}
                       className="p-1 rounded hover:bg-primary/10 text-muted-foreground/60 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
                       title="Find similar points"
                     >

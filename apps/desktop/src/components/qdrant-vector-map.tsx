@@ -232,7 +232,7 @@ export function QdrantVectorMap({ connectionId, collection, vectorName }: Qdrant
       const hit = raycaster.intersectObject(cloud)[0];
       if (hit && hit.index != null) {
         const p = pointsRef.current[hit.index];
-        if (p) openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: String(p.id) });
+        if (p) openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: p.id });
       }
     };
     renderer.domElement.addEventListener('pointermove', onPointerMove);

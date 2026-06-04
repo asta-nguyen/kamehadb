@@ -41,7 +41,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
   const [mode, setMode] = useState<Mode>(tab.mode ?? (tab.pointId ? 'similar' : 'text'));
 
   const [text, setText] = useState('');
-  const [pointId, setPointId] = useState(tab.pointId ?? '');
+  const [pointId, setPointId] = useState(tab.pointId?.toString() ?? '');
   const [vectorText, setVectorText] = useState('');
   const [filter, setFilter] = useState<Record<string, unknown> | undefined>(undefined);
   const [limit, setLimit] = useState(10);

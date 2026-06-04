@@ -146,7 +146,7 @@ export function openQdrantTab(connectionId: string, collection: string) {
 export function openQdrantSearchTab(
   connectionId: string,
   collection?: string,
-  opts?: { mode?: 'text' | 'similar' | 'raw'; pointId?: string },
+  opts?: { mode?: 'text' | 'similar' | 'raw'; pointId?: string | number },
 ) {
   const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'qdrant-search').length;
   const tab: WorkspaceTab = {

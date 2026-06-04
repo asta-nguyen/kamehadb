@@ -409,15 +409,17 @@ export type RecommendInput = {
   filter?: Record<string, unknown>;
   withPayload?: boolean;
   withVector?: boolean;
+  using?: string;
 };
 
 export type QdrantSearchInput = {
   collection: string;
-  vector: number[];
+  vector: number[] | Record<string, number[]>;
   limit?: number;
   filter?: Record<string, unknown>;
   withPayload?: boolean;
   withVector?: boolean;
+  using?: string;
 };
 
 export type QdrantSearchHit = {
@@ -547,7 +549,7 @@ export type WorkspaceTab =
       connectionId: string;
       collection?: string;
       mode?: 'text' | 'similar' | 'raw';
-      pointId?: string;
+      pointId?: string | number;
     }
   | { id: string; type: 'qdrant-graph'; title: string; connectionId: string; collection: string }
   | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }

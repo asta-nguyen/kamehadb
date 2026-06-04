@@ -316,6 +316,16 @@ aiRouter.post(
       const settings = metadataStore.getAISettings();
       const providerName: AIProvider = body.provider ?? settings.activeProvider;
       const providerConfig = settings.providers[providerName];
+      if (!providerConfig) {
+        return c.json({ error: 'AI_CONFIG_ERROR', message: `Provider "${providerName}" has no configuration.` }, 400);
+      }
+      if (!providerConfig.enabled) {
+        return c.json({ error: 'AI_CONFIG_ERROR', message: `Provider "${providerName}" is not enabled.` }, 400);
+      }
+      const validationError = validateProviderConfig(providerName, providerConfig);
+      if (validationError) {
+        return c.json({ error: 'AI_CONFIG_ERROR', message: validationError }, 400);
+      }
       const vector = await createEmbedding(body.text, providerName, providerConfig, body.model);
       return c.json({ vector, dimensions: vector.length });
     } catch (err) {
