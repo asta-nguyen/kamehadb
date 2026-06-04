@@ -40,7 +40,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **SQL editor ignored read-only setting** — duplicate client-side safety check in `useRunQuery` used a stale cache and shadowed the server enforcement. Redundant check removed; server remains the single source of truth. ([@asta-nguyen])
 - **Stale Qdrant filter on invalid JSON** — the filter builder's "Advanced JSON" mode now clears the parent filter as soon as parsing fails, instead of leaving the previously valid filter in place while the UI shows an error. ([@asta-nguyen])
 - **Stale Qdrant query results on context change** — switching the collection or search mode now clears the previous result table and status messages so old hits are not shown for the new context. ([@asta-nguyen])
+- **Qdrant collection load failures shown as "No matches"** — the explorer now checks `useQdrantCollections`'s error state and renders an explicit error message when the connection fails, instead of falling through to the empty-state branch. ([@asta-nguyen])
 - **Qdrant vector map picked an arbitrary named vector** — `toNumericVector` now accepts an explicit `vectorName` and looks up the embedding by that key, with a single-key fallback when the name is omitted. Previously it always used `Object.values(vector)[0]`, which ran PCA on the wrong embedding for collections with multiple named vectors. ([@asta-nguyen])
+- **Qdrant filter builder accepted non-numeric range values** — range operators (`gt`/`gte`/`lt`/`lte`) now skip rows whose value is not a finite number instead of sending `NaN` to Qdrant. The combined filter is dropped when no valid conditions remain, matching the existing empty-state behavior. ([@asta-nguyen])
+- **Stale Qdrant stats after editing a connection** — the stats cache key now includes the connection profile's `updatedAt`, so updating host/port or any other connection field correctly evicts the previous result instead of returning stats from the old endpoint. ([@asta-nguyen])
 
 ### Contributors
 

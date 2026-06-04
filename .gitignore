@@ -50,3 +50,4 @@ dist/
 # CodeDB (local index - never commit)
 codedb.snapshot
 .codegraph/
+.pnpm-store
