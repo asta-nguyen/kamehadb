@@ -1,7 +1,22 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
-export function useColumnResize(columnCount: number, defaultWidth = 120) {
+type UseColumnResizeReturn = {
+  widths: number[];
+  totalWidth: number;
+  onMouseDown: (index: number, e: React.MouseEvent) => void;
+  setWidths: React.Dispatch<React.SetStateAction<number[]>>;
+};
+
+export function useColumnResize(columnCount: number, defaultWidth = 120): UseColumnResizeReturn {
   const [widths, setWidths] = useState<number[]>(() => Array(columnCount).fill(defaultWidth));
+  // Reconcile widths when columnCount changes: trim if smaller, fill new indices with defaultWidth.
+  useEffect(() => {
+    setWidths((prev) => {
+      if (prev.length === columnCount) return prev;
+      if (prev.length > columnCount) return prev.slice(0, columnCount);
+      return [...prev, ...Array(columnCount - prev.length).fill(defaultWidth)];
+    });
+  }, [columnCount, defaultWidth]);
   const refs = useRef<{ idx: number; startX: number; startW: number; th: HTMLElement; moved: boolean } | null>(null);
 
   const onMouseDown = useCallback(

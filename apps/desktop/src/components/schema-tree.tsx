@@ -23,8 +23,9 @@ function SchemaItem({
 
   const filteredTables = useMemo(() => {
     if (!tables) return [];
-    if (!searchQuery.trim()) return tables;
-    return tables.filter((t) => fuzzyMatch(searchQuery, t.name));
+    const q = searchQuery.trim();
+    if (!q) return tables;
+    return tables.filter((t) => fuzzyMatch(q, t.name));
   }, [tables, searchQuery]);
 
   return (
