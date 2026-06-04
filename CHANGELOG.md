@@ -10,11 +10,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - v1.2 Adding MCP server
-- Landing changelog page now resolves release data from the repository root `CHANGELOG.md` in both root and `landing/` build contexts.
-
-### Fixed
-
-- Landing changelog timeline now preserves markdown section hierarchy from `CHANGELOG.md`, including nested `####` groups and releases without explicit `###` categories.
 
 ---
 
@@ -49,6 +44,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Landing changelog page now resolves release data from the repository root `CHANGELOG.md` in both root and `landing/` build contexts.
 - **SQL editor ignored read-only setting** — duplicate client-side safety check in `useRunQuery` used a stale cache and shadowed the server enforcement. Redundant check removed; server remains the single source of truth. ([@asta-nguyen])
 - **Stale Qdrant filter on invalid JSON** — the filter builder's "Advanced JSON" mode now clears the parent filter as soon as parsing fails, instead of leaving the previously valid filter in place while the UI shows an error. ([@asta-nguyen])
 - **Stale Qdrant query results on context change** — switching the collection or search mode now clears the previous result table and status messages so old hits are not shown for the new context. ([@asta-nguyen])

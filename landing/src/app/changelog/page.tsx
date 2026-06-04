@@ -124,10 +124,10 @@ function parseChangelog(content: string): Release[] {
         flushDescription();
         ensureSection('Highlights');
       }
-      if (!currentGroup) {
-        ensureGroup(null);
+      const group = currentGroup ?? ensureGroup(null);
+      if (group) {
+        group.items.push(itemMatch[1]);
       }
-      currentGroup?.items.push(itemMatch[1]);
       continue;
     }
 
@@ -140,10 +140,11 @@ function parseChangelog(content: string): Release[] {
       continue;
     }
 
-    if (currentGroup) {
-      const lastIndex = currentGroup.items.length - 1;
+    const group = currentGroup;
+    if (group) {
+      const lastIndex = group.items.length - 1;
       if (lastIndex >= 0) {
-        currentGroup.items[lastIndex] = `${currentGroup.items[lastIndex]} ${trimmed}`.trim();
+        group.items[lastIndex] = `${group.items[lastIndex]} ${trimmed}`.trim();
       }
     }
   }
