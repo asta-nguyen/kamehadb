@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useSchemas, useTables, useTableColumns } from '@/hooks/use-schema';
+import { fuzzyMatch } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2, Search } from 'lucide-react';
 
 function SchemaItem({
   connectionId,
@@ -18,6 +19,14 @@ function SchemaItem({
   onSelectTable: (tableId: string) => void;
 }) {
   const { data: tables, isLoading } = useTables(connectionId, schema);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredTables = useMemo(() => {
+    if (!tables) return [];
+    const q = searchQuery.trim();
+    if (!q) return tables;
+    return tables.filter((t) => fuzzyMatch(q, t.name));
+  }, [tables, searchQuery]);
 
   return (
     <div className="select-none">
@@ -37,18 +46,34 @@ function SchemaItem({
         )}
       </button>
       {expanded && (
-        <div className="mt-0.5 ml-3 pl-2 border-l border-border/60 space-y-0.5">
-          {isLoading ? (
-            <div className="flex justify-center py-2">
-              <Loader2 className="size-3 animate-spin text-muted-foreground/60" />
+        <div className="mt-0.5 ml-3 pl-2 border-l border-border/60">
+          <div className="px-2 py-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter..."
+                className="w-full h-6 pl-6 pr-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
             </div>
-          ) : tables?.length === 0 ? (
-            <p className="text-xs text-muted-foreground/60 pl-2">No tables</p>
-          ) : (
-            tables?.map((table) => (
-              <TableItem key={table.id} connectionId={connectionId} table={table} onSelect={onSelectTable} />
-            ))
-          )}
+          </div>
+          <div className="space-y-0.5">
+            {isLoading ? (
+              <div className="flex justify-center py-2">
+                <Loader2 className="size-3 animate-spin text-muted-foreground/60" />
+              </div>
+            ) : filteredTables.length === 0 ? (
+              <p className="text-xs text-muted-foreground/60 pl-2 py-1 italic">
+                {tables?.length === 0 ? 'No tables' : 'No matches'}
+              </p>
+            ) : (
+              filteredTables.map((table) => (
+                <TableItem key={table.id} connectionId={connectionId} table={table} onSelect={onSelectTable} />
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -145,7 +170,7 @@ export function SchemaTree({
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0 p-1.5">
-      {schemas?.map((schema) => (
+      {schemas.map((schema) => (
         <SchemaItem
           key={schema.name}
           connectionId={connectionId}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
@@ -12,8 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
-import { Loader2, Plug, Plus, Database, File, Server, Box, Leaf, Check, FolderOpen } from 'lucide-react';
+import { Loader2, Plug, Plus, Database, File, Server, Box, Boxes, Leaf, Check, FolderOpen } from 'lucide-react';
 
 const KIND_ICONS: Record<DbKind, typeof Database> = {
   postgres: Database,
@@ -21,6 +22,7 @@ const KIND_ICONS: Record<DbKind, typeof Database> = {
   mysql: Server,
   redis: Box,
   mongodb: Leaf,
+  qdrant: Boxes,
 };
 
 const KIND_LABELS: Record<DbKind, string> = {
@@ -29,6 +31,7 @@ const KIND_LABELS: Record<DbKind, string> = {
   mysql: 'MySQL',
   redis: 'Redis',
   mongodb: 'MongoDB',
+  qdrant: 'Qdrant',
 };
 
 const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; ring: string }> = {
@@ -62,9 +65,15 @@ const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; r
     icon: 'text-accent-foreground',
     ring: 'data-[selected=true]:ring-accent/20',
   },
+  qdrant: {
+    border: 'hover:border-primary/50',
+    bg: 'data-[selected=true]:bg-primary/10',
+    icon: 'text-primary',
+    ring: 'data-[selected=true]:ring-primary/20',
+  },
 };
 
-const KINDS: DbKind[] = ['postgres', 'mysql', 'sqlite', 'redis', 'mongodb'];
+const KINDS: DbKind[] = ['postgres', 'mysql', 'sqlite', 'redis', 'mongodb', 'qdrant'];
 
 const DEFAULT_PORTS: Record<DbKind, number> = {
   postgres: 5432,
@@ -72,6 +81,7 @@ const DEFAULT_PORTS: Record<DbKind, number> = {
   sqlite: 0,
   redis: 6379,
   mongodb: 0,
+  qdrant: 6333,
 };
 
 // Preset colors for connection badges
@@ -96,6 +106,7 @@ function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> 
     else if (protocol === 'mysql') kind = 'mysql';
     else if (protocol === 'redis' || protocol === 'rediss') kind = 'redis';
     else if (protocol === 'sqlite') kind = 'sqlite';
+    else if (protocol === 'qdrant') kind = 'qdrant';
 
     if (!kind) return null;
 
@@ -150,6 +161,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       ssl: editConnection?.ssl ?? false,
       color: editConnection?.color ?? undefined,
       connectionString: editConnection?.connectionString ?? undefined,
+      readonly: editConnection?.readonly ?? true,
     },
   });
 
@@ -278,7 +290,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
             {/* Database Type */}
             <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Database Type</Label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {KINDS.map((dbKind) => {
                   const Icon = KIND_ICONS[dbKind];
                   const selected = kind === dbKind;
@@ -296,6 +308,14 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                           form.setValue('database', undefined);
                           form.setValue('username', undefined);
                           form.setValue('password', undefined);
+                        } else if (dbKind === 'qdrant') {
+                          // URL-only: host + port, no auth/database fields
+                          form.setValue('filePath', undefined);
+                          form.setValue('database', undefined);
+                          form.setValue('username', undefined);
+                          form.setValue('password', undefined);
+                          if (!form.getValues('host')) form.setValue('host', 'localhost');
+                          form.setValue('port', DEFAULT_PORTS[dbKind]);
                         } else {
                           form.setValue('filePath', undefined);
                           if (!form.getValues('host')) form.setValue('host', 'localhost');
@@ -357,6 +377,29 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                     </button>
                   );
                 })}
+                <label
+                  className={`
+                    relative w-7 h-7 rounded-full cursor-pointer transition-all duration-200
+                    hover:scale-110 active:scale-95 border border-dashed border-border
+                    ${selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? 'ring-2 ring-offset-2 ring-offset-background' : ''}
+                  `}
+                  style={{ ['--tw-ring-color' as string]: selectedColor ?? '' }}
+                  title="Custom color"
+                >
+                  <input
+                    type="color"
+                    value={
+                      selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? selectedColor : '#3b82f6'
+                    }
+                    onChange={(e) => form.setValue('color', e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? (
+                    <span className="absolute inset-0 rounded-full" style={{ backgroundColor: selectedColor }} />
+                  ) : (
+                    <Plus className="absolute inset-0 m-auto size-3.5 text-muted-foreground" strokeWidth={2} />
+                  )}
+                </label>
                 {selectedColor && (
                   <button
                     type="button"
@@ -368,6 +411,25 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                 )}
               </div>
             </div>
+
+            {/* Read-only Toggle */}
+            <Controller
+              control={form.control}
+              name="readonly"
+              render={({ field }) => (
+                <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 p-3">
+                  <div className="space-y-0.5 pr-4">
+                    <Label htmlFor="readonly" className="text-sm font-medium">
+                      Read-only
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Block CREATE, INSERT, UPDATE, DELETE, DROP and other write statements.
+                    </p>
+                  </div>
+                  <Switch id="readonly" checked={field.value ?? true} onCheckedChange={field.onChange} />
+                </div>
+              )}
+            />
 
             {/* Connection Details Section */}
             <div className="space-y-3">
@@ -470,46 +532,50 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                       />
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="database"
-                      className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                    >
-                      Database
-                    </Label>
-                    <Input id="database" {...form.register('database')} placeholder="mydb" className="h-9" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="username"
-                        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                      >
-                        Username
-                      </Label>
-                      <Input
-                        id="username"
-                        {...form.register('username')}
-                        placeholder={kind === 'postgres' ? 'postgres' : 'root'}
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="password"
-                        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                      >
-                        Password {kind === 'postgres' && <span className="text-destructive">*</span>}
-                      </Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        onChange={(e) => form.setValue('password', e.target.value)}
-                        placeholder={isEditing ? '(unchanged)' : ''}
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
+                  {kind !== 'qdrant' && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="database"
+                          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                        >
+                          Database
+                        </Label>
+                        <Input id="database" {...form.register('database')} placeholder="mydb" className="h-9" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor="username"
+                            className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                          >
+                            Username
+                          </Label>
+                          <Input
+                            id="username"
+                            {...form.register('username')}
+                            placeholder={kind === 'postgres' ? 'postgres' : 'root'}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label
+                            htmlFor="password"
+                            className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                          >
+                            Password {kind === 'postgres' && <span className="text-destructive">*</span>}
+                          </Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            onChange={(e) => form.setValue('password', e.target.value)}
+                            placeholder={isEditing ? '(unchanged)' : ''}
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>

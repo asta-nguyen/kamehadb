@@ -12,6 +12,8 @@ import type {
   RunQueryInput,
   QueryColumn,
   TableCompletions,
+  SchemaSearchInput,
+  SchemaSearchMatch,
 } from '@kamehadb/shared';
 
 export type IndexStats = {
@@ -169,6 +171,41 @@ export function createPostgresAdapter(connection: {
         id: r.id as string,
         name: r.name as string,
         schema: r.schema as string,
+      }));
+    },
+
+    async searchSchema(input: SchemaSearchInput): Promise<SchemaSearchMatch[]> {
+      const schema = input.schema ?? 'public';
+      const term = `%${input.query}%`;
+      const limit = input.limit ?? 50;
+
+      const sql = `SELECT
+        t.table_schema,
+        t.table_name,
+        NULL AS column_name,
+        NULL AS column_type,
+        'table' AS match_type
+      FROM information_schema.tables t
+      WHERE t.table_schema = $1 AND t.table_type = 'BASE TABLE' AND t.table_name ILIKE $2
+      UNION ALL
+      SELECT
+        c.table_schema,
+        c.table_name,
+        c.column_name,
+        c.data_type,
+        'column'
+      FROM information_schema.columns c
+      WHERE c.table_schema = $1 AND c.column_name ILIKE $2
+      ORDER BY match_type, table_name, column_name
+      LIMIT $3`;
+
+      const result = await query(sql, [schema, term, limit]);
+      return result.rows.map((r: Record<string, unknown>) => ({
+        schema: r.table_schema as string,
+        table: r.table_name as string,
+        column: (r.column_name as string) || undefined,
+        columnType: (r.column_type as string) || undefined,
+        matchType: r.match_type as 'table' | 'column',
       }));
     },
 

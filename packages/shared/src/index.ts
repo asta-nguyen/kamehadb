@@ -1,13 +1,16 @@
 import { z } from 'zod';
 
+export { expandTerms, renderExpansionsForPrompt } from './term-expansion.js';
+export type { TermExpansion } from './term-expansion.js';
+
 // Database kind
-export type DbKind = 'postgres' | 'sqlite' | 'mysql' | 'redis' | 'mongodb';
+export type DbKind = 'postgres' | 'sqlite' | 'mysql' | 'redis' | 'mongodb' | 'qdrant';
 
 // Connection profile (without secret)
 export const ConnectionProfileSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb']),
+  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -25,7 +28,7 @@ export type ConnectionProfile = z.infer<typeof ConnectionProfileSchema>;
 // Connection profile input (for create/update, without id/timestamps)
 const BaseCreateSchema = z.object({
   name: z.string().min(1),
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb']),
+  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -130,6 +133,20 @@ export type IndexInfo = {
 };
 
 // API input types
+export type SchemaSearchMatch = {
+  schema: string;
+  table: string;
+  column?: string;
+  columnType?: string;
+  matchType: 'table' | 'column';
+};
+
+export type SchemaSearchInput = {
+  query: string;
+  schema?: string;
+  limit?: number;
+};
+
 export type PreviewRowsInput = {
   tableId: string;
   schema?: string;
@@ -164,6 +181,7 @@ export interface SqlAdapter {
   previewRows(input: PreviewRowsInput): Promise<QueryResult>;
   runQuery(input: RunQueryInput): Promise<QueryResult>;
   close(): Promise<void>;
+  searchSchema?(input: SchemaSearchInput): Promise<SchemaSearchMatch[]>;
   // Extended stats (PostgreSQL specific)
   getIndexStats?(tableId: string): Promise<IndexStats[]>;
   getTableStats?(tableId: string): Promise<TableStats>;
@@ -355,6 +373,89 @@ export interface MongoAdapter {
   close(): Promise<void>;
 }
 
+// Qdrant types
+export type QdrantCollection = {
+  name: string;
+  vectorSize?: number;
+  distance?: string;
+  pointsCount: number;
+  status?: string;
+};
+
+export type QdrantPoint = {
+  id: string | number;
+  payload?: Record<string, unknown>;
+  vector?: number[] | Record<string, number[]>;
+};
+
+export type QdrantPointPage = {
+  points: QdrantPoint[];
+  nextOffset: string | number | null;
+};
+
+export type ScrollPointsInput = {
+  collection: string;
+  limit?: number;
+  offset?: string | number | null;
+  filter?: Record<string, unknown>;
+  withPayload?: boolean;
+  withVector?: boolean;
+};
+
+export type RecommendInput = {
+  collection: string;
+  pointId: string | number;
+  limit?: number;
+  filter?: Record<string, unknown>;
+  withPayload?: boolean;
+  withVector?: boolean;
+  using?: string;
+};
+
+export type QdrantSearchInput = {
+  collection: string;
+  vector: number[] | Record<string, number[]>;
+  limit?: number;
+  filter?: Record<string, unknown>;
+  withPayload?: boolean;
+  withVector?: boolean;
+  using?: string;
+};
+
+export type QdrantSearchHit = {
+  id: string | number;
+  score: number;
+  payload?: Record<string, unknown>;
+  vector?: number[] | Record<string, number[]>;
+};
+
+export type QdrantSearchResult = {
+  hits: QdrantSearchHit[];
+  durationMs: number;
+};
+
+export type QdrantStats = {
+  name: string;
+  status: string;
+  pointsCount: number;
+  vectorsCount?: number;
+  indexedVectorsCount?: number;
+  segmentsCount?: number;
+  vectorSize?: number;
+  distance?: string;
+};
+
+// Qdrant adapter contract
+export interface QdrantAdapter {
+  testConnection(): Promise<TestConnectionResult>;
+  listCollections(): Promise<QdrantCollection[]>;
+  scrollPoints(input: ScrollPointsInput): Promise<QdrantPointPage>;
+  search(input: QdrantSearchInput): Promise<QdrantSearchResult>;
+  recommend(input: RecommendInput): Promise<QdrantSearchResult>;
+  getStats(collection: string): Promise<QdrantStats>;
+  close(): Promise<void>;
+}
+
 // AI types
 export type AIProvider = 'ollama-local' | 'ollama-cloud' | 'openai' | '9router';
 
@@ -434,6 +535,24 @@ export type WorkspaceTab =
       collection: string;
       pipeline?: string;
     }
+  | {
+      id: string;
+      type: 'qdrant';
+      title: string;
+      connectionId: string;
+      collection: string;
+    }
+  | {
+      id: string;
+      type: 'qdrant-search';
+      title: string;
+      connectionId: string;
+      collection?: string;
+      mode?: 'text' | 'similar' | 'raw';
+      pointId?: string | number;
+    }
+  | { id: string; type: 'qdrant-graph'; title: string; connectionId: string; collection: string }
+  | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string };
 
 export type AppView = 'workspace' | 'api-settings';
