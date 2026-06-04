@@ -12,6 +12,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - v1.2 Adding MCP server
 - Landing changelog page now resolves release data from the repository root `CHANGELOG.md` in both root and `landing/` build contexts.
 
+### Fixed
+
+- Landing changelog timeline now preserves markdown section hierarchy from `CHANGELOG.md`, including nested `####` groups and releases without explicit `###` categories.
+
 ---
 
 ## [v1.1.0] — 2026-06-04
