@@ -30,6 +30,7 @@ import {
   BarChart3,
   Search,
   Trash2,
+  FileText,
   RefreshCw,
 } from 'lucide-react';
 import { ConnectionDialog } from './connection-dialog';
@@ -49,6 +50,7 @@ import {
   openMongoQueryTab,
   openRedisTab,
   openRedisQueryTab,
+  openNewQueryTab,
   openQdrantSearchTab,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
@@ -133,19 +135,6 @@ function ConnectionItem({
           <span className="truncate font-medium text-foreground/90" title={conn.name}>
             {conn.name}
           </span>
-          <span
-            className={`text-xs px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${
-              conn.kind === 'postgres'
-                ? 'bg-primary/10 text-primary'
-                : conn.kind === 'redis'
-                  ? 'bg-destructive/10 text-destructive'
-                  : conn.kind === 'mongodb'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {conn.kind}
-          </span>
         </button>
         <span
           className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-background"
@@ -176,12 +165,24 @@ function ConnectionItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={4}>
             <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
+              <DropdownMenuItem
+                onClick={() => refreshConnection.mutate(conn.id)}
+                disabled={refreshConnection.isPending}
+              >
+                <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
+                Reload
+              </DropdownMenuItem>
               <Sparkles className="size-3.5 mr-2" />
               AI Chat
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
-              <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
-              Reload
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                openNewQueryTab(conn.id);
+              }}
+            >
+              <FileText className="size-3.5 mr-2" />
+              New Query
             </DropdownMenuItem>
             {conn.kind !== 'mongodb' && conn.kind !== 'redis' && conn.kind !== 'qdrant' && (
               <DropdownMenuItem
