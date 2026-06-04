@@ -4,7 +4,7 @@ import { zValidator } from '@hono/zod-validator';
 import { chat, toServerSentEventsResponse } from '@tanstack/ai';
 import { openaiCompatibleText } from '@tanstack/ai-openai/compatible';
 import * as metadataStore from '../db/metadata-store.js';
-import { resolveProviderConfig, validateProviderConfig } from '../ai/provider.js';
+import { resolveProviderConfig, validateProviderConfig, createEmbedding } from '../ai/provider.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
 import { searchRelevantSchema } from '../ai/qdrant-store.js';
 import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
@@ -295,6 +295,32 @@ aiRouter.post(
       const message = err instanceof Error ? err.message : 'AI chat failed';
       console.error('[AI] chat error:', message);
       return c.json({ error: 'AI_ERROR', message }, 500);
+    }
+  },
+);
+
+// POST /ai/embed — turn text into an embedding vector via the active (or named) provider
+aiRouter.post(
+  '/embed',
+  zValidator(
+    'json',
+    z.object({
+      text: z.string().min(1),
+      model: z.string().optional(),
+      provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']).optional(),
+    }),
+  ),
+  async (c) => {
+    const body = c.req.valid('json');
+    try {
+      const settings = metadataStore.getAISettings();
+      const providerName: AIProvider = body.provider ?? settings.activeProvider;
+      const providerConfig = settings.providers[providerName];
+      const vector = await createEmbedding(body.text, providerName, providerConfig, body.model);
+      return c.json({ vector, dimensions: vector.length });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create embedding';
+      return c.json({ error: 'EMBED_ERROR', message }, 500);
     }
   },
 );

@@ -273,6 +273,36 @@ export function createMysqlAdapter(connection: {
       };
     },
 
+    async getActiveConnections(): Promise<import('@kamehadb/shared').ConnectionInfo[]> {
+      const [rows] = await pool.query(
+        `SELECT
+          ID AS pid,
+          USER AS usename,
+          'mysql' AS applicationName,
+          HOST AS clientAddr,
+          COMMAND AS state,
+          INFO AS query,
+          TIME AS durationSeconds
+        FROM information_schema.PROCESSLIST
+        WHERE DB = ? AND ID != CONNECTION_ID()
+        ORDER BY TIME`,
+        [connection.database],
+      );
+      return (rows as Record<string, unknown>[]).map((r) => ({
+        pid: Number(r.pid ?? 0),
+        usename: String(r.usename ?? ''),
+        applicationName: String(r.applicationName ?? ''),
+        clientAddr: String(r.clientAddr ?? ''),
+        backendStart: '',
+        state: String(r.state ?? ''),
+        query: String(r.query ?? ''),
+        queryStart: '',
+        waitEventType: null,
+        waitEvent: null,
+        durationSeconds: Number(r.durationSeconds ?? 0),
+      }));
+    },
+
     async close(): Promise<void> {
       await pool.end();
     },

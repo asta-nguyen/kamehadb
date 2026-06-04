@@ -174,8 +174,6 @@ export function createProvider(provider: AIProvider, config: AIProviderConfig): 
 }
 
 function localEmbedding(text: string, dimensions: number = 256): number[] {
-  // Simple hash-based embedding — maps words into a fixed-dimension vector
-  // using a deterministic hash trick. Good enough for schema retrieval.
   const tokens = text
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -186,7 +184,7 @@ function localEmbedding(text: string, dimensions: number = 256): number[] {
     let hash = 0;
     for (let i = 0; i < token.length; i++) {
       hash = (hash << 5) - hash + token.charCodeAt(i);
-      hash |= 0; // Convert to 32bit integer
+      hash |= 0;
     }
     const idx = Math.abs(hash) % dimensions;
     vec[idx] += 1;
