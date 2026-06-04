@@ -2,6 +2,17 @@
 
 All notable changes to KamehaDB will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Connection dialog: read-only toggle so users can enable write statements (CREATE, INSERT, UPDATE, DELETE, DROP, etc.) per connection without editing the metadata DB directly
+- Connection dialog: custom color picker (native `<input type="color">`) alongside the preset badge colors, so users can pick any color instead of being limited to the 8 presets
+
+### Fixed
+
+- SQL editor ignored the connection's read-only setting because of a duplicate client-side safety check in `useRunQuery`; the server already enforces the rule, so the redundant client check (which used a stale cache) has been removed
+
 ## [v1.0.0] - 2026-06-01
 
 First stable release of KamehaDB — a local-first database GUI for PostgreSQL, MySQL, SQLite, MongoDB, and Redis.

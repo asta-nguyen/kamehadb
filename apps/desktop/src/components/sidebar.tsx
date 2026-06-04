@@ -29,6 +29,7 @@ import {
   Share2,
   BarChart3,
   Trash2,
+  FileText,
 } from 'lucide-react';
 import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
@@ -46,6 +47,7 @@ import {
   openMongoQueryTab,
   openRedisTab,
   openRedisQueryTab,
+  openNewQueryTab,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
@@ -124,19 +126,6 @@ function ConnectionItem({
           <span className="truncate font-medium text-foreground/90" title={conn.name}>
             {conn.name}
           </span>
-          <span
-            className={`text-xs px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${
-              conn.kind === 'postgres'
-                ? 'bg-primary/10 text-primary'
-                : conn.kind === 'redis'
-                  ? 'bg-destructive/10 text-destructive'
-                  : conn.kind === 'mongodb'
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {conn.kind}
-          </span>
         </button>
         <span
           className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-background"
@@ -154,6 +143,15 @@ function ConnectionItem({
             <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
               <Sparkles className="size-3.5 mr-2" />
               AI Chat
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                openNewQueryTab(conn.id);
+              }}
+            >
+              <FileText className="size-3.5 mr-2" />
+              New Query
             </DropdownMenuItem>
             {conn.kind !== 'mongodb' && conn.kind !== 'redis' && (
               <DropdownMenuItem

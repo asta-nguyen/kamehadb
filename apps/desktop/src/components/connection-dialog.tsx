@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Loader2, Plug, Plus, Database, File, Server, Box, Leaf, Check, FolderOpen } from 'lucide-react';
 
@@ -150,6 +151,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       ssl: editConnection?.ssl ?? false,
       color: editConnection?.color ?? undefined,
       connectionString: editConnection?.connectionString ?? undefined,
+      readonly: editConnection?.readonly ?? true,
     },
   });
 
@@ -357,6 +359,29 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                     </button>
                   );
                 })}
+                <label
+                  className={`
+                    relative w-7 h-7 rounded-full cursor-pointer transition-all duration-200
+                    hover:scale-110 active:scale-95 border border-dashed border-border
+                    ${selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? 'ring-2 ring-offset-2 ring-offset-background' : ''}
+                  `}
+                  style={{ ['--tw-ring-color' as string]: selectedColor ?? '' }}
+                  title="Custom color"
+                >
+                  <input
+                    type="color"
+                    value={
+                      selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? selectedColor : '#3b82f6'
+                    }
+                    onChange={(e) => form.setValue('color', e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  {selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? (
+                    <span className="absolute inset-0 rounded-full" style={{ backgroundColor: selectedColor }} />
+                  ) : (
+                    <Plus className="absolute inset-0 m-auto size-3.5 text-muted-foreground" strokeWidth={2} />
+                  )}
+                </label>
                 {selectedColor && (
                   <button
                     type="button"
@@ -368,6 +393,25 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                 )}
               </div>
             </div>
+
+            {/* Read-only Toggle */}
+            <Controller
+              control={form.control}
+              name="readonly"
+              render={({ field }) => (
+                <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 p-3">
+                  <div className="space-y-0.5 pr-4">
+                    <Label htmlFor="readonly" className="text-sm font-medium">
+                      Read-only
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Block CREATE, INSERT, UPDATE, DELETE, DROP and other write statements.
+                    </p>
+                  </div>
+                  <Switch id="readonly" checked={field.value ?? true} onCheckedChange={field.onChange} />
+                </div>
+              )}
+            />
 
             {/* Connection Details Section */}
             <div className="space-y-3">
