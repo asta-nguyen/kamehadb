@@ -13,67 +13,138 @@ export const metadata: Metadata = {
   },
 };
 
-interface ChangeEntry {
-  type: string;
+interface ChangeGroup {
+  title: string | null;
   items: string[];
+}
+
+interface ChangeSection {
+  type: string;
+  groups: ChangeGroup[];
 }
 
 interface Release {
   version: string;
   date: string | null;
   description: string | null;
-  changes: ChangeEntry[];
+  sections: ChangeSection[];
 }
 
 function parseChangelog(content: string): Release[] {
   const releases: Release[] = [];
   const lines = content.split('\n');
   let currentRelease: Release | null = null;
-  let currentType: string | null = null;
+  let currentSection: ChangeSection | null = null;
+  let currentGroup: ChangeGroup | null = null;
   let descriptionBuffer: string[] = [];
 
   const flushDescription = () => {
-    if (currentRelease) {
-      const text = descriptionBuffer.join(' ').trim();
-      currentRelease.description = text.length > 0 ? text : null;
+    if (!currentRelease) {
+      descriptionBuffer = [];
+      return;
     }
+
+    const text = descriptionBuffer.join(' ').trim();
+    currentRelease.description = text.length > 0 ? text : null;
     descriptionBuffer = [];
   };
 
-  for (const line of lines) {
-    const versionMatch = line.match(/^## \[(.+?)\](?:\s*-\s*(.+))?$/);
+  const ensureSection = (type: string) => {
+    if (!currentRelease) {
+      return null;
+    }
+
+    const section: ChangeSection = { type, groups: [] };
+    currentRelease.sections.push(section);
+    currentSection = section;
+    currentGroup = null;
+    return section;
+  };
+
+  const ensureGroup = (title: string | null) => {
+    if (!currentSection) {
+      return null;
+    }
+
+    const group: ChangeGroup = { title, items: [] };
+    currentSection.groups.push(group);
+    currentGroup = group;
+    return group;
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    if (trimmed === '---') {
+      continue;
+    }
+
+    const versionMatch = line.match(/^## \[(.+?)\](?:\s*—\s*(.+))?$/);
     if (versionMatch) {
       if (currentRelease) {
         flushDescription();
         releases.push(currentRelease);
       }
+
       currentRelease = {
         version: versionMatch[1],
         date: versionMatch[2] || null,
         description: null,
-        changes: [],
+        sections: [],
       };
-      currentType = null;
+      currentSection = null;
+      currentGroup = null;
       continue;
     }
 
-    const typeMatch = line.match(/^### (.+)$/);
-    if (typeMatch && currentRelease) {
+    if (!currentRelease) {
+      continue;
+    }
+
+    const sectionMatch = line.match(/^### (.+)$/);
+    if (sectionMatch) {
       flushDescription();
-      currentType = typeMatch[1];
-      currentRelease.changes.push({ type: currentType, items: [] });
+      ensureSection(sectionMatch[1]);
+      continue;
+    }
+
+    const groupMatch = line.match(/^#### (.+)$/);
+    if (groupMatch) {
+      if (!currentSection) {
+        ensureSection('Highlights');
+      }
+      ensureGroup(groupMatch[1]);
       continue;
     }
 
     const itemMatch = line.match(/^- (.+)$/);
-    if (itemMatch && currentRelease && currentType) {
-      const section = currentRelease.changes.find((c) => c.type === currentType);
-      if (section) section.items.push(itemMatch[1]);
+    if (itemMatch) {
+      if (!currentSection) {
+        flushDescription();
+        ensureSection('Highlights');
+      }
+      if (!currentGroup) {
+        ensureGroup(null);
+      }
+      currentGroup?.items.push(itemMatch[1]);
       continue;
     }
 
-    if (currentRelease && currentType === null && line.trim().length > 0) {
-      descriptionBuffer.push(line.trim());
+    if (trimmed.length === 0) {
+      continue;
+    }
+
+    if (currentSection === null) {
+      descriptionBuffer.push(trimmed);
+      continue;
+    }
+
+    if (currentGroup) {
+      const lastIndex = currentGroup.items.length - 1;
+      if (lastIndex >= 0) {
+        currentGroup.items[lastIndex] = `${currentGroup.items[lastIndex]} ${trimmed}`.trim();
+      }
     }
   }
 
@@ -81,6 +152,7 @@ function parseChangelog(content: string): Release[] {
     flushDescription();
     releases.push(currentRelease);
   }
+
   return releases;
 }
 
@@ -134,8 +206,22 @@ const typeColors: Record<string, string> = {
   Removed: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',
 };
 
+function resolveChangelogPath(): string {
+  const rootPath = path.join(process.cwd(), 'CHANGELOG.md');
+  if (fs.existsSync(rootPath)) {
+    return rootPath;
+  }
+
+  const landingPath = path.join(process.cwd(), '..', 'CHANGELOG.md');
+  if (fs.existsSync(landingPath)) {
+    return landingPath;
+  }
+
+  throw new Error('Unable to locate CHANGELOG.md');
+}
+
 export default function ChangelogPage() {
-  const filePath = path.join(process.cwd(), '..', 'CHANGELOG.md');
+  const filePath = resolveChangelogPath();
   const content = fs.readFileSync(filePath, 'utf-8');
   const releases = parseChangelog(content);
 
@@ -194,24 +280,35 @@ export default function ChangelogPage() {
 
                     {release.description && <p className="text-body leading-relaxed mb-5">{release.description}</p>}
 
-                    <div className="space-y-5">
-                      {release.changes.map((section) => (
+                    <div className="space-y-8">
+                      {release.sections.map((section) => (
                         <div key={section.type}>
                           <span
                             className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-3 ${typeColors[section.type] || 'bg-surface-soft text-body'}`}
                           >
                             {section.type}
                           </span>
-                          <ul className="space-y-2">
-                            {section.items.map((item, i) => (
-                              <li key={i} className="flex items-start gap-2 text-body leading-relaxed">
-                                <span className="text-muted mt-1.5 shrink-0">•</span>
-                                <span className="flex-1">
-                                  <MarkdownText text={item} />
-                                </span>
-                              </li>
+                          <div className="space-y-5">
+                            {section.groups.map((group, groupIndex) => (
+                              <div key={group.title ?? `group-${groupIndex}`} className="space-y-2">
+                                {group.title && (
+                                  <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-muted">
+                                    {group.title}
+                                  </h3>
+                                )}
+                                <ul className="space-y-2">
+                                  {group.items.map((item, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-body leading-relaxed">
+                                      <span className="text-muted mt-1.5 shrink-0">•</span>
+                                      <span className="flex-1">
+                                        <MarkdownText text={item} />
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       ))}
                     </div>
