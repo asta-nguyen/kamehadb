@@ -146,6 +146,7 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] MongoDB
 - [x] Redis
 - [x] Data export (CSV, JSON, SQL)
+- [x] Qdrant (vectordb)
 
 ### Not Yet Supported
 

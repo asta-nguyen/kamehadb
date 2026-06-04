@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,15 +9,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAiChat, useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
+import { useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
 import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
+import { useChat, fetchServerSentEvents } from '@tanstack/ai-react';
+import type { UIMessage } from '@tanstack/ai-react';
 import hljs from 'highlight.js/lib/core';
 import sql from 'highlight.js/lib/languages/sql';
 import javascript from 'highlight.js/lib/languages/javascript';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { AIChatMessage } from '@kamehadb/shared';
 import {
   Bot,
   Send,
@@ -182,7 +183,14 @@ function extractCodeBlocks(content: string): { type: 'text' | 'code'; value: str
   return blocks;
 }
 
-function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; connectionId: string | null }) {
+function getMsgContent(msg: UIMessage): string {
+  return msg.parts
+    .filter((p): p is { type: 'text'; content: string } => p.type === 'text')
+    .map((p) => p.content)
+    .join('');
+}
+
+function MessageBubble({ msg, connectionId }: { msg: UIMessage; connectionId: string | null }) {
   const [isCopied, setIsCopied] = useState(false);
 
   function formatTime(date?: Date) {
@@ -194,22 +202,23 @@ function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; conne
     return (
       <div className="mb-3 flex justify-end">
         <div className="group max-w-[88%]">
-          {msg.timestamp && (
-            <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatTime(msg.timestamp)}</div>
+          {msg.createdAt && (
+            <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatTime(msg.createdAt)}</div>
           )}
           <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
-            {msg.content}
+            {getMsgContent(msg)}
           </div>
         </div>
       </div>
     );
   }
 
-  const blocks = extractCodeBlocks(msg.content);
+  const content = getMsgContent(msg);
+  const blocks = extractCodeBlocks(content);
 
   const handleCopyResponse = async () => {
     try {
-      await navigator.clipboard.writeText(msg.content);
+      await navigator.clipboard.writeText(content);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 1500);
     } catch (err) {
@@ -225,7 +234,7 @@ function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; conne
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-medium text-muted-foreground/70">Assistant</span>
-          {msg.timestamp && <span className="text-xs text-muted-foreground/40">{formatTime(msg.timestamp)}</span>}
+          {msg.createdAt && <span className="text-xs text-muted-foreground/40">{formatTime(msg.createdAt)}</span>}
           <Tooltip>
             <TooltipTrigger
               aria-label="Copy response"
@@ -281,8 +290,6 @@ function MessageBubble({ msg, connectionId }: { msg: MessageWithTimestamp; conne
   );
 }
 
-type MessageWithTimestamp = AIChatMessage & { timestamp?: Date };
-
 const CHAT_MODE_CONFIG = {
   sql: {
     title: 'Ask me to write SQL',
@@ -320,23 +327,15 @@ const CHAT_MODE_CONFIG = {
 export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelProps) {
   const [panelWidth, setPanelWidth] = useState(width);
   const [isResizing, setIsResizing] = useState(false);
-  const [messages, setMessages] = useState<MessageWithTimestamp[]>([]);
   const [input, setInput] = useState('');
-  const [sessionTokens, setSessionTokens] = useState({ input: 0, output: 0 });
   const { data: connections } = useConnections();
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sendingRef = useRef(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
-
-  const aiChat = useAiChat(connectionId);
-  const clearChatHistory = useClearChatHistory();
-  const clearSchemaCache = useClearSchemaCache();
+  const historyLoadedRef = useRef(false);
+  const prevConnectionIdRef = useRef(connectionId);
 
   const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
   const isMongoDb = currentConnection?.kind === 'mongodb';
@@ -348,74 +347,58 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
         ? CHAT_MODE_CONFIG.redis
         : CHAT_MODE_CONFIG.sql;
 
+  const connection = useMemo(() => fetchServerSentEvents('/ai/chat'), []);
+  const forwardedProps = useMemo(
+    () => (connectionId ? { connectionId, mongoDatabase } : undefined),
+    [connectionId, mongoDatabase],
+  );
+
+  const chat = useChat({ connection, forwardedProps });
+
+  const clearChatHistory = useClearChatHistory();
+  const clearSchemaCache = useClearSchemaCache();
+
   const { data: chatHistory } = useChatHistory(connectionId, 50, mongoDatabase);
 
   useEffect(() => {
-    if (chatHistory?.messages) {
-      setMessages(chatHistory.messages.map((m) => ({ role: m.role, content: m.content })));
+    if (chatHistory?.messages && chat.messages.length === 0 && !historyLoadedRef.current) {
+      historyLoadedRef.current = true;
+      const uiMessages: UIMessage[] = chatHistory.messages.map((m) => ({
+        id: crypto.randomUUID(),
+        role: m.role as 'user' | 'assistant',
+        parts: [{ type: 'text' as const, content: m.content }],
+      }));
+      chat.setMessages(uiMessages);
     }
-  }, [chatHistory]);
+  }, [chatHistory, chat]);
+
+  useEffect(() => {
+    if (prevConnectionIdRef.current !== connectionId) {
+      prevConnectionIdRef.current = connectionId;
+      chat.setMessages([]);
+      historyLoadedRef.current = false;
+    }
+  }, [connectionId, chat]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, aiChat.isPending]);
+  }, [chat.messages, chat.isLoading]);
 
-  async function handleSend(textOverride?: string) {
+  function handleSend(textOverride?: string) {
     const text = (textOverride ?? input).trim();
     if (!text) return;
-    if (sendingRef.current) return;
-    sendingRef.current = true;
-
-    abortControllerRef.current = new AbortController();
-
-    const snapshot = messagesRef.current;
-    const userMsg: MessageWithTimestamp = { role: 'user', content: text, timestamp: new Date() };
-    setMessages((prev) => [...prev, userMsg]);
     setInput('');
-
-    try {
-      const res = await aiChat.mutateAsync({
-        messages: [...snapshot, { role: userMsg.role, content: userMsg.content }],
-        latestMessage: { role: userMsg.role, content: userMsg.content },
-        signal: abortControllerRef.current.signal,
-        mongoDatabase,
-      });
-      setMessages((prev) => [...prev, { ...res.message, timestamp: new Date() }]);
-      if (res.usage) {
-        setSessionTokens((prev) => ({
-          input: prev.input + (res.usage?.inputTokens ?? 0),
-          output: prev.output + (res.usage?.outputTokens ?? 0),
-        }));
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        return;
-      }
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant' as const,
-          content: `Error: ${err instanceof Error ? err.message : 'AI request failed'}`,
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      sendingRef.current = false;
-      abortControllerRef.current = null;
-    }
+    chat.sendMessage(text);
   }
 
   function handleStop() {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      sendingRef.current = false;
-    }
+    chat.stop();
   }
 
   function handleSuggestionClick(text: string) {
-    void handleSend(text);
+    handleSend(text);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -430,8 +413,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   function handleClearHistory() {
     if (!connectionId) return;
     clearChatHistory.mutate({ connectionId, mongoDatabase });
-    setMessages([]);
-    setSessionTokens({ input: 0, output: 0 });
+    chat.setMessages([]);
   }
 
   function handleRefreshSchema() {
@@ -486,23 +468,6 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 </span>
                 <span className="truncate text-sm font-medium">AI Assistant</span>
               </div>
-              {sessionTokens.input > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <span className="mt-1 inline-flex rounded bg-muted/70 px-1.5 py-0.5 text-xs text-muted-foreground/70">
-                        {(sessionTokens.input + sessionTokens.output).toLocaleString()} tokens
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="text-xs">
-                        <div>Input: {sessionTokens.input.toLocaleString()}</div>
-                        <div>Output: {sessionTokens.output.toLocaleString()}</div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
@@ -528,7 +493,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                         <RefreshCw className="size-4" />
                         Refresh Schema
                       </DropdownMenuItem>
-                      {messages.length > 0 && (
+                      {chat.messages.length > 0 && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={handleClearHistory} variant="destructive">
@@ -575,7 +540,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
 
         <div className="flex-1 overflow-auto" ref={scrollRef}>
           <div className="p-3 pb-4">
-            {messages.length === 0 && !aiChat.isPending && (
+            {chat.messages.length === 0 && !chat.isLoading && (
               <div className="py-5 text-muted-foreground">
                 <div
                   className={`mx-auto mb-3 flex size-11 items-center justify-center rounded-xl ring-1 ${chatMode.iconClass}`}
@@ -589,7 +554,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                       key={i}
                       type="button"
                       onClick={() => handleSuggestionClick(prompt)}
-                      disabled={aiChat.isPending}
+                      disabled={chat.isLoading}
                       className={`rounded-full border border-border/50 bg-muted/35 px-2.5 py-1.5 text-xs text-muted-foreground/85 transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
                     >
                       {prompt}
@@ -599,11 +564,11 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
               </div>
             )}
 
-            {messages.map((msg, i) => (
-              <MessageBubble key={i} msg={msg} connectionId={connectionId} />
+            {chat.messages.map((msg) => (
+              <MessageBubble key={msg.id} msg={msg} connectionId={connectionId} />
             ))}
 
-            {aiChat.isPending && (
+            {chat.isLoading && (
               <div className="mb-3 flex gap-2">
                 <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
                   <Bot className="size-3.5 text-primary" />
@@ -628,7 +593,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
               rows={2}
               className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
             />
-            {aiChat.isPending ? (
+            {chat.isLoading ? (
               <Tooltip>
                 <TooltipTrigger
                   aria-label="Stop generation"

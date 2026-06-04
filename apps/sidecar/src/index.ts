@@ -8,7 +8,9 @@ import { connectionsRouter } from './routes/connections.js';
 import { sqlRouter } from './routes/sql.js';
 import { mongoRouter } from './routes/mongo.js';
 import { redisRouter } from './routes/redis.js';
+import { qdrantRouter } from './routes/qdrant.js';
 import { aiRouter } from './routes/ai.js';
+import { indexAllConnections } from './ai/indexer.js';
 
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
 
@@ -40,6 +42,7 @@ app.route('/connections', connectionsRouter);
 app.route('/sql', sqlRouter);
 app.route('/mongo', mongoRouter);
 app.route('/redis', redisRouter);
+app.route('/qdrant', qdrantRouter);
 app.route('/ai', aiRouter);
 
 // Start server
@@ -61,6 +64,9 @@ async function start() {
   log.info({ port: listeningPort }, 'Sidecar listening on 127.0.0.1');
 
   console.log(`KAMEHADB_SIDECAR_PORT=${listeningPort}`);
+
+  // Proactively index schemas for all SQL connections in the background
+  indexAllConnections().catch((err) => log.error(err, 'Schema indexing failed'));
 }
 
 // Graceful shutdown
