@@ -54,6 +54,12 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
   const search = useQdrantSearch(connectionId);
   const recommend = useQdrantRecommend(connectionId);
 
+  useEffect(() => {
+    setResult(null);
+    setInfo(null);
+    setError(null);
+  }, [collection, mode]);
+
   // Sample the chosen collection to get vector size and payload fields.
   const { data: sample } = useQdrantPoints(connectionId, collection || null);
   const fields = useMemo(() => {

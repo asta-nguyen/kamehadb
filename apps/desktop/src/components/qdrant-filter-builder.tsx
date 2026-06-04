@@ -79,6 +79,7 @@ export function QdrantFilterBuilder({ onChange, fields = [] }: QdrantFilterBuild
       setJsonError(null);
     } catch {
       setJsonError('Invalid JSON');
+      onChange(undefined);
     }
   };
 
