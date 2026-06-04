@@ -164,14 +164,11 @@ function ConnectionItem({
             <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={4}>
+            <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
+              <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
+              Reload
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
-              <DropdownMenuItem
-                onClick={() => refreshConnection.mutate(conn.id)}
-                disabled={refreshConnection.isPending}
-              >
-                <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
-                Reload
-              </DropdownMenuItem>
               <Sparkles className="size-3.5 mr-2" />
               AI Chat
             </DropdownMenuItem>
