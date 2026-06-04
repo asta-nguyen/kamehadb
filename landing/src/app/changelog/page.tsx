@@ -38,6 +38,25 @@ function parseChangelog(content: string): Release[] {
   let currentGroup: ChangeGroup | null = null;
   let descriptionBuffer: string[] = [];
 
+  const appendGroupItem = (group: ChangeGroup | null, item: string) => {
+    if (!group) {
+      return;
+    }
+
+    group.items.push(item);
+  };
+
+  const appendGroupContinuation = (group: ChangeGroup | null, text: string) => {
+    if (!group) {
+      return;
+    }
+
+    const lastIndex = group.items.length - 1;
+    if (lastIndex >= 0) {
+      group.items[lastIndex] = `${group.items[lastIndex]} ${text}`.trim();
+    }
+  };
+
   const flushDescription = () => {
     if (!currentRelease) {
       descriptionBuffer = [];
@@ -124,10 +143,7 @@ function parseChangelog(content: string): Release[] {
         flushDescription();
         ensureSection('Highlights');
       }
-      const group = currentGroup ?? ensureGroup(null);
-      if (group) {
-        group.items.push(itemMatch[1]);
-      }
+      appendGroupItem(currentGroup ?? ensureGroup(null), itemMatch[1]);
       continue;
     }
 
@@ -140,13 +156,7 @@ function parseChangelog(content: string): Release[] {
       continue;
     }
 
-    const group = currentGroup;
-    if (group) {
-      const lastIndex = group.items.length - 1;
-      if (lastIndex >= 0) {
-        group.items[lastIndex] = `${group.items[lastIndex]} ${trimmed}`.trim();
-      }
-    }
+    appendGroupContinuation(currentGroup, trimmed);
   }
 
   if (currentRelease) {
