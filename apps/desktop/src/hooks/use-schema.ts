@@ -84,6 +84,15 @@ export function useIndexStats(connectionId: string | null, tableId: string | nul
   });
 }
 
+export function useSchemaSearch(connectionId: string | null, query: string, schema?: string) {
+  return useQuery({
+    queryKey: ['schema-search', connectionId, query, schema],
+    queryFn: () => api.searchSchema(connectionId!, query, schema),
+    enabled: !!connectionId && query.length >= 1,
+    staleTime: STATS_CACHE_TIME,
+  });
+}
+
 export function useDatabaseSizes(connectionId: string | null, schema?: string) {
   return useQuery({
     queryKey: ['db-sizes', connectionId, schema],

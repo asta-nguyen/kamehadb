@@ -15,6 +15,8 @@ import type {
   TableStats,
   IndexStats,
   DatabaseSize,
+  SchemaSearchInput,
+  SchemaSearchMatch,
 } from '@kamehadb/shared';
 
 export async function testMysqlConnection(connection: {
@@ -303,6 +305,33 @@ export function createMysqlAdapter(connection: {
 
     async close(): Promise<void> {
       await pool.end();
+    },
+
+    async searchSchema(input: SchemaSearchInput): Promise<SchemaSearchMatch[]> {
+      const term = `%${input.query}%`;
+      const db = input.schema ?? connection.database;
+      const limit = input.limit ?? 50;
+
+      const [rows] = await pool.query(
+        `SELECT TABLE_SCHEMA, TABLE_NAME, NULL AS COLUMN_NAME, NULL AS COLUMN_TYPE, 'table' AS MATCH_TYPE
+         FROM INFORMATION_SCHEMA.TABLES
+         WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' AND TABLE_NAME LIKE ?
+         UNION ALL
+         SELECT c.TABLE_SCHEMA, c.TABLE_NAME, c.COLUMN_NAME, c.COLUMN_TYPE, 'column' AS MATCH_TYPE
+         FROM INFORMATION_SCHEMA.COLUMNS c
+         WHERE c.TABLE_SCHEMA = ? AND c.COLUMN_NAME LIKE ?
+         ORDER BY MATCH_TYPE, TABLE_NAME, COLUMN_NAME
+         LIMIT ?`,
+        [db, term, db, term, limit],
+      );
+
+      return (rows as Record<string, unknown>[]).map((r) => ({
+        schema: r.TABLE_SCHEMA as string,
+        table: r.TABLE_NAME as string,
+        column: (r.COLUMN_NAME as string) || undefined,
+        columnType: (r.COLUMN_TYPE as string) || undefined,
+        matchType: r.MATCH_TYPE as 'table' | 'column',
+      }));
     },
 
     async getTableStats(tableId: string): Promise<TableStats> {

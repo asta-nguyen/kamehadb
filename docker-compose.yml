@@ -50,7 +50,7 @@ services:
       - redis_data:/data
 
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.13.6
     restart: unless-stopped
     ports:
       - "6333:6333"

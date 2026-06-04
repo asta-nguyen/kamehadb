@@ -1,12 +1,15 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import { chat, toServerSentEventsResponse } from '@tanstack/ai';
+import { openaiCompatibleText } from '@tanstack/ai-openai/compatible';
 import * as metadataStore from '../db/metadata-store.js';
-import { createProvider, validateProviderConfig, createEmbedding } from '../ai/provider.js';
+import { resolveProviderConfig, validateProviderConfig, createEmbedding } from '../ai/provider.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
+import { searchRelevantSchema } from '../ai/qdrant-store.js';
 import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
 import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
-import type { AIChatMessage, AIProvider, DbKind } from '@kamehadb/shared';
+import type { AIProvider, DbKind } from '@kamehadb/shared';
 
 export const aiRouter = new Hono();
 const providerConfigSchema = z.object({
@@ -136,21 +139,19 @@ aiRouter.post(
   zValidator(
     'json',
     z.object({
-      connectionId: z.string().optional(),
-      mongoDatabase: z.string().optional(),
-      messages: z.array(
-        z.object({
-          role: z.enum(['user', 'assistant', 'system']),
-          content: z.string(),
-        }),
-      ),
-      latestMessage: z
+      forwardedProps: z
         .object({
-          role: z.enum(['user', 'assistant', 'system']),
-          content: z.string(),
+          connectionId: z.string().optional(),
+          mongoDatabase: z.string().optional(),
+          provider: z.string().optional(),
+          model: z.string().optional(),
         })
         .optional(),
-      provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']).optional(),
+      connectionId: z.string().optional(),
+      mongoDatabase: z.string().optional(),
+      messages: z.array(z.object({ role: z.string(), content: z.string() }).passthrough()),
+      latestMessage: z.object({ role: z.string(), content: z.string() }).optional(),
+      provider: z.string().optional(),
       model: z.string().optional(),
     }),
   ),
@@ -158,14 +159,22 @@ aiRouter.post(
     try {
       const body = c.req.valid('json');
 
-      // Persist only the newest user message; full history is still passed for model context.
-      if (body.connectionId && body.latestMessage?.role === 'user') {
-        metadataStore.saveChatMessage(body.connectionId, 'user', body.latestMessage.content, body.mongoDatabase);
+      const connectionId = body.forwardedProps?.connectionId ?? body.connectionId;
+      const mongoDatabase = body.forwardedProps?.mongoDatabase ?? body.mongoDatabase;
+      const providerOverride = body.forwardedProps?.provider ?? body.provider;
+      const modelOverride = body.forwardedProps?.model ?? body.model;
+
+      // Find last user message for persistence (forwardedProps format or legacy)
+      const latestUserMsg =
+        body.messages.filter((m) => m.role === 'user').at(-1)?.content ?? body.latestMessage?.content;
+
+      if (connectionId && latestUserMsg) {
+        metadataStore.saveChatMessage(connectionId, 'user', latestUserMsg, mongoDatabase);
       }
 
       const settings = metadataStore.getAISettings();
       // Resolve which provider config to use
-      const providerName: AIProvider = body.provider ?? settings.activeProvider;
+      const providerName: AIProvider = (providerOverride as AIProvider) ?? settings.activeProvider;
       const providerConfig = settings.providers[providerName];
       if (!providerConfig) {
         return c.json({ error: 'AI_CONFIG_ERROR', message: `Provider "${providerName}" has no configuration.` }, 400);
@@ -180,22 +189,21 @@ aiRouter.post(
       }
 
       // Allow per-request model override
-      const config = { ...providerConfig, model: body.model ?? providerConfig.model };
+      const config = { ...providerConfig, model: modelOverride ?? providerConfig.model };
 
       // Build schema context if connectionId provided
       let ddl: string | null = null;
       let mongoSchema: string | null = null;
       let connectionKind: DbKind | undefined;
-      if (body.connectionId) {
-        const profile = metadataStore.getProfile(body.connectionId);
+      if (connectionId) {
+        const profile = metadataStore.getProfile(connectionId);
         connectionKind = profile?.kind;
 
-        // Try to get from cache first
-        const cacheKey = body.mongoDatabase
-          ? `ai-schema:${body.connectionId}:mongo:${body.mongoDatabase}`
-          : `ai-schema:${body.connectionId}:sql`;
+        const cacheKey = mongoDatabase
+          ? `ai-schema:${connectionId}:mongo:${mongoDatabase}`
+          : `ai-schema:${connectionId}:sql`;
 
-        if (body.mongoDatabase) {
+        if (mongoDatabase) {
           mongoSchema = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
         } else {
           ddl = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
@@ -207,17 +215,32 @@ aiRouter.post(
               if (profile.kind === 'mongodb') {
                 const adapter = createMongoDbAdapter(profile);
                 try {
-                  mongoSchema = await buildMongoSchemaContext(adapter, body.mongoDatabase);
+                  mongoSchema = await buildMongoSchemaContext(adapter, mongoDatabase);
                   setCache(cacheKey, mongoSchema);
                 } finally {
                   await adapter.close();
                 }
               } else if (profile.kind !== 'redis') {
-                const password = metadataStore.getProfilePassword(body.connectionId);
+                const password = metadataStore.getProfilePassword(connectionId);
                 const adapter = createSqlAdapter(profile, password);
                 if (adapter) {
                   try {
-                    ddl = await buildSchemaContext(adapter);
+                    const userQuery = latestUserMsg;
+                    if (userQuery) {
+                      const relevant = await searchRelevantSchema(
+                        connectionId,
+                        userQuery,
+                        providerName,
+                        config,
+                        5,
+                      ).catch(() => []);
+                      if (relevant.length > 0) {
+                        ddl = relevant.map((r) => r.ddl).join('\n\n');
+                      }
+                    }
+                    if (!ddl) {
+                      ddl = await buildSchemaContext(adapter);
+                    }
                     setCache(cacheKey, ddl);
                   } finally {
                     await adapter.close();
@@ -233,26 +256,41 @@ aiRouter.post(
 
       const systemPrompt = buildSystemPrompt(ddl, mongoSchema, connectionKind);
       console.log('System prompt:', systemPrompt);
-      const messages: AIChatMessage[] = [{ role: 'system', content: systemPrompt }, ...body.messages];
+      const llmMessages = [{ role: 'system', content: systemPrompt }, ...body.messages] as any;
 
-      const llmProvider = createProvider(providerName, config);
-      const result = await llmProvider.chat(messages);
+      const resolved = resolveProviderConfig(providerName, config);
+      const abortController = new AbortController();
 
-      // Save assistant response to history
-      if (body.connectionId) {
-        metadataStore.saveChatMessage(body.connectionId, 'assistant', result.content, body.mongoDatabase);
-      }
-
-      return c.json({
-        message: {
-          role: 'assistant' as const,
-          content: result.content,
-        },
-        usage: {
-          inputTokens: result.inputTokens,
-          outputTokens: result.outputTokens,
-        },
+      const stream = chat({
+        adapter: openaiCompatibleText(config.model, {
+          baseURL: resolved.baseUrl,
+          apiKey: resolved.apiKey,
+        }),
+        messages: llmMessages,
+        abortController,
       });
+
+      let assistantContent = '';
+      const wrappedStream = (async function* () {
+        try {
+          for await (const chunk of stream) {
+            if (chunk.type === 'TEXT_MESSAGE_CONTENT') {
+              assistantContent += (chunk as { delta: string }).delta;
+            }
+            yield chunk;
+          }
+        } finally {
+          if (connectionId && assistantContent) {
+            try {
+              metadataStore.saveChatMessage(connectionId, 'assistant', assistantContent, mongoDatabase);
+            } catch (e) {
+              console.error('[AI] Failed to save assistant message:', e);
+            }
+          }
+        }
+      })();
+
+      return toServerSentEventsResponse(wrappedStream, { abortController });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI chat failed';
       console.error('[AI] chat error:', message);
@@ -278,7 +316,7 @@ aiRouter.post(
       const settings = metadataStore.getAISettings();
       const providerName: AIProvider = body.provider ?? settings.activeProvider;
       const providerConfig = settings.providers[providerName];
-      const vector = await createEmbedding(providerName, providerConfig, body.text, body.model);
+      const vector = await createEmbedding(body.text, providerName, providerConfig, body.model);
       return c.json({ vector, dimensions: vector.length });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create embedding';

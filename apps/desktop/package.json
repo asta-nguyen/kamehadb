@@ -17,6 +17,7 @@
     "@kamehadb/shared": "workspace:*",
     "@kamehadb/ui": "workspace:*",
     "@monaco-editor/react": "^4",
+    "@tanstack/ai-react": "^0.15.1",
     "@tanstack/pacer": "^0.21.1",
     "@tanstack/react-query": "^5",
     "@tanstack/react-store": "^0.7",
