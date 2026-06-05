@@ -1,8 +1,5 @@
 import { z } from 'zod';
 
-export { expandTerms, renderExpansionsForPrompt } from './term-expansion.js';
-export type { TermExpansion } from './term-expansion.js';
-
 // Database kind
 export type DbKind = 'postgres' | 'sqlite' | 'mysql' | 'redis' | 'mongodb' | 'qdrant';
 
@@ -68,12 +65,6 @@ export type CreateConnectionProfileInput = z.infer<typeof CreateConnectionProfil
 
 export const UpdateConnectionProfileSchema = BaseCreateSchema.partial();
 export type UpdateConnectionProfileInput = z.infer<typeof UpdateConnectionProfileSchema>;
-
-// Credential reference
-export type CredentialRef = {
-  connectionId: string;
-  secretKey: string;
-};
 
 // Query result
 export type QueryColumn = {
@@ -483,14 +474,6 @@ export type AIChatRequest = {
   model?: string;
 };
 
-export type AIChatResponse = {
-  message: AIChatMessage;
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-  };
-};
-
 // Health check
 export type HealthStatus = {
   status: 'ok';
@@ -549,7 +532,15 @@ export type WorkspaceTab =
       mode?: 'text' | 'similar' | 'raw';
       pointId?: string;
     }
-  | { id: string; type: 'qdrant-graph'; title: string; connectionId: string; collection: string }
+  | {
+      id: string;
+      type: 'qdrant-graph';
+      title: string;
+      connectionId: string;
+      collection: string;
+      colorBy?: string;
+      camera?: { position: number[]; target: number[] };
+    }
   | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string };
 

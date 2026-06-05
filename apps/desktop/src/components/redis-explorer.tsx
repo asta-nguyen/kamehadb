@@ -119,31 +119,33 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
               const Icon = typeIcons[entry.type] || Box;
               const isSelected = selectedKey === entry.key;
               return (
-                <button
+                <Button
                   key={entry.key}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleKeyClick(entry.key)}
-                  className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded-md transition-colors group ${
-                    isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
-                  }`}
+                  className={`w-full font-normal ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
                   title={`${entry.key} (${entry.type})`}
                 >
                   <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
                   <span className="truncate flex-1 text-left">{entry.key}</span>
                   <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
-                </button>
+                </Button>
               );
             })
           )}
         </div>
         <div className="px-2 py-1 border-t border-border flex items-center justify-between">
           <span className="text-xs text-muted-foreground">{filteredKeys.length} keys</span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setShowStats(!showStats)}
-            className={`p-1 rounded hover:bg-muted transition-colors ${showStats ? 'text-primary' : 'text-muted-foreground'}`}
+            className={showStats ? 'text-primary' : 'text-muted-foreground'}
             title="Show stats"
           >
             <BarChart3 className="size-3" />
-          </button>
+          </Button>
         </div>
         {showStats && (
           <div className="px-3 py-2 border-t border-border bg-muted/30">

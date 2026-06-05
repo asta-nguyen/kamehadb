@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Server,
@@ -257,60 +258,52 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
           ) : (
             <Card>
               <div className="border-t overflow-auto bg-background">
-                <table className="w-full text-xs table-fixed" style={{ minWidth: 640 }}>
-                  <thead className="sticky top-0 z-10 bg-muted/50">
-                    <tr>
-                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 60 }}>
-                        PID
-                      </th>
-                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
-                        User
-                      </th>
-                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 100 }}>
-                        Application
-                      </th>
-                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
-                        Client
-                      </th>
-                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
-                        State
-                      </th>
-                      <th className="px-3 py-2 font-medium text-muted-foreground text-left">Query</th>
-                      <th className="px-3 py-2 font-medium text-muted-foreground text-left" style={{ width: 80 }}>
-                        Duration
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="text-xs" style={{ minWidth: 640 }}>
+                  <TableHeader className="sticky top-0 z-10 bg-muted/50">
+                    <TableRow style={{ gridTemplateColumns: '60px 80px 100px 80px 80px minmax(160px, 1fr) 80px' }}>
+                      <TableHead>PID</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Application</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>State</TableHead>
+                      <TableHead>Query</TableHead>
+                      <TableHead>Duration</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {connections && connections.length > 0 ? (
                       connections.map((conn) => (
-                        <tr key={conn.pid} className="border-b last:border-b-0 even:bg-muted/20 hover:bg-muted/30">
-                          <td className="px-3 py-2 font-mono text-xs truncate" title={String(conn.pid)}>
+                        <TableRow
+                          key={conn.pid}
+                          style={{ gridTemplateColumns: '60px 80px 100px 80px 80px minmax(160px, 1fr) 80px' }}
+                          className="even:bg-muted/20 hover:bg-muted/30"
+                        >
+                          <TableCell className="px-3 py-2 font-mono text-xs truncate" title={String(conn.pid)}>
                             {conn.pid}
-                          </td>
-                          <td className="px-3 py-2 text-sm truncate" title={conn.usename}>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-sm truncate" title={conn.usename}>
                             {conn.usename}
-                          </td>
-                          <td
+                          </TableCell>
+                          <TableCell
                             className="px-3 py-2 text-sm text-muted-foreground truncate"
                             title={conn.applicationName || '-'}
                           >
                             {conn.applicationName || '-'}
-                          </td>
-                          <td
+                          </TableCell>
+                          <TableCell
                             className="px-3 py-2 text-sm text-muted-foreground truncate"
                             title={conn.clientAddr || 'local'}
                           >
                             {conn.clientAddr || 'local'}
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell className="px-3 py-2">
                             <Badge
                               variant={getStateColor(conn.state) as 'default' | 'secondary' | 'outline' | 'destructive'}
                             >
                               {conn.state}
                             </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-sm group" title={conn.query || '-'}>
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-sm group" title={conn.query || '-'}>
                             <div className="flex items-center gap-1">
                               <span className="truncate min-w-0">{conn.query || '-'}</span>
                               {conn.query && (
@@ -330,8 +323,8 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
                                 </Button>
                               )}
                             </div>
-                          </td>
-                          <td
+                          </TableCell>
+                          <TableCell
                             className="px-3 py-2 text-sm truncate"
                             title={conn.durationSeconds > 0 ? `${conn.durationSeconds}s` : '-'}
                           >
@@ -342,18 +335,18 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
                             ) : (
                               '-'
                             )}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))
                     ) : (
-                      <tr>
-                        <td colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableRow style={{ gridTemplateColumns: '60px 80px 100px 80px 80px minmax(160px, 1fr) 80px' }}>
+                        <TableCell colSpan={7} className="px-3 text-center text-muted-foreground py-8">
                           No active connections
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </Card>
           )}

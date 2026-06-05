@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useMongoDocuments, useMongoCollectionStats } from '@/hooks/use-mongo';
-import { useColumnResize } from '@/hooks/use-column-resize';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
@@ -26,8 +25,6 @@ import {
   Activity,
   ChevronLeft,
   Search,
-  ArrowUp,
-  ArrowDown,
   ArrowUpDown,
 } from 'lucide-react';
 import {
@@ -38,6 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DataTable, type ColumnDef } from '@/components/data-table';
 import type { WorkspaceTab } from '@kamehadb/shared';
 
 function parseJsonSafe(text: string): Record<string, unknown> | null {
@@ -677,10 +675,11 @@ function DocumentCard({
 
   return (
     <div className="border border-border rounded-md overflow-hidden" role="listitem">
-      <button
+      <Button
+        variant="ghost"
         onClick={onToggle}
         onKeyDown={handleKeyDown}
-        className="w-full flex items-center gap-2 px-2 py-1 bg-muted/30 hover:bg-muted/50 transition-colors text-left focus:outline-none focus:ring-2 focus:ring-primary/50"
+        className="w-full font-normal"
         tabIndex={tabIndex}
         aria-expanded={isExpanded}
       >
@@ -698,24 +697,28 @@ function DocumentCard({
           {': '}
           <span className="text-foreground">{formatValue(doc._id)}</span>
         </span>
-      </button>
+      </Button>
       {isExpanded && (
         <div className="px-2 py-1 border-t border-border bg-background relative group">
           <div className="absolute top-2 right-2 flex items-center gap-1">
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleDelete}
-              className="p-1.5 rounded bg-muted/80 hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+              className="bg-muted/80 hover:bg-destructive/20 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
               title="Delete document"
             >
               <Trash2 className="size-3.5" />
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleCopy}
-              className="p-1.5 rounded bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              className="bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100"
               title="Copy JSON"
             >
               {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
-            </button>
+            </Button>
           </div>
           <div className="space-y-1 pr-24">
             {Object.entries(doc).map(([key, value]) => (
@@ -725,7 +728,7 @@ function DocumentCard({
                 </span>
                 {editingKey === key ? (
                   <div className="flex items-center gap-1 flex-1 min-w-0">
-                    <input
+                    <Input
                       type="text"
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
@@ -733,26 +736,19 @@ function DocumentCard({
                       className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
                       autoFocus
                     />
-                    <button
-                      onClick={saveEdit}
-                      disabled={saving}
-                      className="p-1 hover:bg-muted rounded text-primary shrink-0"
-                      title="Save (Enter)"
-                    >
+                    <Button variant="ghost" size="icon" onClick={saveEdit} disabled={saving} title="Save (Enter)">
                       <Save className="size-3" />
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      className="p-1 hover:bg-muted rounded text-muted-foreground shrink-0"
-                      title="Cancel (Esc)"
-                    >
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={cancelEdit} title="Cancel (Esc)">
                       <X className="size-3" />
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => startEdit(key, value)}
-                    className="flex-1 text-left px-1 py-0.5 hover:bg-muted/50 rounded truncate text-xs font-mono"
+                    className="flex-1 font-normal truncate"
                     title={String(value)}
                   >
                     {value === null ? (
@@ -762,7 +758,7 @@ function DocumentCard({
                     ) : (
                       String(value)
                     )}
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
@@ -898,136 +894,78 @@ function DocumentTableView({
     }
   };
 
-  const { widths: colWidths, totalWidth, onMouseDown: onColResize } = useColumnResize(columns.length, 120);
-  const tableMinWidth = 32 + totalWidth + 80;
+  const tableColumns: ColumnDef<Record<string, unknown>>[] = columns.map((col) => ({
+    id: col,
+    header: col,
+    accessor: (row) => row[col],
+    sortable: true,
+    cellClassName: 'px-1 overflow-hidden',
+    render: (value, _row, rowIndex) => {
+      const isEditing = editCell?.row === rowIndex && editCell?.key === col;
+      if (isEditing) {
+        return (
+          <div className="flex items-end gap-0.5 min-w-0">
+            <Input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
+              autoFocus
+            />
+            <Button variant="ghost" size="icon" onClick={saveEdit} disabled={saving} title="Save (Enter)">
+              <Save className="size-3" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={cancelEdit} title="Cancel (Esc)">
+              <X className="size-3" />
+            </Button>
+          </div>
+        );
+      }
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => startEdit(rowIndex, col, value)}
+          className="w-full font-normal truncate block"
+          title={formatCellValue(value)}
+        >
+          {value === null ? (
+            <span className="text-muted-foreground italic">null</span>
+          ) : (
+            <span className={typeof value === 'object' ? 'text-primary' : ''}>{formatCellValue(value)}</span>
+          )}
+        </Button>
+      );
+    },
+  }));
 
   return (
-    <div className="bg-background overflow-auto">
-      <table className="w-full text-xs table-fixed" style={{ minWidth: tableMinWidth }}>
-        <thead>
-          <tr className="bg-muted border-b border-border">
-            <th
-              className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px]"
-              style={{ width: 32 }}
-            >
-              #
-            </th>
-            {columns.map((col, i) => {
-              const isSorted = currentSort?.field === col;
-              return (
-                <th
-                  key={col}
-                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80 relative"
-                  style={{ width: colWidths[i] }}
-                  onClick={() => onSortChange(col)}
-                >
-                  <div className="flex items-center gap-1 overflow-hidden pr-2">
-                    <span className="truncate" title={col}>
-                      {col}
-                    </span>
-                    {isSorted ? (
-                      currentSort.dir === 1 ? (
-                        <ArrowUp className="size-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="size-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUp className="size-2.5 shrink-0 text-muted-foreground/30" />
-                    )}
-                  </div>
-                  <div
-                    onMouseDown={(e) => onColResize(i, e)}
-                    className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/30 active:bg-primary/50"
-                  />
-                </th>
-              );
-            })}
-            <th
-              className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px]"
-              style={{ width: 80 }}
-            >
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {documents.map((doc, rowIndex) => (
-            <tr
-              key={doc._id ? String(doc._id) : rowIndex}
-              className="border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors"
-            >
-              <td className="px-2 py-0.5 text-muted-foreground">{rowIndex + 1}</td>
-              {columns.map((col) => {
-                const value = doc[col];
-                const isEditing = editCell?.row === rowIndex && editCell?.key === col;
-                return (
-                  <td key={col} className="px-1 py-1 overflow-hidden">
-                    {isEditing ? (
-                      <div className="flex items-end gap-0.5 min-w-0">
-                        <input
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
-                          autoFocus
-                        />
-                        <button
-                          onClick={saveEdit}
-                          disabled={saving}
-                          className="p-1 hover:bg-muted rounded text-primary shrink-0"
-                          title="Save (Enter)"
-                        >
-                          <Save className="size-3" />
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="p-1 hover:bg-muted rounded text-muted-foreground shrink-0"
-                          title="Cancel (Esc)"
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startEdit(rowIndex, col, value)}
-                        className="w-full text-left px-1 py-0.5 hover:bg-muted/50 rounded truncate block"
-                        title={formatCellValue(value)}
-                      >
-                        {value === null ? (
-                          <span className="text-muted-foreground italic">null</span>
-                        ) : (
-                          <span className={typeof value === 'object' ? 'text-primary' : ''}>
-                            {formatCellValue(value)}
-                          </span>
-                        )}
-                      </button>
-                    )}
-                  </td>
-                );
-              })}
-              <td className="px-1 py-1">
-                <div className="flex items-center gap-0.5">
-                  <button
-                    onClick={() => handleCopyRow(doc, rowIndex)}
-                    className="p-1 hover:bg-muted rounded"
-                    title="Copy JSON"
-                  >
-                    {copiedRow === rowIndex ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
-                  </button>
-                  <button
-                    onClick={() => onDelete(doc)}
-                    className="p-1 hover:bg-destructive/20 rounded hover:text-destructive"
-                    title="Delete document"
-                  >
-                    <Trash2 className="size-3" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      rows={documents}
+      columns={tableColumns}
+      rowKey={(doc, i) => (doc._id ? String(doc._id) : String(i))}
+      showIndex
+      onSortChange={onSortChange}
+      sortColumn={currentSort?.field}
+      sortDirection={currentSort?.dir === -1 ? 'desc' : 'asc'}
+      suffix={(doc, rowIndex) => (
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="icon" onClick={() => handleCopyRow(doc, rowIndex)} title="Copy JSON">
+            {copiedRow === rowIndex ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(doc)}
+            className="hover:bg-destructive/20 hover:text-destructive"
+            title="Delete document"
+          >
+            <Trash2 className="size-3" />
+          </Button>
+        </div>
+      )}
+      className="bg-background"
+    />
   );
 }

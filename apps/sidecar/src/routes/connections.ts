@@ -8,6 +8,7 @@ import { testSqliteConnection } from '../adapters/sqlite.js';
 import { testMysqlConnection } from '../adapters/mysql.js';
 import { createMongoAdapter } from '../adapters/mongodb.js';
 import { createRedisDbAdapter, createQdrantDbAdapter } from '../adapters/factory.js';
+import { testRedisConnection } from '../adapters/redis.js';
 import { clearConnectionCache } from '../lib/cache.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
@@ -85,7 +86,12 @@ connectionsRouter.get('/:id/health', async (c) => {
         }).testConnection();
         break;
       case 'redis':
-        result = await createRedisDbAdapter(profile, password).testConnection();
+        result = await testRedisConnection({
+          host: profile.host,
+          port: profile.port,
+          password: password ?? undefined,
+          database: profile.database ? parseInt(profile.database, 10) || undefined : undefined,
+        });
         break;
       case 'qdrant':
         result = await createQdrantDbAdapter(profile).testConnection();

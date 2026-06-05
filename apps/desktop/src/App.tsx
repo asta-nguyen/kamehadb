@@ -276,7 +276,7 @@ function Workspace() {
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading map…</div>
           }
         >
-          <QdrantVectorMap connectionId={activeTab.connectionId} collection={activeTab.collection} />
+          <QdrantVectorMap tab={activeTab} connectionId={activeTab.connectionId} collection={activeTab.collection} />
         </Suspense>
       )}
       {activeTab.type === 'qdrant-stats' && (

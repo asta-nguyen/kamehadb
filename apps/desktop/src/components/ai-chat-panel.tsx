@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -11,14 +11,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
+import { useChat } from '@/hooks/use-chat';
+import type { ChatMessage } from '@/hooks/use-chat';
 import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
-import { useChat, fetchServerSentEvents } from '@tanstack/ai-react';
-import type { UIMessage } from '@tanstack/ai-react';
 import hljs from 'highlight.js/lib/core';
 import sql from 'highlight.js/lib/languages/sql';
 import javascript from 'highlight.js/lib/languages/javascript';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { getChatTextContent, normalizeCodeLanguage, toUIMessage, type CodeLanguage } from '@/lib/ai-chat-helpers';
 import {
   Bot,
   Send,
@@ -39,8 +40,10 @@ import {
 
 hljs.registerLanguage('sql', sql);
 hljs.registerLanguage('javascript', javascript);
-
-type CodeLanguage = 'sql' | 'javascript' | 'redis';
+// `json` is registered so highlight.js knows the grammar; we still escape
+// before passing in to keep behavior explicit and avoid surprises if a
+// future hljs version handles JSON differently.
+hljs.registerLanguage('json', javascript);
 
 const escapeHtml = (value: string) =>
   value
@@ -51,7 +54,9 @@ const escapeHtml = (value: string) =>
     .replace(/'/g, '&#39;');
 
 function highlightCode(code: string, language: CodeLanguage): string {
-  if (language === 'redis') return escapeHtml(code);
+  // JSON, Redis: no syntax highlighting — escape only so output stays
+  // safely renderable. SQL and JavaScript: hand off to highlight.js.
+  if (language === 'redis' || language === 'json') return escapeHtml(code);
   return hljs.highlight(code, { language }).value;
 }
 
@@ -66,15 +71,17 @@ function QueryBlock({
   language,
   onInsert,
   onRun,
+  connectionKind,
 }: {
   code: string;
   language: CodeLanguage;
   onInsert?: () => void;
   onRun?: () => void;
+  connectionKind?: string;
 }) {
   const [isCopied, setIsCopied] = useState(false);
   const canOpenSql = language === 'sql' && onInsert && onRun;
-  const languageLabel = language === 'javascript' ? 'mongodb' : language;
+  const languageLabel = language === 'javascript' && connectionKind === 'mongodb' ? 'mongodb' : language;
 
   const handleCopy = useCallback(async () => {
     try {
@@ -153,13 +160,6 @@ function QueryBlock({
   );
 }
 
-function normalizeCodeLanguage(language: string): CodeLanguage {
-  const normalized = language.toLowerCase();
-  if (normalized === 'javascript' || normalized === 'js' || normalized === 'json') return 'javascript';
-  if (normalized === 'redis') return 'redis';
-  return 'sql';
-}
-
 function extractCodeBlocks(content: string): { type: 'text' | 'code'; value: string; language?: CodeLanguage }[] {
   const blocks: { type: 'text' | 'code'; value: string; language?: CodeLanguage }[] = [];
   const regex = /```(sql|javascript|js|json|redis)\n?([\s\S]*?)```/gi;
@@ -183,19 +183,29 @@ function extractCodeBlocks(content: string): { type: 'text' | 'code'; value: str
   return blocks;
 }
 
-function getMsgContent(msg: UIMessage): string {
-  return msg.parts
-    .filter((p): p is { type: 'text'; content: string } => p.type === 'text')
-    .map((p) => p.content)
-    .join('');
-}
-
-function MessageBubble({ msg, connectionId }: { msg: UIMessage; connectionId: string | null }) {
+function MessageBubble({
+  msg,
+  connectionId,
+  isStreaming,
+}: {
+  msg: ChatMessage;
+  connectionId: string | null;
+  isStreaming?: boolean;
+}) {
   const [isCopied, setIsCopied] = useState(false);
 
   function formatTime(date?: Date) {
     if (!date) return '';
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return (
+      date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+      ', ' +
+      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    );
   }
 
   if (msg.role === 'user') {
@@ -206,14 +216,14 @@ function MessageBubble({ msg, connectionId }: { msg: UIMessage; connectionId: st
             <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatTime(msg.createdAt)}</div>
           )}
           <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
-            {getMsgContent(msg)}
+            {getChatTextContent(msg)}
           </div>
         </div>
       </div>
     );
   }
 
-  const content = getMsgContent(msg);
+  const content = getChatTextContent(msg);
   const blocks = extractCodeBlocks(content);
 
   const handleCopyResponse = async () => {
@@ -251,39 +261,46 @@ function MessageBubble({ msg, connectionId }: { msg: UIMessage; connectionId: st
             <TooltipContent>Copy response</TooltipContent>
           </Tooltip>
         </div>
-        {blocks.map((block, i) =>
-          block.type === 'code' ? (
-            <QueryBlock
-              key={i}
-              code={block.value}
-              language={block.language ?? 'sql'}
-              onInsert={
-                block.language === 'sql'
-                  ? () => {
-                      if (!connectionId) return;
-                      openQueryTabWithSql(connectionId, block.value, false);
-                    }
-                  : undefined
-              }
-              onRun={
-                block.language === 'sql'
-                  ? () => {
-                      if (!connectionId) return;
-                      openQueryTabWithSql(connectionId, block.value, true);
-                    }
-                  : undefined
-              }
-            />
-          ) : (
-            block.value && (
-              <div
+        {isStreaming && blocks.length === 0 ? (
+          <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" />
+            Thinking...
+          </div>
+        ) : (
+          blocks.map((block, i) =>
+            block.type === 'code' ? (
+              <QueryBlock
                 key={i}
-                className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
-              >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
-              </div>
-            )
-          ),
+                code={block.value}
+                language={block.language ?? 'sql'}
+                onInsert={
+                  block.language === 'sql'
+                    ? () => {
+                        if (!connectionId) return;
+                        openQueryTabWithSql(connectionId, block.value, false);
+                      }
+                    : undefined
+                }
+                onRun={
+                  block.language === 'sql'
+                    ? () => {
+                        if (!connectionId) return;
+                        openQueryTabWithSql(connectionId, block.value, true);
+                      }
+                    : undefined
+                }
+              />
+            ) : (
+              block.value && (
+                <div
+                  key={i}
+                  className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
+                </div>
+              )
+            ),
+          )
         )}
       </div>
     </div>
@@ -347,13 +364,16 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
         ? CHAT_MODE_CONFIG.redis
         : CHAT_MODE_CONFIG.sql;
 
-  const connection = useMemo(() => fetchServerSentEvents('/ai/chat'), []);
-  const forwardedProps = useMemo(
-    () => (connectionId ? { connectionId, mongoDatabase } : undefined),
-    [connectionId, mongoDatabase],
-  );
+  const chat = useChat({
+    url: '/ai/chat',
+    forwardedProps: connectionId ? { connectionId, mongoDatabase } : undefined,
+  });
 
-  const chat = useChat({ connection, forwardedProps });
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chat.messages]);
 
   const clearChatHistory = useClearChatHistory();
   const clearSchemaCache = useClearSchemaCache();
@@ -363,11 +383,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   useEffect(() => {
     if (chatHistory?.messages && chat.messages.length === 0 && !historyLoadedRef.current) {
       historyLoadedRef.current = true;
-      const uiMessages: UIMessage[] = chatHistory.messages.map((m) => ({
-        id: crypto.randomUUID(),
-        role: m.role as 'user' | 'assistant',
-        parts: [{ type: 'text' as const, content: m.content }],
-      }));
+      const uiMessages: ChatMessage[] = chatHistory.messages.map(toUIMessage);
       chat.setMessages(uiMessages);
     }
   }, [chatHistory, chat]);
@@ -379,12 +395,6 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
       historyLoadedRef.current = false;
     }
   }, [connectionId, chat]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [chat.messages, chat.isLoading]);
 
   function handleSend(textOverride?: string) {
     const text = (textOverride ?? input).trim();
@@ -458,7 +468,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border/60'
         }`}
       />
-      <div className="flex h-full min-w-0 flex-1 flex-col">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
         <div className="shrink-0 border-b border-border bg-muted/10 px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -538,7 +548,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
           )}
         </div>
 
-        <div className="flex-1 overflow-auto" ref={scrollRef}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-3 pb-4">
             {chat.messages.length === 0 && !chat.isLoading && (
               <div className="py-5 text-muted-foreground">
@@ -550,40 +560,35 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 <p className="mb-1 text-center text-sm font-medium text-foreground/80">{chatMode.title}</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-1.5">
                   {chatMode.suggestions.map((prompt, i) => (
-                    <button
+                    <Button
                       key={i}
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleSuggestionClick(prompt)}
                       disabled={chat.isLoading}
-                      className={`rounded-full border border-border/50 bg-muted/35 px-2.5 py-1.5 text-xs text-muted-foreground/85 transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
+                      className={`rounded-full bg-muted/35 text-muted-foreground/85 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
                     >
                       {prompt}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
             )}
 
-            {chat.messages.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} connectionId={connectionId} />
+            {chat.messages.map((msg, i) => (
+              <MessageBubble
+                key={msg.id}
+                msg={msg}
+                connectionId={connectionId}
+                isStreaming={chat.isLoading && i === chat.messages.length - 1 && msg.role === 'assistant'}
+              />
             ))}
-
-            {chat.isLoading && (
-              <div className="mb-3 flex gap-2">
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
-                  <Bot className="size-3.5 text-primary" />
-                </div>
-                <div className="flex h-7 items-center gap-1.5 rounded-md bg-muted/45 px-2 text-sm text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" />
-                  Thinking...
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         <div className="shrink-0 border-t border-border bg-muted/10 p-2">
-          <div className="flex items-end gap-2 rounded-lg border border-border/70 bg-background p-1.5 shadow-sm transition-shadow focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/25">
+          <div className="flex items-end gap-2 rounded-lg border border-border/70 bg-background p-1.5 shadow-sm transition-shadow focus-within:border-ring focus-within:ring-ring/25">
             <Textarea
               ref={inputRef}
               value={input}

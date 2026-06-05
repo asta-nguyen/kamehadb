@@ -230,6 +230,34 @@ These guidelines prioritize caution and precision over speed.
 - **Structured Plans**: For multi-step tasks, define: `[Step] $\rightarrow$ verify: [check]`.
 - **Verification Gate**: No task is "done" until success criteria are verified via tool output.
 
+### 5. Always Use shadcn Components
+
+- **Rule**: ALWAYS use the shadcn UI components from `apps/desktop/src/components/ui/` instead of raw HTML elements when an equivalent exists.
+- **Available components** (in `ui/`): `Button`, `Input`, `Textarea`, `Label`, `Select` (+ parts), `Table` (+ parts), `Card`, `Badge`, `Dialog`, `Sheet`, `DropdownMenu`, `Tabs`, `Tooltip`, `ScrollArea`, `Progress`, `Separator`, `Command`, `Sonner` toaster.
+- **Mapping**:
+  - `<input>` → `<Input>`
+  - `<textarea>` → `<Textarea>`
+  - `<label>` → `<Label>`
+  - `<button>` → `<Button>` (use `variant`/`size` props, not bespoke className hacks)
+  - `<select>` → `<Select>` + `<SelectTrigger>` + `<SelectContent>` + `<SelectItem>` + `<SelectValue>`
+  - `<table>/<thead>/<tbody>/<tr>/<th>/<td>` → `<Table>/<TableHeader>/<TableBody>/<TableRow>/<TableHead>/<TableCell>`
+- **No new shadcn components without a shadcn CLI install** — if a shadcn component does not exist in `ui/`, install it via the shadcn CLI before using it; never hand-roll a parallel component.
+- **Acceptable exceptions** (document the reason inline): buttons required by a third-party library (e.g. React Flow's `<Controls>`), elements with required `role` attributes that shadcn doesn't expose (e.g. `role="switch"` toggles).
+
+### 6. Always Comment Non-Trivial Code (How / Why / What)
+
+- **Rule**: Every non-trivial function, hook, or block of logic must carry a short comment that explains the **what** (one line), the **why** (one line of intent / tradeoff), and the **how** only when the mechanism is non-obvious.
+- **What is "non-trivial"**: anything that isn't a one-liner that re-states its name. Trivial `return x + 1` lines don't need a comment. A new function, a hook, a state machine, a tricky expression, a side effect, a workaround — these all do.
+- **Comment style** (match the existing project style; short, plain prose):
+  ```ts
+  // Resize a column by direct DOM mutation during the drag for smoothness,
+  // then commit the final pixel width to React state on mouseup so re-renders
+  // only happen once per drag. (How / Why / What)
+  ```
+- **Bad**: comments that just repeat the function name (`// Increments counter`), comments that lie, comments without intent ("TODO" without context).
+- **Good**: comments that name the tradeoff, call out a workaround, or document a non-obvious invariant.
+- **No section-header comment walls** — keep comments tight and attached to the code they describe.
+
 ## Operational Rules
 
 - **Package Manager**: ALWAYS use `pnpm` for this project, except for the `landing/` directory which is managed via `npm`.

@@ -279,10 +279,11 @@ export function ApiSettingsPage() {
                 const isActive = provider === draftSettings.activeProvider;
 
                 return (
-                  <button
+                  <Button
                     key={provider}
+                    variant="ghost"
                     onClick={() => setSelectedProvider(provider)}
-                    className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all ${
+                    className={`group w-full h-auto justify-start font-normal gap-3 py-2 ${
                       isSelected ? 'bg-background shadow-sm ring-1 ring-inset ring-border' : 'hover:bg-muted/50'
                     }`}
                   >
@@ -306,7 +307,7 @@ export function ApiSettingsPage() {
                         {status}
                       </div>
                     </div>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

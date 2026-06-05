@@ -19,6 +19,37 @@ interface RedisConfig {
   database?: number;
 }
 
+/**
+ * Fast lightweight connection test — standalone call, no retries, proper cleanup.
+ * Unlike the full adapter's testConnection(), this creates a fresh ephemeral client
+ * with retryStrategy disabled so a down Redis is reported immediately rather than
+ * waiting through ioredis's built-in retry backoff.
+ */
+export async function testRedisConnection(config: RedisConfig): Promise<TestConnectionResult> {
+  const client = new Redis({
+    host: config.host ?? 'localhost',
+    port: config.port ?? 6379,
+    password: config.password || undefined,
+    db: config.database ?? 0,
+    lazyConnect: true,
+    connectTimeout: 3000,
+    retryStrategy: () => null, // no retries — fail fast
+    maxRetriesPerRequest: null,
+  });
+  try {
+    await client.connect();
+    await client.ping();
+    return { success: true, serverVersion: 'Redis' };
+  } catch (err) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Connection failed',
+    };
+  } finally {
+    await client.quit().catch(() => {});
+  }
+}
+
 export function createRedisAdapter(config: RedisConfig): RedisAdapter {
   let client: Redis | null = null;
 

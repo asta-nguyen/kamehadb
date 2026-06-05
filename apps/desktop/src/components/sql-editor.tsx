@@ -1,7 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useRunQuery } from '@/hooks/use-query';
-import { useColumnResize } from '@/hooks/use-column-resize';
 import { api } from '@/lib/api';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { DataTable, type ColumnDef } from '@/components/data-table';
 import { RecordDetailTabs } from '@/components/table-view';
 import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
@@ -42,58 +42,29 @@ function QueryResultTable({
   result: QueryResult;
   onSelectRow: (row: Record<string, unknown>) => void;
 }) {
-  const { widths: colWidths, totalWidth, onMouseDown: onColResize } = useColumnResize(result.columns.length, 120);
+  const columns: ColumnDef<Record<string, unknown>>[] = result.columns.map((col) => ({
+    id: col.name,
+    header: (
+      <span className="flex items-center gap-1">
+        <span>{col.name}</span>
+        <span className="text-muted-foreground/60 font-normal">{col.type}</span>
+      </span>
+    ),
+    accessor: (row) => row[col.name],
+    headerClassName: 'px-3 text-left whitespace-nowrap',
+    cellClassName: 'px-3',
+  }));
 
   return (
     <div className="p-4">
       <div className="overflow-auto border rounded-md">
-        <table className="w-full text-xs table-fixed" style={{ minWidth: 32 + totalWidth }}>
-          <thead>
-            <tr className="bg-muted/50">
-              {result.columns.map((col, i) => (
-                <th
-                  key={col.name}
-                  className="px-3 py-1.5 font-medium text-muted-foreground text-left text-[11px] border-r last:border-r-0 whitespace-nowrap relative select-none"
-                  style={{ width: colWidths[i] }}
-                >
-                  <div className="flex items-center gap-1 overflow-hidden pr-2">
-                    <span className="truncate" title={col.name}>
-                      {col.name}
-                    </span>
-                    <span className="ml-1 text-muted-foreground/60 shrink-0">{col.type}</span>
-                  </div>
-                  <div
-                    onMouseDown={(e) => onColResize(i, e)}
-                    className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/30 active:bg-primary/50"
-                  />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {result.rows.map((row, i) => (
-              <tr
-                key={i}
-                className="border-t border-border/40 hover:bg-muted/30 cursor-pointer"
-                onClick={() => onSelectRow(row)}
-              >
-                {result.columns.map((col) => (
-                  <td
-                    key={col.name}
-                    className="px-3 py-1 border-r last:border-r-0 truncate"
-                    title={row[col.name] === null ? '' : String(row[col.name])}
-                  >
-                    {row[col.name] === null ? (
-                      <span className="text-muted-foreground italic">NULL</span>
-                    ) : (
-                      String(row[col.name])
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          rows={result.rows}
+          columns={columns}
+          rowKey={(_, i) => String(i)}
+          showIndex
+          onRowClick={(row) => onSelectRow(row)}
+        />
       </div>
       <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">

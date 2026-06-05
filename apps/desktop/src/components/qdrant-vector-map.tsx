@@ -3,14 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import type { WorkspaceTab } from '@kamehadb/shared';
 import { api } from '@/lib/api';
-import { appStore, openQdrantSearchTab } from '@/store';
+import { appStore, openQdrantSearchTab, updateTabQdrantGraphState } from '@/store';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
 const BG_DARK = 0x0b0b0c;
 const BG_LIGHT = 0xf8fafc;
 
 interface QdrantVectorMapProps {
+  tab: WorkspaceTab & { type: 'qdrant-graph' };
   connectionId: string;
   collection: string;
 }
@@ -86,7 +90,7 @@ function toNumericVector(vector: unknown): number[] | null {
 
 type Point = { id: string | number; payload: Record<string, unknown>; vector: number[] };
 
-export function QdrantVectorMap({ connectionId, collection }: QdrantVectorMapProps) {
+export function QdrantVectorMap({ tab, connectionId, collection }: QdrantVectorMapProps) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['qdrant-map', connectionId, collection],
     queryFn: () =>
@@ -99,8 +103,12 @@ export function QdrantVectorMap({ connectionId, collection }: QdrantVectorMapPro
     staleTime: 30000,
   });
 
-  const [colorBy, setColorBy] = useState<string>('');
+  const [colorBy, setColorBy] = useState<string>(tab.colorBy || '');
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    updateTabQdrantGraphState(tab.id, { colorBy });
+  }, [tab.id, colorBy]);
 
   const theme = useStore(appStore, (s) => s.theme);
   const isDark = useMemo(() => document.documentElement.classList.contains('dark'), [theme]);
@@ -172,7 +180,11 @@ export function QdrantVectorMap({ connectionId, collection }: QdrantVectorMapPro
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 4000);
-    camera.position.set(0, 0, SPREAD * 1.8);
+    if (tab.camera) {
+      camera.position.set(tab.camera.position[0], tab.camera.position[1], tab.camera.position[2]);
+    } else {
+      camera.position.set(0, 0, SPREAD * 1.8);
+    }
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -182,6 +194,24 @@ export function QdrantVectorMap({ connectionId, collection }: QdrantVectorMapPro
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
+    if (tab.camera?.target) {
+      controls.target.set(tab.camera.target[0], tab.camera.target[1], tab.camera.target[2]);
+      controls.update();
+    }
+
+    let saveCameraTimeout: ReturnType<typeof setTimeout>;
+    const onControlsChange = () => {
+      clearTimeout(saveCameraTimeout);
+      saveCameraTimeout = setTimeout(() => {
+        updateTabQdrantGraphState(tab.id, {
+          camera: {
+            position: [camera.position.x, camera.position.y, camera.position.z],
+            target: [controls.target.x, controls.target.y, controls.target.z],
+          },
+        });
+      }, 500);
+    };
+    controls.addEventListener('change', onControlsChange);
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -246,10 +276,20 @@ export function QdrantVectorMap({ connectionId, collection }: QdrantVectorMapPro
     ro.observe(mount);
 
     return () => {
+      // Ensure final camera state is saved on unmount (e.g., if switching tabs during debounce)
+      updateTabQdrantGraphState(tab.id, {
+        camera: {
+          position: [camera.position.x, camera.position.y, camera.position.z],
+          target: [controls.target.x, controls.target.y, controls.target.z],
+        },
+      });
+
       cancelAnimationFrame(raf);
       ro.disconnect();
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('click', onClick);
+      controls.removeEventListener('change', onControlsChange);
+      clearTimeout(saveCameraTimeout);
       controls.dispose();
       geometry.dispose();
       material.dispose();
@@ -304,21 +344,22 @@ export function QdrantVectorMap({ connectionId, collection }: QdrantVectorMapPro
       <div className="px-3 py-2 border-b border-border flex items-center gap-3 text-xs">
         <span className="font-mono">{collection}</span>
         <span className="text-muted-foreground">{points.length} points (PCA → 3D)</span>
-        <label className="flex items-center gap-1 ml-auto text-muted-foreground">
+        <Label className="flex items-center gap-1 ml-auto text-muted-foreground">
           Color by
-          <select
-            value={colorBy}
-            onChange={(e) => setColorBy(e.target.value)}
-            className="h-6 px-1.5 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
-          >
-            <option value="">none</option>
-            {payloadKeys.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select value={colorBy || '_none'} onValueChange={(v) => setColorBy(v === '_none' || v == null ? '' : v)}>
+            <SelectTrigger size="sm" className="h-6 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">none</SelectItem>
+              {payloadKeys.map((k) => (
+                <SelectItem key={k} value={k}>
+                  {k}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Label>
       </div>
 
       {legend.length > 0 && (

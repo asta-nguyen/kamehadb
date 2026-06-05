@@ -1,47 +1,125 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 
-export function useColumnResize(columnCount: number, defaultWidth = 120) {
-  const [widths, setWidths] = useState<number[]>(() => Array(columnCount).fill(defaultWidth));
-  const refs = useRef<{ idx: number; startX: number; startW: number; th: HTMLElement; moved: boolean } | null>(null);
+// Single-word sentinel used to round-trip the multi-word `minmax(0, 1fr)`
+// track through a `.split(' ')` without it being torn apart. The actual
+// track is restored before the template is written to the DOM.
+const SENTINEL = '__kameha_unresized__';
+
+type Options = {
+  // Fixed tracks before the data columns in the row's gridTemplateColumns
+  // (e.g. `'32px'` for the row-index column). Required when the row has a
+  // non-data leading column so the hook can measure the right head and write
+  // back the correct full template.
+  prefix?: string;
+  // Fixed tracks after the data columns (e.g. `'80px'` for an actions column).
+  suffix?: string;
+};
+
+type DragState = {
+  idx: number;
+  startX: number;
+  startW: number;
+  allRows: HTMLElement[];
+  moved: boolean;
+};
+
+export function useColumnResize(columnCount: number, options: Options = {}) {
+  const { prefix = '', suffix = '' } = options;
+
+  // null = unresized column, shares the row via minmax(0, 1fr).
+  // number = user-resized width in px; the other minmax(0, 1fr) columns
+  // absorb the remaining space, so the row never overflows its parent.
+  const [widths, setWidths] = useState<(number | null)[]>(() => Array(columnCount).fill(null));
+
+  // Re-sync widths whenever the column count changes (e.g. async column fetch
+  // lands after the hook has already mounted with 0 columns). Without this,
+  // the first render of a freshly-opened table has an empty grid template and
+  // the rows render broken; switching tabs remounts with the cached count and
+  // masks the bug.
+  useEffect(() => {
+    setWidths((prev) => (prev.length === columnCount ? prev : Array(columnCount).fill(null)));
+  }, [columnCount]);
+
+  const dragRef = useRef<DragState | null>(null);
+
+  // Data-column track template only. The consumer wraps it with prefix/suffix
+  // to form the full row template (e.g. `32px ${dataTemplate} 80px`).
+  const dataTemplate = useMemo(() => widths.map((w) => (w == null ? 'minmax(0, 1fr)' : `${w}px`)).join(' '), [widths]);
+
+  const fullTemplate = useMemo(() => {
+    const parts = [prefix, dataTemplate, suffix].filter((s) => s && s.length > 0);
+    return parts.join(' ');
+  }, [prefix, dataTemplate, suffix]);
 
   const onMouseDown = useCallback(
     (index: number, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const th = (e.currentTarget as HTMLElement).closest('th') as HTMLElement;
-      if (!th) return;
+      const handle = e.currentTarget as HTMLElement;
+      const head = handle.closest('[data-slot="table-head"]') as HTMLElement | null;
+      if (!head) return;
+      const row = head.parentElement as HTMLElement;
+      if (!row) return;
+
+      // Use the actual rendered width of the head as the drag start. The head
+      // may currently be sized by a `minmax(0, 1fr)` track, so its real px
+      // width is whatever the grid gave it — not the hook's `widths` value.
       const startX = e.clientX;
-      const startW = th.getBoundingClientRect().width;
-      refs.current = { idx: index, startX, startW, th, moved: false };
+      const startW = head.getBoundingClientRect().width;
+      const table = row.closest('[data-slot="table"]') as HTMLElement | null;
+      const allRows = table ? Array.from(table.querySelectorAll<HTMLElement>('[data-slot="table-row"]')) : [row];
+
+      dragRef.current = { idx: index, startX, startW, allRows, moved: false };
+
+      // Capture the current data-column template so we can preserve the
+      // other columns' widths (px from prior resizes, or `minmax(0, 1fr)`)
+      // during this drag.
+      const baseDataTemplate = dataTemplate;
 
       const onMove = (me: MouseEvent) => {
-        if (!refs.current) return;
-        refs.current.moved = true;
-        const diff = me.clientX - refs.current.startX;
-        const w = Math.max(40, refs.current.startW + diff);
-        refs.current.th.style.width = `${w}px`;
+        if (!dragRef.current) return;
+        dragRef.current.moved = true;
+        const diff = me.clientX - dragRef.current.startX;
+        const w = Math.max(40, dragRef.current.startW + diff);
+        // `minmax(0, 1fr)` contains a space, so a naive `split(' ')` would
+        // tear it into two tokens and break the grid template. Replace it
+        // with a single-word sentinel before splitting, then restore it.
+        const serialized = baseDataTemplate.replace(/minmax\(\s*0\s*,\s*1fr\s*\)/g, SENTINEL);
+        const parts = serialized.length > 0 ? serialized.split(' ').filter((s) => s.length > 0) : [];
+        if (dragRef.current.idx >= 0 && dragRef.current.idx < parts.length) {
+          parts[dragRef.current.idx] = `${w}px`;
+        }
+        const newDataTemplate = parts.map((p) => (p === SENTINEL ? 'minmax(0, 1fr)' : p)).join(' ');
+        const next = [prefix, newDataTemplate, suffix].filter((s) => s && s.length > 0).join(' ');
+        for (const r of dragRef.current.allRows) r.style.gridTemplateColumns = next;
       };
 
       const onUp = () => {
-        if (refs.current) {
-          if (refs.current.moved) {
-            const finalW = Math.max(40, parseFloat(refs.current.th.style.width) || defaultWidth);
-            const i = refs.current.idx;
-            setWidths((prev: number[]) => {
+        if (dragRef.current?.moved) {
+          const i = dragRef.current.idx;
+          // Read the final width back off the DOM. The head element is the
+          // closest [data-slot="table-head"] ancestor of the handle we
+          // started on — this stays correct even if the column index moved
+          // around during the drag.
+          const headEl = handle.closest('[data-slot="table-head"]') as HTMLElement | null;
+          if (headEl) {
+            const w = headEl.getBoundingClientRect().width;
+            setWidths((prev) => {
               const next = [...prev];
-              next[i] = finalW;
+              next[i] = Math.max(40, Math.round(w));
               return next;
             });
-            const th = refs.current.th;
-            const prevent = (ce: MouseEvent) => {
-              ce.stopPropagation();
-              ce.preventDefault();
-              th.removeEventListener('click', prevent, true);
-            };
-            th.addEventListener('click', prevent, true);
           }
+          // Suppress the synthetic click that would otherwise fire on the
+          // header and re-trigger the sort handler.
+          const suppress = (ce: MouseEvent) => {
+            ce.stopPropagation();
+            ce.preventDefault();
+            handle.removeEventListener('click', suppress, true);
+          };
+          handle.addEventListener('click', suppress, true);
         }
-        refs.current = null;
+        dragRef.current = null;
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         document.body.style.cursor = '';
@@ -53,9 +131,12 @@ export function useColumnResize(columnCount: number, defaultWidth = 120) {
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     },
-    [defaultWidth],
+    [columnCount, dataTemplate, prefix, suffix],
   );
 
-  const totalWidth = widths.reduce((sum: number, w: number) => sum + w, 0);
-  return { widths, totalWidth, onMouseDown, setWidths };
+  // Sum of explicit widths only (nulls contribute 0). Kept for callers that
+  // compute a horizontal-scroll minWidth from it.
+  const totalWidth = widths.reduce<number>((sum, w) => sum + (w ?? 0), 0);
+
+  return { widths, totalWidth, dataTemplate, fullTemplate, onMouseDown, setWidths };
 }

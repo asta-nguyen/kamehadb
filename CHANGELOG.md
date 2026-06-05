@@ -16,11 +16,15 @@ All notable changes to KamehaDB will be documented in this file.
 - Client-side fuzzy table name filtering in the schema tree (`fuzzyMatch` in utils). ([@JoeJoeflyn])
 - Configurable row limit dropdown (10–500) in the table data view. ([@JoeJoeflyn])
 - Connection dialog: read-only toggle so users can enable write statements (CREATE, INSERT, UPDATE, DELETE, DROP, etc.) per connection without editing the metadata DB directly
-- Connection dialog: custom color picker (native `<input type="color">`) alongside the preset badge colors, so users can pick any color instead of being limited to the 8 presets
+- Connection dialog: custom color picker (native `<input type="color">`) alongside the preset badge colors, so users can pick any color instead of being limited to the 8 presets- Replaced native `<input>`, `<textarea>`, `<label>`, `<button>`, and `<select>` elements with shadcn UI components (`Input`, `Textarea`, `Label`, `Button`, `Select`) across the desktop app. ([@opencode])
+- Replaced native `<table>` with shadcn `Table` (div-based grid) in the data grid. Column resize hook rewritten to drive `gridTemplateColumns` on rows; resize handles preserved. ([@opencode])
+- Qdrant vector map: persist and restore `colorBy` and camera state (position and target) across tab switches.
 
 ### Fixed
 
 - SQL editor ignored the connection's read-only setting because of a duplicate client-side safety check in `useRunQuery`; the server already enforces the rule, so the redundant client check (which used a stale cache) has been removed
+- AI chat: SQL query results were being rendered with a "MONGODB" language label because the chat panel was collapsing `json`-tagged code fences into the JavaScript bucket. `normalizeCodeLanguage` now keeps `json` as its own label (`json`), so `\`\`\`json`result blocks render as JSON, not MongoDB. Helper extracted to`apps/desktop/src/lib/ai-chat-helpers.ts` with a vitest spec.
+- AI chat: "Thinking..." spinner was shown for the full duration of an LLM stream, visually competing with the streaming text. The spinner is now suppressed as soon as the assistant has produced any text, so users see the streamed response land in the assistant bubble without a competing indicator.
 
 ## [v1.0.0] - 2026-06-01
 
