@@ -288,15 +288,18 @@ export function createMysqlAdapter(connection: {
         ORDER BY TIME`,
         [connection.database],
       );
+      // PROCESSLIST does not expose when each connection started; use the
+      // current inspection time as an approximation for `backendStart`.
+      const inspectedAt = new Date().toISOString();
       return (rows as Record<string, unknown>[]).map((r) => ({
         pid: Number(r.pid ?? 0),
         usename: String(r.usename ?? ''),
         applicationName: String(r.applicationName ?? ''),
-        clientAddr: String(r.clientAddr ?? ''),
-        backendStart: '',
+        clientAddr: r.clientAddr == null ? null : String(r.clientAddr),
+        backendStart: inspectedAt,
         state: String(r.state ?? ''),
-        query: String(r.query ?? ''),
-        queryStart: '',
+        query: r.query == null ? null : String(r.query),
+        queryStart: null,
         waitEventType: null,
         waitEvent: null,
         durationSeconds: Number(r.durationSeconds ?? 0),

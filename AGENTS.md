@@ -262,3 +262,116 @@ These guidelines prioritize caution and precision over speed.
 
 - **Package Manager**: ALWAYS use `pnpm` for this project, except for the `landing/` directory which is managed via `npm`.
 - **Changelog**: All user-facing changes must be recorded in `CHANGELOG.md` under `[Unreleased]` before merging.
+
+## TypeScript Coding Standards
+
+These rules apply to all TypeScript code in `apps/`, `packages/`, and `landing/`.
+
+### No Code Duplication
+
+- Reuse Zod schemas and types from `packages/shared/src/index.ts` — it is the source of truth
+- If the same shape appears in two places, extract it into a shared type or helper
+- For logic duplicated across desktop and sidecar, promote it to `packages/shared` or a co-located utility
+
+### Use Types
+
+- Annotate exported functions, public APIs, and component props explicitly
+- Use `interface` for object shapes, `type` for unions, mapped types, and utility compositions
+- Never use `any` — use `unknown` and narrow with type guards
+
+### Use Union Types
+
+- Prefer string literal unions over enums:
+
+  ```typescript
+  type QueryStatus = 'idle' | 'running' | 'success' | 'error';
+  ```
+
+- When a value can be one of several shapes, model it as a discriminated union (see below)
+
+### Emit Type When Possible
+
+Derive types from values so runtime and types stay in sync:
+
+```typescript
+// typeof for object literals
+const ADAPTER_LIMITS = { postgres: 100, mysql: 50 } as const;
+type AdapterLimits = typeof ADAPTER_LIMITS;
+
+// ReturnType / Awaited for function and promise return types
+type Connection = Awaited<ReturnType<typeof loadConnection>>;
+
+// z.infer for Zod schemas
+const connectionSchema = z.object({ host: z.string(), port: z.number() });
+type ConnectionInput = z.infer<typeof connectionSchema>;
+```
+
+This avoids drift between the schema and the type.
+
+### Discriminated Unions
+
+Use a literal "tag" field so the compiler narrows automatically:
+
+```typescript
+type SqlResult =
+  | { kind: 'rows'; columns: string[]; rows: unknown[][] }
+  | { kind: 'affected'; count: number }
+  | { kind: 'error'; message: string };
+
+function format(result: SqlResult): string {
+  switch (result.kind) {
+    case 'rows':
+      return `${result.rows.length} rows`;
+    case 'affected':
+      return `${result.count} affected`;
+    case 'error':
+      return result.message;
+  }
+}
+```
+
+- Use `kind`, `type`, or `status` as the discriminator field — pick one and stay consistent
+- Use `as const` on values that feed the union so literal types are preserved
+- Exhaustive `switch` with a `never` default catches missed branches at compile time
+
+## Code Comments
+
+For code that is long or has moderate-to-high complexity, add clear comments. Trivial code stays uncommented — match the existing density in the file.
+
+### When To Comment
+
+- A function or block runs past ~30 lines
+- Logic has non-obvious branches, side effects, or invariants
+- Magic numbers, regex, or domain-specific constants appear
+- Async, timing, retry, or concurrency behavior is hard to follow
+- The reader would have to hold more than 2–3 things in their head at once
+
+### What To Write
+
+- **Why** the code exists or **why** this approach was chosen
+- Non-obvious invariants: "this list is always sorted by `createdAt` desc"
+- Correctness or performance tradeoffs the code encodes
+- Pointer to the ticket, spec, or external constraint that drove the decision
+
+### What To Skip
+
+- Restating what the code does in English
+- Section banners like `// ============ Validation ============`
+- Comments that just rename a variable or repeat the line below
+
+```typescript
+// GOOD: explains the why
+// SQLite returns BigInt for INTEGER columns; clamp to MAX_SAFE_INTEGER
+// to avoid JSON serialization precision loss above 2^53.
+const id = Number(row.id % Number.MAX_SAFE_INTEGER);
+
+// BAD: restates the what
+// Convert id to number
+const id = Number(row.id);
+```
+
+### Style
+
+- One short line per comment is the default; multi-line only when truly needed
+- Place the comment above the line it explains, not as a trailing line
+- Use full sentences with proper punctuation; no "TODO later" or "fix me" leftovers

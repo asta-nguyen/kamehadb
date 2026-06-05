@@ -151,7 +151,8 @@ qdrantRouter.get('/:connectionId/stats', async (c) => {
     return c.json({ error: 'BAD_REQUEST', message: 'collection query param is required' }, 400);
   }
 
-  const cacheKey = `qdrant:${connectionId}:${collection}:stats`;
+  const profile = metadataStore.getProfile(connectionId);
+  const cacheKey = `qdrant:${connectionId}:${profile?.updatedAt ?? '0'}:${collection}:stats`;
   const cached = getCached<QdrantStats>(cacheKey, CACHE_TTL.STATS);
   if (cached) return c.json(cached);
 

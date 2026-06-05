@@ -91,8 +91,9 @@ export function useRefreshConnection() {
         ['mongo-databases', id],
         ['mongo-collections', id],
         ['mongo-documents', id],
+        ['qdrant-collections', id],
       ];
-      qc.invalidateQueries({ queryKey: keysToInvalidate });
+      keysToInvalidate.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
       // Refetch only the keys that map to currently-mounted views.
       // `type: 'active'` skips the work when no observer is mounted, so
       // future keys added to keysToInvalidate but not to this set are
@@ -108,6 +109,7 @@ export function useRefreshConnection() {
         'redis-keys',
         'redis-stats',
         'active-connections',
+        'qdrant-collections',
       ]);
       void Promise.all(
         keysToInvalidate

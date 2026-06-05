@@ -1,4 +1,5 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
+import type { Schemas } from '@qdrant/js-client-rest';
 import type {
   QdrantAdapter,
   TestConnectionResult,
@@ -10,6 +11,11 @@ import type {
   QdrantSearchInput,
   RecommendInput,
 } from '@kamehadb/shared';
+
+// Qdrant client 1.18.0 omits `using` from the search() parameter type, but
+// the runtime forwards it for named-vector queries. Extend the parameter
+// type so the request can carry `using` through to the wire.
+type SearchRequestWithUsing = Parameters<QdrantClient['search']>[1] & { using?: string };
 
 interface QdrantConfig {
   host?: string;
@@ -100,13 +106,15 @@ export function createQdrantAdapter(config: QdrantConfig): QdrantAdapter {
     async search(input: QdrantSearchInput): Promise<QdrantSearchResult> {
       const qdrant = getClient();
       const start = Date.now();
-      const hits = await qdrant.search(input.collection, {
-        vector: input.vector,
+      const request: SearchRequestWithUsing = {
+        vector: input.vector as Schemas['NamedVectorStruct'],
         limit: input.limit ?? 10,
         filter: input.filter,
         with_payload: input.withPayload ?? true,
         with_vector: input.withVector ?? false,
-      });
+        using: input.using,
+      };
+      const hits = await qdrant.search(input.collection, request);
       return {
         hits: hits.map((h) => ({
           id: h.id,
@@ -127,6 +135,7 @@ export function createQdrantAdapter(config: QdrantConfig): QdrantAdapter {
         filter: input.filter as never,
         with_payload: input.withPayload ?? true,
         with_vector: input.withVector ?? false,
+        using: input.using,
       });
       return {
         hits: hits.map((h) => ({
@@ -146,6 +155,7 @@ export function createQdrantAdapter(config: QdrantConfig): QdrantAdapter {
         name: collection,
         status: info.status,
         pointsCount: info.points_count ?? 0,
+        vectorsCount: info.points_count ?? info.indexed_vectors_count ?? undefined,
         indexedVectorsCount: info.indexed_vectors_count ?? undefined,
         segmentsCount: info.segments_count ?? undefined,
         vectorSize: size,
