@@ -269,74 +269,73 @@ aiRouter.post(
       }
 
       const generate = async function* () {
-        let fullContent = '';
-
-        // Phase 1 (streamed): Stream the LLM's initial response progressively.
-        // The system prompt tells it to put the natural-language answer first
-        // and the SQL query block at the bottom.
+        // Step 1: Collect SQL from the LLM silently (not streamed).
+        // The user sees a "Thinking..." indicator while this happens.
+        let sqlGeneration = '';
         for await (const chunk of provider.chatStream(llmMessages, abortController.signal)) {
-          fullContent += chunk;
-          yield `data: ${JSON.stringify({ type: 'content', delta: chunk })}\n\n`;
+          sqlGeneration += chunk;
         }
 
-        // Phase 2 (appended): Execute any SQL queries from the response and
-        // feed results back to the LLM for a brief natural-language confirmation.
-        // Protected by try/catch so Phase 2 errors never prevent saving to history.
+        let finalAnswer = '';
+
+        // Step 2: Execute any SQL queries found in the LLM's output.
         if (isSqlConnection && connectionId && profile) {
-          try {
-            const sqlQueries = extractSqlQueries(fullContent);
-            if (sqlQueries.length > 0) {
-              const pwd = metadataStore.getProfilePassword(connectionId);
-              const allResults: unknown[] = [];
-              let errorMessage: string | null = null;
+          const sqlQueries = extractSqlQueries(sqlGeneration);
+          if (sqlQueries.length > 0) {
+            const pwd = metadataStore.getProfilePassword(connectionId);
+            const allResults: unknown[] = [];
+            let errorMessage: string | null = null;
 
-              for (const query of sqlQueries) {
-                const sqlAdapter = createSqlAdapter(profile, pwd);
-                if (!sqlAdapter) continue;
-                try {
-                  const result = await sqlAdapter.runQuery({ query });
-                  allResults.push(...(result.rows ?? []));
-                } catch (err) {
-                  errorMessage = String(err);
-                } finally {
-                  await sqlAdapter.close();
-                }
-              }
-
-              const resultBlock =
-                allResults.length > 0
-                  ? JSON.stringify(allResults.slice(0, 50), null, 2)
-                  : JSON.stringify({ error: errorMessage });
-
-              const followUpMessages: AIChatMessage[] = [
-                ...llmMessages,
-                { role: 'assistant', content: fullContent },
-                {
-                  role: 'user',
-                  content: `The SQL query returned these results. Give a very brief natural-language summary of what the data shows:\n\n${resultBlock}`,
-                },
-              ];
-              for await (const chunk of provider.chatStream(followUpMessages, abortController.signal)) {
-                fullContent += chunk;
-                yield `data: ${JSON.stringify({ type: 'content', delta: chunk })}\n\n`;
+            for (const query of sqlQueries) {
+              const sqlAdapter = createSqlAdapter(profile, pwd);
+              if (!sqlAdapter) continue;
+              try {
+                const result = await sqlAdapter.runQuery({ query });
+                allResults.push(...(result.rows ?? []));
+              } catch (err) {
+                errorMessage = String(err);
+              } finally {
+                await sqlAdapter.close();
               }
             }
-          } catch (e) {
-            console.error('[AI] Phase 2 failed — Phase 1 content will still be saved:', {
-              error: e instanceof Error ? e.message : e,
-            });
+
+            const resultBlock =
+              allResults.length > 0
+                ? JSON.stringify(allResults.slice(0, 50), null, 2)
+                : JSON.stringify({ error: errorMessage });
+
+            // Step 3: Generate the final answer with real data —
+            // answer FIRST as natural language, SQL query in a code block at the bottom.
+            const answerMessages: AIChatMessage[] = [
+              ...llmMessages,
+              { role: 'assistant', content: sqlGeneration },
+              {
+                role: 'user',
+                content: `The SQL query returned these results. Put the answer FIRST as a natural-language sentence, then put the SQL query in a \`\`\`sql\`\`\` code block at the bottom:\n\n${resultBlock}`,
+              },
+            ];
+            for await (const chunk of provider.chatStream(answerMessages, abortController.signal)) {
+              finalAnswer += chunk;
+              yield `data: ${JSON.stringify({ type: 'content', delta: chunk })}\n\n`;
+            }
           }
         }
 
+        // No SQL queries found — just stream the LLM's original response
+        if (!finalAnswer) {
+          finalAnswer = sqlGeneration;
+          yield `data: ${JSON.stringify({ type: 'content', delta: sqlGeneration })}\n\n`;
+        }
+
         // Persist assistant message to history
-        if (connectionId && fullContent) {
+        if (connectionId && finalAnswer) {
           try {
-            metadataStore.saveChatMessage(connectionId, 'assistant', fullContent, mongoDatabase);
+            metadataStore.saveChatMessage(connectionId, 'assistant', finalAnswer, mongoDatabase);
           } catch (e) {
             console.error('[AI] Failed to save assistant message:', {
               connectionId,
               mongoDatabase,
-              contentLength: fullContent.length,
+              contentLength: finalAnswer.length,
               error: e instanceof Error ? e.message : e,
             });
           }
@@ -397,6 +396,16 @@ aiRouter.post(
       const settings = metadataStore.getAISettings();
       const providerName: AIProvider = body.provider ?? settings.activeProvider;
       const providerConfig = settings.providers[providerName];
+      if (!providerConfig) {
+        return c.json({ error: 'AI_CONFIG_ERROR', message: `Provider "${providerName}" has no configuration.` }, 400);
+      }
+      if (!providerConfig.enabled) {
+        return c.json({ error: 'AI_CONFIG_ERROR', message: `Provider "${providerName}" is not enabled.` }, 400);
+      }
+      const validationError = validateProviderConfig(providerName, providerConfig);
+      if (validationError) {
+        return c.json({ error: 'AI_CONFIG_ERROR', message: validationError }, 400);
+      }
       const vector = await createEmbedding(body.text, providerName, providerConfig, body.model);
       return c.json({ vector, dimensions: vector.length });
     } catch (err) {

@@ -17,6 +17,7 @@ interface QdrantVectorMapProps {
   tab: WorkspaceTab & { type: 'qdrant-graph' };
   connectionId: string;
   collection: string;
+  vectorName?: string;
 }
 
 const SAMPLE_LIMIT = 500;
@@ -79,18 +80,28 @@ function pca3d(vectors: number[][]): [number, number, number][] {
   return X.map((row) => [dot(row, pc1), dot(row, pc2), dot(row, pc3)]);
 }
 
-function toNumericVector(vector: unknown): number[] | null {
+function toNumericVector(vector: unknown, vectorName?: string): number[] | null {
   if (Array.isArray(vector) && typeof vector[0] === 'number') return vector as number[];
   if (vector && typeof vector === 'object') {
-    const first = Object.values(vector as Record<string, unknown>)[0];
-    if (Array.isArray(first) && typeof first[0] === 'number') return first as number[];
+    const obj = vector as Record<string, unknown>;
+    if (vectorName && vectorName in obj) {
+      const v = obj[vectorName];
+      if (Array.isArray(v) && typeof v[0] === 'number') return v as number[];
+    }
+    if (!vectorName) {
+      const keys = Object.keys(obj);
+      if (keys.length === 1) {
+        const v = obj[keys[0]];
+        if (Array.isArray(v) && typeof v[0] === 'number') return v as number[];
+      }
+    }
   }
   return null;
 }
 
 type Point = { id: string | number; payload: Record<string, unknown>; vector: number[] };
 
-export function QdrantVectorMap({ tab, connectionId, collection }: QdrantVectorMapProps) {
+export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: QdrantVectorMapProps) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['qdrant-map', connectionId, collection],
     queryFn: () =>
@@ -125,7 +136,7 @@ export function QdrantVectorMap({ tab, connectionId, collection }: QdrantVectorM
   const points = useMemo<Point[]>(() => {
     if (!data) return [];
     return data.points
-      .map((p) => ({ id: p.id, payload: p.payload ?? {}, vector: toNumericVector(p.vector) }))
+      .map((p) => ({ id: p.id, payload: p.payload ?? {}, vector: toNumericVector(p.vector, vectorName) }))
       .filter((p): p is Point => !!p.vector);
   }, [data]);
   pointsRef.current = points;
@@ -251,7 +262,7 @@ export function QdrantVectorMap({ tab, connectionId, collection }: QdrantVectorM
       const hit = raycaster.intersectObject(cloud)[0];
       if (hit && hit.index != null) {
         const p = pointsRef.current[hit.index];
-        if (p) openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: String(p.id) });
+        if (p) openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: p.id });
       }
     };
     renderer.domElement.addEventListener('pointermove', onPointerMove);

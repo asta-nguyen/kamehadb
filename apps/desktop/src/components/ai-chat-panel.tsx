@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
@@ -9,10 +8,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
+import { ChatInput } from '@/components/chat-input';
 import { useConnections } from '@/hooks/use-connections';
-import { useChat } from '@/hooks/use-chat';
-import type { ChatMessage } from '@/hooks/use-chat';
+import { useChat, type ChatMessage } from '@/hooks/use-chat';
+import { useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
 import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
 import hljs from 'highlight.js/lib/core';
 import sql from 'highlight.js/lib/languages/sql';
@@ -22,20 +21,18 @@ import remarkGfm from 'remark-gfm';
 import { getChatTextContent, normalizeCodeLanguage, toUIMessage, type CodeLanguage } from '@/lib/ai-chat-helpers';
 import {
   Bot,
-  Send,
-  Loader2,
-  Sparkles,
-  Terminal,
-  Play,
   Copy,
   Check,
-  Database,
+  Loader2,
+  Sparkles,
   MoreHorizontal,
   Settings2,
   RefreshCw,
   Trash2,
-  StopCircle,
+  Terminal,
+  Play,
   X,
+  Database,
 } from 'lucide-react';
 
 hljs.registerLanguage('sql', sql);
@@ -344,10 +341,8 @@ const CHAT_MODE_CONFIG = {
 export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelProps) {
   const [panelWidth, setPanelWidth] = useState(width);
   const [isResizing, setIsResizing] = useState(false);
-  const [input, setInput] = useState('');
   const { data: connections } = useConnections();
 
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
@@ -396,28 +391,12 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     }
   }, [connectionId, chat]);
 
-  function handleSend(textOverride?: string) {
-    const text = (textOverride ?? input).trim();
-    if (!text) return;
-    setInput('');
+  function handleSuggestionClick(text: string) {
     chat.sendMessage(text);
   }
 
   function handleStop() {
     chat.stop();
-  }
-
-  function handleSuggestionClick(text: string) {
-    handleSend(text);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.repeat) return;
-    if ((e.nativeEvent as KeyboardEvent).isComposing) return;
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
   }
 
   function handleClearHistory() {
@@ -587,35 +566,12 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-border bg-muted/10 p-2">
-          <div className="flex items-end gap-2 rounded-lg border border-border/70 bg-background p-1.5 shadow-sm transition-shadow focus-within:border-ring focus-within:ring-ring/25">
-            <Textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={chatMode.placeholder}
-              rows={2}
-              className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
-            />
-            {chat.isLoading ? (
-              <Tooltip>
-                <TooltipTrigger
-                  aria-label="Stop generation"
-                  className={buttonVariants({ size: 'icon', className: 'size-8 shrink-0' })}
-                  onClick={handleStop}
-                >
-                  <StopCircle className="size-3.5" />
-                </TooltipTrigger>
-                <TooltipContent>Stop generation</TooltipContent>
-              </Tooltip>
-            ) : (
-              <Button size="icon" className="size-8 shrink-0" onClick={() => handleSend()} disabled={!input.trim()}>
-                <Send className="size-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
+        <ChatInput
+          isLoading={chat.isLoading}
+          placeholder={chatMode.placeholder}
+          onSend={(t) => chat.sendMessage(t)}
+          onStop={handleStop}
+        />
       </div>
     </aside>
   );

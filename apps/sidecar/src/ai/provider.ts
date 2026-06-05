@@ -131,7 +131,8 @@ class OpenAICompatibleProvider implements LLMProvider {
       throw new Error(`AI API error (${res.status}): ${errBody || res.statusText}`);
     }
 
-    const reader = res.body!.getReader();
+    if (!res.body) throw new Error('Missing response body');
+    const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 

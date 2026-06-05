@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQdrantCollections } from '@/hooks/use-qdrant';
 import { Button } from '@/components/ui/button';
 import { openQdrantTab } from '@/store';
+import { AlertCircle, Boxes, Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Boxes, Loader2, Search } from 'lucide-react';
 
 interface QdrantExplorerProps {
   connectionId: string;
@@ -11,7 +11,7 @@ interface QdrantExplorerProps {
 
 export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: collections, isLoading } = useQdrantCollections(connectionId);
+  const { data: collections, isLoading, isError, error } = useQdrantCollections(connectionId);
 
   const filtered = useMemo(() => {
     if (!collections) return [];
@@ -41,6 +41,11 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
       {isLoading ? (
         <div className="flex items-center justify-center py-4">
           <Loader2 className="size-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="flex items-start gap-1.5 px-2 py-1 text-xs text-destructive">
+          <AlertCircle className="size-3 mt-0.5 shrink-0" />
+          <span className="break-all">{error instanceof Error ? error.message : 'Failed to load collections'}</span>
         </div>
       ) : filtered.length === 0 ? (
         <div className="px-2 py-1 text-xs text-muted-foreground italic">

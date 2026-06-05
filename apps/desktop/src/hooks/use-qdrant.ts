@@ -36,13 +36,19 @@ export function useQdrantPoints(
 
 export function useQdrantSearch(connectionId: string | null) {
   return useMutation({
-    mutationFn: (input: QdrantSearchInput) => api.searchQdrant(connectionId!, input),
+    mutationFn: (input: QdrantSearchInput) => {
+      if (!connectionId) return Promise.reject(new Error('No connectionId'));
+      return api.searchQdrant(connectionId, input);
+    },
   });
 }
 
 export function useQdrantRecommend(connectionId: string | null) {
   return useMutation({
-    mutationFn: (input: RecommendInput) => api.recommendQdrant(connectionId!, input),
+    mutationFn: (input: RecommendInput) => {
+      if (!connectionId) return Promise.reject(new Error('No connectionId'));
+      return api.recommendQdrant(connectionId, input);
+    },
   });
 }
 

@@ -37,12 +37,17 @@ function coerce(v: string): unknown {
 }
 
 function buildFilter(combinator: Combinator, rows: Row[]): Record<string, unknown> | undefined {
-  const conditions = rows
-    .filter((r) => r.key.trim() && r.value.trim())
-    .map((r) => {
-      if (r.op === 'eq') return { key: r.key.trim(), match: { value: coerce(r.value) } };
-      return { key: r.key.trim(), range: { [r.op]: Number(r.value) } };
-    });
+  const conditions: Record<string, unknown>[] = [];
+  for (const r of rows) {
+    if (!r.key.trim() || !r.value.trim()) continue;
+    if (r.op === 'eq') {
+      conditions.push({ key: r.key.trim(), match: { value: coerce(r.value) } });
+      continue;
+    }
+    const parsed = Number(r.value);
+    if (!Number.isFinite(parsed)) continue;
+    conditions.push({ key: r.key.trim(), range: { [r.op]: parsed } });
+  }
   if (conditions.length === 0) return undefined;
   return { [combinator]: conditions };
 }
@@ -83,6 +88,7 @@ export function QdrantFilterBuilder({ onChange, fields = [] }: QdrantFilterBuild
       setJsonError(null);
     } catch {
       setJsonError('Invalid JSON');
+      onChange(undefined);
     }
   };
 

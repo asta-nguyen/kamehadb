@@ -1,8 +1,7 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, keepPreviousData, type UseQueryResult } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-
-const SCHEMA_CACHE_TIME = 5 * 60 * 1000;
-const STATS_CACHE_TIME = 30 * 1000;
+import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
+import type { SchemaSearchMatch } from '@kamehadb/shared';
 
 export function useDatabases(connectionId: string | null) {
   return useQuery({
@@ -84,7 +83,11 @@ export function useIndexStats(connectionId: string | null, tableId: string | nul
   });
 }
 
-export function useSchemaSearch(connectionId: string | null, query: string, schema?: string) {
+export function useSchemaSearch(
+  connectionId: string | null,
+  query: string,
+  schema?: string,
+): UseQueryResult<SchemaSearchMatch[], Error> {
   return useQuery({
     queryKey: ['schema-search', connectionId, query, schema],
     queryFn: () => api.searchSchema(connectionId!, query, schema),

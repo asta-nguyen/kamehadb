@@ -160,6 +160,11 @@ const US_STATE_ALIASES: Record<string, string> = {
 // When the user types a 2-letter token, we cannot tell country code from US state code
 // without context, so we return BOTH expansions and let the SQL OR them.
 
+// Reverse map so a full state name ("california") resolves back to its abbreviation.
+const US_STATE_NAME_TO_ABBR: Record<string, string> = Object.fromEntries(
+  Object.entries(US_STATE_ALIASES).map(([abbr, name]) => [name, abbr]),
+);
+
 const CURRENCY_ALIASES: Record<string, string[]> = {
   usd: ['usd', 'us dollar', 'us dollar', 'dollar', '$'],
   dollar: ['usd', 'us dollar', 'dollar', '$'],
@@ -310,6 +315,10 @@ function lookup(term: string): string[] | null {
   if (LANGUAGE_ALIASES[lower]) return LANGUAGE_ALIASES[lower];
   if (GENDER_ALIASES[lower]) return GENDER_ALIASES[lower];
   if (BOOLEAN_ALIASES[lower]) return BOOLEAN_ALIASES[lower];
+  // US state: only Record<string, string> map, so build reverse lookup at module level
+  // and return both the full name and abbreviation as canonical variants.
+  const stateAbbr = US_STATE_NAME_TO_ABBR[lower];
+  if (stateAbbr) return [lower, stateAbbr];
 
   // 1-3 char abbrevs.
   if (STREET_ABBREVIATIONS[lower]) return STREET_ABBREVIATIONS[lower];
@@ -438,8 +447,10 @@ export function expandTerms(userText: string): TermExpansion[] {
   // Single tokens.
   for (const tok of tokens) {
     if (seen.has(tok)) continue;
-    if (STOP_WORDS.has(tok)) continue;
     const variants = lookup(tok);
+    // Skip stop words only when no expansion is found — otherwise "us"/"in"/"me"
+    // would be filtered out before the country/state lookup runs.
+    if (!variants && STOP_WORDS.has(tok)) continue;
     if (variants) {
       seen.add(tok);
       out.push({ term: tok, variants });

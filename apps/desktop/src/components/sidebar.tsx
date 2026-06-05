@@ -1,6 +1,7 @@
 import { useStore } from '@tanstack/react-store';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
+import { getApiBase } from '@/lib/api';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -37,7 +38,6 @@ import { ConnectionDialog } from './connection-dialog';
 import { SchemaTree } from './schema-tree';
 import { MongoExplorer } from './mongo-explorer';
 import { QdrantExplorer } from './qdrant-explorer';
-import { api } from '@/lib/api';
 import {
   appStore,
   setActiveConnection,
@@ -75,41 +75,15 @@ function ConnectionItem({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
-  const healthCheckTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const healthCheckInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const status = connectionStatus[conn.id] ?? 'connected';
   const indicatorColor = conn.color || (status === 'connected' ? '#22c55e' : '#ef4444');
-
-  const checkConnectionHealth = useCallback(async () => {
-    if (healthCheckTimeout.current) clearTimeout(healthCheckTimeout.current);
-    healthCheckTimeout.current = setTimeout(async () => {
-      try {
-        const result = await api.checkConnectionHealth(conn.id);
-        setConnectionStatus(conn.id, result.success ? 'connected' : 'disconnected');
-      } catch {
-        setConnectionStatus(conn.id, 'disconnected');
-      }
-    }, 500);
-  }, [conn.id]);
-
-  useEffect(() => {
-    // Check health on mount
-    checkConnectionHealth();
-    // Periodically re-check so the indicator turns red when DB goes offline
-    healthCheckInterval.current = setInterval(checkConnectionHealth, 30_000);
-    return () => {
-      if (healthCheckTimeout.current) clearTimeout(healthCheckTimeout.current);
-      if (healthCheckInterval.current) clearInterval(healthCheckInterval.current);
-    };
-  }, [checkConnectionHealth]);
 
   return (
     <div className="relative group">
       <div
         onClick={() => {
           onSelect();
-          checkConnectionHealth();
           if (conn.kind === 'redis') {
             openRedisTab(conn.id);
           } else {
@@ -440,6 +414,26 @@ export function Sidebar() {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing]);
+
+  // Single EventSource for health status — replaces per-item polling
+  useEffect(() => {
+    const url = `${getApiBase()}/connections/health`;
+    const es = new EventSource(url);
+    es.onmessage = (event) => {
+      try {
+        const results: Record<string, { success: boolean }> = JSON.parse(event.data);
+        for (const [id, r] of Object.entries(results)) {
+          setConnectionStatus(id, r.success ? 'connected' : 'disconnected');
+        }
+      } catch {
+        // Malformed SSE payload — skip
+      }
+    };
+    es.onerror = () => {
+      // Connection lost — the browser will auto-reconnect
+    };
+    return () => es.close();
+  }, []);
 
   return (
     <aside

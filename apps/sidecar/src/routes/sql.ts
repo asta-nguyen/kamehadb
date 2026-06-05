@@ -201,7 +201,10 @@ sqlRouter.get('/:connectionId/search-schema', async (c) => {
         return c.json({ error: 'NOT_SUPPORTED', message: 'Schema search not available for this database type' }, 400);
       }
       const schema = c.req.query('schema') || undefined;
-      const limit = c.req.query('limit') ? Number(c.req.query('limit')) : undefined;
+      const rawLimit = c.req.query('limit');
+      const parsed = rawLimit ? Number(rawLimit) : undefined;
+      const limit =
+        parsed !== undefined && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000 ? parsed : undefined;
       const results = await adapter.searchSchema!({ query: q, schema, limit });
       return c.json(results);
     } finally {
