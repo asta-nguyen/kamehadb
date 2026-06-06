@@ -1,9 +1,7 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { get, post } from '@/lib/api';
+import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
 import type { CollectionInfo, DatabaseInfo, DocumentResult, FindDocumentsInput } from '@kamehadb/shared';
-
-const SCHEMA_CACHE_TIME = 5 * 60 * 1000;
-const STATS_CACHE_TIME = 30 * 1000;
 
 export function useMongoDatabases(connectionId: string | null) {
   return useQuery({

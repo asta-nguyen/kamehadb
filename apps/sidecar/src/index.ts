@@ -3,6 +3,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import pino from 'pino';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import { initMetadataStore, closeMetadataStore } from './db/metadata-store.js';
 import { connectionsRouter } from './routes/connections.js';
 import { sqlRouter } from './routes/sql.js';
@@ -47,7 +49,9 @@ app.route('/ai', aiRouter);
 
 // Start server
 async function start() {
-  const dbPath = process.env.KAMEHADB_DATA_DIR ? `${process.env.KAMEHADB_DATA_DIR}/kamehadb.db` : './kamehadb.db';
+  const sidecarDir = dirname(fileURLToPath(import.meta.url));
+  const defaultDbPath = resolve(sidecarDir, '../kamehadb.db');
+  const dbPath = process.env.KAMEHADB_DATA_DIR ? `${process.env.KAMEHADB_DATA_DIR}/kamehadb.db` : defaultDbPath;
 
   initMetadataStore(dbPath);
   log.info({ dbPath }, 'Metadata store initialized');

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { setConnectionStatus } from '@/store';
 import type { ConnectionProfile, CreateConnectionProfileInput, UpdateConnectionProfileInput } from '@kamehadb/shared';
 
 export function useConnections() {
@@ -63,6 +64,8 @@ export function useRefreshConnection() {
       return { toastId: toast.loading(`Reloading "${name}"...`) };
     },
     onSuccess: ({ id, result }, _vars, context) => {
+      setConnectionStatus(id, result.success ? 'connected' : 'disconnected');
+
       // Invalidate every connection-scoped cache entry so any future mount
       // fetches fresh data, and force-refetch the ones backing currently
       // visible views so the user sees new tables/collections/keys right
@@ -117,7 +120,8 @@ export function useRefreshConnection() {
       const kind = result.success ? 'success' : 'error';
       if (context?.toastId !== undefined) toast[kind](message, { id: context.toastId });
     },
-    onError: (err, _vars, context) => {
+    onError: (err, vars, context) => {
+      setConnectionStatus(vars, 'disconnected');
       if (context?.toastId !== undefined) {
         toast.error(err instanceof Error ? err.message : 'Reload failed', { id: context.toastId });
       }

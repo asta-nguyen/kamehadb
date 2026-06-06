@@ -46,7 +46,7 @@ function useCompletionsSchema(connectionId: string | null) {
 
 function TableNode({ data }: NodeProps) {
   return (
-    <div className="rounded-lg border border-border bg-popover shadow-sm min-w-45">
+    <div className="rounded-lg border border-border bg-popover shadow-sm min-w-48">
       <Handle type="target" position={Position.Top} className="!bg-border" />
       <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-muted/30 rounded-t-lg">
         <Table2 className="size-3 text-muted-foreground" />

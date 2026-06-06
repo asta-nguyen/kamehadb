@@ -582,12 +582,24 @@ export async function testPostgresConnection(input: {
   password?: string;
   ssl?: boolean;
 }): Promise<TestConnectionResult> {
-  const adapter = createPostgresAdapter(input);
+  // Use a fresh client (not the pool) so health checks always reflect the
+  // current server state — the pool can return stale connections that report
+  // "connected" for minutes after the server goes down.
+  const client = new pg.Client({
+    host: input.host || 'localhost',
+    port: input.port || 5432,
+    database: input.database,
+    user: input.username,
+    password: input.password,
+    ssl: input.ssl ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 5_000,
+  });
   try {
-    return await adapter.testConnection();
+    await client.connect();
+    const result = await client.query('SELECT version()');
+    return { success: true, serverVersion: result.rows[0]?.version as string };
   } catch (err) {
     if (err instanceof Error) {
-      // Provide more helpful error messages for common issues
       if (err.message.includes('ECONNREFUSED')) {
         throw new Error(`Connection refused. Check if PostgreSQL is running on ${input.host}:${input.port}`);
       }
@@ -604,6 +616,6 @@ export async function testPostgresConnection(input: {
     }
     throw new Error('Unknown error during connection test');
   } finally {
-    await adapter.close();
+    await client.end().catch(() => {});
   }
 }

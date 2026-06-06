@@ -237,6 +237,16 @@ export function updateTabAutoRun(tabId: string, autoRun: boolean) {
   }));
 }
 
+export function updateTabQdrantGraphState(
+  tabId: string,
+  updates: { colorBy?: string; camera?: { position: number[]; target: number[] } },
+) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId && t.type === 'qdrant-graph' ? { ...t, ...updates } : t)),
+  }));
+}
+
 export function clearTabAutoRun(tabId: string) {
   appStore.setState((state) => ({
     ...state,

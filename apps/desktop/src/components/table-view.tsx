@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
-import { useColumnResize } from '@/hooks/use-column-resize';
 import { TableStats } from '@/components/table-stats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
+import { DataTable, type ColumnDef } from '@/components/data-table';
 import {
   Loader2,
   Key,
@@ -90,15 +90,13 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const page = Math.floor(offset / pageSize) + 1;
   const displayColumns = result?.columns ?? columns ?? [];
-  const { widths: colWidths, totalWidth, onMouseDown: onColResize } = useColumnResize(displayColumns.length, 120);
-  const tableMinWidth = 32 + totalWidth;
 
-  const formatCell = (value: unknown): string => {
-    if (value === null) return 'NULL';
-    if (value === undefined) return '-';
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
-  };
+  const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns.map((col) => ({
+    id: col.name,
+    header: col.name,
+    accessor: (row) => row[col.name],
+    sortable: true,
+  }));
 
   if (isLoading && !result) {
     return (
@@ -177,76 +175,17 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         </div>
       </div>
       <div className="overflow-auto border rounded-md">
-        <table className="w-full text-xs table-fixed" style={{ minWidth: tableMinWidth }}>
-          <thead>
-            <tr className="bg-muted border-b border-border">
-              <th
-                className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px]"
-                style={{ width: 32 }}
-              >
-                #
-              </th>
-              {displayColumns.map((col, i) => (
-                <th
-                  key={col.name}
-                  className="bg-muted px-2 py-1 font-semibold text-foreground text-left text-[11px] cursor-pointer select-none hover:bg-muted/80 relative"
-                  style={{ width: colWidths[i] }}
-                  onClick={() => handleSortColumnChange(col.name)}
-                >
-                  <div className="flex items-center gap-1 overflow-hidden pr-2">
-                    <span className="truncate" title={col.name}>
-                      {col.name}
-                    </span>
-                    {sortColumn === col.name ? (
-                      sortDirection === 'asc' ? (
-                        <ArrowUp className="size-3 shrink-0" />
-                      ) : (
-                        <ArrowDown className="size-3 shrink-0" />
-                      )
-                    ) : (
-                      <ArrowUp className="size-2.5 shrink-0 text-muted-foreground/30" />
-                    )}
-                  </div>
-                  <div
-                    onMouseDown={(e) => onColResize(i, e)}
-                    className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/30 active:bg-primary/50"
-                  />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {result.rows.map((row, rowIndex) => (
-              <tr
-                key={rowIndex}
-                className="border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer"
-                onClick={() => setSelectedRow(row)}
-              >
-                <td className="px-2 py-0.5 text-muted-foreground">{offset + rowIndex + 1}</td>
-                {displayColumns.map((col) => {
-                  const value = row[col.name];
-                  return (
-                    <td
-                      key={col.name}
-                      className="px-1 py-1 overflow-hidden truncate max-w-60"
-                      title={formatCell(value)}
-                    >
-                      {value === null ? (
-                        <span className="text-muted-foreground italic">null</span>
-                      ) : value === undefined ? (
-                        <span className="text-muted-foreground">-</span>
-                      ) : typeof value === 'object' ? (
-                        <span className="text-primary">{JSON.stringify(value)}</span>
-                      ) : (
-                        <span>{String(value)}</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable
+          rows={result.rows}
+          columns={tableColumns}
+          rowKey={(_, i) => String(i)}
+          showIndex
+          indexOffset={offset}
+          onRowClick={(row) => setSelectedRow(row)}
+          onSortChange={handleSortColumnChange}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+        />
         {result && (
           <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2">
             <div className="flex items-center gap-1">
@@ -305,7 +244,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               </div>
             </div>
             <DropdownMenu>
-              <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="h-7 w-7" />}>
                 <Download className="size-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -420,10 +359,12 @@ export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, 
                     ) : (
                       <span className="text-foreground/90">{String(value)}</span>
                     )}
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleCopyField(key, value)}
-                      className="inline-flex items-center justify-center size-5 rounded opacity-0 group-hover/field:opacity-100 transition-opacity ml-1 align-middle hover:bg-muted-foreground/20"
+                      className="size-5 rounded opacity-0 group-hover/field:opacity-100 transition-opacity ml-1 align-middle hover:bg-muted-foreground/20"
                       title="Copy value"
                     >
                       {copiedField === key ? (
@@ -431,7 +372,7 @@ export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, 
                       ) : (
                         <Copy className="size-3 text-muted-foreground" />
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );

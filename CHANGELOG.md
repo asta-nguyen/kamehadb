@@ -9,7 +9,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- New vector database dependency: **Qdrant v1.13.6** (added to `docker-compose.yml`, exposed on ports `6333` HTTP / `6334` gRPC, persistent volume `qdrant_data`). Required for AI schema retrieval. Start it with `docker compose up -d qdrant` (or `docker compose up -d` to start the full dev stack including Qdrant). The sidecar talks to it via `QDRANT_URL` (defaults to `http://127.0.0.1:6333`).
+- AI schema context now uses Qdrant vector search to retrieve only relevant table DDLs instead of injecting the full schema into the system prompt. The sidecar embeds each table's DDL into Qdrant on first use and searches by query similarity on each chat. Adds a new `QdrantSchemaStore` (`apps/sidecar/src/ai/qdrant-store.ts`) that handles collection creation, embedding upsert, and similarity search. If Qdrant is unreachable the sidecar falls back to the previous "send full DDL" path so chat still works, but schema retrieval will be slower and less precise.
+- AI chat system prompt now instructs the assistant to use case-insensitive substring matching on user-supplied terms, splitting on non-alphanumeric characters and ORing unanchored and prefix-anchored variants so the assistant handles punctuation, case, codes vs. names ("germany" ↔ "DE"), plurals, and synonyms correctly across PostgreSQL, MySQL, SQLite, MongoDB, and Redis. Prevents the assistant from silently returning empty result sets when stored values differ from the user's phrasing.
+- AI chat now also passes canonical term expansions (countries, US states, currencies, languages, common abbreviations) as data the assistant must consume verbatim in its WHERE filters, so user terms like "who lives in germany" reliably match rows stored as `DE` and "users in CA" match either Canada or California. Implemented as `expandTerms` / `renderExpansionsForPrompt` in `@kamehadb/shared` and called from the sidecar's `buildSystemPrompt`.
+- Proactive Qdrant schema indexing at startup with enriched embedding text (column purpose, table purpose, DDL), hash-based incremental sync, and orphan cleanup. ([@JoeJoeflyn])
+- AI chat streaming via `@tanstack/ai` — server-side `POST /ai/chat` now streams SSE events; client uses `useChat()` for real-time response rendering with stop/cancel support. ([@JoeJoeflyn])
+- Server-side schema search for PostgreSQL, MySQL, and SQLite using ILIKE/LIKE queries. ([@JoeJoeflyn])
+- Client-side fuzzy table name filtering in the schema tree (`fuzzyMatch` in utils). ([@JoeJoeflyn])
+- Configurable row limit dropdown (10–500) in the table data view. ([@JoeJoeflyn])
+- Connection dialog: read-only toggle so users can enable write statements (CREATE, INSERT, UPDATE, DELETE, DROP, etc.) per connection without editing the metadata DB directly
+- Connection dialog: custom color picker (native `<input type="color">`) alongside the preset badge colors, so users can pick any color instead of being limited to the 8 presets- Replaced native `<input>`, `<textarea>`, `<label>`, `<button>`, and `<select>` elements with shadcn UI components (`Input`, `Textarea`, `Label`, `Button`, `Select`) across the desktop app. ([@opencode])
+- Replaced native `<table>` with shadcn `Table` (div-based grid) in the data grid. Column resize hook rewritten to drive `gridTemplateColumns` on rows; resize handles preserved. ([@opencode])
+- Qdrant vector map: persist and restore `colorBy` and camera state (position and target) across tab switches.
 - v1.2 Adding MCP server
+
+### Fixed
+
+- SQL editor ignored the connection's read-only setting because of a duplicate client-side safety check in `useRunQuery`; the server already enforces the rule, so the redundant client check (which used a stale cache) has been removed
+- AI chat: SQL query results were being rendered with a "MONGODB" language label because the chat panel was collapsing `json`-tagged code fences into the JavaScript bucket. `normalizeCodeLanguage` now keeps `json` as its own label (`json`), so `\`\`\`json`result blocks render as JSON, not MongoDB. Helper extracted to`apps/desktop/src/lib/ai-chat-helpers.ts` with a vitest spec.
+- AI chat: "Thinking..." spinner was shown for the full duration of an LLM stream, visually competing with the streaming text. The spinner is now suppressed as soon as the assistant has produced any text, so users see the streamed response land in the assistant bubble without a competing indicator.
 
 ---
 
@@ -35,8 +54,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Read-only toggle** in the connection dialog — enables write statements (`CREATE`, `INSERT`, `UPDATE`, `DELETE`, `DROP`, etc.) per connection without editing the metadata DB directly. ([@asta-nguyen])
 - **Custom color picker** in the connection dialog — native `<input type="color">` alongside the 8 preset badge colors. ([@asta-nguyen])
 
+#### Qdrant improvements
+
+- **Qdrant named vector support** — `QdrantSearchInput` and `RecommendInput` accept `using?: string` to select a named vector, and `QdrantSearchInput.vector` accepts `number[] | Record<string, number[]>`. The sidecar forwards `using` to the Qdrant client (via a `SearchRequestWithUsing` type alias bridging the gap in the 1.18.0 client types). ([@asta-nguyen])
+- **`QdrantStats.vectorsCount` populated** — `getStats()` now sets `vectorsCount` from `info.points_count` with a fallback to `info.indexed_vectors_count`, so the explorer can display total vectors alongside `indexedVectorsCount`. ([@asta-nguyen])
+- **US state name → abbreviation reverse lookup** — `expandTerms()` now resolves full state names like "california" back to "ca" via a reverse map built from `US_STATE_ALIASES`, so both directions resolve canonical variants. ([@asta-nguyen])
+- **2-letter token exemption from term-expansion stop-word filter** — `expandTerms()` now checks `STOP_WORDS` only when `lookup()` returns no expansion, so short tokens like `us`, `in`, `me` can still resolve to country/state/boolean canonical variants. ([@asta-nguyen])
+
 ### Fixed
 
+- Landing changelog page now resolves release data from the repository root `CHANGELOG.md` in both root and `landing/` build contexts.
 - **SQL editor ignored read-only setting** — duplicate client-side safety check in `useRunQuery` used a stale cache and shadowed the server enforcement. Redundant check removed; server remains the single source of truth. ([@asta-nguyen])
 - **Stale Qdrant filter on invalid JSON** — the filter builder's "Advanced JSON" mode now clears the parent filter as soon as parsing fails, instead of leaving the previously valid filter in place while the UI shows an error. ([@asta-nguyen])
 - **Stale Qdrant query results on context change** — switching the collection or search mode now clears the previous result table and status messages so old hits are not shown for the new context. ([@asta-nguyen])
@@ -46,6 +73,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Stale Qdrant stats after editing a connection** — the stats cache key now includes the connection profile's `updatedAt`, so updating host/port or any other connection field correctly evicts the previous result instead of returning stats from the old endpoint. ([@asta-nguyen])
 - **Unbounded Qdrant page jumps hammered the sidecar** — the "Go" page input is now capped at 50 pages per click; the cursor walk is clamped to `offsetStack.length + 50`, so the previous input (e.g. 10000) no longer triggers thousands of serial `scrollPoints` calls. ([@asta-nguyen])
 - **Clear button left the Qdrant filter builder's draft state intact** — clearing an applied filter now also resets the builder (via a remount) and the parent's draft filter, so a stale draft cannot be re-applied with a single click. ([@asta-nguyen])
+- **Refresh connection did not invalidate Qdrant queries** — `useRefreshConnection` now invalidates each query key separately (the previous `qc.invalidateQueries({ queryKey: keysToInvalidate })` was treating the array as a single key, so most entries were never invalidated) and includes `['qdrant-collections', id]` in `keysToInvalidate` and `refetchable` so the Qdrant explorer refreshes on reload. ([@asta-nguyen])
+- **MySQL `getActiveConnections` violated `ConnectionInfo` contract** — `clientAddr` and `query` now preserve `null` instead of being coerced to `''`; `queryStart` is set to `null` (PROCESSLIST has no query-start time); `backendStart` is set to the inspection timestamp with a comment noting it's approximate. ([@asta-nguyen])
+- **Qdrant sidebar tab lost numeric point IDs on serialization** — `WorkspaceTab`'s `qdrant-search.pointId` and the `openQdrantSearchTab` opts now accept `string | number` to match `QdrantPoint.id` / `RecommendInput.pointId`. Removed the `String(p.id)` coercion at the call sites so numeric IDs round-trip through persisted tabs. ([@asta-nguyen])
+- **`/ai/embed` skipped provider config validation** — the embedding route now mirrors `/ai/chat`: it returns 400 `AI_CONFIG_ERROR` when the provider config is missing, disabled, or fails `validateProviderConfig`, instead of bubbling a 500 from the embed call. ([@asta-nguyen])
+- **Qdrant search/recommend mutations crashed with unclear error when `connectionId` was null** — `useQdrantSearch` and `useQdrantRecommend` now check `connectionId` inside `mutationFn` and `Promise.reject(new Error('No connectionId'))` so callers receive a clear error. ([@asta-nguyen])
+- **AI streaming reader crashed when response body was null** — `provider.ts` now guards `res.body` with an explicit check before calling `getReader()` and throws `Missing response body` instead of letting the non-null assertion fail. ([@asta-nguyen])
+- **Schema tree fuzzy match false negative on whitespace** — `filteredTables` now uses a trimmed `q` for both the emptiness check and `fuzzyMatch`, so trailing/leading whitespace no longer causes tables to drop out of the results. ([@asta-nguyen])
+- **`/sql/search-schema` passed `NaN` to the adapter** — the route now validates the `limit` query param to a finite integer in `[0, 1000]`, falling back to `undefined` if invalid, instead of forwarding `NaN` to `adapter.searchSchema`. ([@asta-nguyen])
+- **`useColumnResize` returned stale widths when `columnCount` changed** — added a `useEffect` that reconciles the widths array to the current `columnCount`, preserving existing widths and filling new indices with `defaultWidth`; also added an explicit return type. ([@asta-nguyen])
+
+### Changed
+
+- **`useSchemaSearch` had no explicit return type** — now returns `UseQueryResult<SchemaSearchMatch[], Error>` so the contract is stable. ([@asta-nguyen])
+- **`Switch` component used an inline prop intersection** — extracted to a named `SwitchProps` interface for clarity. ([@asta-nguyen])
 
 ### Contributors
 

@@ -13,8 +13,6 @@
     "@hono/zod-validator": "^0.4",
     "@kamehadb/shared": "workspace:*",
     "@qdrant/js-client-rest": "^1.18.0",
-    "@tanstack/ai": "^0.26.1",
-    "@tanstack/ai-openai": "^0.12.1",
     "better-sqlite3": "^11",
     "hono": "^4",
     "ioredis": "^5.4.2",

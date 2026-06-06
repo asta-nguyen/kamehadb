@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useQdrantCollections } from '@/hooks/use-qdrant';
+import { Button } from '@/components/ui/button';
 import { openQdrantTab } from '@/store';
 import { AlertCircle, Boxes, Loader2, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 interface QdrantExplorerProps {
   connectionId: string;
@@ -27,7 +29,7 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
       <div className="px-2 py-1">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
-          <input
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -55,15 +57,17 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
             key={col.name}
             className="group w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors"
           >
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => openQdrantTab(connectionId, col.name)}
-              className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
+              className="flex items-center gap-1.5 min-w-0 flex-1 text-left font-normal"
               title={`${col.name} · ${col.pointsCount} points`}
             >
               <Boxes className="size-3 shrink-0 text-muted-foreground" />
               <span className="truncate">{col.name}</span>
               <span className="ml-auto text-xs text-muted-foreground/70">{col.pointsCount}</span>
-            </button>
+            </Button>
           </div>
         ))
       )}

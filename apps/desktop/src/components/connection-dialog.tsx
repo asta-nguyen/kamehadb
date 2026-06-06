@@ -270,8 +270,8 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         <Plus className="size-3.5" />
         New
       </DialogTrigger>
-      <DialogContent className="sm:max-w-120 max-h-[85vh] overflow-hidden flex flex-col">
-        <div className="flex-shrink-0 pr-6">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+        <div className="shrink-0 pr-6">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">{isEditing ? 'Edit' : 'New Connection'}</DialogTitle>
           </DialogHeader>
@@ -296,7 +296,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                   const selected = kind === dbKind;
                   const accent = KIND_ACCENTS[dbKind];
                   return (
-                    <button
+                    <Button
                       key={dbKind}
                       type="button"
                       data-selected={selected}
@@ -324,7 +324,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                       }}
                       className={`
                         group relative flex flex-col items-center justify-center gap-1.5
-                        rounded-lg border bg-card p-3 transition-all duration-200
+                        rounded-lg border bg-card p-3 h-auto transition-all duration-200
                         hover:shadow-sm active:scale-[0.98]
                         ${accent.border} ${accent.bg} ${accent.ring}
                         data-[selected=true]:border-2 data-[selected=true]:shadow-sm
@@ -345,7 +345,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                       >
                         {KIND_LABELS[dbKind]}
                       </span>
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -358,15 +358,13 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                 {PRESET_COLORS.map(({ hex, name }) => {
                   const isSelected = selectedColor === hex;
                   return (
-                    <button
+                    <Button
                       key={hex}
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => form.setValue('color', isSelected ? undefined : hex)}
-                      className={`
-                        relative w-7 h-7 rounded-full transition-all duration-200
-                        hover:scale-110 active:scale-95
-                        ${isSelected ? 'ring-2 ring-offset-2 ring-offset-background' : ''}
-                      `}
+                      className={`rounded-full transition-all duration-200 hover:scale-110 active:scale-95 ${isSelected ? 'ring-2 ring-offset-2 ring-offset-background' : ''}`}
                       style={{
                         backgroundColor: hex,
                         ['--tw-ring-color' as string]: hex,
@@ -374,7 +372,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                       title={name}
                     >
                       {isSelected && <Check className="absolute inset-0 m-auto size-3.5 text-white" strokeWidth={3} />}
-                    </button>
+                    </Button>
                   );
                 })}
                 <label
@@ -401,13 +399,9 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                   )}
                 </label>
                 {selectedColor && (
-                  <button
-                    type="button"
-                    onClick={() => form.setValue('color', undefined)}
-                    className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-border/50 hover:border-border transition-colors"
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={() => form.setValue('color', undefined)}>
                     Clear
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -488,7 +482,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
                       <FolderOpen className="size-3.5" />
                       Browse
                     </Button>
-                    <input
+                    <Input
                       ref={fileInputRef}
                       type="file"
                       accept=".db,.sqlite,.sqlite3,.sqlite2,*"

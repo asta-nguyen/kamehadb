@@ -3,6 +3,8 @@ import { useSchemas, useTables, useTableColumns } from '@/hooks/use-schema';
 import { fuzzyMatch } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2, Search } from 'lucide-react';
 
 function SchemaItem({
@@ -30,10 +32,7 @@ function SchemaItem({
 
   return (
     <div className="select-none">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs hover:bg-muted/70 transition-colors"
-      >
+      <Button variant="ghost" size="sm" onClick={onToggle} className="w-full justify-start font-normal px-2">
         {expanded ? (
           <ChevronDown className="size-3 text-muted-foreground/60 shrink-0" />
         ) : (
@@ -44,18 +43,18 @@ function SchemaItem({
         {expanded && tables && (
           <span className="ml-auto text-xs text-muted-foreground/50 tabular-nums">{tables.length}</span>
         )}
-      </button>
+      </Button>
       {expanded && (
         <div className="mt-0.5 ml-3 pl-2 border-l border-border/60">
           <div className="px-2 py-1">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
-              <input
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+              <Input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter..."
-                className="w-full h-6 pl-6 pr-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="h-6 pl-6 pr-2 text-xs"
               />
             </div>
           </div>
@@ -94,14 +93,16 @@ function TableItem({
 
   return (
     <div className="select-none">
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => onSelect(table.id)}
         onDoubleClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs hover:bg-muted/50 transition-colors"
+        className="w-full justify-start font-normal px-2"
       >
         <Table2 className="size-3 text-muted-foreground/70 shrink-0" />
         <span className="truncate text-foreground/80">{table.name}</span>
-      </button>
+      </Button>
       {expanded && (
         <div className="mt-0.5 ml-4 pl-2 space-y-0">
           {isLoading ? (

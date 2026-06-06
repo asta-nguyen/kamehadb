@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import type { QdrantSearchResult, WorkspaceTab } from '@kamehadb/shared';
 import { useQdrantCollections, useQdrantPoints, useQdrantRecommend, useQdrantSearch } from '@/hooks/use-qdrant';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DataTable, type ColumnDef } from '@/components/data-table';
 import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
 import { Loader2, Play } from 'lucide-react';
 
@@ -78,6 +83,44 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
     return 128;
   }, [sample]);
 
+  type QdrantHit = {
+    id: string | number;
+    score: number;
+    payload?: Record<string, unknown>;
+  };
+
+  const columns: ColumnDef<QdrantHit>[] = useMemo(
+    () => [
+      {
+        id: 'id',
+        header: 'ID',
+        accessor: (row) => row.id,
+        headerClassName: 'px-3 py-1.5 font-medium h-auto',
+        cellClassName: 'px-3 py-1.5 font-mono text-muted-foreground break-all',
+        render: (value) => <span>{String(value)}</span>,
+      },
+      {
+        id: 'score',
+        header: 'Score',
+        accessor: (row) => row.score,
+        headerClassName: 'px-3 py-1.5 font-medium h-auto',
+        cellClassName: 'px-3 py-1.5 font-mono',
+        render: (value) => <span>{(value as number).toFixed(4)}</span>,
+      },
+      {
+        id: 'payload',
+        header: 'Payload',
+        accessor: (row) => row.payload,
+        headerClassName: 'px-3 py-1.5 font-medium h-auto',
+        cellClassName: 'px-3 py-1.5',
+        render: (value) => (
+          <pre className="font-mono whitespace-pre-wrap break-all">{value ? JSON.stringify(value, null, 2) : '—'}</pre>
+        ),
+      },
+    ],
+    [],
+  );
+
   // Default to the first collection once they load, if none preselected.
   useEffect(() => {
     if (!collection && collections?.length) setCollection(collections[0].name);
@@ -138,36 +181,37 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
         {/* Mode tabs */}
         <div className="flex items-center gap-1 bg-muted/40 rounded-md p-0.5 w-fit">
           {MODES.map((m) => (
-            <button
+            <Button
               key={m.value}
+              variant="ghost"
+              size="sm"
               onClick={() => setMode(m.value)}
-              className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                mode === m.value
-                  ? 'bg-background shadow-sm text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`${mode === m.value ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
               {m.label}
-            </button>
+            </Button>
           ))}
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={collection}
-            onChange={(e) => setCollection(e.target.value)}
-            className="h-7 px-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+          <Select
+            value={collection || '_select'}
+            onValueChange={(v) => setCollection(v === '_select' || v == null ? '' : v)}
           >
-            {!collection && <option value="">Select collection…</option>}
-            {collections?.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <label className="text-xs text-muted-foreground flex items-center gap-1">
+            <SelectTrigger size="sm" className="h-7 text-xs">
+              <SelectValue placeholder="Select collection…" />
+            </SelectTrigger>
+            <SelectContent>
+              {collections?.map((c) => (
+                <SelectItem key={c.name} value={c.name}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Label className="text-xs text-muted-foreground flex items-center gap-1">
             Limit
-            <input
+            <Input
               type="number"
               min={1}
               max={500}
@@ -175,7 +219,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               onChange={(e) => setLimit(Math.max(1, Math.min(500, Number(e.target.value) || 1)))}
               className="h-7 w-16 px-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
-          </label>
+          </Label>
           <Button size="sm" onClick={run} disabled={running} className="ml-auto">
             {running ? <Loader2 className="size-3.5 mr-1.5 animate-spin" /> : <Play className="size-3.5 mr-1.5" />}
             Search
@@ -185,7 +229,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
         {/* Mode-specific input */}
         {mode === 'text' && (
           <div className="space-y-2">
-            <input
+            <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Describe what you're looking for…"
@@ -200,7 +244,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
 
         {mode === 'similar' && (
           <div className="space-y-1">
-            <input
+            <Input
               value={pointId}
               onChange={(e) => setPointId(e.target.value)}
               placeholder="Point ID to find neighbors of"
@@ -213,7 +257,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
         )}
 
         {mode === 'raw' && (
-          <textarea
+          <Textarea
             value={vectorText}
             onChange={(e) => setVectorText(e.target.value)}
             placeholder="[0.1, 0.2, 0.3, ...]"
@@ -230,32 +274,15 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
 
       <div className="flex-1 overflow-auto min-h-0">
         {result ? (
-          result.hits.length === 0 ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">No results</div>
-          ) : (
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/50 backdrop-blur">
-                <tr className="text-left text-muted-foreground">
-                  <th className="px-3 py-1.5 font-medium w-40">ID</th>
-                  <th className="px-3 py-1.5 font-medium w-24">Score</th>
-                  <th className="px-3 py-1.5 font-medium">Payload</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.hits.map((h) => (
-                  <tr key={String(h.id)} className="border-b border-border/50 align-top">
-                    <td className="px-3 py-1.5 font-mono text-muted-foreground break-all">{String(h.id)}</td>
-                    <td className="px-3 py-1.5 font-mono">{h.score.toFixed(4)}</td>
-                    <td className="px-3 py-1.5">
-                      <pre className="font-mono whitespace-pre-wrap break-all">
-                        {h.payload ? JSON.stringify(h.payload, null, 2) : '—'}
-                      </pre>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )
+          <DataTable
+            rows={result.hits}
+            columns={columns}
+            rowKey={(h) => String(h.id)}
+            fixedTemplate="160px 96px minmax(0, 1fr)"
+            stickyHeader
+            emptyMessage="No results"
+            className="overflow-visible"
+          />
         ) : (
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
             {mode === 'text'

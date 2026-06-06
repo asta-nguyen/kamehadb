@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { AIChatMessage, AIChatResponse, AISettings, AIProvider } from '@kamehadb/shared';
+import type { AISettings } from '@kamehadb/shared';
 
 export function useAISettings() {
   return useQuery({
@@ -15,36 +15,6 @@ export function useSaveAISettings() {
     mutationFn: (input: AISettings) => api.saveAISettings(input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-settings'] });
-    },
-  });
-}
-
-export function useAiChat(connectionId?: string | null) {
-  return useMutation({
-    mutationFn: async ({
-      messages,
-      latestMessage,
-      provider,
-      model,
-      signal,
-      mongoDatabase,
-    }: {
-      messages: AIChatMessage[];
-      latestMessage?: AIChatMessage;
-      provider?: string;
-      model?: string;
-      signal?: AbortSignal;
-      mongoDatabase?: string;
-    }): Promise<AIChatResponse> => {
-      return api.aiChat({
-        connectionId: connectionId ?? undefined,
-        mongoDatabase,
-        messages,
-        latestMessage,
-        provider: provider as AIProvider | undefined,
-        model,
-        signal,
-      });
     },
   });
 }

@@ -4,6 +4,9 @@ import { api } from '@/lib/api';
 import { openQdrantGraphTab, openQdrantSearchTab } from '@/store';
 import { Button } from '@/components/ui/button';
 import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { DataTable, type ColumnDef } from '@/components/data-table';
 import { ChevronLeft, ChevronRight, Loader2, Network, Search, Sparkles } from 'lucide-react';
 
 interface QdrantViewProps {
@@ -41,6 +44,35 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
     for (const p of page?.points ?? []) for (const k of Object.keys(p.payload ?? {})) keys.add(k);
     return [...keys];
   }, [page]);
+
+  type QdrantPoint = {
+    id: string | number;
+    payload?: Record<string, unknown>;
+  };
+
+  const columns: ColumnDef<QdrantPoint>[] = useMemo(
+    () => [
+      {
+        id: 'id',
+        header: 'ID',
+        accessor: (row) => row.id,
+        headerClassName: 'px-3 py-1.5 font-medium h-auto',
+        cellClassName: 'px-3 py-1.5 font-mono text-muted-foreground break-all',
+        render: (value) => <span>{String(value)}</span>,
+      },
+      {
+        id: 'payload',
+        header: 'Payload',
+        accessor: (row) => row.payload,
+        headerClassName: 'px-3 py-1.5 font-medium h-auto',
+        cellClassName: 'px-3 py-1.5',
+        render: (value) => (
+          <pre className="font-mono whitespace-pre-wrap break-all">{value ? JSON.stringify(value, null, 2) : '—'}</pre>
+        ),
+      },
+    ],
+    [],
+  );
 
   const resetPaging = () => setOffsetStack([null]);
 
@@ -100,12 +132,14 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
           <span className="font-mono text-sm truncate" title={collection}>
             {collection}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowStats(!showStats)}
-            className="text-[11px] px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground/70 hover:text-foreground hover:bg-muted/70 transition-colors"
+            className="text-[11px] px-1.5 py-0.5"
           >
             {showStats ? 'Hide stats' : 'Stats'}
-          </button>
+          </Button>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => openQdrantGraphTab(connectionId, collection)}>
@@ -178,45 +212,38 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
           <div className="p-4 text-sm text-destructive">
             {error instanceof Error ? error.message : 'Failed to load points'}
           </div>
-        ) : !page || page.points.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">No points</div>
         ) : (
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-muted/50 backdrop-blur">
-              <tr className="text-left text-muted-foreground">
-                <th className="px-3 py-1.5 font-medium w-48">ID</th>
-                <th className="px-3 py-1.5 font-medium">Payload</th>
-                <th className="px-3 py-1.5 font-medium w-10" />
-              </tr>
-            </thead>
-            <tbody>
-              {page.points.map((p) => (
-                <tr key={String(p.id)} className="group border-b border-border/50 align-top">
-                  <td className="px-3 py-1.5 font-mono text-muted-foreground break-all">{String(p.id)}</td>
-                  <td className="px-3 py-1.5">
-                    <pre className="font-mono whitespace-pre-wrap break-all">
-                      {p.payload ? JSON.stringify(p.payload, null, 2) : '—'}
-                    </pre>
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <button
-                      onClick={() => openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: p.id })}
-                      className="p-1 rounded hover:bg-primary/10 text-muted-foreground/60 hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
-                      title="Find similar points"
-                    >
-                      <Sparkles className="size-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            rows={page?.points ?? []}
+            columns={columns}
+            rowKey={(p) => String(p.id)}
+            fixedTemplate="192px minmax(0, 1fr) 40px"
+            stickyHeader
+            rowClassName="group"
+            suffix={(p) => (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: String(p.id) });
+                }}
+                className="opacity-0 group-hover:opacity-100"
+                title="Find similar points"
+              >
+                <Sparkles className="size-3.5" />
+              </Button>
+            )}
+            suffixWidth="40px"
+            emptyMessage="No points"
+            className="overflow-visible"
+          />
         )}
       </div>
 
       <div className="px-3 py-1.5 border-t border-border flex items-center justify-between gap-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
-          <input
+          <Input
             type="number"
             min={1}
             max={500}
@@ -226,9 +253,9 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1">
+          <Label className="flex items-center gap-1">
             Page
-            <input
+            <Input
               type="number"
               min={1}
               value={pageInput}
@@ -237,7 +264,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
               onKeyDown={(e) => e.key === 'Enter' && jumpToPage()}
               className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
-          </label>
+          </Label>
           <Button variant="outline" size="sm" onClick={jumpToPage} disabled={jumping}>
             {jumping ? <Loader2 className="size-3 animate-spin" /> : 'Go'}
           </Button>
