@@ -54,8 +54,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Read-only toggle** in the connection dialog — enables write statements (`CREATE`, `INSERT`, `UPDATE`, `DELETE`, `DROP`, etc.) per connection without editing the metadata DB directly. ([@asta-nguyen])
 - **Custom color picker** in the connection dialog — native `<input type="color">` alongside the 8 preset badge colors. ([@asta-nguyen])
 
+#### Qdrant improvements
+
+- **Qdrant named vector support** — `QdrantSearchInput` and `RecommendInput` accept `using?: string` to select a named vector, and `QdrantSearchInput.vector` accepts `number[] | Record<string, number[]>`. The sidecar forwards `using` to the Qdrant client (via a `SearchRequestWithUsing` type alias bridging the gap in the 1.18.0 client types). ([@asta-nguyen])
+- **`QdrantStats.vectorsCount` populated** — `getStats()` now sets `vectorsCount` from `info.points_count` with a fallback to `info.indexed_vectors_count`, so the explorer can display total vectors alongside `indexedVectorsCount`. ([@asta-nguyen])
+- **US state name → abbreviation reverse lookup** — `expandTerms()` now resolves full state names like "california" back to "ca" via a reverse map built from `US_STATE_ALIASES`, so both directions resolve canonical variants. ([@asta-nguyen])
+- **2-letter token exemption from term-expansion stop-word filter** — `expandTerms()` now checks `STOP_WORDS` only when `lookup()` returns no expansion, so short tokens like `us`, `in`, `me` can still resolve to country/state/boolean canonical variants. ([@asta-nguyen])
+
 ### Fixed
 
+- Landing changelog page now resolves release data from the repository root `CHANGELOG.md` in both root and `landing/` build contexts.
 - **SQL editor ignored read-only setting** — duplicate client-side safety check in `useRunQuery` used a stale cache and shadowed the server enforcement. Redundant check removed; server remains the single source of truth. ([@asta-nguyen])
 - **Stale Qdrant filter on invalid JSON** — the filter builder's "Advanced JSON" mode now clears the parent filter as soon as parsing fails, instead of leaving the previously valid filter in place while the UI shows an error. ([@asta-nguyen])
 - **Stale Qdrant query results on context change** — switching the collection or search mode now clears the previous result table and status messages so old hits are not shown for the new context. ([@asta-nguyen])
@@ -65,6 +73,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Stale Qdrant stats after editing a connection** — the stats cache key now includes the connection profile's `updatedAt`, so updating host/port or any other connection field correctly evicts the previous result instead of returning stats from the old endpoint. ([@asta-nguyen])
 - **Unbounded Qdrant page jumps hammered the sidecar** — the "Go" page input is now capped at 50 pages per click; the cursor walk is clamped to `offsetStack.length + 50`, so the previous input (e.g. 10000) no longer triggers thousands of serial `scrollPoints` calls. ([@asta-nguyen])
 - **Clear button left the Qdrant filter builder's draft state intact** — clearing an applied filter now also resets the builder (via a remount) and the parent's draft filter, so a stale draft cannot be re-applied with a single click. ([@asta-nguyen])
+- **Refresh connection did not invalidate Qdrant queries** — `useRefreshConnection` now invalidates each query key separately (the previous `qc.invalidateQueries({ queryKey: keysToInvalidate })` was treating the array as a single key, so most entries were never invalidated) and includes `['qdrant-collections', id]` in `keysToInvalidate` and `refetchable` so the Qdrant explorer refreshes on reload. ([@asta-nguyen])
+- **MySQL `getActiveConnections` violated `ConnectionInfo` contract** — `clientAddr` and `query` now preserve `null` instead of being coerced to `''`; `queryStart` is set to `null` (PROCESSLIST has no query-start time); `backendStart` is set to the inspection timestamp with a comment noting it's approximate. ([@asta-nguyen])
+- **Qdrant sidebar tab lost numeric point IDs on serialization** — `WorkspaceTab`'s `qdrant-search.pointId` and the `openQdrantSearchTab` opts now accept `string | number` to match `QdrantPoint.id` / `RecommendInput.pointId`. Removed the `String(p.id)` coercion at the call sites so numeric IDs round-trip through persisted tabs. ([@asta-nguyen])
+- **`/ai/embed` skipped provider config validation** — the embedding route now mirrors `/ai/chat`: it returns 400 `AI_CONFIG_ERROR` when the provider config is missing, disabled, or fails `validateProviderConfig`, instead of bubbling a 500 from the embed call. ([@asta-nguyen])
+- **Qdrant search/recommend mutations crashed with unclear error when `connectionId` was null** — `useQdrantSearch` and `useQdrantRecommend` now check `connectionId` inside `mutationFn` and `Promise.reject(new Error('No connectionId'))` so callers receive a clear error. ([@asta-nguyen])
+- **AI streaming reader crashed when response body was null** — `provider.ts` now guards `res.body` with an explicit check before calling `getReader()` and throws `Missing response body` instead of letting the non-null assertion fail. ([@asta-nguyen])
+- **Schema tree fuzzy match false negative on whitespace** — `filteredTables` now uses a trimmed `q` for both the emptiness check and `fuzzyMatch`, so trailing/leading whitespace no longer causes tables to drop out of the results. ([@asta-nguyen])
+- **`/sql/search-schema` passed `NaN` to the adapter** — the route now validates the `limit` query param to a finite integer in `[0, 1000]`, falling back to `undefined` if invalid, instead of forwarding `NaN` to `adapter.searchSchema`. ([@asta-nguyen])
+- **`useColumnResize` returned stale widths when `columnCount` changed** — added a `useEffect` that reconciles the widths array to the current `columnCount`, preserving existing widths and filling new indices with `defaultWidth`; also added an explicit return type. ([@asta-nguyen])
+
+### Changed
+
+- **`useSchemaSearch` had no explicit return type** — now returns `UseQueryResult<SchemaSearchMatch[], Error>` so the contract is stable. ([@asta-nguyen])
+- **`Switch` component used an inline prop intersection** — extracted to a named `SwitchProps` interface for clarity. ([@asta-nguyen])
 
 ### Contributors
 
