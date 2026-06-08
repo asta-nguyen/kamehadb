@@ -101,83 +101,42 @@ function toNumericVector(vector: unknown, vectorName?: string): number[] | null 
 
 type Point = { id: string | number; payload: Record<string, unknown>; vector: number[] };
 
-export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: QdrantVectorMapProps) {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['qdrant-map', connectionId, collection],
-    queryFn: () =>
-      api.scrollQdrantPoints(connectionId, {
-        collection,
-        limit: SAMPLE_LIMIT,
-        withPayload: true,
-        withVector: true,
-      }),
-    staleTime: 30000,
-  });
+type SceneSetup = {
+  mountRef: React.RefObject<HTMLDivElement | null>;
+  sceneRef: React.MutableRefObject<THREE.Scene | null>;
+  geometryRef: React.MutableRefObject<THREE.BufferGeometry | null>;
+  pointsRef: React.MutableRefObject<Point[]>;
+  isDarkRef: React.MutableRefObject<boolean>;
+  colorByRef: React.MutableRefObject<string>;
+};
 
-  const [colorBy, setColorBy] = useState<string>(tab.colorBy || '');
-  const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
+type SceneApi = SceneSetup & {
+  hover: { i: number; x: number; y: number } | null;
+  setHover: React.Dispatch<React.SetStateAction<{ i: number; x: number; y: number } | null>>;
+};
 
-  useEffect(() => {
-    updateTabQdrantGraphState(tab.id, { colorBy });
-  }, [tab.id, colorBy]);
-
-  const theme = useStore(appStore, (s) => s.theme);
-  const isDark = useMemo(() => document.documentElement.classList.contains('dark'), [theme]);
-
+// Encapsulates the THREE.js scene lifecycle so the React component can stay
+// focused on data binding and UI.
+function useVectorScene(
+  tab: QdrantVectorMapProps['tab'],
+  points: Point[],
+  positions: Float32Array | null,
+  colorBy: string,
+  colorValue: (i: number) => string,
+  connectionId: string,
+  collection: string,
+  isDark: boolean,
+): SceneApi {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
-  const pointsRef = useRef<Point[]>([]);
-  const colorByRef = useRef(colorBy);
-  colorByRef.current = colorBy;
+  const pointsRef = useRef<Point[]>(points);
+  pointsRef.current = points;
   const isDarkRef = useRef(isDark);
   isDarkRef.current = isDark;
-
-  const points = useMemo<Point[]>(() => {
-    if (!data) return [];
-    return data.points
-      .map((p) => ({ id: p.id, payload: p.payload ?? {}, vector: toNumericVector(p.vector, vectorName) }))
-      .filter((p): p is Point => !!p.vector);
-  }, [data]);
-  pointsRef.current = points;
-
-  const payloadKeys = useMemo(() => {
-    const keys = new Set<string>();
-    for (const p of points) for (const k of Object.keys(p.payload)) keys.add(k);
-    return [...keys];
-  }, [points]);
-
-  const positions = useMemo(() => {
-    if (points.length < 2) return null;
-    const coords = pca3d(points.map((p) => p.vector));
-    const mins = [Infinity, Infinity, Infinity];
-    const maxs = [-Infinity, -Infinity, -Infinity];
-    for (const c of coords)
-      for (let a = 0; a < 3; a++) {
-        mins[a] = Math.min(mins[a], c[a]);
-        maxs[a] = Math.max(maxs[a], c[a]);
-      }
-    const center = [0, 1, 2].map((a) => (mins[a] + maxs[a]) / 2);
-    const range = Math.max(...[0, 1, 2].map((a) => maxs[a] - mins[a]), 1e-6);
-    const scale = SPREAD / range;
-    const arr = new Float32Array(coords.length * 3);
-    coords.forEach((c, i) => {
-      arr[i * 3] = (c[0] - center[0]) * scale;
-      arr[i * 3 + 1] = (c[1] - center[1]) * scale;
-      arr[i * 3 + 2] = (c[2] - center[2]) * scale;
-    });
-    return arr;
-  }, [points]);
-
-  const { legend, colorValue } = useMemo(() => {
-    if (!colorBy) return { legend: [] as { value: string; color: string }[], colorValue: () => PALETTE[0] };
-    const values = [...new Set(points.map((p) => String(p.payload[colorBy] ?? '∅')))];
-    const map = new Map(values.map((v, i) => [v, PALETTE[i % PALETTE.length]]));
-    return {
-      legend: values.slice(0, 12).map((v) => ({ value: v, color: map.get(v)! })),
-      colorValue: (i: number) => map.get(String(points[i].payload[colorBy] ?? '∅')) ?? PALETTE[0],
-    };
-  }, [colorBy, points]);
+  const colorByRef = useRef(colorBy);
+  colorByRef.current = colorBy;
+  const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -309,13 +268,10 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
       geometryRef.current = null;
       sceneRef.current = null;
     };
-  }, [positions, connectionId, collection]);
+    // colorBy / colorValue / points are read via refs in the closure above.
+  }, [positions, connectionId, collection, tab.id, tab.camera, colorValue, isDark]);
 
-  useEffect(() => {
-    const bg = sceneRef.current?.background;
-    if (bg instanceof THREE.Color) bg.set(isDark ? BG_DARK : BG_LIGHT);
-  }, [isDark]);
-
+  // Reactively re-tint the geometry when colorBy changes (no full scene rebuild).
   useEffect(() => {
     const geometry = geometryRef.current;
     if (!geometry) return;
@@ -327,6 +283,93 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
     }
     attr.needsUpdate = true;
   }, [colorBy, points, colorValue]);
+
+  // Reactively update scene background on theme change.
+  useEffect(() => {
+    const bg = sceneRef.current?.background;
+    if (bg instanceof THREE.Color) bg.set(isDark ? BG_DARK : BG_LIGHT);
+  }, [isDark]);
+
+  return { mountRef, sceneRef, geometryRef, pointsRef, isDarkRef, colorByRef, hover, setHover };
+}
+
+export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: QdrantVectorMapProps) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['qdrant-map', connectionId, collection],
+    queryFn: () =>
+      api.scrollQdrantPoints(connectionId, {
+        collection,
+        limit: SAMPLE_LIMIT,
+        withPayload: true,
+        withVector: true,
+      }),
+    staleTime: 30000,
+  });
+
+  const [colorBy, setColorBy] = useState<string>(tab.colorBy || '');
+
+  useEffect(() => {
+    updateTabQdrantGraphState(tab.id, { colorBy });
+  }, [tab.id, colorBy]);
+
+  const theme = useStore(appStore, (s) => s.theme);
+  const isDark = useMemo(() => document.documentElement.classList.contains('dark'), [theme]);
+
+  const points = useMemo<Point[]>(() => {
+    if (!data) return [];
+    return data.points
+      .map((p) => ({ id: p.id, payload: p.payload ?? {}, vector: toNumericVector(p.vector, vectorName) }))
+      .filter((p): p is Point => !!p.vector);
+  }, [data, vectorName]);
+
+  const payloadKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const p of points) for (const k of Object.keys(p.payload)) keys.add(k);
+    return [...keys];
+  }, [points]);
+
+  const positions = useMemo(() => {
+    if (points.length < 2) return null;
+    const coords = pca3d(points.map((p) => p.vector));
+    const mins = [Infinity, Infinity, Infinity];
+    const maxs = [-Infinity, -Infinity, -Infinity];
+    for (const c of coords)
+      for (let a = 0; a < 3; a++) {
+        mins[a] = Math.min(mins[a], c[a]);
+        maxs[a] = Math.max(maxs[a], c[a]);
+      }
+    const center = [0, 1, 2].map((a) => (mins[a] + maxs[a]) / 2);
+    const range = Math.max(...[0, 1, 2].map((a) => maxs[a] - mins[a]), 1e-6);
+    const scale = SPREAD / range;
+    const arr = new Float32Array(coords.length * 3);
+    coords.forEach((c, i) => {
+      arr[i * 3] = (c[0] - center[0]) * scale;
+      arr[i * 3 + 1] = (c[1] - center[1]) * scale;
+      arr[i * 3 + 2] = (c[2] - center[2]) * scale;
+    });
+    return arr;
+  }, [points]);
+
+  const { legend, colorValue } = useMemo(() => {
+    if (!colorBy) return { legend: [] as { value: string; color: string }[], colorValue: () => PALETTE[0] };
+    const values = [...new Set(points.map((p) => String(p.payload[colorBy] ?? '∅')))];
+    const map = new Map(values.map((v, i) => [v, PALETTE[i % PALETTE.length]]));
+    return {
+      legend: values.slice(0, 12).map((v) => ({ value: v, color: map.get(v)! })),
+      colorValue: (i: number) => map.get(String(points[i].payload[colorBy] ?? '∅')) ?? PALETTE[0],
+    };
+  }, [colorBy, points]);
+
+  const { mountRef, pointsRef, hover } = useVectorScene(
+    tab,
+    points,
+    positions,
+    colorBy,
+    colorValue,
+    connectionId,
+    collection,
+    isDark,
+  );
 
   if (isLoading) {
     return (

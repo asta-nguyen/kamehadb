@@ -47,7 +47,7 @@ export function initMetadataStore(dbPath: string): void {
     CREATE TABLE IF NOT EXISTS connection_profiles (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant')),
+      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
       host TEXT,
       port INTEGER,
       database TEXT,
@@ -93,13 +93,106 @@ export function initMetadataStore(dbPath: string): void {
       | { sql: string }
       | undefined
   )?.sql;
+  // Migration: widen the kind CHECK constraint to include sqlserver/oracle/clickhouse.
+  if (profilesSql && !profilesSql.includes('clickhouse')) {
+    db.exec(`
+      BEGIN TRANSACTION;
+      CREATE TABLE connection_profiles_new (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','tigerbeetle')),
+        host TEXT,
+        port INTEGER,
+        database TEXT,
+        username TEXT,
+        password TEXT,
+        ssl INTEGER DEFAULT 0,
+        file_path TEXT,
+        readonly INTEGER DEFAULT 1,
+        color TEXT,
+        connection_string TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO connection_profiles_new
+        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
+               readonly, color, connection_string, created_at, updated_at
+        FROM connection_profiles;
+      DROP TABLE connection_profiles;
+      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
+      COMMIT;
+    `);
+  }
+
   if (profilesSql && !profilesSql.includes('qdrant')) {
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE connection_profiles_new (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant')),
+      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
+        host TEXT,
+        port INTEGER,
+        database TEXT,
+        username TEXT,
+        password TEXT,
+        ssl INTEGER DEFAULT 0,
+        file_path TEXT,
+        readonly INTEGER DEFAULT 1,
+        color TEXT,
+        connection_string TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO connection_profiles_new
+        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
+               readonly, color, connection_string, created_at, updated_at
+        FROM connection_profiles;
+      DROP TABLE connection_profiles;
+      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
+      COMMIT;
+    `);
+  }
+
+  // Migration: widen the kind CHECK constraint to include mariadb and duckdb.
+  if (profilesSql && !profilesSql.includes('mariadb')) {
+    db.exec(`
+      BEGIN TRANSACTION;
+      CREATE TABLE connection_profiles_new (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
+        host TEXT,
+        port INTEGER,
+        database TEXT,
+        username TEXT,
+        password TEXT,
+        ssl INTEGER DEFAULT 0,
+        file_path TEXT,
+        readonly INTEGER DEFAULT 1,
+        color TEXT,
+        connection_string TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO connection_profiles_new
+        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
+               readonly, color, connection_string, created_at, updated_at
+        FROM connection_profiles;
+      DROP TABLE connection_profiles;
+      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
+      COMMIT;
+    `);
+  }
+
+  // Migration: widen the kind CHECK constraint to include tigerbeetle.
+  if (profilesSql && !profilesSql.includes('tigerbeetle')) {
+    db.exec(`
+      BEGIN TRANSACTION;
+      CREATE TABLE connection_profiles_new (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
         host TEXT,
         port INTEGER,
         database TEXT,
@@ -165,6 +258,27 @@ export function initMetadataStore(dbPath: string): void {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_chat_connection ON chat_messages(connection_id);
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS query_history (
+      id TEXT PRIMARY KEY,
+      connection_id TEXT NOT NULL,
+      query TEXT NOT NULL,
+      executed_at TEXT NOT NULL,
+      duration_ms INTEGER,
+      row_count INTEGER,
+      favorite INTEGER NOT NULL DEFAULT 0,
+      name TEXT
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_query_history_connection ON query_history(connection_id);
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_query_history_favorite ON query_history(connection_id, favorite);
   `);
 
   // Migration: Add mongo_database column if it doesn't exist
@@ -528,6 +642,86 @@ export function getChatMessages(connectionId: string, limit = 50, mongoDatabase?
     content: row.content as string,
     createdAt: row.created_at as string,
   }));
+}
+
+export function saveQueryHistory(
+  connectionId: string,
+  input: import('@kamehadb/shared').SaveQueryHistoryInput,
+): import('@kamehadb/shared').QueryHistoryEntry {
+  const id = nanoid();
+  const now = new Date().toISOString();
+  getDb()
+    .prepare(
+      `INSERT INTO query_history (id, connection_id, query, executed_at, duration_ms, row_count)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(id, connectionId, input.query, now, input.durationMs ?? null, input.rowCount ?? null);
+  return {
+    id,
+    connectionId,
+    query: input.query,
+    executedAt: now,
+    durationMs: input.durationMs,
+    rowCount: input.rowCount,
+    favorite: false,
+  };
+}
+
+export function getQueryHistory(
+  connectionId: string,
+  limit = 50,
+  favoritesOnly = false,
+): import('@kamehadb/shared').QueryHistoryEntry[] {
+  if (favoritesOnly) {
+    const rows = getDb()
+      .prepare(
+        `SELECT id, connection_id, query, executed_at, duration_ms, row_count, favorite, name
+         FROM query_history
+         WHERE connection_id = ? AND favorite = 1
+         ORDER BY executed_at DESC
+         LIMIT ?`,
+      )
+      .all(connectionId, limit) as Record<string, unknown>[];
+    return rows.map(mapQueryRow);
+  }
+  const rows = getDb()
+    .prepare(
+      `SELECT id, connection_id, query, executed_at, duration_ms, row_count, favorite, name
+       FROM query_history
+       WHERE connection_id = ?
+       ORDER BY executed_at DESC
+       LIMIT ?`,
+    )
+    .all(connectionId, limit) as Record<string, unknown>[];
+  return rows.map(mapQueryRow);
+}
+
+function mapQueryRow(row: Record<string, unknown>): import('@kamehadb/shared').QueryHistoryEntry {
+  return {
+    id: row.id as string,
+    connectionId: row.connection_id as string,
+    query: row.query as string,
+    executedAt: row.executed_at as string,
+    durationMs: row.duration_ms as number | undefined,
+    rowCount: row.row_count as number | undefined,
+    favorite: row.favorite === 1,
+    name: row.name as string | undefined,
+  };
+}
+
+export function updateQueryHistory(id: string, input: import('@kamehadb/shared').UpdateQueryHistoryInput): void {
+  if (input.favorite !== undefined) {
+    getDb()
+      .prepare('UPDATE query_history SET favorite = ? WHERE id = ?')
+      .run(input.favorite ? 1 : 0, id);
+  }
+  if (input.name !== undefined) {
+    getDb().prepare('UPDATE query_history SET name = ? WHERE id = ?').run(input.name, id);
+  }
+}
+
+export function deleteQueryHistory(id: string): void {
+  getDb().prepare('DELETE FROM query_history WHERE id = ?').run(id);
 }
 
 export function clearChatMessages(connectionId: string, mongoDatabase?: string | null): void {

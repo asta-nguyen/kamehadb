@@ -1,9 +1,10 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { QUERY_KEYS } from '@/lib/query-keys';
+import { useQuery } from '@tanstack/react-query';
 
 export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?: number) {
   return useQuery({
-    queryKey: ['redis-keys', connectionId, pattern, cursor],
+    queryKey: QUERY_KEYS.REDIS_KEYS(connectionId!, pattern, cursor),
     queryFn: () =>
       api.request<{ keys: Array<{ key: string; type: string; ttl: number }>; cursor: number; done: boolean }>(
         'POST',
@@ -19,7 +20,7 @@ export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?
 
 export function useRedisKeyDetails(connectionId: string | null, key: string | null) {
   return useQuery({
-    queryKey: ['redis-key', connectionId, key],
+    queryKey: QUERY_KEYS.REDIS_KEY(connectionId!, key!),
     queryFn: () =>
       api.request<{ key: string; type: string; ttl: number; value: unknown }>('POST', `/redis/${connectionId}/key`, {
         key,
@@ -29,15 +30,9 @@ export function useRedisKeyDetails(connectionId: string | null, key: string | nu
   });
 }
 
-export function useRedisTtl(connectionId: string | null, key: string | null) {
-  return useMutation({
-    mutationFn: () => api.request<{ ttl: number }>('POST', `/redis/${connectionId}/ttl`, { key }),
-  });
-}
-
 export function useRedisStats(connectionId: string | null, enabled = true) {
   return useQuery({
-    queryKey: ['redis-stats', connectionId],
+    queryKey: QUERY_KEYS.REDIS_STATS(connectionId),
     queryFn: () => api.getRedisStats(connectionId!),
     enabled: !!connectionId && enabled,
     staleTime: 10000,

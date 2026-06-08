@@ -7,6 +7,7 @@ import path from 'path';
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
+  assetsInclude: ['**/*.svg'],
   plugins: [react(), tailwindcss()],
   test: {
     include: ['src/**/*.test.ts'],

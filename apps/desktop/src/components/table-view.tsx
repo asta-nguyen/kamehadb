@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useCallback, useReducer, useRef, useState } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
 import { TableStats } from '@/components/table-stats';
@@ -41,54 +41,89 @@ type TableViewProps = {
   tableId: string;
 };
 
-function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: string }) {
-  const [offset, setOffset] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
-  const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
-  const [searchText, setSearchText] = useState('');
-  const [querySearch, setQuerySearch] = useState('');
-  const [sortColumn, setSortColumn] = useState('');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+// Group offset/pageSize/selectedRow/search/sort state into one reducer so a
+// single dispatch produces a single re-render instead of seven.
+type DataGridState = {
+  offset: number;
+  pageSize: number;
+  selectedRow: Record<string, unknown> | null;
+  searchText: string;
+  querySearch: string;
+  sortColumn: string;
+  sortDirection: 'asc' | 'desc';
+};
 
-  const debouncedSetSearch = useRef(
-    debounce(
+type DataGridAction =
+  | { type: 'setOffset'; value: number }
+  | { type: 'setPageSize'; value: number }
+  | { type: 'selectRow'; row: Record<string, unknown> | null }
+  | { type: 'setSearchText'; value: string }
+  | { type: 'setQuerySearch'; value: string }
+  | { type: 'setSortColumn'; value: string }
+  | { type: 'setSortDirection'; value: 'asc' | 'desc' }
+  | { type: 'cycleSort'; column: string }
+  | { type: 'clearSort' };
+
+function dataGridReducer(state: DataGridState, action: DataGridAction): DataGridState {
+  switch (action.type) {
+    case 'setOffset':
+      return { ...state, offset: action.value };
+    case 'setPageSize':
+      return { ...state, pageSize: action.value, offset: 0 };
+    case 'selectRow':
+      return { ...state, selectedRow: action.row };
+    case 'setSearchText':
+      return { ...state, searchText: action.value };
+    case 'setQuerySearch':
+      return { ...state, querySearch: action.value, offset: 0 };
+    case 'setSortColumn':
+      return { ...state, sortColumn: action.value };
+    case 'setSortDirection':
+      return { ...state, sortDirection: action.value };
+    case 'cycleSort':
+      if (state.sortColumn === action.column) {
+        if (state.sortDirection === 'asc') return { ...state, sortDirection: 'desc' as const };
+        return { ...state, sortColumn: '', sortDirection: 'asc' as const, offset: 0 };
+      }
+      return { ...state, sortColumn: action.column, sortDirection: 'asc' as const, offset: 0 };
+    case 'clearSort':
+      return { ...state, sortColumn: '', sortDirection: 'asc' as const, offset: 0 };
+  }
+}
+
+function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: string }) {
+  const [state, dispatch] = useReducer(dataGridReducer, {
+    offset: 0,
+    pageSize: 50,
+    selectedRow: null,
+    searchText: '',
+    querySearch: '',
+    sortColumn: '',
+    sortDirection: 'asc',
+  });
+
+  const debouncedSetSearch = useRef<ReturnType<typeof debounce<(v: string) => void>> | null>(null);
+  if (debouncedSetSearch.current === null) {
+    debouncedSetSearch.current = debounce(
       (v: string) => {
-        setQuerySearch(v);
-        setOffset(0);
+        dispatch({ type: 'setQuerySearch', value: v });
       },
       { wait: 300 },
-    ),
-  ).current;
-
-  const handleSortColumnChange = useCallback(
-    (col: string) => {
-      if (sortColumn === col) {
-        if (sortDirection === 'asc') {
-          setSortDirection('desc');
-        } else {
-          setSortColumn('');
-          setSortDirection('asc');
-        }
-      } else {
-        setSortColumn(col);
-        setSortDirection('asc');
-      }
-      setOffset(0);
-    },
-    [sortColumn, sortDirection],
-  );
+    );
+  }
+  const debouncedSearchFn = debouncedSetSearch.current;
 
   const { data: columns } = useTableColumns(connectionId, tableId);
   const { data: result, isLoading } = usePreviewRows(connectionId, {
     tableId,
-    offset,
-    limit: pageSize,
-    search: querySearch || undefined,
-    sortColumn: sortColumn || undefined,
-    sortDirection: sortColumn ? sortDirection : undefined,
+    offset: state.offset,
+    limit: state.pageSize,
+    search: state.querySearch || undefined,
+    sortColumn: state.sortColumn || undefined,
+    sortDirection: state.sortColumn ? state.sortDirection : undefined,
   });
 
-  const page = Math.floor(offset / pageSize) + 1;
+  const page = Math.floor(state.offset / state.pageSize) + 1;
   const displayColumns = result?.columns ?? columns ?? [];
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns.map((col) => ({
@@ -114,10 +149,10 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         <div className="relative flex-1 max-w-64">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
-            value={searchText}
+            value={state.searchText}
             onChange={(e) => {
-              setSearchText(e.target.value);
-              debouncedSetSearch(e.target.value);
+              dispatch({ type: 'setSearchText', value: e.target.value });
+              debouncedSearchFn(e.target.value);
             }}
             placeholder="Search all fields..."
             className="h-7 pl-7 text-xs"
@@ -125,10 +160,10 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         </div>
         <div className="flex items-center gap-1">
           <Select
-            value={sortColumn}
+            value={state.sortColumn}
             onValueChange={(v) => {
               if (!v) return;
-              handleSortColumnChange(v);
+              dispatch({ type: 'cycleSort', column: v });
             }}
           >
             <SelectTrigger className="h-7 w-28 text-xs gap-1.5 px-2">
@@ -143,33 +178,31 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               ))}
             </SelectContent>
           </Select>
-          {sortColumn && (
+          {state.sortColumn && (
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                setSortColumn('');
-                setSortDirection('asc');
-                setOffset(0);
-              }}
+              onClick={() => dispatch({ type: 'clearSort' })}
               className="h-7 w-7"
               title="Clear sort"
             >
               <X className="size-3" />
             </Button>
           )}
-          {sortColumn && (
+          {state.sortColumn && (
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={() => {
-                setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-                setOffset(0);
-              }}
+              onClick={() =>
+                dispatch({
+                  type: 'setSortDirection',
+                  value: state.sortDirection === 'asc' ? 'desc' : 'asc',
+                })
+              }
               className="h-7 w-7 shrink-0"
-              title={`Sorted ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+              title={`Sorted ${state.sortDirection === 'asc' ? 'ascending' : 'descending'}`}
             >
-              {sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+              {state.sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
             </Button>
           )}
         </div>
@@ -180,20 +213,19 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           columns={tableColumns}
           rowKey={(_, i) => String(i)}
           showIndex
-          indexOffset={offset}
-          onRowClick={(row) => setSelectedRow(row)}
-          onSortChange={handleSortColumnChange}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
+          indexOffset={state.offset}
+          onRowClick={(row) => dispatch({ type: 'selectRow', row })}
+          onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
+          sortColumn={state.sortColumn}
+          sortDirection={state.sortDirection}
         />
         {result && (
           <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2">
             <div className="flex items-center gap-1">
               <Select
-                value={String(pageSize)}
+                value={String(state.pageSize)}
                 onValueChange={(v) => {
-                  setPageSize(Number(v));
-                  setOffset(0);
+                  dispatch({ type: 'setPageSize', value: Number(v) });
                 }}
               >
                 <SelectTrigger className="h-7 w-16 text-xs gap-1 px-2">
@@ -219,7 +251,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   value={page}
                   onChange={(e) => {
                     const p = parseInt(e.target.value, 10);
-                    if (!isNaN(p) && p >= 1) setOffset((p - 1) * pageSize);
+                    if (!isNaN(p) && p >= 1) dispatch({ type: 'setOffset', value: (p - 1) * state.pageSize });
                   }}
                   className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
@@ -228,8 +260,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  disabled={offset === 0}
-                  onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
+                  disabled={state.offset === 0}
+                  onClick={() => dispatch({ type: 'setOffset', value: Math.max(0, state.offset - state.pageSize) })}
                 >
                   <ChevronLeft className="size-3.5" />
                 </Button>
@@ -237,7 +269,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   variant="ghost"
                   size="icon-sm"
                   disabled={!result.truncated}
-                  onClick={() => setOffset((o) => o + pageSize)}
+                  onClick={() => dispatch({ type: 'setOffset', value: state.offset + state.pageSize })}
                 >
                   <ChevronRight className="size-3.5" />
                 </Button>
@@ -258,19 +290,19 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
       </div>
 
       <Sheet
-        open={!!selectedRow}
+        open={!!state.selectedRow}
         onOpenChange={(open) => {
-          if (!open) setSelectedRow(null);
+          if (!open) dispatch({ type: 'selectRow', row: null });
         }}
       >
         <SheetContent className="sm:max-w-lg flex flex-col">
           <SheetHeader className="shrink-0">
             <SheetTitle className="flex items-center gap-2">
               <FileJson className="size-4" />
-              Record #{selectedRow && result ? offset + result.rows.indexOf(selectedRow) + 1 : ''}
+              Record #{state.selectedRow && result ? state.offset + result.rows.indexOf(state.selectedRow) + 1 : ''}
             </SheetTitle>
           </SheetHeader>
-          <RecordDetailTabs selectedRow={selectedRow} />
+          <RecordDetailTabs selectedRow={state.selectedRow} />
         </SheetContent>
       </Sheet>
     </>
@@ -290,16 +322,52 @@ function formatJsonSyntax(json: string): React.ReactNode[] {
   const lines = json.split('\n');
   return lines.map((line, i) => {
     const safeLine = escapeHtml(line);
-    const colored = safeLine
-      .replace(/(&quot;[^&]*&quot;)(?=\s*:)/g, '<span class="text-primary">$1</span>')
-      .replace(/:\s*(&quot;[^&]*&quot;)/g, ': <span class="text-muted-foreground">$1</span>')
-      .replace(/:\s*(true|false)/g, ': <span class="text-accent-foreground">$1</span>')
-      .replace(/:\s*(null)/g, ': <span class="text-muted-foreground italic">$1</span>')
-      .replace(/:\s*(\d+\.?\d*)/g, ': <span class="text-foreground">$1</span>');
+    const partsS = [];
+    let lastIdx = 0;
+
+    // Simple tokenization to avoid dangerouslySetInnerHTML
+    const regex = /(&quot;[^&]*&quot;)(?=\s*:)|:\s*(&quot;[^&]*&quot;)|:\s*(true|false)|:\s*(null)|:\s*(\d+\.?\d*)/g;
+    let match;
+    while ((match = regex.exec(safeLine)) !== null) {
+      partsS.push(safeLine.slice(lastIdx, match.index));
+      if (match[1])
+        partsS.push(
+          <span key={`p1-${i}-${partsS.length}`} className="text-primary">
+            {match[1]}
+          </span>,
+        );
+      else if (match[2])
+        partsS.push(
+          <span key={`p2-${i}-${partsS.length}`}>
+            : <span className="text-muted-foreground">{match[2].slice(2)}</span>
+          </span>,
+        );
+      else if (match[3])
+        partsS.push(
+          <span key={`p3-${i}-${partsS.length}`}>
+            : <span className="text-accent-foreground">{match[3]}</span>
+          </span>,
+        );
+      else if (match[4])
+        partsS.push(
+          <span key={`p4-${i}-${partsS.length}`}>
+            : <span className="text-muted-foreground italic">{match[4]}</span>
+          </span>,
+        );
+      else if (match[5])
+        partsS.push(
+          <span key={`p5-${i}-${partsS.length}`}>
+            : <span className="text-foreground">{match[5]}</span>
+          </span>,
+        );
+      lastIdx = regex.lastIndex;
+    }
+    partsS.push(safeLine.slice(lastIdx));
+
     return (
-      <div key={i} className="flex">
+      <div key={`${i}-${safeLine.slice(0, 50)}`} className="flex">
         <span className="w-8 shrink-0 text-right text-xs text-muted-foreground/40 select-none mr-3">{i + 1}</span>
-        <span dangerouslySetInnerHTML={{ __html: colored || ' ' }} className="flex-1" />
+        <span className="flex-1">{partsS}</span>
       </div>
     );
   });

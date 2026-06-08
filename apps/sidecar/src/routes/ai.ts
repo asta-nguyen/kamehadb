@@ -118,6 +118,15 @@ Rules:
 - Do NOT use SQL syntax.
 - Write the query using direct shell syntax: \`db.collectionName.find(...)\` or \`db.collectionName.aggregate([...])\`.
 - Prefix the query with a comment explaining what it does.`;
+  } else if (connectionKind === 'tigerbeetle') {
+    prompt += `\n\nCurrent connection: TigerBeetle (financial transaction database).
+- Do NOT use SQL, MongoDB, or Redis syntax.
+- TigerBeetle is a double-entry accounting database with accounts and transfers.
+- Use the TigerBeetle CLI syntax or Node.js client API in \`\`\`javascript\`\`\` blocks.
+- Key operations: create_accounts, lookup_accounts, create_transfers, lookup_transfers, get_account_transfers, get_account_balances.
+- Accounts have: id (u128), debits_posted, debits_pending, credits_posted, credits_pending, flags, ledger, code.
+- Transfers have: id (u128), debit_account_id, credit_account_id, amount, flags, ledger, code.
+- Prefer read-only operations: lookup_accounts, lookup_transfers, get_account_balances.`;
   } else if (connectionKind === 'qdrant') {
     prompt += `\n\nCurrent connection: Qdrant (vector database).
 - Do NOT use SQL, MongoDB, or Redis syntax.
@@ -215,7 +224,7 @@ aiRouter.post(
                 } finally {
                   await adapter.close();
                 }
-              } else if (profile.kind !== 'redis') {
+              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle') {
                 const password = metadataStore.getProfilePassword(connectionId);
                 const adapter = createSqlAdapter(profile, password);
                 if (adapter) {
@@ -254,7 +263,7 @@ aiRouter.post(
 
       const provider = createProvider(providerName, config);
       const abortController = new AbortController();
-      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'qdrant'].includes(connectionKind);
+      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'qdrant', 'tigerbeetle'].includes(connectionKind);
 
       // Extract SQL queries from code fences in LLM output
       function extractSqlQueries(text: string): string[] {

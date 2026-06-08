@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/variants';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Send, StopCircle } from 'lucide-react';
 
@@ -34,15 +35,15 @@ export function ChatInput({
   }
 
   return (
-    <div className="shrink-0 border-t border-border bg-muted/10 p-2">
-      <div className="flex items-end gap-2 rounded-lg border border-border/70 bg-background p-1.5 shadow-sm transition-shadow focus-within:border-ring focus-within:ring-ring/25">
+    <div className="p-2 bg-muted/10 border-border border-t shrink-0">
+      <div className="flex items-end p-1.5 bg-background border-border/70 rounded-lg shadow-xs border gap-2 transition-shadow focus-within:border-ring focus-within:ring-ring/25">
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={2}
-          className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
+          className="flex-1 px-1.5 py-1 max-h-28 min-h-10 text-sm leading-relaxed bg-transparent border-0 shadow-none resize-none placeholder:text-muted-foreground/50 focus-visible:ring-0"
         />
         {isLoading ? (
           <Tooltip>
@@ -56,7 +57,7 @@ export function ChatInput({
             <TooltipContent>Stop generation</TooltipContent>
           </Tooltip>
         ) : (
-          <Button size="icon" className="size-8 shrink-0" onClick={handleSend} disabled={!input.trim()}>
+          <Button size="icon" className="shrink-0 size-8" onClick={handleSend} disabled={!input.trim()}>
             <Send className="size-3.5" />
           </Button>
         )}

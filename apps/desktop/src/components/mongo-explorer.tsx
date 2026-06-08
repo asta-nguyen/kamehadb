@@ -1,12 +1,13 @@
-import { useMongoCollections, useMongoDatabases } from '@/hooks/use-mongo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { appStore, openAiChatPanel, setActiveMongoDatabase } from '@/store';
+import { useMongoCollections, useMongoDatabases } from '@/hooks/use-mongo';
 import { fuzzyMatch } from '@/lib/utils';
+import { appStore, openAiChatPanel, setActiveMongoDatabase } from '@/store';
+import { useStore } from '@tanstack/react-store';
 import type { CollectionInfo } from '@kamehadb/shared';
 import { ChevronDown, ChevronRight, Clock, Database, Eye, Loader2, Search, Sparkles, Table2 } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const typeIcons: Record<CollectionInfo['type'], React.ComponentType<{ className?: string }>> = {
   collection: Table2,
@@ -25,27 +26,20 @@ interface MongoExplorerProps {
 }
 
 export function MongoExplorer({ connectionId }: MongoExplorerProps) {
-  const [selectedDb, setSelectedDb] = useState<string | null>(null);
+  const selectedDbRef = useRef<string | null>(null);
   const [expandedDbs, setExpandedDbs] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const { data: databases, isLoading: loadingDatabases } = useMongoDatabases(connectionId);
 
-  // Reset state when switching connections
+  // Auto-select and auto-expand the first database once it loads
+  const firstDb = databases?.[0]?.name;
   useEffect(() => {
-    setSelectedDb(null);
-    setExpandedDbs(new Set());
-    setSearchQuery('');
-  }, [connectionId]);
-
-  // Auto-select and auto-expand first database when it loads
-  useEffect(() => {
-    if (databases?.length && !selectedDb) {
-      const first = databases[0].name;
-      setSelectedDb(first);
-      setExpandedDbs(new Set([first]));
-      setActiveMongoDatabase(first);
+    if (firstDb && !selectedDbRef.current) {
+      selectedDbRef.current = firstDb;
+      setExpandedDbs((prev) => new Set([...prev, firstDb]));
+      setActiveMongoDatabase(firstDb);
     }
-  }, [connectionId, databases, selectedDb]);
+  }, [firstDb]);
 
   const toggleDb = (name: string) => {
     setExpandedDbs((prev) => {
@@ -57,7 +51,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
   };
 
   const handleDbSelect = (dbName: string) => {
-    setSelectedDb(dbName);
+    selectedDbRef.current = dbName;
     setActiveMongoDatabase(dbName);
     setSearchQuery('');
   };
@@ -66,7 +60,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
     <div className="space-y-0.5">
       {loadingDatabases ? (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground animate-spin size-4" />
         </div>
       ) : (
         databases?.map((db: { name: string }) => (
@@ -109,6 +103,9 @@ function DatabaseNode({
     connectionId,
     expanded ? dbName : null,
   );
+
+  // Track the active tab so the sidebar can highlight the current collection
+  const activeTab = useStore(appStore, (s) => s.openedTabs.find((t) => t.id === s.activeTabId));
 
   const filteredCollections = useMemo(() => {
     if (!collections) return [];
@@ -160,19 +157,19 @@ function DatabaseNode({
           variant="ghost"
           size="sm"
           onClick={handleExpand}
-          className="flex-1 justify-start font-normal px-2 min-w-0"
+          className="flex-1 justify-start px-2 min-w-0 font-normal"
         >
           {expanded ? (
-            <ChevronDown className="size-3 text-muted-foreground/60 shrink-0" />
+            <ChevronDown className="text-muted-foreground/60 shrink-0 size-3" />
           ) : (
-            <ChevronRight className="size-3 text-muted-foreground/60 shrink-0" />
+            <ChevronRight className="text-muted-foreground/60 shrink-0 size-3" />
           )}
-          <Database className="size-3.5 text-muted-foreground/60 shrink-0" />
-          <span className="font-medium text-foreground/80 truncate" title={dbName}>
+          <Database className="text-muted-foreground/60 shrink-0 size-3.5" />
+          <span className="text-foreground/80 font-medium truncate" title={dbName}>
             {dbName}
           </span>
           {expanded && collections && (
-            <span className="ml-auto text-xs text-muted-foreground/50 tabular-nums">{collections.length}</span>
+            <span className="ml-auto text-muted-foreground/50 text-xs tabular-nums">{collections.length}</span>
           )}
         </Button>
         <Button
@@ -183,14 +180,14 @@ function DatabaseNode({
             onSelect();
             openAiChatPanel(connectionId);
           }}
-          className="size-6 shrink-0"
+          className="shrink-0 size-6"
           title="AI Chat"
         >
-          <Sparkles className="size-3 text-muted-foreground/60" />
+          <Sparkles className="text-muted-foreground/60 size-3" />
         </Button>
       </div>
       {expanded && (
-        <div className="mt-0.5 ml-3 pl-2 border-l border-border/60">
+        <div className="pl-2 ml-3 mt-0.5 border-border/60 border-l">
           <div className="px-2 py-1">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
@@ -199,32 +196,40 @@ function DatabaseNode({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder="Filter..."
-                className="h-6 pl-6 pr-2 text-xs"
+                className="pl-6 pr-2 h-6 text-xs"
               />
             </div>
           </div>
 
           {loadingCollections ? (
             <div className="flex justify-center py-2">
-              <Loader2 className="size-3 animate-spin text-muted-foreground/60" />
+              <Loader2 className="text-muted-foreground/60 animate-spin size-3" />
             </div>
           ) : filteredCollections.length === 0 ? (
-            <p className="text-xs text-muted-foreground/60 pl-2 py-1 italic">
+            <p className="pl-2 py-1 text-muted-foreground/60 text-xs italic">
               {collections?.length === 0 ? 'No collections' : 'No matches'}
             </p>
           ) : (
             filteredCollections.map((col) => {
               const Icon = typeIcons[col.type];
+              const isActive =
+                activeTab?.type === 'mongo' &&
+                activeTab?.connectionId === connectionId &&
+                activeTab?.database === dbName &&
+                activeTab?.collection === col.name;
               return (
                 <Button
                   key={col.name}
                   variant="ghost"
                   size="sm"
                   onClick={() => handleCollectionClick(col)}
-                  className="w-full justify-start font-normal px-2"
+                  className={`justify-start px-2 w-full font-normal ${isActive ? 'bg-muted/50' : ''}`}
                 >
                   <Icon className={`size-3 ${typeColors[col.type]} shrink-0`} />
-                  <span className="truncate text-foreground/80" title={col.name}>
+                  <span
+                    className={`truncate ${isActive ? 'text-foreground font-medium' : 'text-foreground/80'}`}
+                    title={col.name}
+                  >
                     {col.name}
                   </span>
                 </Button>

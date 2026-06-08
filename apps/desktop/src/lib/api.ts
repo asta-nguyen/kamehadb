@@ -5,16 +5,11 @@ const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 let apiBase = import.meta.env.DEV ? DEV_PROXY_API_BASE : DIRECT_SIDECAR_API_BASE;
 let sidecarBase = SIDECAR_API_BASE;
 
-export function setApiPort(port: number) {
-  apiBase = `http://127.0.0.1:${port}`;
-  sidecarBase = `http://127.0.0.1:${port}`;
-}
-
 export function getApiBase(): string {
   return apiBase;
 }
 
-export async function request<T>(
+async function request<T>(
   method: string,
   path: string,
   body?: unknown,
@@ -31,9 +26,15 @@ export async function request<T>(
 
   if (res.status === 204) return undefined as T;
 
-  const data = await res.json();
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    const text = await res.text();
+    throw new Error(`API error (${res.status}): ${text.slice(0, 200)}`);
+  }
   if (!res.ok) {
-    throw new Error(data.message || `API error: ${res.status}`);
+    throw new Error((data as { message?: string }).message || `API error: ${res.status}`);
   }
   return data as T;
 }
@@ -200,4 +201,57 @@ export const api = {
 
   embedText: (text: string, model?: string) =>
     request<{ vector: number[]; dimensions: number }>('POST', `/ai/embed`, { text, model }),
+
+  // TigerBeetle API
+  tbListAccounts: (connectionId: string, limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return request<{ accounts: import('@kamehadb/shared').TigerBeetleAccount[] }>(
+      'GET',
+      `/tigerbeetle/${connectionId}/accounts${query}`,
+      undefined,
+      true,
+    );
+  },
+
+  tbLookupAccount: (connectionId: string, id: string) =>
+    request<import('@kamehadb/shared').TigerBeetleAccount>(
+      'GET',
+      `/tigerbeetle/${connectionId}/accounts/${id}`,
+      undefined,
+      true,
+    ),
+
+  tbCreateAccounts: (connectionId: string, accounts: import('@kamehadb/shared').CreateTigerBeetleAccountInput[]) =>
+    request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
+      'POST',
+      `/tigerbeetle/${connectionId}/accounts`,
+      { accounts },
+      true,
+    ),
+
+  tbGetTransfers: (connectionId: string, accountId: string, limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return request<{ transfers: import('@kamehadb/shared').TigerBeetleTransfer[] }>(
+      'GET',
+      `/tigerbeetle/${connectionId}/transfers/${accountId}${query}`,
+      undefined,
+      true,
+    );
+  },
+
+  tbGetBalances: (connectionId: string, accountId: string) =>
+    request<{ balances: import('@kamehadb/shared').TigerBeetleAccountBalance[] }>(
+      'GET',
+      `/tigerbeetle/${connectionId}/balances/${accountId}`,
+      undefined,
+      true,
+    ),
+
+  tbCreateTransfers: (connectionId: string, transfers: import('@kamehadb/shared').CreateTigerBeetleTransferInput[]) =>
+    request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
+      'POST',
+      `/tigerbeetle/${connectionId}/transfers`,
+      { transfers },
+      true,
+    ),
 };

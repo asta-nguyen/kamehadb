@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChatInput } from '@/components/chat-input';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/variants';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,32 +8,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ChatInput } from '@/components/chat-input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useChat } from '@/hooks/use-chat';
 import { useConnections } from '@/hooks/use-connections';
-import { useChat, type ChatMessage } from '@/hooks/use-chat';
-import { useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
-import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
-import hljs from 'highlight.js/lib/core';
-import sql from 'highlight.js/lib/languages/sql';
-import javascript from 'highlight.js/lib/languages/javascript';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import type { ChatMessage } from '@/lib/ai-chat-helpers';
 import { getChatTextContent, normalizeCodeLanguage, toUIMessage, type CodeLanguage } from '@/lib/ai-chat-helpers';
+import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import sql from 'highlight.js/lib/languages/sql';
 import {
   Bot,
-  Copy,
   Check,
-  Loader2,
-  Sparkles,
-  MoreHorizontal,
-  Settings2,
-  RefreshCw,
-  Trash2,
-  Terminal,
-  Play,
-  X,
+  Copy,
   Database,
+  Loader2,
+  MoreHorizontal,
+  Play,
+  RefreshCw,
+  Settings2,
+  Sparkles,
+  Terminal,
+  Trash2,
+  X,
 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, Fragment } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { QUERY_KEYS } from '@/lib/query-keys';
 
 hljs.registerLanguage('sql', sql);
 hljs.registerLanguage('javascript', javascript);
@@ -57,38 +61,66 @@ function highlightCode(code: string, language: CodeLanguage): string {
   return hljs.highlight(code, { language }).value;
 }
 
+// Convert highlight.js HTML output to React elements so we never
+// need dangerouslySetInnerHTML for user-controlled content.
+function renderCodeHtml(html: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const spanRe = /<span class="([^"]+)"(?:\s[^>]*)?>([^<]*)<\/span>|([^<]+)/g;
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = spanRe.exec(html)) !== null) {
+    if (m[1] && m[2] !== undefined) {
+      nodes.push(
+        <span key={idx} className={m[1]}>
+          {m[2]}
+        </span>,
+      );
+    } else if (m[3] !== undefined) {
+      nodes.push(<Fragment key={idx}>{m[3]}</Fragment>);
+    }
+    idx++;
+  }
+  // Fallback: if regex matched nothing, render the whole thing as text
+  if (nodes.length === 0) nodes.push(<Fragment key={0}>{html}</Fragment>);
+  return nodes;
+}
+
 type AIChatPanelProps = {
   connectionId: string | null;
   width?: number;
   onClose?: () => void;
 };
 
-function QueryBlock({
-  code,
-  language,
-  onInsert,
-  onRun,
-  connectionKind,
-}: {
+type ReadonlyQueryBlock = {
+  variant: 'readonly';
   code: string;
   language: CodeLanguage;
-  onInsert?: () => void;
-  onRun?: () => void;
-  connectionKind?: string;
-}) {
+};
+
+type ExecutableQueryBlock = {
+  variant: 'executable';
+  code: string;
+  language: CodeLanguage;
+  connectionId: string;
+  onInsert: () => void;
+  onRun: () => void;
+};
+
+type QueryBlockProps = ReadonlyQueryBlock | ExecutableQueryBlock;
+
+function QueryBlock(props: QueryBlockProps) {
   const [isCopied, setIsCopied] = useState(false);
-  const canOpenSql = language === 'sql' && onInsert && onRun;
-  const languageLabel = language === 'javascript' && connectionKind === 'mongodb' ? 'mongodb' : language;
+  const languageLabel = props.language === 'javascript' && props.variant === 'executable' ? 'mongodb' : props.language;
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(props.code);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 1500);
     } catch (err) {
       console.error('Failed to copy query:', err);
     }
-  }, [code]);
+  }, [props.code]);
 
   return (
     <div className="my-2 overflow-hidden rounded-md border border-border/70 bg-card shadow-sm">
@@ -109,7 +141,7 @@ function QueryBlock({
             </TooltipTrigger>
             <TooltipContent>Copy {languageLabel}</TooltipContent>
           </Tooltip>
-          {canOpenSql && (
+          {props.variant === 'executable' && (
             <>
               <Tooltip>
                 <TooltipTrigger
@@ -119,7 +151,7 @@ function QueryBlock({
                     size: 'icon',
                     className: 'size-6 text-muted-foreground hover:text-foreground',
                   })}
-                  onClick={onInsert}
+                  onClick={props.onInsert}
                 >
                   <Terminal className="size-3" />
                 </TooltipTrigger>
@@ -133,7 +165,7 @@ function QueryBlock({
                     size: 'icon',
                     className: 'size-6 text-muted-foreground hover:text-foreground',
                   })}
-                  onClick={onRun}
+                  onClick={props.onRun}
                 >
                   <Play className="size-3" />
                 </TooltipTrigger>
@@ -143,16 +175,9 @@ function QueryBlock({
           )}
         </div>
       </div>
-      {/* highlight.js v11+ strips/ignores unescaped HTML tags (like <script>)
-          rather than emitting entities, so user-supplied tags won't render.
-          This safety depends on using hljs.highlight (v11+) and must be
-          revisited if the highlighter or version changes. If you swap to a
-          different highlighter or feed pre-escaped HTML into highlightCode,
-          add explicit sanitization (e.g. DOMPurify) here. */}
-      <pre
-        className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]"
-        dangerouslySetInnerHTML={{ __html: highlightCode(code, language) }}
-      />
+      <pre className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]">
+        {renderCodeHtml(highlightCode(props.code, props.language))}
+      </pre>
     </div>
   );
 }
@@ -180,46 +205,98 @@ function extractCodeBlocks(content: string): { type: 'text' | 'code'; value: str
   return blocks;
 }
 
-function MessageBubble({
-  msg,
-  connectionId,
-  isStreaming,
-}: {
-  msg: ChatMessage;
-  connectionId: string | null;
-  isStreaming?: boolean;
-}) {
-  const [isCopied, setIsCopied] = useState(false);
-
-  function formatTime(date?: Date) {
-    if (!date) return '';
-    const today = new Date();
-    const isToday = date.toDateString() === today.toDateString();
-    if (isToday) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    return (
-      date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
-      ', ' +
-      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    );
+function formatChatTime(date?: Date) {
+  if (!date) return '';
+  const today = new Date();
+  const isToday = date.toDateString() === today.toDateString();
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
+  return (
+    date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+    ', ' +
+    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  );
+}
 
-  if (msg.role === 'user') {
-    return (
-      <div className="mb-3 flex justify-end">
-        <div className="group max-w-[88%]">
-          {msg.createdAt && (
-            <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatTime(msg.createdAt)}</div>
-          )}
-          <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
-            {getChatTextContent(msg)}
-          </div>
+type UserMessageProps = {
+  msg: ChatMessage;
+};
+
+function UserMessage({ msg }: UserMessageProps) {
+  return (
+    <div className="mb-3 flex justify-end">
+      <div className="group max-w-[88%]">
+        {msg.createdAt && (
+          <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatChatTime(msg.createdAt)}</div>
+        )}
+        <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
+          {getChatTextContent(msg)}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
+type StreamingAssistantMessageProps = {
+  msg: ChatMessage;
+};
+
+function StreamingAssistantMessage({ msg: _msg }: StreamingAssistantMessageProps) {
+  return (
+    <div className="group mb-3 flex gap-2">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
+        <Bot className="size-3.5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          Thinking...
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessageHeader({
+  msg,
+  onCopy,
+  isCopied,
+}: {
+  msg: ChatMessage;
+  onCopy: () => void;
+  isCopied: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-1">
+      <span className="text-xs font-medium text-muted-foreground/70">Assistant</span>
+      {msg.createdAt && <span className="text-xs text-muted-foreground/40">{formatChatTime(msg.createdAt)}</span>}
+      <Tooltip>
+        <TooltipTrigger
+          aria-label="Copy response"
+          className={buttonVariants({
+            variant: 'ghost',
+            size: 'icon',
+            className:
+              'ml-auto size-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
+          })}
+          onClick={onCopy}
+        >
+          {isCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        </TooltipTrigger>
+        <TooltipContent>Copy response</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+type AssistantMessageProps = {
+  msg: ChatMessage;
+  connectionId: string | null;
+};
+
+function AssistantMessage({ msg, connectionId }: AssistantMessageProps) {
+  const [isCopied, setIsCopied] = useState(false);
   const content = getChatTextContent(msg);
   const blocks = extractCodeBlocks(content);
 
@@ -239,65 +316,32 @@ function MessageBubble({
         <Bot className="size-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-medium text-muted-foreground/70">Assistant</span>
-          {msg.createdAt && <span className="text-xs text-muted-foreground/40">{formatTime(msg.createdAt)}</span>}
-          <Tooltip>
-            <TooltipTrigger
-              aria-label="Copy response"
-              className={buttonVariants({
-                variant: 'ghost',
-                size: 'icon',
-                className:
-                  'ml-auto size-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
-              })}
-              onClick={handleCopyResponse}
-            >
-              {isCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
-            </TooltipTrigger>
-            <TooltipContent>Copy response</TooltipContent>
-          </Tooltip>
-        </div>
-        {isStreaming && blocks.length === 0 ? (
-          <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
-            Thinking...
-          </div>
-        ) : (
-          blocks.map((block, i) =>
-            block.type === 'code' ? (
+        <AssistantMessageHeader msg={msg} onCopy={handleCopyResponse} isCopied={isCopied} />
+        {blocks.map((block) =>
+          block.type === 'code' ? (
+            block.language === 'sql' && connectionId ? (
               <QueryBlock
-                key={i}
+                key={block.value}
+                variant="executable"
                 code={block.value}
                 language={block.language ?? 'sql'}
-                onInsert={
-                  block.language === 'sql'
-                    ? () => {
-                        if (!connectionId) return;
-                        openQueryTabWithSql(connectionId, block.value, false);
-                      }
-                    : undefined
-                }
-                onRun={
-                  block.language === 'sql'
-                    ? () => {
-                        if (!connectionId) return;
-                        openQueryTabWithSql(connectionId, block.value, true);
-                      }
-                    : undefined
-                }
+                connectionId={connectionId}
+                onInsert={() => openQueryTabWithSql(connectionId, block.value, false)}
+                onRun={() => openQueryTabWithSql(connectionId, block.value, true)}
               />
             ) : (
-              block.value && (
-                <div
-                  key={i}
-                  className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
-                >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
-                </div>
-              )
-            ),
-          )
+              <QueryBlock key={block.value} variant="readonly" code={block.value} language={block.language ?? 'sql'} />
+            )
+          ) : (
+            block.value && (
+              <div
+                key={block.value.slice(0, 50)}
+                className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
+              >
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
+              </div>
+            )
+          ),
         )}
       </div>
     </div>
@@ -339,8 +383,9 @@ const CHAT_MODE_CONFIG = {
 } as const;
 
 export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelProps) {
-  const [panelWidth, setPanelWidth] = useState(width);
+  const [widthOverride, setWidthOverride] = useState<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const panelWidth = widthOverride ?? width;
   const { data: connections } = useConnections();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -370,10 +415,27 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     }
   }, [chat.messages]);
 
-  const clearChatHistory = useClearChatHistory();
-  const clearSchemaCache = useClearSchemaCache();
+  const queryClient = useQueryClient();
 
-  const { data: chatHistory } = useChatHistory(connectionId, 50, mongoDatabase);
+  const clearChatHistory = useMutation({
+    mutationFn: (args: { connectionId: string; mongoDatabase?: string }) =>
+      api.clearChatHistory(args.connectionId, args.mongoDatabase),
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT_HISTORY(args.connectionId, args.mongoDatabase) });
+    },
+  });
+  const clearSchemaCache = useMutation({
+    mutationFn: (args: { connectionId: string }) => api.clearSchemaCache(args.connectionId),
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT_HISTORY(args.connectionId) });
+    },
+  });
+
+  const { data: chatHistory } = useQuery({
+    queryKey: QUERY_KEYS.CHAT_HISTORY(connectionId, mongoDatabase),
+    queryFn: () => api.getChatHistory(connectionId!, 50, mongoDatabase),
+    enabled: !!connectionId,
+  });
 
   useEffect(() => {
     if (chatHistory?.messages && chat.messages.length === 0 && !historyLoadedRef.current) {
@@ -423,7 +485,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     const handleMouseMove = (e: MouseEvent) => {
       const delta = startXRef.current - e.clientX;
       const newWidth = Math.max(280, Math.min(600, startWidthRef.current + delta));
-      setPanelWidth(newWidth);
+      setWidthOverride(newWidth);
     };
 
     const handleMouseUp = () => {
@@ -443,7 +505,17 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     <aside className="border-l border-border bg-background flex shrink-0 h-full" style={{ width: panelWidth }}>
       <div
         onMouseDown={handleMouseDown}
-        className={`w-1 cursor-col-resize shrink-0 transition-colors ${
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize AI chat panel"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleMouseDown(e as unknown as React.MouseEvent);
+          }
+        }}
+        className={`w-1 cursor-col-resize shrink-0 transition-colors border-0 m-0 ${
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border/60'
         }`}
       />
@@ -538,9 +610,9 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 </div>
                 <p className="mb-1 text-center text-sm font-medium text-foreground/80">{chatMode.title}</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-                  {chatMode.suggestions.map((prompt, i) => (
+                  {chatMode.suggestions.map((prompt) => (
                     <Button
-                      key={i}
+                      key={prompt}
                       type="button"
                       variant="outline"
                       size="sm"
@@ -555,14 +627,16 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
               </div>
             )}
 
-            {chat.messages.map((msg, i) => (
-              <MessageBubble
-                key={msg.id}
-                msg={msg}
-                connectionId={connectionId}
-                isStreaming={chat.isLoading && i === chat.messages.length - 1 && msg.role === 'assistant'}
-              />
-            ))}
+            {chat.messages.map((msg, i) => {
+              const isLastAssistant = chat.isLoading && i === chat.messages.length - 1 && msg.role === 'assistant';
+              if (msg.role === 'user') {
+                return <UserMessage key={msg.id} msg={msg} />;
+              }
+              if (isLastAssistant) {
+                return <StreamingAssistantMessage key={msg.id} msg={msg} />;
+              }
+              return <AssistantMessage key={msg.id} msg={msg} connectionId={connectionId} />;
+            })}
           </div>
         </div>
 

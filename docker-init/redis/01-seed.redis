@@ -1,0 +1,23 @@
+FLUSHDB
+SET org:1:name "Acme Inc"
+SET org:1:slug "acme"
+SET org:2:name "Globex Corp"
+SET org:2:slug "globex"
+SET org:3:name "Initech"
+SET org:3:slug "initech"
+SET org:4:name "Umbrella Co"
+SET org:4:slug "umbrella"
+HSET user:1 name "Alice" email "alice@acme.com" role "admin" org_id "1"
+HSET user:2 name "Bob" email "bob@acme.com" role "member" org_id "1"
+HSET user:3 name "Charlie" email "charlie@acme.com" role "member" org_id "1"
+HSET user:4 name "Carol" email "carol@globex.com" role "admin" org_id "2"
+HSET user:5 name "David" email "david@globex.com" role "member" org_id "2"
+HSET user:6 name "Eve" email "eve@globex.com" role "member" org_id "2"
+LPUSH posts:published 1 2 3 5 6 7 8 9 10 11 13 14
+SET post:1:title "Hello World"
+SET post:1:body "This is the first post."
+SET post:2:title "Getting Started with SQL"
+SET post:2:body "SQL is a powerful language for managing data."
+SET post:3:title "Advanced Queries"
+SET post:3:body "Learn about joins, subqueries, and CTEs."
+

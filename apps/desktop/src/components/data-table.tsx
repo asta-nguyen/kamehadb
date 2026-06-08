@@ -1,8 +1,8 @@
-import { useCallback, useMemo, type ReactNode } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useColumnResize } from '@/hooks/use-column-resize';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Table2 } from 'lucide-react';
+import { useCallback, type ReactNode } from 'react';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -77,7 +77,7 @@ export function DataTable<T>({
     [rowClassName],
   );
 
-  const defaultHeaderClass = useMemo(() => 'bg-muted px-2 py-1 font-semibold text-foreground text-[11px]', []);
+  const defaultHeaderClass = 'bg-muted px-2 py-1 font-semibold text-foreground text-xs';
 
   return (
     <Table className={cn('text-xs', className)}>
@@ -100,15 +100,15 @@ export function DataTable<T>({
                     col.headerClassName,
                   )}
                 >
-                  <div className="flex items-center gap-1 overflow-hidden pr-2">
+                  <div className="flex items-center pr-2 gap-1 overflow-hidden">
                     <span className="truncate" title={typeof col.header === 'string' ? col.header : undefined}>
                       {col.header}
                     </span>
                     {isSorted &&
                       (sortDirection === 'asc' ? (
-                        <ArrowUp className="size-3 shrink-0" />
+                        <ArrowUp className="shrink-0 size-3" />
                       ) : (
-                        <ArrowDown className="size-3 shrink-0" />
+                        <ArrowDown className="shrink-0 size-3" />
                       ))}
                   </div>
                   {useResize && (
@@ -117,7 +117,17 @@ export function DataTable<T>({
                       data-col-index={i}
                       onMouseDown={(e) => onColResize(i, e)}
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize z-10 hover:bg-primary/30 active:bg-primary/50"
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label={`Resize column ${col.header}`}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onColResize(i, e as unknown as React.MouseEvent);
+                        }
+                      }}
+                      className="absolute bottom-0 right-0 top-0 z-10 w-1.5 cursor-col-resize active:bg-primary/50"
                     />
                   )}
                 </TableHead>
@@ -129,9 +139,20 @@ export function DataTable<T>({
       )}
       <TableBody className={bodyClassName}>
         {rows.length === 0 ? (
-          <TableRow style={{ gridTemplateColumns: '1fr' }} className="bg-background">
-            <TableCell className="text-center text-muted-foreground py-8">{emptyMessage ?? 'No data'}</TableCell>
-          </TableRow>
+          emptyMessage ? (
+            <TableRow style={{ gridTemplateColumns: '1fr' }} className="bg-background">
+              <TableCell className="py-8 text-muted-foreground">{emptyMessage}</TableCell>
+            </TableRow>
+          ) : (
+            <TableRow style={{ gridTemplateColumns: '1fr' }} className="bg-background">
+              <TableCell className="py-16 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <Table2 className="size-8 opacity-40" />
+                  <p className="text-sm">No data</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          )
         ) : (
           rows.map((row, rowIndex) => {
             const key = rowKey(row, rowIndex);

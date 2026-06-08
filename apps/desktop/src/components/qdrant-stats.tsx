@@ -11,14 +11,14 @@ export function QdrantStatsPanel({ connectionId, collection }: QdrantStatsPanelP
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="text-muted-foreground animate-spin size-5" />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center text-sm text-destructive">
+      <div className="flex items-center justify-center h-full text-destructive text-sm">
         {error instanceof Error ? error.message : 'Failed to load stats'}
       </div>
     );
@@ -36,9 +36,9 @@ export function QdrantStatsPanel({ connectionId, collection }: QdrantStatsPanelP
   ];
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <h2 className="text-sm font-medium mb-4">Collection Stats: {collection}</h2>
-      <div className="border border-border rounded-md divide-y divide-border max-w-md">
+    <div className="p-6 h-full overflow-auto">
+      <h2 className="mb-4 text-sm font-medium">Collection Stats: {collection}</h2>
+      <div className="max-w-md border-border divide-border divide-y rounded-md border">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
             <span className="text-muted-foreground">{label}</span>

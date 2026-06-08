@@ -11,7 +11,9 @@ import { sqlRouter } from './routes/sql.js';
 import { mongoRouter } from './routes/mongo.js';
 import { redisRouter } from './routes/redis.js';
 import { qdrantRouter } from './routes/qdrant.js';
+import { tigerbeetleRouter } from './routes/tigerbeetle.js';
 import { aiRouter } from './routes/ai.js';
+import { queryHistoryRouter } from './routes/query-history.js';
 import { indexAllConnections } from './ai/indexer.js';
 
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
@@ -30,6 +32,12 @@ const app = new Hono();
 app.use('*', logger());
 app.use('*', cors({ origin: '*' }));
 
+// Ensure all errors return JSON so the frontend never gets unparseable HTML/text
+app.onError((err, c) => {
+  log.error({ err }, 'Unhandled error');
+  return c.json({ message: err.message || 'Internal Server Error' }, 500);
+});
+
 // Health
 app.get('/health', (c) => {
   return c.json({
@@ -45,7 +53,9 @@ app.route('/sql', sqlRouter);
 app.route('/mongo', mongoRouter);
 app.route('/redis', redisRouter);
 app.route('/qdrant', qdrantRouter);
+app.route('/tigerbeetle', tigerbeetleRouter);
 app.route('/ai', aiRouter);
+app.route('/query-history', queryHistoryRouter);
 
 // Start server
 async function start() {

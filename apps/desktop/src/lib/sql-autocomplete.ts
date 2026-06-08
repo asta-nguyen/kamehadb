@@ -197,6 +197,19 @@ function buildJoinOnSuggestions(sql: string, tables: CompletionTable[]): Complet
 
   const suggestions: CompletionEntry[] = [];
 
+  // Build a cache to avoid repeating array.find() for the same referenced table
+  const pkCache = new Map<string, CompletionColumn | undefined>();
+  const getPkOf = (refTableName: string): CompletionColumn | undefined => {
+    if (!pkCache.has(refTableName)) {
+      const refTable = tableByName.get(refTableName);
+      pkCache.set(
+        refTableName,
+        refTable?.columns.find((c) => c.primaryKey),
+      );
+    }
+    return pkCache.get(refTableName);
+  };
+
   for (const column of joinedTable.columns) {
     if (!column.foreignKey) continue;
 
@@ -204,7 +217,7 @@ function buildJoinOnSuggestions(sql: string, tables: CompletionTable[]): Complet
     const refTable = tableByName.get(refTableName);
     if (!refTable) continue;
 
-    const refPkColumn = refTable.columns.find((c) => c.primaryKey);
+    const refPkColumn = getPkOf(refTableName);
     const refCol = refPkColumn?.name ?? column.foreignKey.column;
 
     const label = `${joinedTable.name}.${column.name} = ${refTableName}.${refCol}`;

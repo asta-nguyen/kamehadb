@@ -21,6 +21,9 @@ async function getSqlAdapter(connectionId: string) {
   if (profile.kind === 'mongodb') {
     throw new Error('Use /mongo endpoint for MongoDB connections');
   }
+  if (profile.kind === 'tigerbeetle') {
+    throw new Error('TigerBeetle is not a SQL database');
+  }
 
   const password = metadataStore.getProfilePassword(connectionId);
   if (!password && profile.kind === 'postgres') {
@@ -307,7 +310,25 @@ sqlRouter.get('/:connectionId/tables/:tableId/stats', async (c) => {
     const adapter = await getSqlAdapter(connectionId);
     try {
       if (!('getTableStats' in adapter)) {
-        return c.json({ error: 'NOT_SUPPORTED', message: 'Stats not available for this database type' }, 400);
+        return c.json({
+          tableId,
+          name: tableId.split('.').pop() || tableId,
+          schema: tableId.includes('.') ? tableId.split('.')[0] : '',
+          rowEstimate: 0,
+          totalBytes: 0,
+          indexesBytes: 0,
+          toastBytes: 0,
+          bloatBytes: 0,
+          bloatPercent: 0,
+          lastVacuum: null,
+          lastAutovacuum: null,
+          lastAnalyze: null,
+          lastAutoanalyze: null,
+          vacuumCount: 0,
+          autovacuumCount: 0,
+          nLiveTup: 0,
+          nDeadTup: 0,
+        });
       }
       const stats = await adapter.getTableStats!(tableId);
       setCache(cacheKey, stats);
@@ -332,7 +353,7 @@ sqlRouter.get('/:connectionId/tables/:tableId/index-stats', async (c) => {
     const adapter = await getSqlAdapter(connectionId);
     try {
       if (!('getIndexStats' in adapter)) {
-        return c.json({ error: 'NOT_SUPPORTED', message: 'Index stats not available for this database type' }, 400);
+        return c.json([]);
       }
       const stats = await adapter.getIndexStats!(tableId);
       setCache(cacheKey, stats);
@@ -357,7 +378,7 @@ sqlRouter.get('/:connectionId/sizes', async (c) => {
     const adapter = await getSqlAdapter(connectionId);
     try {
       if (!('getDatabaseSizes' in adapter)) {
-        return c.json({ error: 'NOT_SUPPORTED', message: 'Size info not available for this database type' }, 400);
+        return c.json([]);
       }
       const sizes = await adapter.getDatabaseSizes!(schema || undefined);
       setCache(cacheKey, sizes);
@@ -376,7 +397,7 @@ sqlRouter.get('/:connectionId/connections', async (c) => {
     const adapter = await getSqlAdapter(c.req.param('connectionId'));
     try {
       if (!('getActiveConnections' in adapter)) {
-        return c.json({ error: 'NOT_SUPPORTED', message: 'Connection info not available for this database type' }, 400);
+        return c.json([]);
       }
       const connections = await adapter.getActiveConnections!();
       return c.json(connections);
