@@ -1,4 +1,5 @@
 import { ChatInput } from '@/components/chat-input';
+import { buildHighlightedCodeTree, type SafeHighlightNode } from '@/lib/ai-chat-highlight';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/variants';
 import {
@@ -14,9 +15,6 @@ import { useConnections } from '@/hooks/use-connections';
 import type { ChatMessage } from '@/lib/ai-chat-helpers';
 import { getChatTextContent, normalizeCodeLanguage, toUIMessage, type CodeLanguage } from '@/lib/ai-chat-helpers';
 import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
-import hljs from 'highlight.js/lib/core';
-import javascript from 'highlight.js/lib/languages/javascript';
-import sql from 'highlight.js/lib/languages/sql';
 import {
   Bot,
   Check,
@@ -39,50 +37,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
 
-hljs.registerLanguage('sql', sql);
-hljs.registerLanguage('javascript', javascript);
-// `json` is registered so highlight.js knows the grammar; we still escape
-// before passing in to keep behavior explicit and avoid surprises if a
-// future hljs version handles JSON differently.
-hljs.registerLanguage('json', javascript);
+/**
+ * Render the pre-sanitized highlight tree without ever injecting raw HTML.
+ * The helper already strips unsafe scope/class data, so this renderer only
+ * needs to map text and span nodes into React elements recursively.
+ */
+function renderHighlightNodes(nodes: SafeHighlightNode[], keyPrefix = 'code'): React.ReactNode[] {
+  return nodes.map((node, index) => {
+    const key = `${keyPrefix}-${index}`;
+    if (node.type === 'text') return <Fragment key={key}>{node.value}</Fragment>;
 
-const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-function highlightCode(code: string, language: CodeLanguage): string {
-  // JSON, Redis: no syntax highlighting — escape only so output stays
-  // safely renderable. SQL and JavaScript: hand off to highlight.js.
-  if (language === 'redis' || language === 'json') return escapeHtml(code);
-  return hljs.highlight(code, { language }).value;
-}
-
-// Convert highlight.js HTML output to React elements so we never
-// need dangerouslySetInnerHTML for user-controlled content.
-function renderCodeHtml(html: string): React.ReactNode[] {
-  const nodes: React.ReactNode[] = [];
-  const spanRe = /<span class="([^"]+)"(?:\s[^>]*)?>([^<]*)<\/span>|([^<]+)/g;
-  let m: RegExpExecArray | null;
-  let idx = 0;
-  while ((m = spanRe.exec(html)) !== null) {
-    if (m[1] && m[2] !== undefined) {
-      nodes.push(
-        <span key={idx} className={m[1]}>
-          {m[2]}
-        </span>,
-      );
-    } else if (m[3] !== undefined) {
-      nodes.push(<Fragment key={idx}>{m[3]}</Fragment>);
-    }
-    idx++;
-  }
-  // Fallback: if regex matched nothing, render the whole thing as text
-  if (nodes.length === 0) nodes.push(<Fragment key={0}>{html}</Fragment>);
-  return nodes;
+    return (
+      <span key={key} className={node.className}>
+        {renderHighlightNodes(node.children, key)}
+      </span>
+    );
+  });
 }
 
 type AIChatPanelProps = {
@@ -176,7 +146,7 @@ function QueryBlock(props: QueryBlockProps) {
         </div>
       </div>
       <pre className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]">
-        {renderCodeHtml(highlightCode(props.code, props.language))}
+        {renderHighlightNodes(buildHighlightedCodeTree(props.code, props.language))}
       </pre>
     </div>
   );

@@ -163,12 +163,12 @@ function ConnectionItem({
         )}
         <DbIcon kind={conn.kind} className="shrink-0 size-4" />
         <Tooltip>
-          <TooltipTrigger className="flex-1 min-w-0 text-foreground/90 font-medium truncate cursor-default">
-            {conn.name}
-            {pinned && <Pin className="size-3 inline ml-1.5 text-muted-foreground/50" />}
+          <TooltipTrigger className="flex min-w-0 flex-1 items-center justify-start gap-1.5 text-foreground/90 font-medium cursor-default text-left">
+            <span className="min-w-0 flex-1 truncate">{conn.name}</span>
+            {pinned && <Pin className="size-3 shrink-0 text-muted-foreground/50" />}
           </TooltipTrigger>
           <TooltipContent side="right" align="start" sideOffset={12} className="rounded-lg shadow-sm px-4 py-3">
-            <div className="text-xs leading-relaxed min-w-[180px]">
+            <div className="text-xs leading-relaxed min-w-45">
               <p className="font-semibold mb-2">{conn.name}</p>
               <div className="space-y-1.5 text-popover-foreground/65">
                 <div className="flex items-center gap-1.5">

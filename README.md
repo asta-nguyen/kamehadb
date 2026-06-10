@@ -175,9 +175,6 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Pin / favorites connections
 - [x] Workspace tabs memory
 - [x] Production safety mode — prevent accidental writes to production
-
-### In Progress
-
 - [x] Schema change timeline — track column additions, removals, index changes for debugging
 - [x] Migration assistant
 

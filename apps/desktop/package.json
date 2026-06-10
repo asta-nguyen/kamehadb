@@ -31,6 +31,7 @@
     "dagre": "^0.8.5",
     "developer-icons": "^7.0.1",
     "highlight.js": "^11.11.1",
+    "html-to-image": "^1.11.13",
     "json5": "^2.2.3",
     "lucide-react": "^0.400.0",
     "monaco-editor": "^0.52.2",
