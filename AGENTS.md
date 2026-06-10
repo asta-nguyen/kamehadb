@@ -4,7 +4,7 @@ This file provides guidance for coding agents working in this repository.
 
 ## Project Overview
 
-KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, and Redis. It includes schema browsing, a Monaco SQL editor, PostgreSQL stats views, Redis and Mongo explorers, and an AI chat panel with schema-aware context.
+KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB, and TigerBeetle. It includes schema browsing, a Monaco SQL editor, PostgreSQL stats views, Redis and Mongo explorers, and an AI chat panel with schema-aware context.
 
 There is also a separate marketing/docs site in `landing/`, but it is not part of the pnpm workspace used by the desktop app and sidecar.
 
@@ -155,22 +155,35 @@ Supported now:
 - SQLite
 - MongoDB
 - Redis
+- SQL Server
+- Oracle
+- ClickHouse
+- DuckDB
+- TigerBeetle
+- MariaDB
 
 Notes:
 
-- PostgreSQL has the richest stats support
-- MySQL and SQLite go through the SQL adapter path
-- MongoDB uses a dedicated route and adapter flow
-- Redis uses a dedicated route and adapter flow, not the SQL route
+- PostgreSQL has the richest stats support.
+- PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, and DuckDB use the SQL adapter path.
+- MongoDB uses a dedicated route and adapter flow.
+- Redis uses a dedicated route and adapter flow, not the SQL route.
+- DuckDB connects to local .duckdb files (file-based).
+- TigerBeetle uses a dedicated adapter and connects to a local or remote TigerBeetle cluster.
 
 ## Connection Defaults For Docker
 
-| Engine     | Port | User   | Password | Database |
-| ---------- | ---- | ------ | -------- | -------- |
-| PostgreSQL | 5432 | kameha | kameha   | kamehadb |
-| MySQL      | 3306 | kameha | kameha   | kamehadb |
-| MariaDB    | 3307 | kameha | kameha   | kamehadb |
-| Redis      | 6379 | —      | —        | —        |
+| Engine      | Port | User    | Password | Database |
+| ----------- | ---- | ------- | -------- | -------- |
+| PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
+| MySQL       | 3306 | kameha  | kameha   | kamehadb |
+| MariaDB     | 3307 | kameha  | kameha   | kamehadb |
+| Redis       | 6379 | —       | —        | —        |
+| SQL Server  | 1433 | sa      | Kameha1! | kamehadb |
+| Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
+| ClickHouse  | 8123 | default | default  | kamehadb |
+| DuckDB      | 5432 | —       | —        | —        |
+| TigerBeetle | 3000 | —       | —        | —        |
 
 ## Testing And Verification
 
@@ -257,6 +270,10 @@ These guidelines prioritize caution and precision over speed.
 - **Bad**: comments that just repeat the function name (`// Increments counter`), comments that lie, comments without intent ("TODO" without context).
 - **Good**: comments that name the tradeoff, call out a workaround, or document a non-obvious invariant.
 - **No section-header comment walls** — keep comments tight and attached to the code they describe.
+
+## File Search
+
+For any file search or grep in the current git-indexed directory, use fff tools (`ffgrep`, `fffind`) instead of glob or grep. fff is the MCP server at `~/.local/bin/fff-mcp` — it's faster, supports smart-case with fuzzy fallback, frecency-ranked results, and git-aware annotations.
 
 ## Operational Rules
 

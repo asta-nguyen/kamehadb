@@ -6,14 +6,31 @@ import * as metadataStore from '../db/metadata-store.js';
 import { testPostgresConnection } from '../adapters/postgres.js';
 import { testSqliteConnection } from '../adapters/sqlite.js';
 import { testMysqlConnection } from '../adapters/mysql.js';
+import { testSqlServerConnection } from '../adapters/sqlserver.js';
+import { testOracleConnection } from '../adapters/oracle.js';
+import { testClickHouseConnection } from '../adapters/clickhouse.js';
+import { testDuckDBConnection } from '../adapters/duckdb.js';
 import { createMongoAdapter } from '../adapters/mongodb.js';
-import { createRedisDbAdapter, createQdrantDbAdapter } from '../adapters/factory.js';
+import { createRedisDbAdapter, createQdrantDbAdapter, createTigerBeetleDbAdapter } from '../adapters/factory.js';
 import { testRedisConnection } from '../adapters/redis.js';
 import { clearConnectionCache } from '../lib/cache.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
+  kind: z.enum([
+    'postgres',
+    'sqlite',
+    'mysql',
+    'mariadb',
+    'redis',
+    'mongodb',
+    'qdrant',
+    'sqlserver',
+    'oracle',
+    'clickhouse',
+    'duckdb',
+    'tigerbeetle',
+  ]),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -78,6 +95,7 @@ connectionsRouter.get('/health', async (c) => {
               result = await testSqliteConnection(profile.filePath);
               break;
             case 'mysql':
+            case 'mariadb':
               result = await testMysqlConnection({
                 host: profile.host!,
                 port: profile.port!,
@@ -85,6 +103,39 @@ connectionsRouter.get('/health', async (c) => {
                 username: profile.username!,
                 password: password ?? '',
               });
+              break;
+            case 'sqlserver':
+              result = await testSqlServerConnection({
+                host: profile.host!,
+                port: profile.port!,
+                database: profile.database,
+                username: profile.username!,
+                password: password ?? '',
+              });
+              break;
+            case 'oracle':
+              result = await testOracleConnection({
+                host: profile.host!,
+                port: profile.port!,
+                database: profile.database,
+                username: profile.username!,
+                password: password ?? '',
+              });
+              break;
+            case 'clickhouse':
+              result = await testClickHouseConnection({
+                host: profile.host!,
+                port: profile.port!,
+                database: profile.database,
+                username: profile.username!,
+                password: password ?? '',
+              });
+              break;
+            case 'duckdb':
+              result = await testDuckDBConnection(profile.filePath!);
+              break;
+            case 'tigerbeetle':
+              result = await createTigerBeetleDbAdapter(profile).testConnection();
               break;
             default:
               result = { success: false, message: `Unsupported: ${profile.kind}` };
@@ -172,6 +223,7 @@ connectionsRouter.get('/:id/health', async (c) => {
         result = await testSqliteConnection(profile.filePath);
         break;
       case 'mysql':
+      case 'mariadb':
         result = await testMysqlConnection({
           host: profile.host,
           port: profile.port,
@@ -179,6 +231,39 @@ connectionsRouter.get('/:id/health', async (c) => {
           username: profile.username,
           password: password ?? '',
         });
+        break;
+      case 'sqlserver':
+        result = await testSqlServerConnection({
+          host: profile.host,
+          port: profile.port,
+          database: profile.database,
+          username: profile.username,
+          password: password ?? '',
+        });
+        break;
+      case 'oracle':
+        result = await testOracleConnection({
+          host: profile.host,
+          port: profile.port,
+          database: profile.database,
+          username: profile.username,
+          password: password ?? '',
+        });
+        break;
+      case 'clickhouse':
+        result = await testClickHouseConnection({
+          host: profile.host,
+          port: profile.port,
+          database: profile.database,
+          username: profile.username,
+          password: password ?? '',
+        });
+        break;
+      case 'duckdb':
+        result = await testDuckDBConnection(profile.filePath!);
+        break;
+      case 'tigerbeetle':
+        result = await createTigerBeetleDbAdapter(profile).testConnection();
         break;
       default:
         return c.json({ success: false, message: `Unsupported database kind: ${profile.kind}` });
@@ -228,18 +313,18 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
     });
   }
 
-  // Validate required fields for mysql
-  if (input.kind === 'mysql') {
+  // Validate required fields for mysql / mariadb
+  if (input.kind === 'mysql' || input.kind === 'mariadb') {
     if (!input.password) {
       return c.json({
         success: false,
-        message: 'Password is required for MySQL connections',
+        message: 'Password is required for MySQL/MariaDB connections',
       });
     }
     if (!input.username) {
       return c.json({
         success: false,
-        message: 'Username is required for MySQL connections',
+        message: 'Username is required for MySQL/MariaDB connections',
       });
     }
   }
@@ -251,6 +336,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
         result = await testPostgresConnection(input);
         break;
       case 'mysql':
+      case 'mariadb':
         result = await testMysqlConnection({
           host: input.host,
           port: input.port,
@@ -279,6 +365,42 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
         break;
       case 'qdrant':
         result = await createQdrantDbAdapter(input).testConnection();
+        break;
+      case 'sqlserver':
+        result = await testSqlServerConnection({
+          host: input.host,
+          port: input.port,
+          database: input.database,
+          username: input.username,
+          password: input.password,
+        });
+        break;
+      case 'oracle':
+        result = await testOracleConnection({
+          host: input.host,
+          port: input.port,
+          database: input.database,
+          username: input.username,
+          password: input.password,
+        });
+        break;
+      case 'clickhouse':
+        result = await testClickHouseConnection({
+          host: input.host,
+          port: input.port,
+          database: input.database,
+          username: input.username,
+          password: input.password,
+        });
+        break;
+      case 'duckdb':
+        if (!input.filePath) {
+          return c.json({ success: false, message: 'File path is required for DuckDB connections' });
+        }
+        result = await testDuckDBConnection(input.filePath);
+        break;
+      case 'tigerbeetle':
+        result = await createTigerBeetleDbAdapter(input).testConnection();
         break;
       default:
         return c.json({ success: false, message: `Unsupported database kind: ${input.kind}` });

@@ -1,59 +1,65 @@
-import { useStore } from '@tanstack/react-store';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
-import { getApiBase } from '@/lib/api';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
-  Database,
-  Loader2,
-  ChevronRight,
-  ChevronDown,
-  MoreVertical,
-  Terminal,
-  Sparkles,
-  Settings2,
-  Share2,
-  BarChart3,
-  Search,
-  Trash2,
-  FileText,
-  RefreshCw,
-} from 'lucide-react';
-import { ConnectionDialog } from './connection-dialog';
-import { SchemaTree } from './schema-tree';
-import { MongoExplorer } from './mongo-explorer';
-import { QdrantExplorer } from './qdrant-explorer';
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  useConnections,
+  useDeleteConnection,
+  useRefreshConnection,
+  useConnectionHealth,
+} from '@/hooks/use-connections';
+import { getApiBase } from '@/lib/api';
 import {
   appStore,
-  setActiveConnection,
-  openGraphTab,
   navigateTo,
-  toggleExpandedConnection,
-  setConnectionStatus,
-  openDatabaseStatsTab,
   openAiChatPanel,
+  openDatabaseStatsTab,
+  openGraphTab,
   openMongoQueryTab,
-  openRedisTab,
-  openRedisQueryTab,
   openNewQueryTab,
   openQdrantSearchTab,
+  openRedisQueryTab,
+  openRedisTab,
+  setActiveConnection,
+  setConnectionStatus,
+  toggleExpandedConnection,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
+import { useStore } from '@tanstack/react-store';
+import {
+  BarChart3,
+  ChevronDown,
+  ChevronRight,
+  Database,
+  FileText,
+  Loader2,
+  MoreVertical,
+  RefreshCw,
+  Search,
+  Settings2,
+  Share2,
+  Sparkles,
+  Terminal,
+  Trash2,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ConnectionDialog } from './connection-dialog';
+import { MongoExplorer } from './mongo-explorer';
+import { QdrantExplorer } from './qdrant-explorer';
+import { TigerBeetleExplorer } from './tigerbeetle-explorer';
+import { SchemaTree } from './schema-tree';
 
 function SpinningRefresh({ spinning, className = '' }: { spinning: boolean; className?: string }) {
   return <RefreshCw className={`size-3.5 ${className} ${spinning ? 'animate-spin' : ''}`} />;
@@ -70,17 +76,19 @@ function ConnectionItem({
 }) {
   const expandedConnections = useStore(appStore, (state) => state.expandedConnections);
   const connectionStatus = useStore(appStore, (state) => state.connectionStatus);
+  const activeTabId = useStore(appStore, (state) => state.activeTabId);
   const expanded = expandedConnections.includes(conn.id);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
+  const healthCheck = useConnectionHealth(conn.id);
 
-  const status = connectionStatus[conn.id] ?? 'connected';
+  const status = healthCheck.data ?? connectionStatus[conn.id] ?? 'disconnected';
   const indicatorColor = conn.color || (status === 'connected' ? '#22c55e' : '#ef4444');
 
   return (
-    <div className="relative group">
+    <div className="relative grow">
       <div
         onClick={() => {
           onSelect();
@@ -90,23 +98,162 @@ function ConnectionItem({
             toggleExpandedConnection(conn.id);
           }
         }}
-        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm transition-all cursor-pointer ${
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect();
+            if (conn.kind === 'redis') {
+              openRedisTab(conn.id);
+            } else {
+              toggleExpandedConnection(conn.id);
+            }
+          }
+        }}
+        className={`group w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm transition-all cursor-pointer ${
           isActive ? 'bg-muted/60 shadow-sm' : 'hover:bg-muted/50'
         }`}
       >
         {conn.kind !== 'redis' ? (
           expanded ? (
-            <ChevronDown className="size-4 shrink-0 text-muted-foreground/50 group-hover:text-foreground/70 transition-colors" />
+            <ChevronDown className="shrink-0 size-4 transition-colors group-hover:text-foreground/70" />
           ) : (
-            <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 group-hover:text-foreground/70 transition-colors" />
+            <ChevronRight className="shrink-0 size-4 transition-colors group-hover:text-foreground/70" />
           )
         ) : (
-          <span className="size-4 shrink-0" />
+          <span className="shrink-0 size-4" />
         )}
-        <Database className="size-4 shrink-0 text-muted-foreground/60" />
-        <span className="truncate font-medium text-foreground/90 flex-1 min-w-0" title={conn.name}>
+        <Database className="text-muted-foreground/60 shrink-0 size-4" />
+        <span className="flex-1 min-w-0 text-foreground/90 font-medium truncate" title={conn.name}>
           {conn.name}
         </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            refreshConnection.mutate(conn.id);
+          }}
+          disabled={refreshConnection.isPending}
+          className="opacity-0 size-6 disabled:opacity-100 group-hover:opacity-100"
+          title="Reload connection"
+          aria-label="Reload connection"
+        >
+          <SpinningRefresh
+            spinning={refreshConnection.isPending}
+            className="text-muted-foreground/60 hover:text-foreground"
+          />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center justify-center rounded-md opacity-0 size-6 transition-colors hover:bg-muted/50 group-hover:opacity-100"
+          >
+            <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={4}>
+            <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
+              <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
+              Reload
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
+              <Sparkles className="mr-2 size-3.5" />
+              AI Chat
+            </DropdownMenuItem>
+            {conn.kind !== 'mongodb' &&
+              conn.kind !== 'redis' &&
+              conn.kind !== 'qdrant' &&
+              conn.kind !== 'tigerbeetle' && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openNewQueryTab(conn.id);
+                    }}
+                  >
+                    <FileText className="mr-2 size-3.5" />
+                    New Query
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openGraphTab(conn.id);
+                    }}
+                  >
+                    <Share2 className="mr-2 size-3.5" />
+                    Graph
+                  </DropdownMenuItem>
+                </>
+              )}
+            {conn.kind === 'qdrant' && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  openQdrantSearchTab(conn.id);
+                }}
+              >
+                <Search className="mr-2 size-3.5" />
+                Vector Search
+              </DropdownMenuItem>
+            )}
+            {conn.kind === 'mongodb' && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  openMongoQueryTab(conn.id, appStore.state.activeMongoDatabase ?? 'admin', '');
+                }}
+              >
+                <Terminal className="mr-2 size-3.5" />
+                Aggregation
+              </DropdownMenuItem>
+            )}
+            {conn.kind === 'redis' && (
+              <>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setActiveConnection(conn.id);
+                    openRedisQueryTab(conn.id);
+                  }}
+                >
+                  <Terminal className="mr-2 size-3.5" />
+                  Query
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setActiveConnection(conn.id);
+                    openRedisTab(conn.id);
+                  }}
+                >
+                  <BarChart3 className="mr-2 size-3.5" />
+                  Stats
+                </DropdownMenuItem>
+              </>
+            )}
+            {conn.kind !== 'mongodb' &&
+              conn.kind !== 'redis' &&
+              conn.kind !== 'qdrant' &&
+              conn.kind !== 'tigerbeetle' && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setActiveConnection(conn.id);
+                    openDatabaseStatsTab(conn.id);
+                  }}
+                >
+                  <BarChart3 className="mr-2 size-3.5" />
+                  Stats
+                </DropdownMenuItem>
+              )}
+            <DropdownMenuItem onClick={() => setShowEdit(true)}>
+              <Settings2 className="mr-2 size-3.5" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+              <Trash2 className="mr-2 size-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <span
           className={`text-xs px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${
             conn.kind === 'postgres'
@@ -121,133 +268,13 @@ function ConnectionItem({
           {conn.kind}
         </span>
         <span
-          className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-background"
+          className="h-2.5 w-2.5 rounded-full ring-2 ring-background shrink-0"
           style={{
             backgroundColor: indicatorColor,
             boxShadow: status === 'connected' ? `0 0 8px ${indicatorColor}` : 'none',
           }}
           title={status}
         />
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            refreshConnection.mutate(conn.id);
-          }}
-          disabled={refreshConnection.isPending}
-          className="size-6 opacity-0 group-hover:opacity-100 disabled:opacity-100"
-          title="Reload connection"
-          aria-label="Reload connection"
-        >
-          <SpinningRefresh
-            spinning={refreshConnection.isPending}
-            className="text-muted-foreground/60 hover:text-foreground"
-          />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            onClick={(e) => e.stopPropagation()}
-            className="size-6 inline-flex items-center justify-center rounded-md hover:bg-muted/50 transition-colors opacity-0 group-hover:opacity-100"
-          >
-            <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={4}>
-            <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
-              <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
-              Reload
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
-              <Sparkles className="size-3.5 mr-2" />
-              AI Chat
-            </DropdownMenuItem>
-            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && conn.kind !== 'qdrant' && (
-              <>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openNewQueryTab(conn.id);
-                  }}
-                >
-                  <FileText className="size-3.5 mr-2" />
-                  New Query
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openGraphTab(conn.id);
-                  }}
-                >
-                  <Share2 className="size-3.5 mr-2" />
-                  Graph
-                </DropdownMenuItem>
-              </>
-            )}
-            {conn.kind === 'qdrant' && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveConnection(conn.id);
-                  openQdrantSearchTab(conn.id);
-                }}
-              >
-                <Search className="size-3.5 mr-2" />
-                Vector Search
-              </DropdownMenuItem>
-            )}
-            {conn.kind === 'mongodb' && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveConnection(conn.id);
-                  openMongoQueryTab(conn.id, appStore.state.activeMongoDatabase ?? 'admin', '');
-                }}
-              >
-                <Terminal className="size-3.5 mr-2" />
-                Aggregation
-              </DropdownMenuItem>
-            )}
-            {conn.kind === 'redis' && (
-              <>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openRedisQueryTab(conn.id);
-                  }}
-                >
-                  <Terminal className="size-3.5 mr-2" />
-                  Query
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openRedisTab(conn.id);
-                  }}
-                >
-                  <BarChart3 className="size-3.5 mr-2" />
-                  Stats
-                </DropdownMenuItem>
-              </>
-            )}
-            {conn.kind !== 'mongodb' && conn.kind !== 'redis' && conn.kind !== 'qdrant' && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveConnection(conn.id);
-                  openDatabaseStatsTab(conn.id);
-                }}
-              >
-                <BarChart3 className="size-3.5 mr-2" />
-                Stats
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={() => setShowEdit(true)}>
-              <Settings2 className="size-3.5 mr-2" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
-              <Trash2 className="size-3.5 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
       {showEdit && (
         <ConnectionDialog open={showEdit} onOpenChange={(open) => setShowEdit(open)} editConnection={conn} />
@@ -275,7 +302,7 @@ function ConnectionItem({
         </DialogContent>
       </Dialog>
       {expanded && conn.kind !== 'redis' && (
-        <div className="mt-1 ml-3 pl-2 border-l border-border/60 space-y-0.5">
+        <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
           {conn.kind === 'mongodb' ? (
             <>
               <MongoExplorer key={conn.id} connectionId={conn.id} />
@@ -284,11 +311,14 @@ function ConnectionItem({
             <>
               <QdrantExplorer key={conn.id} connectionId={conn.id} />
             </>
+          ) : conn.kind === 'tigerbeetle' ? (
+            <TigerBeetleExplorer key={conn.id} connectionId={conn.id} />
           ) : (
             <>
               <SchemaTree
                 key={conn.id}
                 connectionId={conn.id}
+                activeTableId={activeTabId}
                 onSelectTable={(tableId) => {
                   const newTab = {
                     id: `${conn.id}:${tableId}`,
@@ -324,35 +354,23 @@ const GROUP_ORDER: Record<string, number> = {
   redis: 3,
   mongodb: 4,
   qdrant: 5,
-};
-
-const GROUP_LABELS: Record<string, string> = {
-  postgres: 'PostgreSQL',
-  mysql: 'MySQL',
-  sqlite: 'SQLite',
-  redis: 'Redis',
-  mongodb: 'MongoDB',
-  qdrant: 'Qdrant',
+  sqlserver: 6,
+  oracle: 7,
+  clickhouse: 8,
+  mariadb: 9,
+  duckdb: 10,
+  tigerbeetle: 11,
 };
 
 function ConnectionGroup({
-  kind,
   conns,
   activeConnectionId,
 }: {
-  kind: string;
   conns: ConnectionProfile[];
   activeConnectionId: string | null;
 }) {
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/30">
-        <Database className="size-3.5 text-muted-foreground/50" />
-        <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">
-          {GROUP_LABELS[kind] ?? kind}
-        </span>
-        <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">{conns.length}</span>
-      </div>
       {conns.map((conn) => (
         <ConnectionItem
           key={conn.id}
@@ -365,9 +383,9 @@ function ConnectionGroup({
   );
 }
 
-const MIN_WIDTH = 180;
+const MIN_WIDTH = 250;
 const MAX_WIDTH = 400;
-const DEFAULT_WIDTH = 260;
+const DEFAULT_WIDTH = 300;
 
 export function Sidebar() {
   const { data: connections, isLoading } = useConnections();
@@ -438,30 +456,30 @@ export function Sidebar() {
   return (
     <aside
       ref={sidebarRef}
-      className="flex h-full border-r border-border bg-muted/30"
+      className="flex h-full bg-muted/30 border-border border-r"
       style={{ width: sidebarWidth, minWidth: sidebarWidth }}
     >
-      <div className="flex flex-col h-full flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-          <span className="text-xs font-medium text-muted-foreground">Connections</span>
+          <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />
         </div>
         <div className="flex-1">
           <div className="p-2 space-y-2">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                <Loader2 className="text-muted-foreground animate-spin size-4" />
               </div>
             ) : connections?.length === 0 ? (
-              <p className="text-xs text-muted-foreground px-2 py-4 text-center">No connections yet</p>
+              <p className="px-2 py-4 text-center text-xs">No connections yet</p>
             ) : (
               groups.map(([kind, conns]) => (
-                <ConnectionGroup key={kind} kind={kind} conns={conns} activeConnectionId={activeConnectionId} />
+                <ConnectionGroup key={kind} conns={conns} activeConnectionId={activeConnectionId} />
               ))
             )}
           </div>
         </div>
-        <div className="border-t border-border p-1.5 shrink-0">
+        <div className="p-1.5 border-border border-t shrink-0">
           <Button
             variant="ghost"
             size="sm"
@@ -476,7 +494,11 @@ export function Sidebar() {
       {/* Resize handle */}
       <div
         onMouseDown={handleMouseDown}
-        className={`w-1 cursor-col-resize shrink-0 transition-colors ${
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        tabIndex={0}
+        className={`w-1 cursor-col-resize shrink-0 transition-colors border-0 m-0 ${
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border'
         }`}
       />

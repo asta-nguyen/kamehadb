@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
-import Editor, { type OnMount, type Monaco } from '@monaco-editor/react';
 import { Button } from '@/components/ui/button';
-import { Play, Loader2, AlertCircle, Clock, Terminal } from 'lucide-react';
 import { useRedisCommand } from '@/hooks/use-redis-command';
 import { updateTabCommand } from '@/store';
 import type { RedisCommandResult, WorkspaceTab } from '@kamehadb/shared';
+import type { Monaco, OnMount } from '@monaco-editor/react';
+import { AlertCircle, Clock, Loader2, Play, Terminal } from 'lucide-react';
+import { lazy, Suspense, useCallback, useState } from 'react';
+const Editor = lazy(() => import('@monaco-editor/react'));
 
 type RedisQueryProps = {
   tab: WorkspaceTab;
@@ -235,53 +236,55 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
+      <div className="flex items-center px-4 py-2 border-b border-border gap-2 shrink-0">
         <Button size="sm" onClick={handleRun} disabled={redisCommand.isPending} className="gap-1.5">
-          {redisCommand.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+          {redisCommand.isPending ? <Loader2 className="animate-spin size-3.5" /> : <Play className="size-3.5" />}
           Run
         </Button>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {redisCommand.isPending ? 'Running...' : 'Ctrl+Enter to run'}
         </span>
       </div>
 
       <div className="flex-1 min-h-0 border-b border-border">
-        <Editor
-          height="100%"
-          language="redis"
-          theme="vs-dark"
-          value={command}
-          onChange={(v) => handleCommandChange(v ?? '')}
-          onMount={handleEditorDidMount}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 13,
-            lineNumbers: 'off',
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            padding: { top: 8 },
-            wordWrap: 'on',
-          }}
-        />
+        <Suspense fallback={<div className="flex-1" />}>
+          <Editor
+            height="100%"
+            language="redis"
+            theme="vs-dark"
+            value={command}
+            onChange={(v) => handleCommandChange(v ?? '')}
+            onMount={handleEditorDidMount}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 13,
+              lineNumbers: 'off',
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              padding: { top: 8 },
+              wordWrap: 'on',
+            }}
+          />
+        </Suspense>
       </div>
 
-      <div className="flex-1 overflow-auto min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
         {redisCommand.isPending && (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <Loader2 className="text-muted-foreground animate-spin size-5" />
           </div>
         )}
 
         {error && (
-          <div className="flex items-start gap-2 p-4 text-sm text-destructive">
-            <AlertCircle className="size-4 mt-0.5 shrink-0" />
+          <div className="flex items-start p-4 text-destructive text-sm gap-2">
+            <AlertCircle className="mt-0.5 shrink-0 size-4" />
             <span>{error}</span>
           </div>
         )}
 
         {result && (
           <div className="p-4 space-y-3">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center text-muted-foreground text-xs gap-3">
               <span className="flex items-center gap-1">
                 <Terminal className="size-3" />
                 {result.command}
@@ -291,8 +294,8 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
                 {result.durationMs}ms
               </span>
             </div>
-            <div className="overflow-auto border rounded-md bg-card p-3">
-              <pre className="text-xs font-mono whitespace-pre-wrap break-all">
+            <div className="p-3 bg-card rounded-md border overflow-auto">
+              <pre className="text-xs font-mono break-all whitespace-pre-wrap">
                 {typeof result.result === 'string' ? result.result : JSON.stringify(result.result, null, 2)}
               </pre>
             </div>

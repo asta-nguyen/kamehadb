@@ -9,25 +9,32 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.20.0",
     "@hono/node-server": "^1",
     "@hono/zod-validator": "^0.4",
     "@kamehadb/shared": "workspace:*",
     "@qdrant/js-client-rest": "^1.18.0",
     "better-sqlite3": "^11",
+    "duckdb": "^1.4.4",
     "hono": "^4",
     "ioredis": "^5.4.2",
     "lru-cache": "^11.5.0",
     "mongodb": "^7.2.0",
+    "mssql": "^12.5.5",
     "mysql2": "^3.22.3",
     "nanoid": "^5",
+    "oracledb": "^7.0.0",
     "pg": "^8",
     "pino": "^9",
     "pino-pretty": "^13",
+    "tigerbeetle-node": "0.17.4",
     "zod": "^3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7",
+    "@types/mssql": "^12.3.0",
     "@types/node": "^22",
+    "@types/oracledb": "^7.0.0",
     "@types/pg": "^8",
     "tsx": "^4",
     "typescript": "~5.8.3"

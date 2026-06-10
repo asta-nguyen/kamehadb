@@ -345,10 +345,11 @@ export function createMysqlAdapter(connection: {
       const [rows] = (await pool.query(
         `SELECT
           (SELECT COUNT(*) FROM ${escapeId(schema!)}.${escapeId(table)}) AS row_count,
-          (SELECT (data_length + index_length) FROM information_schema.TABLES WHERE table_schema = ? AND table_name = ?) AS total_bytes,
-          data_length AS data_bytes,
-          index_length AS index_bytes
-        FROM DUAL`,
+          COALESCE(t.data_length + t.index_length, 0) AS total_bytes,
+          COALESCE(t.data_length, 0) AS data_bytes,
+          COALESCE(t.index_length, 0) AS index_bytes
+        FROM information_schema.TABLES t
+        WHERE t.table_schema = ? AND t.table_name = ?`,
         [schema, table],
       )) as [Record<string, unknown>[], any];
 

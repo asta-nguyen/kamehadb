@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useId, useReducer } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,66 +28,71 @@ const OPS: { value: Op; label: string }[] = [
   { value: 'lte', label: '≤' },
 ];
 
-// Coerce typed values: "true"/"false" → bool, numeric → number, else string.
-function coerce(v: string): unknown {
-  if (v === 'true') return true;
-  if (v === 'false') return false;
-  if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
-  return v;
-}
-
-function buildFilter(combinator: Combinator, rows: Row[]): Record<string, unknown> | undefined {
-  const conditions: Record<string, unknown>[] = [];
-  for (const r of rows) {
-    if (!r.key.trim() || !r.value.trim()) continue;
-    if (r.op === 'eq') {
-      conditions.push({ key: r.key.trim(), match: { value: coerce(r.value) } });
-      continue;
-    }
-    const parsed = Number(r.value);
-    if (!Number.isFinite(parsed)) continue;
-    conditions.push({ key: r.key.trim(), range: { [r.op]: parsed } });
-  }
-  if (conditions.length === 0) return undefined;
-  return { [combinator]: conditions };
-}
-
 interface QdrantFilterBuilderProps {
+  value?: Record<string, unknown> | undefined;
   onChange: (filter: Record<string, unknown> | undefined) => void;
   fields?: string[];
 }
 
-export function QdrantFilterBuilder({ onChange, fields = [] }: QdrantFilterBuilderProps) {
-  const [combinator, setCombinator] = useState<Combinator>('must');
-  const [rows, setRows] = useState<Row[]>([]);
-  const [advanced, setAdvanced] = useState(false);
-  const [json, setJson] = useState('');
-  const [jsonError, setJsonError] = useState<string | null>(null);
+// Group combinator/rows/advanced/json state so a single dispatch produces a
+// single re-render instead of four.
+type FilterState = {
+  combinator: Combinator;
+  rows: Row[];
+  advanced: boolean;
+  json: string;
+  jsonError: string | null;
+};
+
+type FilterAction =
+  | { type: 'setCombinator'; value: Combinator }
+  | { type: 'updateRow'; index: number; patch: Partial<Row> }
+  | { type: 'addRow' }
+  | { type: 'removeRow'; index: number }
+  | { type: 'setAdvanced'; value: boolean }
+  | { type: 'setJson'; value: string; error: string | null };
+
+function filterReducer(state: FilterState, action: FilterAction): FilterState {
+  switch (action.type) {
+    case 'setCombinator':
+      return { ...state, combinator: action.value };
+    case 'updateRow':
+      return {
+        ...state,
+        rows: state.rows.map((r, idx) => (idx === action.index ? { ...r, ...action.patch } : r)),
+      };
+    case 'addRow':
+      return { ...state, rows: [...state.rows, { key: '', op: 'eq', value: '' }] };
+    case 'removeRow':
+      return { ...state, rows: state.rows.filter((_, idx) => idx !== action.index) };
+    case 'setAdvanced':
+      return { ...state, advanced: action.value };
+    case 'setJson':
+      return { ...state, json: action.value, jsonError: action.error };
+  }
+}
+
+export function QdrantFilterBuilder({ value: _value, onChange, fields = [] }: QdrantFilterBuilderProps) {
+  const [state, dispatch] = useReducer(filterReducer, {
+    combinator: 'must',
+    rows: [],
+    advanced: false,
+    json: '',
+    jsonError: null,
+  });
   const listId = useId();
 
-  // Emit the built filter whenever the builder rows change (only in non-advanced mode).
-  useEffect(() => {
-    if (advanced) return;
-    onChange(buildFilter(combinator, rows));
-  }, [combinator, rows, advanced]);
-
-  const updateRow = (i: number, patch: Partial<Row>) =>
-    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const addRow = () => setRows((rs) => [...rs, { key: '', op: 'eq', value: '' }]);
-  const removeRow = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
-
   const handleJson = (text: string) => {
-    setJson(text);
     if (!text.trim()) {
-      setJsonError(null);
+      dispatch({ type: 'setJson', value: text, error: null });
       onChange(undefined);
       return;
     }
     try {
       onChange(JSON.parse(text));
-      setJsonError(null);
+      dispatch({ type: 'setJson', value: text, error: null });
     } catch {
-      setJsonError('Invalid JSON');
+      dispatch({ type: 'setJson', value: text, error: 'Invalid JSON' });
       onChange(undefined);
     }
   };
@@ -96,8 +101,11 @@ export function QdrantFilterBuilder({ onChange, fields = [] }: QdrantFilterBuild
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">Filter</span>
-        {!advanced && rows.length > 0 && (
-          <Select value={combinator} onValueChange={(v) => setCombinator(v as Combinator)}>
+        {!state.advanced && state.rows.length > 0 && (
+          <Select
+            value={state.combinator}
+            onValueChange={(v) => dispatch({ type: 'setCombinator', value: v as Combinator })}
+          >
             <SelectTrigger size="sm" title="Match" className="h-6 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -110,28 +118,33 @@ export function QdrantFilterBuilder({ onChange, fields = [] }: QdrantFilterBuild
             </SelectContent>
           </Select>
         )}
-        <Button variant="ghost" size="sm" onClick={() => setAdvanced(!advanced)} className="ml-auto">
-          {advanced ? 'Visual' : 'Advanced JSON'}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => dispatch({ type: 'setAdvanced', value: !state.advanced })}
+          className="ml-auto"
+        >
+          {state.advanced ? 'Visual' : 'Advanced JSON'}
         </Button>
       </div>
 
-      {advanced ? (
+      {state.advanced ? (
         <>
           <div className="relative">
             <Textarea
-              value={json}
+              value={state.json}
               onChange={(e) => handleJson(e.target.value)}
               placeholder='{ "must": [{ "key": "kind", "match": { "value": "fruit" } }] }'
               spellCheck={false}
               className="w-full min-h-16 px-2 py-1 text-xs font-mono bg-background border rounded resize-y focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
-            {json && !jsonError && (
+            {state.json && !state.jsonError && (
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => {
                   try {
-                    handleJson(JSON.stringify(JSON.parse(json), null, 2));
+                    handleJson(JSON.stringify(JSON.parse(state.json), null, 2));
                   } catch {}
                 }}
                 title="Format JSON"
@@ -140,20 +153,23 @@ export function QdrantFilterBuilder({ onChange, fields = [] }: QdrantFilterBuild
               </Button>
             )}
           </div>
-          {jsonError && <div className="text-xs text-destructive">{jsonError}</div>}
+          {state.jsonError && <div className="text-xs text-destructive">{state.jsonError}</div>}
         </>
       ) : (
         <>
-          {rows.map((row, i) => (
-            <div key={i} className="flex items-center gap-1.5">
+          {state.rows.map((row, i) => (
+            <div key={`${i}-${row.key}`} className="flex items-center gap-1.5">
               <Input
                 value={row.key}
-                onChange={(e) => updateRow(i, { key: e.target.value })}
+                onChange={(e) => dispatch({ type: 'updateRow', index: i, patch: { key: e.target.value } })}
                 placeholder="field"
                 list={fields.length ? listId : undefined}
                 className="flex-1 h-7 px-2 text-xs font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
               />
-              <Select value={row.op} onValueChange={(v) => updateRow(i, { op: v as Op })}>
+              <Select
+                value={row.op}
+                onValueChange={(v) => dispatch({ type: 'updateRow', index: i, patch: { op: v as Op } })}
+              >
                 <SelectTrigger size="sm" className="h-7 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -167,16 +183,21 @@ export function QdrantFilterBuilder({ onChange, fields = [] }: QdrantFilterBuild
               </Select>
               <Input
                 value={row.value}
-                onChange={(e) => updateRow(i, { value: e.target.value })}
+                onChange={(e) => dispatch({ type: 'updateRow', index: i, patch: { value: e.target.value } })}
                 placeholder="value"
                 className="flex-1 h-7 px-2 text-xs font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
               />
-              <Button variant="ghost" size="icon" onClick={() => removeRow(i)} title="Remove">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => dispatch({ type: 'removeRow', index: i })}
+                title="Remove"
+              >
                 <X className="size-3.5" />
               </Button>
             </div>
           ))}
-          <Button variant="ghost" size="sm" onClick={addRow}>
+          <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'addRow' })}>
             <Plus className="size-3" />
             Add condition
           </Button>

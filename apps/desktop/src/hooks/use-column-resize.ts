@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 
 // Single-word sentinel used to round-trip the multi-word `minmax(0, 1fr)`
 // track through a `.split(' ')` without it being torn apart. The actual
@@ -31,14 +31,12 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
   // absorb the remaining space, so the row never overflows its parent.
   const [widths, setWidths] = useState<(number | null)[]>(() => Array(columnCount).fill(null));
 
-  // Re-sync widths whenever the column count changes (e.g. async column fetch
-  // lands after the hook has already mounted with 0 columns). Without this,
-  // the first render of a freshly-opened table has an empty grid template and
-  // the rows render broken; switching tabs remounts with the cached count and
-  // masks the bug.
-  useEffect(() => {
-    setWidths((prev) => (prev.length === columnCount ? prev : Array(columnCount).fill(null)));
-  }, [columnCount]);
+  // Re-sync widths whenever the column count changes.  This runs
+  // during render (not in an effect) so the adjusted state is
+  // committed together with any concurrent update in a single pass.
+  if (widths.length !== columnCount) {
+    setWidths(Array(columnCount).fill(null));
+  }
 
   const dragRef = useRef<DragState | null>(null);
 
@@ -111,13 +109,16 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
             });
           }
           // Suppress the synthetic click that would otherwise fire on the
-          // header and re-trigger the sort handler.
+          // header or its descendents and re-trigger the sort handler.
+          // We register on the document in capture phase because the click
+          // may target the <th> instead of the handle if the mouse moved
+          // slightly during the drag.
           const suppress = (ce: MouseEvent) => {
             ce.stopPropagation();
             ce.preventDefault();
-            handle.removeEventListener('click', suppress, true);
+            document.removeEventListener('click', suppress, true);
           };
-          handle.addEventListener('click', suppress, true);
+          document.addEventListener('click', suppress, true);
         }
         dragRef.current = null;
         document.removeEventListener('mousemove', onMove);
@@ -131,7 +132,7 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     },
-    [columnCount, dataTemplate, prefix, suffix],
+    [dataTemplate, prefix, suffix, setWidths],
   );
 
   // Sum of explicit widths only (nulls contribute 0). Kept for callers that

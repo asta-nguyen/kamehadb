@@ -5,6 +5,11 @@ import { createMysqlAdapter } from './mysql.js';
 import { createMongoAdapter } from './mongodb.js';
 import { createRedisAdapter } from './redis.js';
 import { createQdrantAdapter } from './qdrant.js';
+import { createSqlServerAdapter } from './sqlserver.js';
+import { createOracleAdapter } from './oracle.js';
+import { createClickHouseAdapter } from './clickhouse.js';
+import { createDuckDbAdapter } from './duckdb.js';
+import { createTigerBeetleAdapter } from './tigerbeetle.js';
 
 export function createSqlAdapter(profile: ConnectionProfile, _password?: string): SqlAdapter | null {
   switch (profile.kind) {
@@ -28,6 +33,33 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
     case 'sqlite':
       if (!profile.filePath) throw new Error('SQLite file path is required');
       return createSqliteAdapter(profile.filePath);
+    case 'sqlserver':
+      return createSqlServerAdapter({
+        host: profile.host,
+        port: profile.port,
+        database: profile.database,
+        username: profile.username,
+        password: _password,
+      });
+    case 'oracle':
+      return createOracleAdapter({
+        host: profile.host,
+        port: profile.port,
+        database: profile.database,
+        username: profile.username,
+        password: _password,
+      });
+    case 'clickhouse':
+      return createClickHouseAdapter({
+        host: profile.host,
+        port: profile.port,
+        database: profile.database,
+        username: profile.username,
+        password: _password,
+      });
+    case 'duckdb':
+      if (!profile.filePath) throw new Error('DuckDB file path is required');
+      return createDuckDbAdapter(profile.filePath);
     default:
       return null;
   }
@@ -60,6 +92,20 @@ export function createRedisDbAdapter(
     port: profile.port,
     password: _password,
     database,
+  });
+}
+
+export function createTigerBeetleDbAdapter(
+  profile: { kind: string; host?: string; port?: number; database?: string },
+  _password?: string,
+) {
+  if (profile.kind !== 'tigerbeetle') {
+    throw new Error(`Expected tigerbeetle, got ${profile.kind}`);
+  }
+  return createTigerBeetleAdapter({
+    host: profile.host,
+    port: profile.port,
+    clusterId: profile.database || '0',
   });
 }
 

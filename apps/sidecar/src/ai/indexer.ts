@@ -11,7 +11,7 @@ export async function indexAllConnections(): Promise<void> {
   }
 
   const profiles = listProfiles();
-  const sqlProfiles = profiles.filter((p) => p.kind !== 'redis' && p.kind !== 'mongodb');
+  const sqlProfiles = profiles.filter((p) => p.kind !== 'redis' && p.kind !== 'mongodb' && p.kind !== 'tigerbeetle');
 
   if (sqlProfiles.length === 0) {
     console.log('[AI Indexer] No SQL connections to index');

@@ -18,7 +18,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="size-5 animate-spin text-muted-foreground" />
+        <RefreshCw className="text-muted-foreground animate-spin size-5" />
       </div>
     );
   }
@@ -26,72 +26,72 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
   if (error || !stats) {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
-        <AlertTriangle className="size-5 mr-2" />
+        <AlertTriangle className="mr-2 size-5" />
         Failed to load table statistics
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="p-4 space-y-4">
       {/* Overview */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Total Size</CardTitle>
-            <Database className="size-4 text-muted-foreground" />
+            <Database className="text-muted-foreground size-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.totalBytes)}</div>
-            <p className="text-xs text-muted-foreground">~{formatNumber(stats.rowEstimate)} rows</p>
+            <p className="text-muted-foreground text-xs">~{formatNumber(stats.rowEstimate)} rows</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Indexes</CardTitle>
-            <BarChart3 className="size-4 text-muted-foreground" />
+            <BarChart3 className="text-muted-foreground size-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.indexesBytes)}</div>
-            <p className="text-xs text-muted-foreground">{indexStats?.length || 0} indexes</p>
+            <p className="text-muted-foreground text-xs">{indexStats?.length || 0} indexes</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Live Rows</CardTitle>
-            <Activity className="size-4 text-muted-foreground" />
+            <Activity className="text-muted-foreground size-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(stats.nLiveTup)}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {stats.nDeadTup > 0 && <span className="text-destructive">{formatNumber(stats.nDeadTup)} dead</span>}
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Bloat</CardTitle>
-            <Trash2 className="size-4 text-muted-foreground" />
+            <Trash2 className="text-muted-foreground size-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.bloatBytes)}</div>
-            <p className="text-xs text-muted-foreground">{stats.bloatPercent.toFixed(1)}%</p>
+            <p className="text-muted-foreground text-xs">{stats.bloatPercent.toFixed(1)}%</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Bloat Warning */}
       {stats.bloatPercent > 10 && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="flex items-center gap-3 py-3">
-            <AlertTriangle className="size-5 text-destructive shrink-0" />
+        <Card className="bg-destructive/5 border-destructive/50">
+          <CardContent className="flex items-center py-3 gap-3">
+            <AlertTriangle className="text-destructive shrink-0 size-5" />
             <div className="text-sm">
               <strong>Bloat detected:</strong> This table has {stats.bloatPercent.toFixed(1)}% bloat (
               {formatBytes(stats.bloatBytes)}). Consider running{' '}
-              <code className="text-xs bg-muted px-1 py-0.5 rounded">VACUUM FULL</code> to reclaim space.
+              <code className="px-1 py-0.5 text-xs bg-muted rounded-xs">VACUUM FULL</code> to reclaim space.
             </div>
           </CardContent>
         </Card>
@@ -100,7 +100,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
       {/* Size Breakdown */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="flex items-center text-base gap-2">
             <HardDrive className="size-4" />
             Size Breakdown
           </CardTitle>
@@ -157,7 +157,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
                     key={idx.name}
                     style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 80px' }}
                   >
-                    <TableCell className="font-mono text-sm truncate min-w-0" title={idx.name}>
+                    <TableCell className="min-w-0 text-sm font-mono truncate" title={idx.name}>
                       {idx.name}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -169,12 +169,12 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell>{formatBytes(idx.sizeBytes)}</TableCell>
-                    <TableCell>{formatNumber(idx.scans)}</TableCell>
+                    <TableCell>{formatBytes(idx.sizeBytes ?? 0)}</TableCell>
+                    <TableCell>{formatNumber(idx.scans ?? 0)}</TableCell>
                     <TableCell>
-                      {idx.usagePercent > 0 ? (
-                        <span className={idx.usagePercent < 10 ? 'text-destructive' : ''}>
-                          {idx.usagePercent.toFixed(1)}%
+                      {(idx.usagePercent ?? 0) > 0 ? (
+                        <span className={(idx.usagePercent ?? 0) < 10 ? 'text-destructive' : ''}>
+                          {(idx.usagePercent ?? 0).toFixed(1)}%
                         </span>
                       ) : (
                         <Badge variant="destructive" className="text-xs">
@@ -209,14 +209,14 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Last Vacuum</h4>
-              <p className="text-sm text-muted-foreground">{stats.lastVacuum || stats.lastAutovacuum || 'Never'}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-sm">{stats.lastVacuum || stats.lastAutovacuum || 'Never'}</p>
+              <p className="text-muted-foreground text-xs">
                 Total: {stats.vacuumCount} manual, {stats.autovacuumCount} auto
               </p>
             </div>
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Last Analyze</h4>
-              <p className="text-sm text-muted-foreground">{stats.lastAnalyze || stats.lastAutoanalyze || 'Never'}</p>
+              <p className="text-muted-foreground text-sm">{stats.lastAnalyze || stats.lastAutoanalyze || 'Never'}</p>
             </div>
           </div>
         </CardContent>

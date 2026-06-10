@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useReducer } from 'react';
 import { useQdrantPoints, useQdrantStats } from '@/hooks/use-qdrant';
 import { api } from '@/lib/api';
 import { openQdrantGraphTab, openQdrantSearchTab } from '@/store';
@@ -14,29 +14,90 @@ interface QdrantViewProps {
   collection: string;
 }
 
-export function QdrantView({ connectionId, collection }: QdrantViewProps) {
-  const [showStats, setShowStats] = useState(false);
+// Group the related paging/filter state into one reducer so a single dispatch
+// produces a single re-render instead of seven.
+type QdrantViewState = {
+  showStats: boolean;
   // Stack of page offsets we've visited so "Prev" can walk back. Index 0 is the first page (offset null).
-  const [offsetStack, setOffsetStack] = useState<(string | number | null)[]>([null]);
-  const [draftFilter, setDraftFilter] = useState<Record<string, unknown> | undefined>(undefined);
-  const [appliedFilter, setAppliedFilter] = useState<Record<string, unknown> | undefined>(undefined);
-  const [pageSize, setPageSize] = useState(10);
-  const [pageInput, setPageInput] = useState('');
-  const [jumping, setJumping] = useState(false);
+  offsetStack: (string | number | null)[];
+  draftFilter: Record<string, unknown> | undefined;
+  appliedFilter: Record<string, unknown> | undefined;
+  pageSize: number;
+  pageInput: string;
+  jumping: boolean;
   // Bump to remount the filter builder and drop its internal rows/json state.
-  const [filterBuilderKey, setFilterBuilderKey] = useState(0);
+  filterBuilderKey: number;
+};
 
-  // Qdrant scroll uses opaque cursor offsets, so a "jump" walks forward one page
-  // at a time. Cap the number of walks per Go-click to keep the sidecar safe.
-  const MAX_JUMP_PAGES = 50;
+type QdrantViewAction =
+  | { type: 'toggleStats' }
+  | { type: 'resetPaging' }
+  | { type: 'setDraftFilter'; value: Record<string, unknown> | undefined }
+  | { type: 'applyFilter' }
+  | { type: 'clearFilter' }
+  | { type: 'setPageSize'; value: number }
+  | { type: 'setPageInput'; value: string }
+  | { type: 'setJumping'; value: boolean }
+  | { type: 'pushOffset'; value: string | number | null }
+  | { type: 'popOffset' }
+  | { type: 'setOffsetStack'; value: (string | number | null)[] };
 
-  const currentOffset = offsetStack[offsetStack.length - 1];
+// Qdrant scroll uses opaque cursor offsets, so a "jump" walks forward one page
+// at a time. Cap the number of walks per Go-click to keep the sidecar safe.
+const MAX_JUMP_PAGES = 50;
+
+function qdrantViewReducer(state: QdrantViewState, action: QdrantViewAction): QdrantViewState {
+  switch (action.type) {
+    case 'toggleStats':
+      return { ...state, showStats: !state.showStats };
+    case 'resetPaging':
+      return { ...state, offsetStack: [null] };
+    case 'setDraftFilter':
+      return { ...state, draftFilter: action.value };
+    case 'applyFilter':
+      return { ...state, appliedFilter: state.draftFilter, offsetStack: [null] };
+    case 'clearFilter':
+      return {
+        ...state,
+        appliedFilter: undefined,
+        draftFilter: undefined,
+        filterBuilderKey: state.filterBuilderKey + 1,
+        offsetStack: [null],
+      };
+    case 'setPageSize':
+      return { ...state, pageSize: action.value, offsetStack: [null] };
+    case 'setPageInput':
+      return { ...state, pageInput: action.value };
+    case 'setJumping':
+      return { ...state, jumping: action.value };
+    case 'pushOffset':
+      return { ...state, offsetStack: [...state.offsetStack, action.value] };
+    case 'popOffset':
+      return state.offsetStack.length > 1 ? { ...state, offsetStack: state.offsetStack.slice(0, -1) } : state;
+    case 'setOffsetStack':
+      return { ...state, offsetStack: action.value };
+  }
+}
+
+export function QdrantView({ connectionId, collection }: QdrantViewProps) {
+  const [state, dispatch] = useReducer(qdrantViewReducer, {
+    showStats: false,
+    offsetStack: [null],
+    draftFilter: undefined,
+    appliedFilter: undefined,
+    pageSize: 10,
+    pageInput: '',
+    jumping: false,
+    filterBuilderKey: 0,
+  });
+
+  const currentOffset = state.offsetStack[state.offsetStack.length - 1];
   const { data: stats } = useQdrantStats(connectionId, collection);
   const {
     data: page,
     isLoading,
     error,
-  } = useQdrantPoints(connectionId, collection, currentOffset, appliedFilter, pageSize);
+  } = useQdrantPoints(connectionId, collection, currentOffset, state.appliedFilter, state.pageSize);
 
   // Field names discovered from the current page, offered as filter suggestions.
   const fields = useMemo(() => {
@@ -74,54 +135,46 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
     [],
   );
 
-  const resetPaging = () => setOffsetStack([null]);
-
-  const applyFilter = () => {
-    resetPaging();
-    setAppliedFilter(draftFilter);
-  };
-
   const changePageSize = (n: number) => {
-    setPageSize(Math.max(1, Math.min(500, n)));
-    resetPaging();
+    dispatch({ type: 'setPageSize', value: Math.max(1, Math.min(500, n)) });
   };
 
   const goNext = () => {
-    if (page?.nextOffset != null) setOffsetStack((s) => [...s, page.nextOffset]);
+    if (page?.nextOffset != null) dispatch({ type: 'pushOffset', value: page.nextOffset });
   };
   const goPrev = () => {
-    if (offsetStack.length > 1) setOffsetStack((s) => s.slice(0, -1));
+    dispatch({ type: 'popOffset' });
   };
 
   // Jump to an arbitrary page. Cached pages jump instantly; further pages are
   // reached by walking the scroll cursor forward (Qdrant has no random page access).
   const jumpToPage = async () => {
-    const requested = parseInt(pageInput, 10);
+    const requested = parseInt(state.pageInput, 10);
     if (!Number.isInteger(requested) || requested < 1) return;
-    if (requested <= offsetStack.length) {
-      setOffsetStack((s) => s.slice(0, requested));
+    if (requested <= state.offsetStack.length) {
+      dispatch({ type: 'setOffsetStack', value: state.offsetStack.slice(0, requested) });
       return;
     }
-    const target = Math.min(requested, offsetStack.length + MAX_JUMP_PAGES);
-    setJumping(true);
+    const target = Math.min(requested, state.offsetStack.length + MAX_JUMP_PAGES);
+    dispatch({ type: 'setJumping', value: true });
     try {
-      const stack = [...offsetStack];
+      const stack = [...state.offsetStack];
       let offset = stack[stack.length - 1];
       while (stack.length < target) {
         const res = await api.scrollQdrantPoints(connectionId, {
           collection,
-          limit: pageSize,
+          limit: state.pageSize,
           offset: offset ?? null,
-          filter: appliedFilter,
+          filter: state.appliedFilter,
           withPayload: true,
         });
         if (res.nextOffset == null) break;
         offset = res.nextOffset;
         stack.push(offset);
       }
-      setOffsetStack(stack);
+      dispatch({ type: 'setOffsetStack', value: stack });
     } finally {
-      setJumping(false);
+      dispatch({ type: 'setJumping', value: false });
     }
   };
 
@@ -135,10 +188,10 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowStats(!showStats)}
-            className="text-[11px] px-1.5 py-0.5"
+            onClick={() => dispatch({ type: 'toggleStats' })}
+            className="text-xs px-1.5 py-0.5"
           >
-            {showStats ? 'Hide stats' : 'Stats'}
+            {state.showStats ? 'Hide stats' : 'Stats'}
           </Button>
         </div>
         <div className="flex items-center gap-1">
@@ -154,7 +207,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
       </div>
 
       <div
-        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${showStats && stats ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${state.showStats && stats ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         <div className="overflow-hidden">
           {stats && (
@@ -181,22 +234,17 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
       </div>
 
       <div className="px-3 py-2 border-b border-border space-y-2">
-        <QdrantFilterBuilder key={filterBuilderKey} onChange={setDraftFilter} fields={fields} />
+        <QdrantFilterBuilder
+          key={state.filterBuilderKey}
+          onChange={(v) => dispatch({ type: 'setDraftFilter', value: v })}
+          fields={fields}
+        />
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={applyFilter}>
+          <Button variant="outline" size="sm" onClick={() => dispatch({ type: 'applyFilter' })}>
             Apply filter
           </Button>
-          {appliedFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setAppliedFilter(undefined);
-                setDraftFilter(undefined);
-                setFilterBuilderKey((k) => k + 1);
-                resetPaging();
-              }}
-            >
+          {state.appliedFilter && (
+            <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'clearFilter' })}>
               Clear
             </Button>
           )}
@@ -247,7 +295,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             type="number"
             min={1}
             max={500}
-            value={pageSize}
+            value={state.pageSize}
             onChange={(e) => changePageSize(Number(e.target.value) || 1)}
             className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
@@ -258,19 +306,19 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             <Input
               type="number"
               min={1}
-              value={pageInput}
-              placeholder={String(offsetStack.length)}
-              onChange={(e) => setPageInput(e.target.value)}
+              value={state.pageInput}
+              placeholder={String(state.offsetStack.length)}
+              onChange={(e) => dispatch({ type: 'setPageInput', value: e.target.value })}
               onKeyDown={(e) => e.key === 'Enter' && jumpToPage()}
               className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
           </Label>
-          <Button variant="outline" size="sm" onClick={jumpToPage} disabled={jumping}>
-            {jumping ? <Loader2 className="size-3 animate-spin" /> : 'Go'}
+          <Button variant="outline" size="sm" onClick={jumpToPage} disabled={state.jumping}>
+            {state.jumping ? <Loader2 className="size-3 animate-spin" /> : 'Go'}
           </Button>
-          <span className="tabular-nums">page {offsetStack.length}</span>
+          <span className="tabular-nums">page {state.offsetStack.length}</span>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-sm" onClick={goPrev} disabled={offsetStack.length <= 1}>
+            <Button variant="ghost" size="icon-sm" onClick={goPrev} disabled={state.offsetStack.length <= 1}>
               <ChevronLeft className="size-3.5" />
             </Button>
             <Button variant="ghost" size="icon-sm" onClick={goNext} disabled={page?.nextOffset == null}>

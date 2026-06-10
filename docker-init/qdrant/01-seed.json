@@ -1,0 +1,32 @@
+{
+  "collection": "kamehadb_docs",
+  "vector_size": 4,
+  "points": [
+    {
+      "id": 1,
+      "vector": [0.12, 0.33, 0.18, 0.77],
+      "payload": {
+        "type": "organization",
+        "name": "Acme Inc",
+        "slug": "acme"
+      }
+    },
+    {
+      "id": 2,
+      "vector": [0.11, 0.29, 0.22, 0.71],
+      "payload": {
+        "type": "organization",
+        "name": "Globex Corp",
+        "slug": "globex"
+      }
+    },
+    {
+      "id": 3,
+      "vector": [0.41, 0.21, 0.53, 0.09],
+      "payload": {
+        "type": "post",
+        "title": "Hello World"
+      }
+    }
+  ]
+}

@@ -21,13 +21,13 @@ function valueToSQL(value: unknown): string {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-export function exportToCSV(result: QueryResult): string {
+function exportToCSV(result: QueryResult): string {
   const headers = result.columns.map((col) => escapeCSV(col.name));
   const rows = result.rows.map((row) => result.columns.map((col) => escapeCSV(row[col.name])).join(','));
   return [headers.join(','), ...rows].join('\n');
 }
 
-export function exportToJSON(result: QueryResult): string {
+function exportToJSON(result: QueryResult): string {
   const data = result.rows.map((row) => {
     const obj: Record<string, unknown> = {};
     for (const col of result.columns) {
@@ -42,7 +42,7 @@ function escapeIdentifier(id: string): string {
   return `"${id.replace(/"/g, '""')}"`;
 }
 
-export function exportToSQL(result: QueryResult, tableName = 'exported_data'): string {
+function exportToSQL(result: QueryResult, tableName = 'exported_data'): string {
   if (result.columns.length === 0 || result.rows.length === 0) {
     return `-- No data to export`;
   }
@@ -56,7 +56,7 @@ export function exportToSQL(result: QueryResult, tableName = 'exported_data'): s
   return [`-- Export from ${tableName}`, `-- ${result.rows.length} rows`, '', ...statements].join('\n');
 }
 
-export function downloadFile(content: string, filename: string, mimeType: string) {
+function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

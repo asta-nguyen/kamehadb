@@ -1,13 +1,38 @@
 import { z } from 'zod';
 
 // Database kind
-export type DbKind = 'postgres' | 'sqlite' | 'mysql' | 'redis' | 'mongodb' | 'qdrant';
+export type DbKind =
+  | 'postgres'
+  | 'sqlite'
+  | 'mysql'
+  | 'redis'
+  | 'mongodb'
+  | 'qdrant'
+  | 'sqlserver'
+  | 'oracle'
+  | 'clickhouse'
+  | 'mariadb'
+  | 'duckdb'
+  | 'tigerbeetle';
 
 // Connection profile (without secret)
 export const ConnectionProfileSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
+  kind: z.enum([
+    'postgres',
+    'sqlite',
+    'mysql',
+    'redis',
+    'mongodb',
+    'qdrant',
+    'sqlserver',
+    'oracle',
+    'clickhouse',
+    'mariadb',
+    'duckdb',
+    'tigerbeetle',
+  ]),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -25,7 +50,20 @@ export type ConnectionProfile = z.infer<typeof ConnectionProfileSchema>;
 // Connection profile input (for create/update, without id/timestamps)
 const BaseCreateSchema = z.object({
   name: z.string().min(1),
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
+  kind: z.enum([
+    'postgres',
+    'sqlite',
+    'mysql',
+    'redis',
+    'mongodb',
+    'qdrant',
+    'sqlserver',
+    'oracle',
+    'clickhouse',
+    'mariadb',
+    'duckdb',
+    'tigerbeetle',
+  ]),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -105,6 +143,7 @@ export type ColumnInfo = {
   default: string | null;
   primaryKey: boolean;
   foreignKey?: {
+    schema?: string;
     table: string;
     column: string;
   };
@@ -447,6 +486,83 @@ export interface QdrantAdapter {
   close(): Promise<void>;
 }
 
+// TigerBeetle types
+export type TigerBeetleAccount = {
+  id: string;
+  debitsPending: string;
+  debitsPosted: string;
+  creditsPending: string;
+  creditsPosted: string;
+  userData128: string;
+  userData64: string;
+  userData32: number;
+  reserved: number;
+  ledger: number;
+  code: number;
+  flags: number;
+  timestamp: string;
+};
+
+export type TigerBeetleTransfer = {
+  id: string;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: string;
+  pendingId: string;
+  userData128: string;
+  userData64: string;
+  userData32: number;
+  timeout: number;
+  ledger: number;
+  code: number;
+  flags: number;
+  timestamp: string;
+};
+
+export type TigerBeetleAccountBalance = {
+  debitsPending: string;
+  debitsPosted: string;
+  creditsPending: string;
+  creditsPosted: string;
+  timestamp: string;
+};
+
+export type CreateTigerBeetleAccountInput = {
+  id: string;
+  ledger: number;
+  code: number;
+  flags?: number;
+  userData128?: string;
+  userData64?: string;
+  userData32?: number;
+  reserved?: number;
+};
+
+export type CreateTigerBeetleTransferInput = {
+  id: string;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: string;
+  ledger: number;
+  code: number;
+  flags?: number;
+  pendingId?: string;
+  userData128?: string;
+  userData64?: string;
+  userData32?: number;
+  timeout?: number;
+};
+
+export type TigerBeetleCreateResult = {
+  index: number;
+  status: string;
+  timestamp?: string;
+};
+
+export type TigerBeetleExplorerData = {
+  accounts: TigerBeetleAccount[];
+};
+
 // AI types
 export type AIProvider = 'ollama-local' | 'ollama-cloud' | 'openai' | '9router';
 
@@ -580,6 +696,33 @@ export const DESTRUCTIVE_KEYWORDS = [
 ];
 
 export const SAFE_KEYWORDS = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
+
+// Query history
+export type QueryHistoryEntry = {
+  id: string;
+  connectionId: string;
+  query: string;
+  executedAt: string;
+  durationMs?: number;
+  rowCount?: number;
+  favorite: boolean;
+  name?: string;
+};
+
+export const SaveQueryHistorySchema = z.object({
+  query: z.string().min(1),
+  durationMs: z.number().optional(),
+  rowCount: z.number().optional(),
+});
+
+export type SaveQueryHistoryInput = z.infer<typeof SaveQueryHistorySchema>;
+
+export const UpdateQueryHistorySchema = z.object({
+  favorite: z.boolean().optional(),
+  name: z.string().optional(),
+});
+
+export type UpdateQueryHistoryInput = z.infer<typeof UpdateQueryHistorySchema>;
 
 export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
   const normalized = sql.trim().toUpperCase();

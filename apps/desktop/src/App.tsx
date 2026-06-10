@@ -1,24 +1,25 @@
-import { MongoView } from '@/components/mongo-view';
-import { RedisView } from '@/components/redis-view';
-import { QdrantView } from '@/components/qdrant-view';
+import { AIChatPanel } from '@/components/ai-chat-panel';
+import { ApiSettingsPage } from '@/components/api-settings-page';
+import { DatabaseStats } from '@/components/database-stats';
+import { DbIcon } from '@/components/db-icon';
 import { MongoQuery } from '@/components/mongo-query';
-import { RedisQuery } from '@/components/redis-query';
+import { MongoView } from '@/components/mongo-view';
 import { QdrantQuery } from '@/components/qdrant-query';
+import { QdrantView } from '@/components/qdrant-view';
+import { RedisQuery } from '@/components/redis-query';
+import { RedisView } from '@/components/redis-view';
 import { SchemaGraph } from '@/components/schema-graph';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
 import { TableView } from '@/components/table-view';
-import { DatabaseStats } from '@/components/database-stats';
-import { AIChatPanel } from '@/components/ai-chat-panel';
-import { ApiSettingsPage } from '@/components/api-settings-page';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnections } from '@/hooks/use-connections';
 import {
-  appStore,
   applyTheme,
+  appStore,
   closeAiChatPanel,
   closeAllTabs,
   closeTab,
@@ -34,7 +35,6 @@ import {
   Activity,
   BarChart3,
   Box,
-  Boxes,
   Database,
   Monitor,
   Moon,
@@ -46,23 +46,31 @@ import {
   Terminal,
   X,
 } from 'lucide-react';
+import type { DbKind } from '@kamehadb/shared';
 import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
+
+const SQL_KINDS: DbKind[] = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'oracle', 'clickhouse', 'mariadb', 'duckdb'];
+const isSql = (k: string | undefined) => k && SQL_KINDS.includes(k as DbKind);
 
 const QdrantVectorMap = lazy(() =>
   import('@/components/qdrant-vector-map').then((m) => ({ default: m.QdrantVectorMap })),
 );
 const QdrantStatsPanel = lazy(() => import('@/components/qdrant-stats').then((m) => ({ default: m.QdrantStatsPanel })));
 
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'system', label: 'System', Icon: Monitor },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+] as const;
+
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
-  const { data: connections, isLoading } = useConnections();
+  const { data: connections } = useConnections();
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
   const activeTab = openedTabs.find((t) => t.id === activeTabId);
-
-  const visibleTabs = activeConnectionId && (activeConnection || isLoading) ? openedTabs : [];
 
   const connectionColorMap = useMemo(() => {
     if (!connections) return new Map<string, string>();
@@ -71,17 +79,25 @@ function TabBar() {
 
   return (
     <div className="flex items-center h-8 border-b border-border bg-muted/20 shrink-0 overflow-x-auto">
-      {visibleTabs.map((tab) => {
+      {openedTabs.map((tab) => {
         const connColor = connectionColorMap.get(tab.connectionId) || null;
         return (
           <div
             key={tab.id}
+            role="button"
+            tabIndex={0}
             className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-xs shrink-0 select-none ${
               tab.id === activeTabId ? 'bg-background border-b-2 border-b-primary' : 'hover:bg-muted/50'
             }`}
             onClick={() =>
               appStore.setState((s) => ({ ...s, activeTabId: tab.id, activeConnectionId: tab.connectionId }))
             }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                appStore.setState((s) => ({ ...s, activeTabId: tab.id, activeConnectionId: tab.connectionId }));
+              }
+            }}
           >
             {connColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: connColor }} />}
             {tab.type === 'query' || tab.type === 'redis-query' ? (
@@ -93,7 +109,7 @@ function TabBar() {
             ) : tab.type === 'redis' ? (
               <Box className="size-3" />
             ) : tab.type === 'qdrant' ? (
-              <Boxes className="size-3" />
+              <DbIcon kind="qdrant" className="size-3" />
             ) : tab.type === 'qdrant-search' ? (
               <Search className="size-3" />
             ) : tab.type === 'qdrant-graph' ? (
@@ -109,6 +125,7 @@ function TabBar() {
             )}
             <span className="truncate max-w-30">{tab.title}</span>
             <button
+              type="button"
               className="ml-1 hover:bg-muted rounded-sm p-0.5"
               onClick={(e) => {
                 e.stopPropagation();
@@ -124,6 +141,7 @@ function TabBar() {
         <>
           {activeTab && (activeTab.type === 'redis-query' || activeTab.type === 'redis') ? (
             <button
+              type="button"
               className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => openRedisQueryTab(activeConnectionId)}
               title="Redis Query"
@@ -132,6 +150,7 @@ function TabBar() {
             </button>
           ) : activeTab && (activeTab.type === 'mongo-query' || activeTab.type === 'mongo') ? (
             <button
+              type="button"
               className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => {
                 const mongoDb = appStore.state.activeMongoDatabase;
@@ -143,12 +162,10 @@ function TabBar() {
             >
               <Database className="size-3.5" />
             </button>
-          ) : activeConnection &&
-            (activeConnection.kind === 'postgres' ||
-              activeConnection.kind === 'mysql' ||
-              activeConnection.kind === 'sqlite') ? (
+          ) : activeConnection && isSql(activeConnection.kind) ? (
             <>
               <button
+                type="button"
                 className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
                 onClick={() => openNewQueryTab(activeConnectionId)}
                 title="New Query"
@@ -156,6 +173,7 @@ function TabBar() {
                 <Plus className="size-3.5" />
               </button>
               <button
+                type="button"
                 className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
                 onClick={() => openGraphTab(activeConnectionId)}
                 title="Schema Graph"
@@ -178,15 +196,7 @@ function Workspace() {
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
 
-  // Auto-open appropriate view for connection type when no tabs open
-  useEffect(() => {
-    if (!activeConnectionId || !activeConnection || openedTabs.length > 0) return;
-
-    // No tabs - show default empty state (user can click Stats from sidebar)
-    return;
-  }, [activeConnectionId, activeConnection?.kind, openedTabs]);
-
-  if (!activeConnectionId) {
+  if (!activeConnectionId || !activeConnection) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
@@ -200,7 +210,7 @@ function Workspace() {
   const visibleTabs = openedTabs;
 
   if (visibleTabs.length === 0) {
-    if (activeConnection?.kind === 'mongodb' || activeConnection?.kind === 'qdrant') {
+    if (activeConnection.kind === 'mongodb' || activeConnection.kind === 'qdrant') {
       return (
         <div className="h-full flex items-center justify-center">
           <div className="text-center">
@@ -215,9 +225,7 @@ function Workspace() {
         <div className="text-center space-y-3">
           <p className="text-sm text-muted-foreground">Select a table or open a tab</p>
           <div className="flex items-center justify-center gap-2">
-            {(activeConnection?.kind === 'postgres' ||
-              activeConnection?.kind === 'mysql' ||
-              activeConnection?.kind === 'sqlite') && (
+            {isSql(activeConnection.kind) && (
               <>
                 <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
                   <Terminal className="size-3.5 mr-1.5" />
@@ -269,7 +277,9 @@ function Workspace() {
       {activeTab.type === 'qdrant' && (
         <QdrantView connectionId={activeTab.connectionId} collection={activeTab.collection} />
       )}
-      {activeTab.type === 'qdrant-search' && <QdrantQuery tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'qdrant-search' && (
+        <QdrantQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
       {activeTab.type === 'qdrant-graph' && (
         <Suspense
           fallback={
@@ -310,13 +320,8 @@ function MainLayout() {
 
 function ThemeToggle() {
   const theme = useStore(appStore, (state) => state.theme);
-  const themeOptions = [
-    { value: 'light', label: 'Light', Icon: Sun },
-    { value: 'system', label: 'System', Icon: Monitor },
-    { value: 'dark', label: 'Dark', Icon: Moon },
-  ] as const;
   const activeIndex = Math.max(
-    themeOptions.findIndex((option) => option.value === theme),
+    THEME_OPTIONS.findIndex((option) => option.value === theme),
     0,
   );
 
@@ -328,7 +333,7 @@ function ThemeToggle() {
           transform: `translateX(${activeIndex * 1.875}rem)`,
         }}
       />
-      {themeOptions.map(({ value, label, Icon }) => (
+      {THEME_OPTIONS.map(({ value, label, Icon }) => (
         <button
           key={value}
           type="button"
