@@ -84,11 +84,12 @@ connectionsRouter.get('/health', async (c) => {
               }).testConnection();
               break;
             case 'redis':
+              const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
               result = await testRedisConnection({
                 host: profile.host!,
                 port: profile.port!,
                 password: password ?? undefined,
-                database: profile.database ? parseInt(profile.database, 10) || undefined : undefined,
+                database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
               });
               break;
             case 'qdrant':
@@ -214,11 +215,12 @@ connectionsRouter.get('/:id/health', async (c) => {
         }).testConnection();
         break;
       case 'redis':
+        const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
         result = await testRedisConnection({
           host: profile.host,
           port: profile.port,
           password: password ?? undefined,
-          database: profile.database ? parseInt(profile.database, 10) || undefined : undefined,
+          database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
         });
         break;
       case 'qdrant':

@@ -510,7 +510,6 @@ export function Sidebar() {
               reconnectTimers.delete(id);
             }
             if (r.latencyMs !== undefined) {
-              setConnectionStatus(id, r.latencyMs > 500 ? 'slow' : 'connected');
               setConnectionLatency(id, r.latencyMs);
             } else {
               setConnectionStatus(id, 'connected');
