@@ -191,7 +191,7 @@ export function DocumentCard({
                     variant="ghost"
                     size="sm"
                     onClick={() => startEdit(key, value)}
-                    className="flex-1 font-normal truncate"
+                    className="flex-1 justify-start font-normal text-left truncate"
                     title={String(value)}
                   >
                     {value === null ? (

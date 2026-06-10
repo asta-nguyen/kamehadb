@@ -45,7 +45,7 @@ const PROVIDER_META: Record<
   },
   '9router': {
     label: '9Router',
-    description: 'OpenAI-compatible router endpoint for model routing.',
+    description: 'Self-hosted or remote OpenAI-compatible 9Router endpoint for model routing.',
     modelPlaceholder: 'openai/gpt-4o',
     baseUrlPlaceholder: 'https://router.example.com/v1',
     icon: Bot,
@@ -100,7 +100,7 @@ function normalizeSettings(settings: AISettings): AISettings {
 }
 
 function providerNeedsApiKey(provider: AIProvider) {
-  return provider !== 'ollama-local' && provider !== '9router';
+  return provider !== 'ollama-local';
 }
 
 function providerNeedsBaseUrl(provider: AIProvider) {
@@ -113,6 +113,12 @@ function getProviderStatus(provider: AIProvider, config: AIProviderConfig) {
   if (providerNeedsApiKey(provider) && !config.apiKey?.trim()) return 'Missing API key';
   if (providerNeedsBaseUrl(provider) && !config.baseUrl?.trim()) return 'Needs base URL';
   return 'Configured';
+}
+
+function getProviderAvailabilityStatus(provider: AIProvider, config: AIProviderConfig, isActive: boolean): string {
+  if (isActive) return 'Active';
+  const status = getProviderStatus(provider, config);
+  return status === 'Configured' ? 'Inactive' : status;
 }
 
 function Field({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
@@ -138,12 +144,12 @@ type SettingsState = {
 type SettingsAction =
   | { type: 'loadFromServer'; settings: AISettings }
   | { type: 'selectProvider'; provider: AIProvider }
+  | { type: 'setActiveProvider'; provider: AIProvider }
   | {
       type: 'updateProvider';
       provider: AIProvider;
       updates: Partial<AIProviderConfig>;
     }
-  | { type: 'toggleEnabled'; provider: AIProvider; enabling: boolean }
   | { type: 'resetSelected'; savedSnapshot: AISettings }
   | { type: 'discard'; savedSnapshot: AISettings }
   | { type: 'commit'; savedSnapshot: AISettings };
@@ -158,6 +164,23 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
       };
     case 'selectProvider':
       return { ...state, selectedProvider: action.provider };
+    case 'setActiveProvider':
+      return {
+        ...state,
+        draft: {
+          ...state.draft,
+          activeProvider: action.provider,
+          providers: Object.fromEntries(
+            PROVIDER_ORDER.map((provider) => [
+              provider,
+              {
+                ...state.draft.providers[provider],
+                enabled: provider === action.provider,
+              },
+            ]),
+          ) as AISettings['providers'],
+        },
+      };
     case 'updateProvider':
       return {
         ...state,
@@ -172,26 +195,6 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
           },
         },
       };
-    case 'toggleEnabled': {
-      const { provider, enabling } = action;
-      // If we're disabling the active provider, pick another enabled one (or keep the current).
-      const newActive =
-        enabling || provider !== state.draft.activeProvider
-          ? state.draft.activeProvider
-          : (PROVIDER_ORDER.find((p) => p !== provider && state.draft.providers[p].enabled) ??
-            state.draft.activeProvider);
-      return {
-        ...state,
-        draft: {
-          ...state.draft,
-          activeProvider: newActive,
-          providers: {
-            ...state.draft.providers,
-            [provider]: { ...state.draft.providers[provider], enabled: enabling },
-          },
-        },
-      };
-    }
     case 'resetSelected':
       return {
         ...state,
@@ -212,7 +215,7 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
 
 function ApiSettingsHeader({ draft }: { draft: AISettings }) {
   const activeConfig = draft.providers[draft.activeProvider];
-  const activeStatus = getProviderStatus(draft.activeProvider, activeConfig);
+  const activeStatus = getProviderAvailabilityStatus(draft.activeProvider, activeConfig, true);
   return (
     <div className="border-b border-border">
       <div className="flex flex-wrap items-start gap-3 px-5 py-4">
@@ -260,10 +263,10 @@ function ProviderSidebar({
       <div className="space-y-1 p-3">
         {PROVIDER_ORDER.map((provider) => {
           const meta = PROVIDER_META[provider];
-          const status = getProviderStatus(provider, draft.providers[provider]);
+          const isActive = provider === draft.activeProvider;
+          const status = getProviderAvailabilityStatus(provider, draft.providers[provider], isActive);
           const Icon = meta.icon;
           const isSelected = provider === selectedProvider;
-          const isActive = provider === draft.activeProvider;
 
           return (
             <Button
@@ -288,7 +291,11 @@ function ProviderSidebar({
                   <span className="truncate text-sm font-medium" title={meta.label}>
                     {meta.label}
                   </span>
-                  {isActive && <span className="size-1.5 rounded-full bg-primary shrink-0" />}
+                  {isActive ? (
+                    <Badge variant="default" className="h-5 px-1.5 text-[10px]">
+                      Active
+                    </Badge>
+                  ) : null}
                 </div>
                 <div className="truncate text-xs text-muted-foreground" title={status}>
                   {status}
@@ -305,14 +312,16 @@ function ProviderSidebar({
 function ProviderHeader({
   selectedProvider,
   config,
-  onToggle,
+  isActive,
+  onSetActive,
 }: {
   selectedProvider: AIProvider;
   config: AIProviderConfig;
-  onToggle: () => void;
+  isActive: boolean;
+  onSetActive: () => void;
 }) {
   const SelectedIcon = PROVIDER_META[selectedProvider].icon;
-  const status = getProviderStatus(selectedProvider, config);
+  const status = getProviderAvailabilityStatus(selectedProvider, config, isActive);
   return (
     <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
       <div className="flex items-center gap-3">
@@ -324,22 +333,15 @@ function ProviderHeader({
           <p className="text-xs text-muted-foreground">{status}</p>
         </div>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={config.enabled}
-        aria-label={`${PROVIDER_META[selectedProvider].label} toggle`}
-        onClick={onToggle}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-          config.enabled ? 'bg-primary' : 'bg-muted'
-        }`}
-      >
-        <span
-          className={`inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
-            config.enabled ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
+      {isActive ? (
+        <Badge variant="default" className="text-xs">
+          Active
+        </Badge>
+      ) : (
+        <Button variant="outline" size="sm" onClick={onSetActive}>
+          Set active
+        </Button>
+      )}
     </div>
   );
 }
@@ -417,7 +419,9 @@ function ProviderForm({
             ? 'Leave blank for official OpenAI endpoint.'
             : selectedProvider === 'ollama-local'
               ? 'Defaults to localhost if unchanged.'
-              : 'Required for remote endpoints.'
+              : selectedProvider === '9router'
+                ? 'Required. Point this at your self-hosted or managed 9Router OpenAI-compatible endpoint.'
+                : 'Required for remote endpoints.'
         }
       >
         <Input
@@ -529,7 +533,7 @@ export function ApiSettingsPage() {
         if (selectedConfig.apiKey) {
           headers['Authorization'] = `Bearer ${selectedConfig.apiKey}`;
         }
-        const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, { signal });
+        const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, { signal, headers });
         if (!res.ok) return;
         const data = (await res.json()) as { data?: { id: string }[] };
         const models = (data.data ?? []).flatMap((m) => (m.id ? [m.id] : []));
@@ -581,13 +585,8 @@ export function ApiSettingsPage() {
                 <ProviderHeader
                   selectedProvider={state.selectedProvider}
                   config={selectedConfig}
-                  onToggle={() =>
-                    dispatch({
-                      type: 'toggleEnabled',
-                      provider: state.selectedProvider,
-                      enabling: !selectedConfig.enabled,
-                    })
-                  }
+                  isActive={state.selectedProvider === state.draft.activeProvider}
+                  onSetActive={() => dispatch({ type: 'setActiveProvider', provider: state.selectedProvider })}
                 />
 
                 <ProviderForm

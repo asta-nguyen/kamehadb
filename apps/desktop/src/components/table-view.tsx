@@ -1,4 +1,4 @@
-import { useCallback, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
 import { TableStats } from '@/components/table-stats';
@@ -19,12 +19,14 @@ import {
   FileJson,
   Copy,
   Check,
+  Eye,
   Activity,
   Download,
   Search,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  Columns3,
   X,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -32,7 +34,11 @@ import { downloadResult } from '@/lib/export';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -40,6 +46,10 @@ type TableViewProps = {
   connectionId: string;
   tableId: string;
 };
+
+function areStringListsEqual(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
 
 // Group offset/pageSize/selectedRow/search/sort state into one reducer so a
 // single dispatch produces a single re-render instead of seven.
@@ -101,6 +111,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     sortColumn: '',
     sortDirection: 'asc',
   });
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
 
   const debouncedSetSearch = useRef<ReturnType<typeof debounce<(v: string) => void>> | null>(null);
   if (debouncedSetSearch.current === null) {
@@ -126,12 +137,27 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   const page = Math.floor(state.offset / state.pageSize) + 1;
   const displayColumns = result?.columns ?? columns ?? [];
 
-  const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns.map((col) => ({
-    id: col.name,
-    header: col.name,
-    accessor: (row) => row[col.name],
-    sortable: true,
-  }));
+  // Keep the selected field set aligned with the current result shape without
+  // wiping the user's choices on every refresh, sort, or page change.
+  useEffect(() => {
+    const nextNames = displayColumns.map((column) => column.name);
+    setVisibleColumns((prev) => {
+      if (nextNames.length === 0) return [];
+      if (prev.length === 0) return nextNames;
+      const filtered = prev.filter((name) => nextNames.includes(name));
+      const resolved = filtered.length > 0 ? filtered : nextNames;
+      return areStringListsEqual(prev, resolved) ? prev : resolved;
+    });
+  }, [displayColumns]);
+
+  const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns
+    .filter((col) => visibleColumns.includes(col.name))
+    .map((col) => ({
+      id: col.name,
+      header: col.name,
+      accessor: (row) => row[col.name],
+      sortable: true,
+    }));
 
   if (isLoading && !result) {
     return (
@@ -159,6 +185,42 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           />
         </div>
         <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="h-7 gap-1.5 px-2" />}>
+              <Columns3 className="size-3.5 text-muted-foreground" />
+              Fields
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Visible fields</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {displayColumns.map((col) => {
+                  const checked = visibleColumns.includes(col.name);
+                  return (
+                    <DropdownMenuItem
+                      key={col.name}
+                      onClick={() => {
+                        setVisibleColumns((prev) => {
+                          if (!checked) {
+                            return displayColumns
+                              .map((column) => column.name)
+                              .filter((name) => name === col.name || prev.includes(name));
+                          }
+                          if (prev.length <= 1) return prev;
+                          return prev.filter((name) => name !== col.name);
+                        });
+                      }}
+                    >
+                      <span className="truncate" title={col.name}>
+                        {col.name}
+                      </span>
+                      <DropdownMenuShortcut>{checked ? <Check className="size-3.5" /> : null}</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Select
             value={state.sortColumn}
             onValueChange={(v) => {
@@ -214,10 +276,26 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           rowKey={(_, i) => String(i)}
           showIndex
           indexOffset={state.offset}
-          onRowClick={(row) => dispatch({ type: 'selectRow', row })}
           onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
           sortColumn={state.sortColumn}
           sortDirection={state.sortDirection}
+          suffixHeader="Actions"
+          suffixWidth="48px"
+          suffixHeaderClassName="sticky right-0 z-20 border-l border-border/50 bg-muted shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.6)]"
+          suffixCellClassName="sticky right-0 z-10 border-l border-border/30 bg-background shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.45)]"
+          suffix={(row) => (
+            <div className="flex items-center justify-center">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => dispatch({ type: 'selectRow', row })}
+                title="View details"
+              >
+                <Eye className="size-3.5" />
+              </Button>
+            </div>
+          )}
+          className="min-w-max"
         />
         {result && (
           <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2">

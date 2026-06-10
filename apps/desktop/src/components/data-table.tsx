@@ -26,6 +26,8 @@ export interface DataTableProps<T> {
   suffix?: (row: T, rowIndex: number) => ReactNode;
   suffixHeader?: ReactNode;
   suffixWidth?: string;
+  suffixHeaderClassName?: string;
+  suffixCellClassName?: string;
   fixedTemplate?: string;
   stickyHeader?: boolean;
   onRowClick?: (row: T, index: number) => void;
@@ -48,6 +50,8 @@ export function DataTable<T>({
   suffix,
   suffixHeader,
   suffixWidth = '80px',
+  suffixHeaderClassName,
+  suffixCellClassName,
   fixedTemplate,
   stickyHeader = false,
   onRowClick,
@@ -133,7 +137,9 @@ export function DataTable<T>({
                 </TableHead>
               );
             })}
-            {suffix && <TableHead className={defaultHeaderClass}>{suffixHeader ?? ''}</TableHead>}
+            {suffix && (
+              <TableHead className={cn(defaultHeaderClass, suffixHeaderClassName)}>{suffixHeader ?? ''}</TableHead>
+            )}
           </TableRow>
         </TableHeader>
       )}
@@ -190,7 +196,9 @@ export function DataTable<T>({
                     </TableCell>
                   );
                 })}
-                {suffix && <TableCell className="px-1 py-1">{suffix(row, rowIndex)}</TableCell>}
+                {suffix && (
+                  <TableCell className={cn('px-1 py-1', suffixCellClassName)}>{suffix(row, rowIndex)}</TableCell>
+                )}
               </TableRow>
             );
           })
