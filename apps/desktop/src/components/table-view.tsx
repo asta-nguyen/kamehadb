@@ -309,65 +309,57 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   );
 }
 
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function formatJsonSyntax(json: string): React.ReactNode[] {
   const lines = json.split('\n');
   return lines.map((line, i) => {
-    const safeLine = escapeHtml(line);
-    const partsS = [];
+    const parts: React.ReactNode[] = [];
     let lastIdx = 0;
 
-    // Simple tokenization to avoid dangerouslySetInnerHTML
-    const regex = /(&quot;[^&]*&quot;)(?=\s*:)|:\s*(&quot;[^&]*&quot;)|:\s*(true|false)|:\s*(null)|:\s*(\d+\.?\d*)/g;
+    // Tokenize raw JSON text without HTML escaping — React renders text
+    // safely, so we match actual quote characters instead of HTML entities.
+    const regex =
+      /("[^"\\]*(?:\\.[^"\\]*)*")(?=\s*:)|:\s*("[^"\\]*(?:\\.[^"\\]*)*")|:\s*(true|false)|:\s*(null)|:\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
     let match;
-    while ((match = regex.exec(safeLine)) !== null) {
-      partsS.push(safeLine.slice(lastIdx, match.index));
+    while ((match = regex.exec(line)) !== null) {
+      parts.push(line.slice(lastIdx, match.index));
       if (match[1])
-        partsS.push(
-          <span key={`p1-${i}-${partsS.length}`} className="text-primary">
+        parts.push(
+          <span key={`k-${i}-${parts.length}`} className="text-primary">
             {match[1]}
           </span>,
         );
       else if (match[2])
-        partsS.push(
-          <span key={`p2-${i}-${partsS.length}`}>
-            : <span className="text-muted-foreground">{match[2].slice(2)}</span>
+        parts.push(
+          <span key={`s-${i}-${parts.length}`}>
+            : <span className="text-muted-foreground">{match[2]}</span>
           </span>,
         );
       else if (match[3])
-        partsS.push(
-          <span key={`p3-${i}-${partsS.length}`}>
+        parts.push(
+          <span key={`b-${i}-${parts.length}`}>
             : <span className="text-accent-foreground">{match[3]}</span>
           </span>,
         );
       else if (match[4])
-        partsS.push(
-          <span key={`p4-${i}-${partsS.length}`}>
+        parts.push(
+          <span key={`n-${i}-${parts.length}`}>
             : <span className="text-muted-foreground italic">{match[4]}</span>
           </span>,
         );
       else if (match[5])
-        partsS.push(
-          <span key={`p5-${i}-${partsS.length}`}>
+        parts.push(
+          <span key={`num-${i}-${parts.length}`}>
             : <span className="text-foreground">{match[5]}</span>
           </span>,
         );
       lastIdx = regex.lastIndex;
     }
-    partsS.push(safeLine.slice(lastIdx));
+    parts.push(line.slice(lastIdx));
 
     return (
-      <div key={`${i}-${safeLine.slice(0, 50)}`} className="flex">
+      <div key={`${i}-${line.slice(0, 50)}`} className="flex">
         <span className="w-8 shrink-0 text-right text-xs text-muted-foreground/40 select-none mr-3">{i + 1}</span>
-        <span className="flex-1">{partsS}</span>
+        <span className="flex-1">{parts}</span>
       </div>
     );
   });

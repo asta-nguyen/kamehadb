@@ -9,6 +9,7 @@ import { QdrantView } from '@/components/qdrant-view';
 import { RedisQuery } from '@/components/redis-query';
 import { RedisView } from '@/components/redis-view';
 import { SchemaGraph } from '@/components/schema-graph';
+import { GlobalSearch } from '@/components/global-search';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
@@ -47,7 +48,25 @@ import {
   X,
 } from 'lucide-react';
 import type { DbKind } from '@kamehadb/shared';
-import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
+import { GREETINGS, PROMPTS, KIND_LABELS, KINDS } from '@/lib/constants';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+
+function pick<T>(arr: readonly T[], last?: T): T {
+  const filtered = last !== undefined ? arr.filter((item) => item !== last) : [...arr];
+  return filtered[Math.floor(Math.random() * filtered.length)];
+}
+
+function getGreeting(): [string, string] {
+  const hour = new Date().getHours();
+  const bucket = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
+  const lastGreeting = localStorage.getItem('lastGreeting') ?? undefined;
+  const line1 = pick(GREETINGS[bucket], lastGreeting);
+  localStorage.setItem('lastGreeting', line1);
+  const returning = localStorage.getItem('kamehadb_visits');
+  const line2 = returning ? pick(PROMPTS) : 'Create or select a connection to get started';
+  if (!returning) localStorage.setItem('kamehadb_visits', '1');
+  return [line1, line2];
+}
 
 const SQL_KINDS: DbKind[] = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'oracle', 'clickhouse', 'mariadb', 'duckdb'];
 const isSql = (k: string | undefined) => k && SQL_KINDS.includes(k as DbKind);
@@ -188,6 +207,65 @@ function TabBar() {
   );
 }
 
+function WelcomePage({ greeting, prompt }: { greeting: string; prompt: string }) {
+  const { data: connections } = useConnections();
+  const hasConnections = connections && connections.length > 0;
+  const count = connections?.length ?? 0;
+
+  return (
+    <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-background via-background to-muted/30">
+      <div className="text-center max-w-lg mx-auto px-6">
+        {/* Greeting */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">{greeting}</h1>
+          <p className="text-sm text-muted-foreground">{prompt}</p>
+        </div>
+
+        {/* Connections quick status */}
+        {hasConnections && (
+          <div className="flex items-center justify-center gap-1.5 mb-8 text-xs text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-primary" />
+            {count} connection{count !== 1 ? 's' : ''} configured
+          </div>
+        )}
+
+        {/* Supported databases */}
+        {!hasConnections && (
+          <>
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
+              {KINDS.slice(0, 8).map((kind) => (
+                <div
+                  key={kind}
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50 border border-border/40 min-w-[72px]"
+                >
+                  <DbIcon kind={kind} className="size-5 opacity-70" />
+                  <span className="text-[11px] text-muted-foreground/70 font-medium">{KIND_LABELS[kind] ?? kind}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted-foreground/60 mb-6">
+              Plus DuckDB, SQLite, TigerBeetle, Qdrant &mdash; {KINDS.length} databases supported
+            </p>
+          </>
+        )}
+
+        {/* Keyboard shortcuts hint */}
+        <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground/50">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-[10px]">⌘K</kbd>
+            Quick search
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-[10px]">⌘N</kbd>
+            New query
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Workspace() {
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -197,14 +275,8 @@ function Workspace() {
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
 
   if (!activeConnectionId || !activeConnection) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-base font-medium mb-1">Welcome to kamehadb</h2>
-          <p className="text-sm text-muted-foreground">Create or select a connection to get started</p>
-        </div>
-      </div>
-    );
+    const greetingLine = getGreeting();
+    return <WelcomePage greeting={greetingLine[0]} prompt={greetingLine[1]} />;
   }
 
   const visibleTabs = openedTabs;
@@ -352,7 +424,7 @@ function ThemeToggle() {
   );
 }
 
-function Header() {
+function Header({ onSearchOpen }: { onSearchOpen: () => void }) {
   return (
     <header className="h-10 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background">
       <div className="flex items-center gap-3">
@@ -363,7 +435,16 @@ function Header() {
           <span className="font-mono text-sm font-bold tracking-widest text-primary ml-0.5">DB</span>
         </div>
       </div>
-      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={onSearchOpen} className="gap-1.5 text-xs text-muted-foreground/60">
+          <Search className="size-3.5" />
+          <span className="hidden sm:inline">Search</span>
+          <kbd className="hidden sm:inline-flex ml-1 items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50">
+            <span>⌘</span>K
+          </kbd>
+        </Button>
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
@@ -372,6 +453,7 @@ function App() {
   const view = useStore(appStore, (state) => state.view);
   const theme = useStore(appStore, (state) => state.theme);
   const closeAllChordUntilRef = useRef(0);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -411,6 +493,7 @@ function App() {
 
       if (hasCommandModifier && key === 'k' && !event.shiftKey && !event.altKey) {
         event.preventDefault();
+        setSearchOpen(true);
         closeAllChordUntilRef.current = Date.now() + 2500;
         return;
       }
@@ -441,8 +524,9 @@ function App() {
   return (
     <TooltipProvider>
       <Toaster />
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <div className="h-screen w-screen flex flex-col">
-        <Header />
+        <Header onSearchOpen={() => setSearchOpen(true)} />
         <div className="flex-1 flex overflow-hidden">
           <Sidebar />
           {view === 'api-settings' ? <ApiSettingsPage /> : <MainLayout />}

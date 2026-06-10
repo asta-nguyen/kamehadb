@@ -185,6 +185,25 @@ Notes:
 | DuckDB      | 5432 | —       | —        | —        |
 | TigerBeetle | 3000 | —       | —        | —        |
 
+### TigerBeetle Initialization
+
+TigerBeetle requires a one-time `format` step before first start. The docker-compose entrypoint auto-detects missing data files and runs format automatically.
+
+To seed sample data (accounts + transfers):
+
+```bash
+docker compose up -d tigerbeetle     # Start (auto-formats if first run)
+pnpm seed:tigerbeetle                # Create sample accounts + transfers
+```
+
+Or from the sidecar package:
+
+```bash
+pnpm --filter @kamehadb/sidecar seed:tigerbeetle
+```
+
+Override connection with env vars: `TB_HOST`, `TB_PORT`, `TB_CLUSTER_ID`.
+
 ## Testing And Verification
 
 - `pnpm test` currently depends mainly on workspace packages that expose a `test` script

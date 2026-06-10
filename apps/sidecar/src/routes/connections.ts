@@ -58,12 +58,15 @@ connectionsRouter.get('/health', async (c) => {
   const streamHealth = async function* () {
     while (!abortController.signal.aborted) {
       const profiles = metadataStore.listProfiles();
-      const results: Record<string, { success: boolean; message?: string }> = {};
+      // Include latency so the desktop can show "Connected • 42ms" tooltips
+      // and differentiate 'connected' from 'slow' based on a threshold.
+      const results: Record<string, { success: boolean; message?: string; latencyMs?: number }> = {};
 
       for (const profile of profiles) {
         const password = metadataStore.getProfilePassword(profile.id);
         try {
-          let result: { success: boolean; message?: string };
+          let result: { success: boolean; message?: string; latencyMs?: number };
+          const start = performance.now();
           switch (profile.kind) {
             case 'postgres':
               result = await testPostgresConnection({
@@ -140,10 +143,12 @@ connectionsRouter.get('/health', async (c) => {
             default:
               result = { success: false, message: `Unsupported: ${profile.kind}` };
           }
+          result.latencyMs = Math.round(performance.now() - start);
           results[profile.id] = result;
         } catch (err) {
           results[profile.id] = {
             success: false,
+            latencyMs: 0,
             message: err instanceof Error ? err.message : 'Unknown error',
           };
         }
