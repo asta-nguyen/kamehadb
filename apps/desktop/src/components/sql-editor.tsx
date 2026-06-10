@@ -6,6 +6,7 @@ import { QueryHistoryPanel } from '@/components/query-history-panel';
 import { api } from '@/lib/api';
 import type { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
+import { toPng } from 'html-to-image';
 import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 const Editor = lazy(() => import('@monaco-editor/react'));
 
@@ -22,7 +23,7 @@ import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
-import { AlertCircle, BarChart3, Clock, Download, FileJson, History, Loader2, Play, Table2 } from 'lucide-react';
+import { AlertCircle, BarChart3, Clock, Download, FileJson, History, Image, Loader2, Play, Table2 } from 'lucide-react';
 import { ChartView } from '@/components/chart-view';
 
 function useCompletionsSchema(connectionId: string | null) {
@@ -46,6 +47,8 @@ function QueryResultTable({
   result: QueryResult;
   onSelectRow: (row: Record<string, unknown>) => void;
 }) {
+  const tableRef = useRef<HTMLDivElement>(null);
+
   const columns: ColumnDef<Record<string, unknown>>[] = result.columns.map((col) => ({
     id: col.name,
     header: (
@@ -60,7 +63,7 @@ function QueryResultTable({
   }));
 
   return (
-    <div className="p-4">
+    <div ref={tableRef} className="p-4">
       <div className="overflow-auto border rounded-md">
         <DataTable
           rows={result.rows}
@@ -83,16 +86,34 @@ function QueryResultTable({
             </Badge>
           )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
-            <Download className="size-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+              <Download className="size-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            onClick={async () => {
+              if (!tableRef.current) return;
+              const dataUrl = await toPng(tableRef.current, { backgroundColor: '#ffffff' });
+              const res = await fetch(dataUrl);
+              const blob = await res.blob();
+              await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            }}
+            title="Copy result snapshot"
+          >
+            <Image className="size-3" />
+            Snapshot
+          </Button>
+        </div>
       </div>
     </div>
   );

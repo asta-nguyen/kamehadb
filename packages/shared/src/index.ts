@@ -197,6 +197,7 @@ export type TestConnectionResult = {
   success: boolean;
   message?: string;
   serverVersion?: string;
+  latencyMs?: number;
 };
 
 // SQL adapter contract
@@ -660,7 +661,9 @@ export type WorkspaceTab =
       camera?: { position: number[]; target: number[] };
     }
   | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }
-  | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string };
+  | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string }
+  // TigerBeetle account/transfer explorer
+  | { id: string; type: 'tigerbeetle'; title: string; connectionId: string };
 
 export type AppView = 'workspace' | 'api-settings';
 
@@ -678,7 +681,9 @@ export type AppStoreState = {
   view: AppView;
   theme: 'light' | 'dark' | 'system';
   expandedConnections: string[];
-  connectionStatus: Record<string, 'connected' | 'disconnected'>;
+  pinnedConnections: string[];
+  connectionLatency: Record<string, number>;
+  connectionStatus: Record<string, 'connected' | 'slow' | 'disconnected' | 'reconnecting'>;
 };
 
 // SQL safety check constants and helper

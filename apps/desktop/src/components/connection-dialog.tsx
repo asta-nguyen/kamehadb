@@ -16,21 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Loader2, Plug, Plus, Check, FolderOpen } from 'lucide-react';
 import { DbIcon } from '@/components/db-icon';
-
-const KIND_LABELS: Record<DbKind, string> = {
-  postgres: 'PostgreSQL',
-  sqlite: 'SQLite',
-  mysql: 'MySQL',
-  redis: 'Redis',
-  mongodb: 'MongoDB',
-  qdrant: 'Qdrant',
-  sqlserver: 'SQL Server',
-  oracle: 'Oracle',
-  clickhouse: 'ClickHouse',
-  mariadb: 'MariaDB',
-  duckdb: 'DuckDB',
-  tigerbeetle: 'TigerBeetle',
-};
+import { KIND_LABELS, KINDS, DEFAULT_PORTS, PRESET_COLORS } from '@/lib/constants';
 
 const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; ring: string }> = {
   postgres: {
@@ -106,48 +92,6 @@ const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; r
     ring: 'data-[selected=true]:ring-orange-500/20',
   },
 };
-
-const KINDS: DbKind[] = [
-  'postgres',
-  'mysql',
-  'sqlite',
-  'redis',
-  'mongodb',
-  'qdrant',
-  'sqlserver',
-  'oracle',
-  'clickhouse',
-  'mariadb',
-  'duckdb',
-  'tigerbeetle',
-];
-
-const DEFAULT_PORTS: Record<DbKind, number> = {
-  postgres: 5432,
-  mysql: 3306,
-  sqlite: 0,
-  redis: 6379,
-  mongodb: 0,
-  qdrant: 6333,
-  sqlserver: 1433,
-  oracle: 1521,
-  clickhouse: 8123,
-  mariadb: 3306,
-  duckdb: 0,
-  tigerbeetle: 3000,
-};
-
-// Preset colors for connection badges
-const PRESET_COLORS = [
-  { hex: '#3b82f6', name: 'Blue' },
-  { hex: '#10b981', name: 'Emerald' },
-  { hex: '#f59e0b', name: 'Amber' },
-  { hex: '#ef4444', name: 'Red' },
-  { hex: '#8b5cf6', name: 'Violet' },
-  { hex: '#ec4899', name: 'Pink' },
-  { hex: '#06b6d4', name: 'Cyan' },
-  { hex: '#84cc16', name: 'Lime' },
-];
 
 function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> | null {
   try {
