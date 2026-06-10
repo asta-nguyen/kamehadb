@@ -22,8 +22,21 @@ import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
-import { AlertCircle, BarChart3, Clock, Download, FileJson, History, Loader2, Play, Table2 } from 'lucide-react';
+import {
+  AlertCircle,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  FileJson,
+  History,
+  Loader2,
+  Play,
+  Table2,
+} from 'lucide-react';
 import { ChartView } from '@/components/chart-view';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
@@ -42,10 +55,22 @@ type SqlEditorProps = {
 function QueryResultTable({
   result,
   onSelectRow,
+  queryLimit,
+  offset,
+  onPrevPage,
+  onNextPage,
+  onLimitChange,
 }: {
   result: QueryResult;
   onSelectRow: (row: Record<string, unknown>) => void;
+  queryLimit: number;
+  offset: number;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  onLimitChange: (newLimit: number) => void;
 }) {
+  const tableRef = useRef<HTMLDivElement>(null);
+
   const columns: ColumnDef<Record<string, unknown>>[] = result.columns.map((col) => ({
     id: col.name,
     header: (
@@ -60,7 +85,7 @@ function QueryResultTable({
   }));
 
   return (
-    <div className="p-4">
+    <div ref={tableRef} className="p-4">
       <div className="overflow-auto border rounded-md">
         <DataTable
           rows={result.rows}
@@ -73,6 +98,7 @@ function QueryResultTable({
       <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
           <span>{result.rowCount} rows returned</span>
+          {offset > 0 && <span className="text-muted-foreground/60">(offset {offset})</span>}
           <span className="flex items-center gap-1">
             <Clock className="size-3" />
             {result.durationMs}ms
@@ -83,16 +109,47 @@ function QueryResultTable({
             </Badge>
           )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
-            <Download className="size-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 mr-1">
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={offset === 0} onClick={onPrevPage}>
+              <ChevronLeft className="size-3.5" />
+              Prev
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              disabled={queryLimit === 0 || result.rowCount < queryLimit}
+              onClick={onNextPage}
+            >
+              Next
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
+          <div className="w-px h-4 bg-border mx-1" />
+          <Select value={String(queryLimit)} onValueChange={(v) => onLimitChange(Number(v))}>
+            <SelectTrigger className="h-7 text-xs w-22 gap-1" title="Row limit">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="50">50 rows</SelectItem>
+              <SelectItem value="100">100 rows</SelectItem>
+              <SelectItem value="500">500 rows</SelectItem>
+              <SelectItem value="1000">1000 rows</SelectItem>
+              <SelectItem value="0">No limit</SelectItem>
+            </SelectContent>
+          </Select>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+              <Download className="size-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </div>
   );
@@ -106,7 +163,13 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const [showHistory, setShowHistory] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const [splitRatio, setSplitRatio] = useState(0.5);
+  const [queryLimit, setQueryLimit] = useState(100);
+  const [offset, setOffset] = useState(0);
   const resultKeyRef = useRef(0);
+
+  // The SQL as last-executed, without any auto-appended LIMIT/OFFSET clause,
+  // so we can paginate by varying the offset while keeping the query intact.
+  const baseSqlRef = useRef(sql);
   const { data: completions } = useCompletionsSchema(connectionId);
   const completionsRef = useRef(completions);
   completionsRef.current = completions;
@@ -114,20 +177,48 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const runQuery = useRunQuery(connectionId);
   const saveHistory = useSaveQueryHistory(connectionId);
 
-  const handleRun = useCallback(async () => {
-    if (!sql.trim()) return;
-    setError(null);
-    setResult(null);
+  // Build the full SQL with LIMIT / OFFSET and execute it.
+  const executeQuery = useCallback(
+    async (querySql: string) => {
+      if (!querySql.trim()) return;
+      setError(null);
+      setResult(null);
+      try {
+        const res = await runQuery.mutateAsync({ query: querySql });
+        resultKeyRef.current++;
+        setResult(res);
+        saveHistory.mutate({ query: querySql, durationMs: res.durationMs, rowCount: res.rowCount });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Query failed');
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [runQuery, saveHistory],
+  );
 
-    try {
-      const res = await runQuery.mutateAsync({ query: sql });
-      resultKeyRef.current++;
-      setResult(res);
-      saveHistory.mutate({ query: sql, durationMs: res.durationMs, rowCount: res.rowCount });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Query failed');
-    }
-  }, [sql, runQuery, saveHistory]);
+  const handleRun = useCallback(() => {
+    if (!sql.trim()) return;
+    setOffset(0);
+    baseSqlRef.current = sql.trim();
+    const fullQuery = queryLimit > 0 ? `${baseSqlRef.current} LIMIT ${queryLimit}` : baseSqlRef.current;
+    void executeQuery(fullQuery);
+  }, [sql, executeQuery, queryLimit]);
+
+  const goNextPage = useCallback(() => {
+    const newOffset = offset + queryLimit;
+    setOffset(newOffset);
+    const fullQuery =
+      queryLimit > 0 ? `${baseSqlRef.current} LIMIT ${queryLimit} OFFSET ${newOffset}` : baseSqlRef.current;
+    void executeQuery(fullQuery);
+  }, [offset, queryLimit, executeQuery]);
+
+  const goPrevPage = useCallback(() => {
+    const newOffset = Math.max(0, offset - queryLimit);
+    setOffset(newOffset);
+    const fullQuery =
+      queryLimit > 0 ? `${baseSqlRef.current} LIMIT ${queryLimit} OFFSET ${newOffset}` : baseSqlRef.current;
+    void executeQuery(fullQuery);
+  }, [offset, queryLimit, executeQuery]);
 
   // Ref to avoid stale closure in Monaco keybinding (registered once on mount)
   const handleRunRef = useRef(handleRun);
@@ -320,7 +411,24 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
               (showChart ? (
                 <ChartView key={`chart-${resultKeyRef.current}`} result={result} />
               ) : (
-                <QueryResultTable key={resultKeyRef.current} result={result} onSelectRow={setSelectedRow} />
+                <QueryResultTable
+                  key={resultKeyRef.current}
+                  result={result}
+                  onSelectRow={setSelectedRow}
+                  queryLimit={queryLimit}
+                  offset={offset}
+                  onPrevPage={goPrevPage}
+                  onNextPage={goNextPage}
+                  onLimitChange={(newLimit) => {
+                    setQueryLimit(newLimit);
+                    setOffset(0);
+                    const currentSql = sql.trim();
+                    if (currentSql) {
+                      const fullQuery = newLimit > 0 ? `${currentSql} LIMIT ${newLimit}` : currentSql;
+                      void executeQuery(fullQuery);
+                    }
+                  }}
+                />
               ))}
           </div>
         </div>

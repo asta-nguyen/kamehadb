@@ -2,6 +2,20 @@ import { Store } from '@tanstack/store';
 import { nanoid } from 'nanoid';
 import type { AppStoreState, AppView, WorkspaceTab } from '@kamehadb/shared';
 
+// Restore saved session tabs from localStorage
+function restoreTabs(): WorkspaceTab[] {
+  try {
+    const raw = localStorage.getItem('kamehadb_tabs');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function restoreActiveTab(): string | null {
+  return localStorage.getItem('kamehadb_active_tab') ?? null;
+}
+
 const initialState: AppStoreState = {
   activeConnectionId: null,
   activeDatabaseId: null,
@@ -9,14 +23,16 @@ const initialState: AppStoreState = {
   activeTableId: null,
   activeMongoDatabase: null,
   aiPanelConnectionId: null,
-  openedTabs: [],
-  activeTabId: null,
+  openedTabs: restoreTabs(),
+  activeTabId: restoreActiveTab(),
   sidebarCollapsed: false,
   density: 'compact',
   view: 'workspace',
   theme: (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system',
   expandedConnections: [],
+  pinnedConnections: JSON.parse(localStorage.getItem('kamehadb_pinned') ?? '[]'),
   connectionStatus: {},
+  connectionLatency: {},
 };
 
 export const appStore = new Store<AppStoreState>(initialState);
@@ -82,6 +98,24 @@ export function openDatabaseStatsTab(connectionId: string) {
     id: `${connectionId}:db-stats`,
     type: 'database-stats' as const,
     title: 'Database Stats',
+    connectionId,
+  });
+}
+
+export function openSchemaTimelineTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:schema-timeline`,
+    type: 'schema-timeline' as const,
+    title: 'Schema Timeline',
+    connectionId,
+  });
+}
+
+export function openMigrationTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:migration`,
+    type: 'migration' as const,
+    title: 'Migration Assistant',
     connectionId,
   });
 }
@@ -230,6 +264,28 @@ export function navigateTo(view: AppView) {
   appStore.setState((state) => ({ ...state, view }));
 }
 
+// Persist opened tabs to localStorage whenever they change
+appStore.subscribe(() => {
+  const { openedTabs, activeTabId } = appStore.state;
+  try {
+    localStorage.setItem('kamehadb_tabs', JSON.stringify(openedTabs));
+    if (activeTabId) localStorage.setItem('kamehadb_active_tab', activeTabId);
+    else localStorage.removeItem('kamehadb_active_tab');
+  } catch {
+    // Storage quota or other write error — skip
+  }
+});
+
+export function togglePinnedConnection(id: string) {
+  appStore.setState((state) => {
+    const pinned = state.pinnedConnections.includes(id)
+      ? state.pinnedConnections.filter((p) => p !== id)
+      : [...state.pinnedConnections, id];
+    localStorage.setItem('kamehadb_pinned', JSON.stringify(pinned));
+    return { ...state, pinnedConnections: pinned };
+  });
+}
+
 export function toggleExpandedConnection(id: string) {
   appStore.setState((state) => {
     const expanded = state.expandedConnections.includes(id)
@@ -239,11 +295,24 @@ export function toggleExpandedConnection(id: string) {
   });
 }
 
-export function setConnectionStatus(id: string, status: 'connected' | 'disconnected') {
+const LATENCY_SLOW_THRESHOLD = 500;
+
+export function setConnectionStatus(id: string, status: 'connected' | 'slow' | 'disconnected' | 'reconnecting') {
   appStore.setState((state) => {
     if (state.connectionStatus[id] === status) return state;
     return { ...state, connectionStatus: { ...state.connectionStatus, [id]: status } };
   });
+}
+
+export function setConnectionLatency(id: string, latencyMs: number) {
+  appStore.setState((state) => ({
+    ...state,
+    connectionLatency: { ...state.connectionLatency, [id]: latencyMs },
+    connectionStatus: {
+      ...state.connectionStatus,
+      [id]: latencyMs > LATENCY_SLOW_THRESHOLD ? 'slow' : 'connected',
+    },
+  }));
 }
 
 export function setTheme(theme: 'light' | 'dark' | 'system') {

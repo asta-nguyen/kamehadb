@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useConnections,
   useDeleteConnection,
@@ -21,6 +22,13 @@ import {
   useConnectionHealth,
 } from '@/hooks/use-connections';
 import { getApiBase } from '@/lib/api';
+import {
+  GROUP_LABELS,
+  GROUP_ORDER,
+  SIDEBAR_MIN_WIDTH as MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH as MAX_WIDTH,
+  SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
+} from '@/lib/constants';
 import {
   appStore,
   navigateTo,
@@ -32,9 +40,13 @@ import {
   openQdrantSearchTab,
   openRedisQueryTab,
   openRedisTab,
+  openMigrationTab,
+  openSchemaTimelineTab,
   setActiveConnection,
+  setConnectionLatency,
   setConnectionStatus,
   toggleExpandedConnection,
+  togglePinnedConnection,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
@@ -42,10 +54,12 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
-  Database,
   FileText,
+  History,
   Loader2,
   MoreVertical,
+  Pin,
+  PinOff,
   RefreshCw,
   Search,
   Settings2,
@@ -54,8 +68,10 @@ import {
   Terminal,
   Trash2,
 } from 'lucide-react';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
+import { DbIcon } from './db-icon';
 import { MongoExplorer } from './mongo-explorer';
 import { QdrantExplorer } from './qdrant-explorer';
 import { TigerBeetleExplorer } from './tigerbeetle-explorer';
@@ -76,16 +92,37 @@ function ConnectionItem({
 }) {
   const expandedConnections = useStore(appStore, (state) => state.expandedConnections);
   const connectionStatus = useStore(appStore, (state) => state.connectionStatus);
+  const connectionLatency = useStore(appStore, (state) => state.connectionLatency);
+  const pinnedConnections = useStore(appStore, (state) => state.pinnedConnections);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
   const expanded = expandedConnections.includes(conn.id);
+  const pinned = pinnedConnections.includes(conn.id);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
   const healthCheck = useConnectionHealth(conn.id);
 
-  const status = healthCheck.data ?? connectionStatus[conn.id] ?? 'disconnected';
-  const indicatorColor = conn.color || (status === 'connected' ? '#22c55e' : '#ef4444');
+  // SSE is the primary health source (has latency + reconnecting states).
+  // Fall back to healthCheck on first render before SSE arrives.
+  const status = conn.id in connectionStatus ? connectionStatus[conn.id] : (healthCheck.data ?? 'disconnected');
+  const latency = connectionLatency[conn.id];
+  const indicatorColor =
+    status === 'connected'
+      ? conn.color || '#22c55e'
+      : status === 'slow'
+        ? '#eab308'
+        : status === 'reconnecting'
+          ? '#f97316'
+          : '#ef4444';
+  const statusLabel =
+    status === 'connected' && latency !== undefined
+      ? `Connected • ${latency}ms`
+      : status === 'slow'
+        ? `Slow • ${latency}ms`
+        : status === 'reconnecting'
+          ? 'Reconnecting…'
+          : 'Offline';
 
   return (
     <div className="relative grow">
@@ -124,10 +161,39 @@ function ConnectionItem({
         ) : (
           <span className="shrink-0 size-4" />
         )}
-        <Database className="text-muted-foreground/60 shrink-0 size-4" />
-        <span className="flex-1 min-w-0 text-foreground/90 font-medium truncate" title={conn.name}>
-          {conn.name}
-        </span>
+        <DbIcon kind={conn.kind} className="shrink-0 size-4" />
+        <Tooltip>
+          <TooltipTrigger className="flex-1 min-w-0 text-foreground/90 font-medium truncate cursor-default">
+            {conn.name}
+            {pinned && <Pin className="size-3 inline ml-1.5 text-muted-foreground/50" />}
+          </TooltipTrigger>
+          <TooltipContent side="right" align="start" sideOffset={12} className="rounded-lg shadow-sm px-4 py-3">
+            <div className="text-xs leading-relaxed min-w-[180px]">
+              <p className="font-semibold mb-2">{conn.name}</p>
+              <div className="space-y-1.5 text-popover-foreground/65">
+                <div className="flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: indicatorColor }} />
+                  <span>{statusLabel}</span>
+                </div>
+                <p className="capitalize">
+                  {conn.kind}
+                  {conn.host ? ` · ${conn.host}:${conn.port}` : ''}
+                </p>
+                {conn.database && <p>db: {conn.database}</p>}
+                {conn.updatedAt && (
+                  <p className="text-popover-foreground/40 text-[10px]">
+                    {new Date(conn.updatedAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                )}
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
         <Button
           variant="ghost"
           size="icon"
@@ -156,6 +222,10 @@ function ConnectionItem({
             <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
               <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
               Reload
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => togglePinnedConnection(conn.id)}>
+              {pinned ? <PinOff className="mr-2 size-3.5" /> : <Pin className="mr-2 size-3.5" />}
+              {pinned ? 'Unpin' : 'Pin to top'}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
               <Sparkles className="mr-2 size-3.5" />
@@ -234,15 +304,35 @@ function ConnectionItem({
               conn.kind !== 'redis' &&
               conn.kind !== 'qdrant' &&
               conn.kind !== 'tigerbeetle' && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openDatabaseStatsTab(conn.id);
-                  }}
-                >
-                  <BarChart3 className="mr-2 size-3.5" />
-                  Stats
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openDatabaseStatsTab(conn.id);
+                    }}
+                  >
+                    <BarChart3 className="mr-2 size-3.5" />
+                    Stats
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openSchemaTimelineTab(conn.id);
+                    }}
+                  >
+                    <History className="mr-2 size-3.5" />
+                    Schema Timeline
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openMigrationTab(conn.id);
+                    }}
+                  >
+                    <Terminal className="mr-2 size-3.5" />
+                    Migration Assistant
+                  </DropdownMenuItem>
+                </>
               )}
             <DropdownMenuItem onClick={() => setShowEdit(true)}>
               <Settings2 className="mr-2 size-3.5" />
@@ -255,25 +345,12 @@ function ConnectionItem({
           </DropdownMenuContent>
         </DropdownMenu>
         <span
-          className={`text-xs px-1.5 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${
-            conn.kind === 'postgres'
-              ? 'bg-primary/10 text-primary'
-              : conn.kind === 'redis'
-                ? 'bg-destructive/10 text-destructive'
-                : conn.kind === 'mongodb'
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-muted text-muted-foreground'
-          }`}
-        >
-          {conn.kind}
-        </span>
-        <span
-          className="h-2.5 w-2.5 rounded-full ring-2 ring-background shrink-0"
+          className={`h-2.5 w-2.5 rounded-full ring-2 ring-background shrink-0 ${status === 'reconnecting' ? 'animate-pulse' : ''}`}
           style={{
             backgroundColor: indicatorColor,
-            boxShadow: status === 'connected' ? `0 0 8px ${indicatorColor}` : 'none',
+            boxShadow: status === 'connected' || status === 'slow' ? `0 0 8px ${indicatorColor}` : 'none',
           }}
-          title={status}
+          title={statusLabel}
         />
       </div>
       {showEdit && (
@@ -347,30 +424,29 @@ function ConnectionItem({
   );
 }
 
-const GROUP_ORDER: Record<string, number> = {
-  postgres: 0,
-  mysql: 1,
-  sqlite: 2,
-  redis: 3,
-  mongodb: 4,
-  qdrant: 5,
-  sqlserver: 6,
-  oracle: 7,
-  clickhouse: 8,
-  mariadb: 9,
-  duckdb: 10,
-  tigerbeetle: 11,
-};
-
 function ConnectionGroup({
+  kind,
   conns,
   activeConnectionId,
 }: {
+  kind: string;
   conns: ConnectionProfile[];
   activeConnectionId: string | null;
 }) {
+  const isPinned = kind === '_pinned';
   return (
     <div className="space-y-0.5">
+      <div className={`flex items-center gap-2 px-2 py-1.5 rounded-md ${isPinned ? 'bg-muted/50' : 'bg-muted/30'}`}>
+        {isPinned ? (
+          <Pin className="size-3 text-muted-foreground/60" />
+        ) : (
+          <DbIcon kind={kind as any} className="size-3.5" />
+        )}
+        <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">
+          {isPinned ? 'Pinned' : (GROUP_LABELS[kind] ?? kind)}
+        </span>
+        <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">{conns.length}</span>
+      </div>
       {conns.map((conn) => (
         <ConnectionItem
           key={conn.id}
@@ -383,10 +459,6 @@ function ConnectionGroup({
   );
 }
 
-const MIN_WIDTH = 250;
-const MAX_WIDTH = 400;
-const DEFAULT_WIDTH = 300;
-
 export function Sidebar() {
   const { data: connections, isLoading } = useConnections();
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
@@ -396,16 +468,25 @@ export function Sidebar() {
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
+  const pinnedConnections = useStore(appStore, (state) => state.pinnedConnections);
   const groups = useMemo(() => {
     if (!connections) return [];
+    const pinned: ConnectionProfile[] = [];
     const grouped: Record<string, ConnectionProfile[]> = {};
     for (const conn of connections) {
-      const key = conn.kind in GROUP_ORDER ? conn.kind : 'other';
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(conn);
+      if (pinnedConnections.includes(conn.id)) {
+        pinned.push(conn);
+      } else {
+        const key = conn.kind in GROUP_ORDER ? conn.kind : 'other';
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(conn);
+      }
     }
-    return Object.entries(grouped).sort(([a], [b]) => (GROUP_ORDER[a] ?? 99) - (GROUP_ORDER[b] ?? 99));
-  }, [connections]);
+    const entries: [string, ConnectionProfile[]][] = [];
+    if (pinned.length > 0) entries.push(['_pinned', pinned]);
+    entries.push(...Object.entries(grouped).sort(([a], [b]) => (GROUP_ORDER[a] ?? 99) - (GROUP_ORDER[b] ?? 99)));
+    return entries;
+  }, [connections, pinnedConnections]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -437,11 +518,46 @@ export function Sidebar() {
   useEffect(() => {
     const url = `${getApiBase()}/connections/health`;
     const es = new EventSource(url);
+    // Track reconnecting grace period per connection
+    const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
     es.onmessage = (event) => {
       try {
-        const results: Record<string, { success: boolean }> = JSON.parse(event.data);
+        const results: Record<string, { success: boolean; latencyMs?: number }> = JSON.parse(event.data);
         for (const [id, r] of Object.entries(results)) {
-          setConnectionStatus(id, r.success ? 'connected' : 'disconnected');
+          if (r.success) {
+            // Clear any pending reconnect timer
+            const timer = reconnectTimers.get(id);
+            if (timer) {
+              clearTimeout(timer);
+              reconnectTimers.delete(id);
+            }
+            if (r.latencyMs !== undefined) {
+              setConnectionStatus(id, r.latencyMs > 500 ? 'slow' : 'connected');
+              setConnectionLatency(id, r.latencyMs);
+            } else {
+              setConnectionStatus(id, 'connected');
+            }
+          } else {
+            // Failed — show reconnecting briefly, then settle on disconnected
+            const prevStatus = appStore.state.connectionStatus[id];
+            if (prevStatus === 'connected' || prevStatus === 'slow') {
+              setConnectionStatus(id, 'reconnecting');
+              const timer = setTimeout(() => {
+                const s = appStore.state.connectionStatus[id];
+                if (s === 'reconnecting') {
+                  setConnectionStatus(id, 'disconnected');
+                }
+                reconnectTimers.delete(id);
+              }, 5000);
+              reconnectTimers.set(id, timer);
+            } else if (prevStatus !== 'reconnecting') {
+              setConnectionStatus(id, 'disconnected');
+            }
+            if (r.latencyMs !== undefined) {
+              setConnectionLatency(id, r.latencyMs);
+            }
+          }
         }
       } catch {
         // Malformed SSE payload — skip
@@ -450,7 +566,10 @@ export function Sidebar() {
     es.onerror = () => {
       // Connection lost — the browser will auto-reconnect
     };
-    return () => es.close();
+    return () => {
+      es.close();
+      for (const timer of reconnectTimers.values()) clearTimeout(timer);
+    };
   }, []);
 
   return (
@@ -474,7 +593,7 @@ export function Sidebar() {
               <p className="px-2 py-4 text-center text-xs">No connections yet</p>
             ) : (
               groups.map(([kind, conns]) => (
-                <ConnectionGroup key={kind} conns={conns} activeConnectionId={activeConnectionId} />
+                <ConnectionGroup key={kind} kind={kind} conns={conns} activeConnectionId={activeConnectionId} />
               ))
             )}
           </div>

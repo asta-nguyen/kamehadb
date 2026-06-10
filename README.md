@@ -12,10 +12,15 @@
 
 - **AI-SQL Generation** — Chat with AI to generate, explain, and debug SQL queries. Supports OpenAI, Ollama (local & cloud), and 9Router. AI has access to your schema context for accurate query generation.
 - **Schema-Aware Context** — AI automatically knows your table structure, columns, types, and foreign key relationships when generating queries.
-- **Multi-engine support** — PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, and TigerBeetle
+- **Multi-engine support** — PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, TigerBeetle, and MariaDB
 - **Schema browser** — Browse databases, schemas, tables, columns, and indexes
 - **SQL editor** — Monaco-based editor with syntax highlighting, autocomplete, and FK-aware JOIN/ON suggestions
 - **ER diagram** — Auto-generated graph of tables and foreign key relationships (powered by ReactFlow + dagre)
+- **Global search (Ctrl+K)** — Fuzzy-search across connections, tables, columns, open tabs, and quick actions
+- **Charts** — Built-in bar, line, area, and pie chart views for query results (powered by recharts)
+- **Connection health monitoring** — Live status badges with latency tracking, slow/reconnecting/offline states, and tooltips
+- **Pin & favorites** — Pin connections to the top of the sidebar for quick access, persisted across sessions
+- **Workspace tabs memory** — Open tabs survive page refresh via localStorage persistence
 - **Connection URL** — paste `postgresql://`, `mysql://`, or `redis://` URIs to auto-fill connection fields
 - **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine
 
@@ -165,10 +170,19 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 
 - [x] Query history with favorites
 - [x] Data visualization / charts
+- [x] Connection health monitoring
+- [x] Global search (Ctrl+K)
+- [x] Pin / favorites connections
+- [x] Workspace tabs memory
+- [x] Production safety mode — prevent accidental writes to production
+
+### In Progress
+
+- [x] Schema change timeline — track column additions, removals, index changes for debugging
+- [x] Migration assistant
 
 ### Future Ideas
 
-- [ ] Migration assistant
 - [ ] Collaboration features
 
 ## License

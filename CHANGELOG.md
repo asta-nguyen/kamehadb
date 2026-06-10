@@ -9,7 +9,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Docker init seed assets for the supported engines, including PostgreSQL, MySQL, MariaDB, DuckDB, ClickHouse, SQL Server, Oracle, MongoDB, Redis, Qdrant, and TigerBeetle. SQLite remains file-based and is not seeded from Docker init.
+- **Migration Assistant** — compare two schema snapshots (before/after) and generate the DDL migration SQL to go from one to the other (`CREATE TABLE`, `ALTER TABLE`, `CREATE/DROP INDEX`, etc.). Accessed via the connection dropdown menu. ([@opencode])
+- **Query history performance panel** — history is now grouped by normalized query pattern (literals stripped) with duration per group, favorites filter, and text search. ([@opencode])
+- **Copy result table as snapshot** — "Copy table" button in the result toolbar copies the result grid as tab-separated text to clipboard for quick sharing. ([@opencode])
+- **Global search palette** (`Ctrl+K`) — fuzzy-search across connections, schema tables/columns, open tabs, and quick actions (New Query, Graph, DB Stats, AI Chat). Uses cmdk with keyboard navigation. Search button visible in the header for non-keyboard users. ([@opencode])
+- **Connection health badges** — status dot now shows connected/green, slow/yellow (≥500ms latency), reconnecting/pulsing, or offline/red. Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before settling on disconnected.
+- **Schema change timeline** — capture schema snapshots (tables, columns, indexes) on demand and view a chronological changelog of additions, removals, and type changes. Accessed via the connection dropdown menu. ([@opencode])
+- **Time-aware welcome screen** — greetings change by time of day (morning/afternoon/evening/night) with a pool of curated messages, last-shown tracking, and returning-visitor prompt rotation.
+- **Connection hover tooltip** — hover connection name to see kind, host:port, database, status with latency, and last-updated timestamp.
+- **Pin connections to top** — "Pin to top"/"Unpin" in connection dropdown. Pinned connections appear in a separate "Pinned" section at the top of the sidebar. State persisted to localStorage.
+- **Workspace tabs memory** — open tabs and active tab are saved to localStorage and restored on page load, so sessions survive refresh.
+- **Sidebar database icons** — replaced generic Lucide `Database` icon with engine-specific `DbIcon` (PostgreSQL, MySQL, MongoDB, Redis, SQL Server, Oracle, ClickHouse, MariaDB) and local SVG logos (DuckDB, SQLite, TigerBeetle, Qdrant).
+- TigerBeetle seed script (`seed:tigerbeetle`) added to sidecar package.json. ([@opencode])
 - **DuckDB adapter** — connect to local `.duckdb` files for embedded analytical queries. ([@JoeJoeflyn])
 - **TigerBeetle adapter** — connect to TigerBeetle distributed ledger clusters with built-in connection pooling. ([@JoeJoeflyn])
 - **Docker compose services for DuckDB and TigerBeetle** — add `docker-compose.yml` entries for DuckDB (CLI + HTTP) and TigerBeetle. Start with `docker compose up -d duckdb tigerbeetle`.
@@ -36,6 +47,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- **JSON record viewer rendered HTML entities instead of characters** — `formatJsonSyntax` was using `escapeHtml()` then matching `&quot;` entities, but React re-escapes text content, causing `&amp;quot;` rendering. Rewritten to tokenize raw JSON with proper quote matching. ([@opencode])
 - TigerBeetle seed script now reuses the existing `tigerbeetle` connection instead of creating a fresh `tigerbeetle-seed-*` row on every run, so retries no longer clutter the metadata SQLite database.
 - SQL editor ignored the connection's read-only setting because of a duplicate client-side safety check in `useRunQuery`; the server already enforces the rule, so the redundant client check (which used a stale cache) has been removed
 - AI chat: SQL query results were being rendered with a "MONGODB" language label because the chat panel was collapsing `json`-tagged code fences into the JavaScript bucket. `normalizeCodeLanguage` now keeps `json` as its own label (`json`), so `\`\`\`json`result blocks render as JSON, not MongoDB. Helper extracted to`apps/desktop/src/lib/ai-chat-helpers.ts` with a vitest spec.

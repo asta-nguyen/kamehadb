@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function useQueryHistory(connectionId: string | null, limit = 50) {
   return useQuery({
-    queryKey: QUERY_KEYS.QUERY_HISTORY(connectionId),
+    queryKey: [...QUERY_KEYS.QUERY_HISTORY(connectionId), { limit }],
     queryFn: () => api.request<QueryHistoryEntry[]>('GET', `/query-history/${connectionId}?limit=${limit}`),
     enabled: !!connectionId,
   });

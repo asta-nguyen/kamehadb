@@ -58,7 +58,7 @@ services:
       - duckdb_data:/data
 
   tigerbeetle:
-    image: ghcr.io/tigerbeetle/tigerbeetle:0.17.4
+    image: ghcr.io/tigerbeetle/tigerbeetle:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
