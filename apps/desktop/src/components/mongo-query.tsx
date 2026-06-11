@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartView } from '@/components/chart-view';
+import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { Play, Loader2, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChart3 } from 'lucide-react';
 import JSON5 from 'json5';
 import type { WorkspaceTab, DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
@@ -328,13 +329,12 @@ function AggregationResult({
   );
 }
 
-// Derive column metadata from the first document in a result set so
-// ChartView (which expects QueryColumn[]) can consume Mongo results.
+// Derive column metadata from every document so sparse fields remain
+// available when ChartView consumes Mongo aggregation results.
 function deriveColumns(docs: Record<string, unknown>[]): QueryResult['columns'] {
   if (docs.length === 0) return [];
-  const sample = docs[0];
-  return Object.keys(sample).map((name) => {
-    const val = sample[name];
+  return collectRecordFields(docs).map((name) => {
+    const val = docs.find((doc) => doc[name] !== undefined)?.[name];
     let type = 'string';
     if (typeof val === 'number') type = Number.isInteger(val) ? 'integer' : 'number';
     else if (typeof val === 'boolean') type = 'boolean';

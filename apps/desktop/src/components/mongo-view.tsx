@@ -12,15 +12,16 @@ import { DocumentTableView } from '@/components/mongo-document-table-view';
 import { MongoViewHeader } from '@/components/mongo-view-header';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
+import { collectRecordFields } from '@/hooks/use-field-visibility';
 
 const PAGE_LIMIT = 20;
 
-// Derive column metadata from the first document for ChartView consumption.
+// Derive column metadata from every document so sparse Mongo fields remain
+// available to chart and table consumers.
 function deriveColumns(docs: Record<string, unknown>[]): QueryResult['columns'] {
   if (docs.length === 0) return [];
-  const sample = docs[0];
-  return Object.keys(sample).map((name) => {
-    const val = sample[name];
+  return collectRecordFields(docs).map((name) => {
+    const val = docs.find((doc) => doc[name] !== undefined)?.[name];
     let type = 'string';
     if (typeof val === 'number') type = Number.isInteger(val) ? 'integer' : 'number';
     else if (typeof val === 'boolean') type = 'boolean';
@@ -261,7 +262,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     return null;
   }, [state.sortStr]);
 
-  const sortFields = useMemo(() => (data?.documents[0] ? Object.keys(data.documents[0]) : []), [data]);
+  const sortFields = useMemo(() => collectRecordFields(data?.documents ?? []), [data]);
 
   const onRefresh = useCallback(() => {
     refetch();

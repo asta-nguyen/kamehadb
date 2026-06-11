@@ -45,6 +45,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- SQL and Mongo table views now show every available field by default, keep newly discovered fields visible, and only hide fields explicitly disabled from the Fields dropdown.
 - **JSON record viewer rendered HTML entities instead of characters** — `formatJsonSyntax` was using `escapeHtml()` then matching `&quot;` entities, but React re-escapes text content, causing `&amp;quot;` rendering. Rewritten to tokenize raw JSON with proper quote matching. ([@opencode])
 - TigerBeetle seed script now reuses the existing `tigerbeetle` connection instead of creating a fresh `tigerbeetle-seed-*` row on every run, so retries no longer clutter the metadata SQLite database.
 - SQL editor ignored the connection's read-only setting because of a duplicate client-side safety check in `useRunQuery`; the server already enforces the rule, so the redundant client check (which used a stale cache) has been removed

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Copy, Check, Eye, Save, X, Trash2, Columns3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,16 +16,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { RecordDetailTabs } from '@/components/table-view';
+import { collectRecordFields, useFieldVisibility } from '@/hooks/use-field-visibility';
 
 function formatCellValue(value: unknown): string {
   if (value === null) return 'null';
   if (value === undefined) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
-}
-
-function areStringListsEqual(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 interface DocumentTableViewProps {
@@ -54,25 +51,11 @@ export function DocumentTableView({
   const [saving, setSaving] = useState(false);
   const [copiedRow, setCopiedRow] = useState<number | null>(null);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
-  const [visibleFields, setVisibleFields] = useState<string[]>([]);
-
-  const columns = useMemo(() => {
-    const keys = new Set<string>();
-    documents.forEach((doc) => Object.keys(doc).forEach((k) => keys.add(k)));
-    return Array.from(keys);
-  }, [documents]);
-
-  // Keep the field picker stable across data refreshes while dropping fields
-  // that no longer exist. On first load, default to showing every field.
-  useEffect(() => {
-    setVisibleFields((prev) => {
-      if (columns.length === 0) return [];
-      if (prev.length === 0) return columns;
-      const next = prev.filter((field) => columns.includes(field));
-      const resolved = next.length > 0 ? next : columns;
-      return areStringListsEqual(prev, resolved) ? prev : resolved;
-    });
-  }, [columns]);
+  const columns = useMemo(() => collectRecordFields(documents), [documents]);
+  const { visibleFields, toggleFieldVisibility } = useFieldVisibility(
+    columns,
+    `${connectionId}:${database}:${collection}`,
+  );
 
   const currentSort = useMemo(() => {
     try {
@@ -151,21 +134,6 @@ export function DocumentTableView({
       // clipboard not available
     }
   };
-
-  // Never let the field picker hide the final visible column; an empty grid is
-  // more confusing than a dense one, so the last field stays pinned on.
-  const toggleFieldVisibility = useCallback(
-    (field: string, nextChecked: boolean) => {
-      setVisibleFields((prev) => {
-        if (nextChecked) {
-          return columns.filter((column) => column === field || prev.includes(column));
-        }
-        if (prev.length <= 1) return prev;
-        return prev.filter((column) => column !== field);
-      });
-    },
-    [columns],
-  );
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = useMemo(
     () =>

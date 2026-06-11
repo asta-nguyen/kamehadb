@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useReducer, useRef, useState } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
+import { useFieldVisibility } from '@/hooks/use-field-visibility';
 import { TableStats } from '@/components/table-stats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -46,10 +47,6 @@ type TableViewProps = {
   connectionId: string;
   tableId: string;
 };
-
-function areStringListsEqual(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((value, index) => value === b[index]);
-}
 
 // Group offset/pageSize/selectedRow/search/sort state into one reducer so a
 // single dispatch produces a single re-render instead of seven.
@@ -111,8 +108,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     sortColumn: '',
     sortDirection: 'asc',
   });
-  const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-
   const debouncedSetSearch = useRef<ReturnType<typeof debounce<(v: string) => void>> | null>(null);
   if (debouncedSetSearch.current === null) {
     debouncedSetSearch.current = debounce(
@@ -135,20 +130,14 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   });
 
   const page = Math.floor(state.offset / state.pageSize) + 1;
-  const displayColumns = result?.columns ?? columns ?? [];
-
-  // Keep the selected field set aligned with the current result shape without
-  // wiping the user's choices on every refresh, sort, or page change.
-  useEffect(() => {
-    const nextNames = displayColumns.map((column) => column.name);
-    setVisibleColumns((prev) => {
-      if (nextNames.length === 0) return [];
-      if (prev.length === 0) return nextNames;
-      const filtered = prev.filter((name) => nextNames.includes(name));
-      const resolved = filtered.length > 0 ? filtered : nextNames;
-      return areStringListsEqual(prev, resolved) ? prev : resolved;
-    });
-  }, [displayColumns]);
+  // Prefer schema metadata because several adapters cannot infer columns from
+  // an empty page; result metadata remains the fallback while schema loads.
+  const displayColumns = columns && columns.length > 0 ? columns : (result?.columns ?? []);
+  const displayColumnNames = displayColumns.map((column) => column.name);
+  const { visibleFields: visibleColumns, toggleFieldVisibility } = useFieldVisibility(
+    displayColumnNames,
+    `${connectionId}:${tableId}`,
+  );
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns
     .filter((col) => visibleColumns.includes(col.name))
@@ -197,20 +186,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                 {displayColumns.map((col) => {
                   const checked = visibleColumns.includes(col.name);
                   return (
-                    <DropdownMenuItem
-                      key={col.name}
-                      onClick={() => {
-                        setVisibleColumns((prev) => {
-                          if (!checked) {
-                            return displayColumns
-                              .map((column) => column.name)
-                              .filter((name) => name === col.name || prev.includes(name));
-                          }
-                          if (prev.length <= 1) return prev;
-                          return prev.filter((name) => name !== col.name);
-                        });
-                      }}
-                    >
+                    <DropdownMenuItem key={col.name} onClick={() => toggleFieldVisibility(col.name, !checked)}>
                       <span className="truncate" title={col.name}>
                         {col.name}
                       </span>
