@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Copy, Check, Eye, Save, X, Trash2, Columns3 } from 'lucide-react';
+import { Copy, Eye, Save, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type ColumnDef } from '@/components/data-table';
@@ -7,10 +7,7 @@ import { api } from '@/lib/api';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuShortcut,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -49,13 +46,9 @@ export function DocumentTableView({
   const [editCell, setEditCell] = useState<{ row: number; key: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
-  const [copiedRow, setCopiedRow] = useState<number | null>(null);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
   const columns = useMemo(() => collectRecordFields(documents), [documents]);
-  const { visibleFields, toggleFieldVisibility } = useFieldVisibility(
-    columns,
-    `${connectionId}:${database}:${collection}`,
-  );
+  const { visibleFields } = useFieldVisibility(columns, `${connectionId}:${database}:${collection}`);
 
   const currentSort = useMemo(() => {
     try {
@@ -125,11 +118,9 @@ export function DocumentTableView({
     [saveEdit, cancelEdit],
   );
 
-  const handleCopyRow = async (doc: Record<string, unknown>, rowIndex: number) => {
+  const handleCopyRow = async (doc: Record<string, unknown>) => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(doc, null, 2));
-      setCopiedRow(rowIndex);
-      setTimeout(() => setCopiedRow(null), 2000);
     } catch {
       // clipboard not available
     }
@@ -187,36 +178,7 @@ export function DocumentTableView({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 border-b bg-muted/20 px-3 py-2">
-        <div className="text-xs text-muted-foreground">
-          Showing {visibleFields.length} of {columns.length} fields
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="gap-1.5" />}>
-            <Columns3 className="size-3.5" />
-            Fields
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Visible fields</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {columns.map((field) => {
-                const checked = visibleFields.includes(field);
-                return (
-                  <DropdownMenuItem key={field} onClick={() => toggleFieldVisibility(field, !checked)}>
-                    <span className="truncate" title={field}>
-                      {field}
-                    </span>
-                    <DropdownMenuShortcut>{checked ? <Check className="size-3.5" /> : null}</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div className="overflow-x-auto">
+      <div>
         <DataTable
           rows={documents}
           columns={tableColumns}
@@ -226,29 +188,33 @@ export function DocumentTableView({
           sortColumn={currentSort?.field}
           sortDirection={currentSort?.dir === -1 ? 'desc' : 'asc'}
           suffixHeader="Actions"
-          suffixWidth="120px"
-          suffixHeaderClassName="sticky right-0 z-20 border-l border-border/50 bg-muted shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.6)]"
-          suffixCellClassName="sticky right-0 z-10 border-l border-border/30 bg-background shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.45)]"
-          suffix={(doc, rowIndex) => (
-            <div className="flex items-center justify-end gap-0.5">
-              <Button variant="ghost" size="icon" onClick={() => setSelectedRow(doc)} title="View details">
-                <Eye className="size-3" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => handleCopyRow(doc, rowIndex)} title="Copy JSON">
-                {copiedRow === rowIndex ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onDelete(doc)}
-                className="hover:bg-destructive/20 hover:text-destructive"
-                title="Delete document"
-              >
-                <Trash2 className="size-3" />
-              </Button>
-            </div>
+          suffixWidth="56px"
+          suffixCellClassName="bg-background"
+          suffix={(doc) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
+                  <path d="M8 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM9.5 12.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                </svg>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => setSelectedRow(doc)}>
+                  <Eye className="size-3.5 mr-2" />
+                  View details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleCopyRow(doc)}>
+                  <Copy className="size-3.5 mr-2" />
+                  Copy JSON
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onDelete(doc)}>
+                  <Trash2 className="size-3.5 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          className="min-w-max bg-background"
+          className="bg-background"
         />
       </div>
 

@@ -95,7 +95,7 @@ export function createOracleAdapter(connection: {
         const owner = schema?.toUpperCase() || connection.username?.toUpperCase();
         const result = await conn.execute(
           `SELECT table_name AS name, owner AS schema_name FROM all_tables WHERE owner = :owner ORDER BY table_name`,
-          [owner],
+          { owner },
         );
         return (result.rows as Record<string, string>[]).map((r) => ({
           id: `${r.SCHEMA_NAME}.${r.NAME}`,
@@ -113,25 +113,28 @@ export function createOracleAdapter(connection: {
         const parts = tableId.split('.');
         const owner = (parts.length > 1 ? parts[0] : connection.username)!.toUpperCase();
         const table = (parts.length > 1 ? parts[1] : tableId).toUpperCase();
-        const result = await conn.execute(
-          `SELECT
-            column_name AS name, data_type AS type, nullable,
-            data_default AS default,
-            (SELECT constraint_type FROM all_cons_columns ccl
-             JOIN all_constraints con ON ccl.constraint_name = con.constraint_name
-             WHERE ccl.table_name = :table AND ccl.column_name = cols.column_name
-               AND con.constraint_type = 'P' AND ROWNUM = 1) AS primary_key
-          FROM all_tab_cols cols
-          WHERE owner = :owner AND table_name = :table2
-          ORDER BY column_id`,
-          [table, owner, table],
+
+        const colResult = await conn.execute(
+          `SELECT column_name AS name, data_type AS type, nullable, data_default AS default
+           FROM all_tab_cols WHERE owner = :owner AND table_name = :table ORDER BY column_id`,
+          { owner, table },
         );
-        return (result.rows as Record<string, unknown>[]).map((r) => ({
+
+        const pkResult = await conn.execute(
+          `SELECT cc.column_name FROM all_cons_columns cc
+           JOIN all_constraints c ON cc.constraint_name = c.constraint_name
+           WHERE cc.owner = :owner AND cc.table_name = :table AND c.constraint_type = 'P'`,
+          { owner, table },
+        );
+
+        const pkColumns = new Set((pkResult.rows as Record<string, string>[]).map((r) => r.COLUMN_NAME));
+
+        return (colResult.rows as Record<string, unknown>[]).map((r) => ({
           name: r.NAME as string,
           type: r.TYPE as string,
           nullable: r.NULLABLE === 'Y',
           default: r.DEFAULT === null ? null : String(r.DEFAULT),
-          primaryKey: r.PRIMARY_KEY === 'P',
+          primaryKey: pkColumns.has(r.NAME as string),
         }));
       } finally {
         await conn.close();
@@ -152,7 +155,7 @@ export function createOracleAdapter(connection: {
           JOIN all_indexes ix ON i.index_name = ix.index_name AND i.table_owner = ix.owner
           WHERE i.table_owner = :owner AND i.table_name = :table
           ORDER BY i.index_name, i.column_position`,
-          [owner, table],
+          { owner, table },
         );
         const indexMap = new Map<string, IndexInfo>();
         for (const row of result.rows as Record<string, unknown>[]) {
@@ -183,7 +186,7 @@ export function createOracleAdapter(connection: {
           FROM all_tab_cols c
           WHERE c.owner = :owner
           ORDER BY c.table_name, c.column_id`,
-          [owner],
+          { owner },
         );
         const tableMap = new Map<string, TableCompletions>();
         for (const row of result.rows as Record<string, unknown>[]) {
@@ -219,7 +222,7 @@ export function createOracleAdapter(connection: {
         if (input.search) {
           const colResult = await conn.execute(
             `SELECT column_name FROM all_tab_cols WHERE owner = :owner AND table_name = :table ORDER BY column_id`,
-            [owner, table],
+            { owner, table },
           );
           const searchCols = (colResult.rows as Record<string, string>[]).map((r) => r.COLUMN_NAME as string);
           if (searchCols.length > 0) {

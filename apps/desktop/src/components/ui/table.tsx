@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import * as React from 'react';
 
 function Table({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} data-slot="table" className={cn('relative w-full overflow-auto', className)} {...props} />;
+  return <div ref={ref} data-slot="table" className={cn('relative w-full', className)} {...props} />;
 }
 Table.displayName = 'Table';
 
