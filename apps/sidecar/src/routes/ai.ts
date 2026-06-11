@@ -224,7 +224,7 @@ aiRouter.post(
                 } finally {
                   await adapter.close();
                 }
-              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle') {
+              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle' && profile.kind !== 'qdrant') {
                 const password = metadataStore.getProfilePassword(connectionId);
                 const adapter = createSqlAdapter(profile, password);
                 if (adapter) {

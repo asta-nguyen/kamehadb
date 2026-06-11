@@ -52,8 +52,12 @@ import { GREETINGS, PROMPTS, KIND_LABELS, KINDS } from '@/lib/constants';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
 function pick<T>(arr: readonly T[], last?: T): T {
+  if (arr.length === 0) {
+    throw new Error('pick: arr must not be empty');
+  }
   const filtered = last !== undefined ? arr.filter((item) => item !== last) : [...arr];
-  return filtered[Math.floor(Math.random() * filtered.length)];
+  const pool = filtered.length > 0 ? filtered : arr;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function getGreeting(): [string, string] {
@@ -273,9 +277,9 @@ function Workspace() {
   const { data: connections } = useConnections();
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
+  const greetingLine = useMemo(() => getGreeting(), []);
 
   if (!activeConnectionId || !activeConnection) {
-    const greetingLine = getGreeting();
     return <WelcomePage greeting={greetingLine[0]} prompt={greetingLine[1]} />;
   }
 
