@@ -169,6 +169,17 @@ export const api = {
   runRedisCommand: (connectionId: string, command: string) =>
     request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
 
+  // MongoDB completions
+  getMongoCompletions: (connectionId: string, database?: string) => {
+    const query = database ? `?database=${encodeURIComponent(database)}` : '';
+    return request<{ collections: { name: string; fields: string[] }[] }>(
+      'GET',
+      `/mongo/${connectionId}/completions${query}`,
+      undefined,
+      true,
+    );
+  },
+
   // MongoDB command
   runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
     request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }, true),

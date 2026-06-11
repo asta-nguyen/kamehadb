@@ -27,19 +27,16 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  Columns3,
   X,
+  Trash2,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { downloadResult } from '@/lib/export';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -134,10 +131,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   // an empty page; result metadata remains the fallback while schema loads.
   const displayColumns = columns && columns.length > 0 ? columns : (result?.columns ?? []);
   const displayColumnNames = displayColumns.map((column) => column.name);
-  const { visibleFields: visibleColumns, toggleFieldVisibility } = useFieldVisibility(
-    displayColumnNames,
-    `${connectionId}:${tableId}`,
-  );
+  const { visibleFields: visibleColumns } = useFieldVisibility(displayColumnNames, `${connectionId}:${tableId}`);
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns
     .filter((col) => visibleColumns.includes(col.name))
@@ -174,29 +168,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           />
         </div>
         <div className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="h-7 gap-1.5 px-2" />}>
-              <Columns3 className="size-3.5 text-muted-foreground" />
-              Fields
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Visible fields</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {displayColumns.map((col) => {
-                  const checked = visibleColumns.includes(col.name);
-                  return (
-                    <DropdownMenuItem key={col.name} onClick={() => toggleFieldVisibility(col.name, !checked)}>
-                      <span className="truncate" title={col.name}>
-                        {col.name}
-                      </span>
-                      <DropdownMenuShortcut>{checked ? <Check className="size-3.5" /> : null}</DropdownMenuShortcut>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <Select
             value={state.sortColumn}
             onValueChange={(v) => {
@@ -245,7 +216,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           )}
         </div>
       </div>
-      <div className="overflow-auto border rounded-md">
+      <div className="border rounded-md">
         <DataTable
           rows={result.rows}
           columns={tableColumns}
@@ -256,22 +227,34 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           sortColumn={state.sortColumn}
           sortDirection={state.sortDirection}
           suffixHeader="Actions"
-          suffixWidth="48px"
-          suffixHeaderClassName="sticky right-0 z-20 border-l border-border/50 bg-muted shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.6)]"
-          suffixCellClassName="sticky right-0 z-10 border-l border-border/30 bg-background shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.45)]"
+          suffixWidth="64px"
+          suffixHeaderClassName="bg-muted"
+          suffixCellClassName="bg-background"
           suffix={(row) => (
-            <div className="flex items-center justify-center">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => dispatch({ type: 'selectRow', row })}
-                title="View details"
-              >
-                <Eye className="size-3.5" />
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
+                  <path d="M8 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM9.5 12.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
+                </svg>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
+                  <Eye className="size-3.5 mr-2" />
+                  View details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
+                  <Copy className="size-3.5 mr-2" />
+                  Copy row
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
+                  <Trash2 className="size-3.5 mr-2" />
+                  Delete row
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          className="min-w-max"
+          className="text-xs"
         />
         {result && (
           <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2">

@@ -515,7 +515,10 @@ export function Sidebar() {
               setConnectionStatus(id, 'connected');
             }
           } else {
-            // Failed — show reconnecting briefly, then settle on disconnected
+            // Failed — show reconnecting briefly, then settle on disconnected.
+            // Don't call setConnectionLatency here — it derives status as
+            // 'connected'/'slow' from latencyMs, which would overwrite the
+            // disconnected/reconnecting status we just set.
             const prevStatus = appStore.state.connectionStatus[id];
             if (prevStatus === 'connected' || prevStatus === 'slow') {
               setConnectionStatus(id, 'reconnecting');
@@ -529,9 +532,6 @@ export function Sidebar() {
               reconnectTimers.set(id, timer);
             } else if (prevStatus !== 'reconnecting') {
               setConnectionStatus(id, 'disconnected');
-            }
-            if (r.latencyMs !== undefined) {
-              setConnectionLatency(id, r.latencyMs);
             }
           }
         }

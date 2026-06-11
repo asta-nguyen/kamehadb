@@ -64,12 +64,23 @@ export function DataTable<T>({
   emptyMessage,
 }: DataTableProps<T>) {
   const useResize = fixedTemplate === undefined;
-  // Resize hook is always called with the same shape (columns.length) so the
-  // grid template stays consistent whether or not a fixedTemplate is supplied.
-  // When fixedTemplate is provided the returned fullTemplate is ignored.
-  const { fullTemplate, onMouseDown: onColResize } = useColumnResize(useResize ? columns.length : columns.length, {
+  // Sample up to 50 rows of body content per column for content-based sizing.
+  const sampleValues =
+    rows.length > 0
+      ? columns.map((col) => {
+          const sample = rows.slice(0, 50);
+          return sample.map((row) => {
+            const value = col.accessor(row);
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'object') return JSON.stringify(value);
+            return String(value);
+          });
+        })
+      : undefined;
+  const { fullTemplate, onMouseDown: onColResize } = useColumnResize(columns.length, {
     prefix: showIndex ? indexWidth : '',
     suffix: suffix ? suffixWidth : '',
+    sampleValues,
   });
   const gridTemplateColumns = fixedTemplate ?? fullTemplate;
 
