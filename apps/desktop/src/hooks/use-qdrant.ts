@@ -43,7 +43,7 @@ export function useQdrantSearch(connectionId: string | null) {
       return api.searchQdrant(connectionId, input);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.QDRANT_POINTS(connectionId!, null, null, undefined, 50) });
+      queryClient.invalidateQueries({ queryKey: ['qdrant-points', connectionId] });
     },
   });
 }
@@ -56,7 +56,7 @@ export function useQdrantRecommend(connectionId: string | null) {
       return api.recommendQdrant(connectionId, input);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.QDRANT_POINTS(connectionId!, null, null, undefined, 50) });
+      queryClient.invalidateQueries({ queryKey: ['qdrant-points', connectionId] });
     },
   });
 }

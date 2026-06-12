@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog';
 
 import { cn } from '@/lib/utils';
@@ -50,6 +50,19 @@ function SheetContent({
 }) {
   const [width, setWidth] = useState(512);
   const isResizing = useRef(false);
+  const activeListeners = useRef<{ onMouseMove: (e: MouseEvent) => void; onMouseUp: () => void } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (activeListeners.current) {
+        document.removeEventListener('mousemove', activeListeners.current.onMouseMove);
+        document.removeEventListener('mouseup', activeListeners.current.onMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        activeListeners.current = null;
+      }
+    };
+  }, []);
 
   const handleResizeMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -74,8 +87,10 @@ function SheetContent({
         document.body.style.userSelect = '';
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+        activeListeners.current = null;
       };
 
+      activeListeners.current = { onMouseMove, onMouseUp };
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     },
