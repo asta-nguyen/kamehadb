@@ -1,0 +1,21 @@
+apps/desktop/src/components/data-table.tsx
+  s_73dc9470465a2c::t_34a2c154228e12 91
+CHANGELOG.md
+  s_73dc9470465a2c::t_82d28bcdf8d3d7 12-15,22-38,42-45,50-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6d5559da811f6095eed63c41c05423ac3198e0d5",
+  "prompts": {},
+  "sessions": {
+    "s_73dc9470465a2c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ebc9b-3b3e-76d2-98f0-8115d0c2f217",
+        "model": "gpt-5.5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
