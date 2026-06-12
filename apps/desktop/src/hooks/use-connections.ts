@@ -96,7 +96,7 @@ export function useRefreshConnection() {
         ['db-sizes', id],
         ['completions', id],
         ['active-connections', id],
-        QUERY_KEYS.REDIS_KEYS(id, '*'),
+        ['redis-keys', id],
         ['redis-key', id],
         ['redis-stats', id],
         ['mongo', id],

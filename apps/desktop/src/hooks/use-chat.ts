@@ -13,10 +13,24 @@ type UseChatOptions = {
   forwardedProps?: Record<string, unknown>;
 };
 
+export function appendAssistantDelta(messages: ChatMessage[], assistantId: string, delta: string): ChatMessage[] {
+  return messages.map((message) => {
+    if (message.id !== assistantId || message.role !== 'assistant') {
+      return message;
+    }
+
+    return {
+      ...message,
+      parts: [{ type: 'text', content: `${message.parts[0]?.content ?? ''}${delta}` }],
+    };
+  });
+}
+
 export function useChat(options: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = messages;
 
@@ -36,6 +50,8 @@ export function useChat(options: UseChatOptions) {
         createdAt: new Date(),
       };
 
+      abortRef.current?.abort();
+      const requestSeq = ++requestSeqRef.current;
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setIsLoading(true);
 
@@ -84,17 +100,7 @@ export function useChat(options: UseChatOptions) {
             try {
               const data = JSON.parse(trimmed.slice(6));
               if (data.type === 'content' && typeof data.delta === 'string') {
-                setMessages((prev) => {
-                  const copy = prev.slice();
-                  const last = copy[copy.length - 1];
-                  if (last?.role === 'assistant') {
-                    copy[copy.length - 1] = {
-                      ...last,
-                      parts: [{ type: 'text', content: last.parts[0].content + data.delta }],
-                    };
-                  }
-                  return copy;
-                });
+                setMessages((prev) => appendAssistantDelta(prev, assistantMsg.id, data.delta));
               } else if (data.type === 'error') {
                 console.error('[AI] stream error:', data.message);
               }
@@ -108,8 +114,10 @@ export function useChat(options: UseChatOptions) {
           console.error('[AI] chat error:', err);
         }
       } finally {
-        setIsLoading(false);
-        abortRef.current = null;
+        if (requestSeqRef.current === requestSeq) {
+          setIsLoading(false);
+          abortRef.current = null;
+        }
       }
     },
     [options.url, options.forwardedProps],

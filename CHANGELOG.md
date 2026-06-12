@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- v1.3 Adding MCP server
+
+---
+
+## [v1.2.0] — 2026-06-12
+
 ### Added
 
 - **Migration Assistant** — compare two schema snapshots (before/after) and generate the DDL migration SQL to go from one to the other (`CREATE TABLE`, `ALTER TABLE`, `CREATE/DROP INDEX`, etc.). Accessed via the connection dropdown menu. ([@opencode])
@@ -40,7 +46,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Client-side fuzzy table name filtering in the schema tree (`fuzzyMatch` in utils). ([@JoeJoeflyn])
 - Configurable row limit dropdown (10–500) in the table data view. ([@JoeJoeflyn])
 - Connection dialog: read-only toggle so users can enable write statements (CREATE, INSERT, UPDATE, DELETE, DROP, etc.) per connection without editing the metadata DB directly
-- v1.2 Adding MCP server
 
 ### Changed
 
@@ -48,6 +53,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Replaced native `<table>` with shadcn `Table` (div-based grid) in the data grid. Column resize hook rewritten to drive `gridTemplateColumns` on rows; resize handles preserved. ([@opencode])
 - Qdrant vector map: persist and restore `colorBy` and camera state (position and target) across tab switches.
 - Project license changed from MIT to Apache-2.0.
+- Redis refresh and Redis command flows now invalidate the full connection-scoped key cache instead of a single wildcard entry; TigerBeetle account and transfer mutations now invalidate the connection-scoped explorer queries; AI chat streams now update the matching assistant message by id instead of the last assistant entry.
 
 ### Fixed
 
