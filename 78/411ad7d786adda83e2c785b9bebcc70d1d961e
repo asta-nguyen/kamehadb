@@ -1,0 +1,21 @@
+CONTRIBUTING.md
+  s_73dc9470465a2c::t_b4088c5ff3264b 1-128
+README.md
+  s_73dc9470465a2c::t_b4088c5ff3264b 90-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "78411ad7d786adda83e2c785b9bebcc70d1d961e",
+  "prompts": {},
+  "sessions": {
+    "s_73dc9470465a2c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ebc9b-3b3e-76d2-98f0-8115d0c2f217",
+        "model": "gpt-5.5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
