@@ -187,4 +187,4 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](./LICENSE).

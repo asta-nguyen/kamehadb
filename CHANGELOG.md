@@ -38,10 +38,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Client-side fuzzy table name filtering in the schema tree (`fuzzyMatch` in utils). ([@JoeJoeflyn])
 - Configurable row limit dropdown (10–500) in the table data view. ([@JoeJoeflyn])
 - Connection dialog: read-only toggle so users can enable write statements (CREATE, INSERT, UPDATE, DELETE, DROP, etc.) per connection without editing the metadata DB directly
+- v1.2 Adding MCP server
+
+### Changed
+
 - Connection dialog: custom color picker (native `<input type="color">`) alongside the preset badge colors, so users can pick any color instead of being limited to the 8 presets- Replaced native `<input>`, `<textarea>`, `<label>`, `<button>`, and `<select>` elements with shadcn UI components (`Input`, `Textarea`, `Label`, `Button`, `Select`) across the desktop app. ([@opencode])
 - Replaced native `<table>` with shadcn `Table` (div-based grid) in the data grid. Column resize hook rewritten to drive `gridTemplateColumns` on rows; resize handles preserved. ([@opencode])
 - Qdrant vector map: persist and restore `colorBy` and camera state (position and target) across tab switches.
-- v1.2 Adding MCP server
+- Project license changed from MIT to Apache-2.0.
 
 ### Fixed
 
