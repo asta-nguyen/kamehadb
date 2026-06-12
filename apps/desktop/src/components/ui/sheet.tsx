@@ -48,7 +48,10 @@ function SheetContent({
   side?: 'top' | 'right' | 'bottom' | 'left';
   showCloseButton?: boolean;
 }) {
-  const [width, setWidth] = useState(512);
+  const [width, setWidth] = useState(() => {
+    if (typeof window === 'undefined') return 512;
+    return Math.min(512, Math.max(320, window.innerWidth * 0.75));
+  });
   const isResizing = useRef(false);
   const activeListeners = useRef<{ onMouseMove: (e: MouseEvent) => void; onMouseUp: () => void } | null>(null);
 
@@ -77,7 +80,8 @@ function SheetContent({
       const onMouseMove = (me: MouseEvent) => {
         if (!isResizing.current) return;
         const delta = startX - me.clientX;
-        const newWidth = Math.min(960, Math.max(320, startWidth + delta));
+        const maxWidth = Math.min(960, window.innerWidth * 0.9);
+        const newWidth = Math.min(maxWidth, Math.max(320, startWidth + delta));
         setWidth(newWidth);
       };
 
@@ -107,7 +111,15 @@ function SheetContent({
           'fixed z-50 flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm',
           className,
         )}
-        {...(side === 'right' ? { style: { ...style, width: `${width}px`, maxWidth: `${width}px` } } : { style })}
+        {...(side === 'right'
+          ? {
+              style: {
+                ...style,
+                width: `min(100vw, ${width}px)`,
+                maxWidth: `min(100vw, ${width}px)`,
+              },
+            }
+          : { style })}
         {...props}
       >
         {side === 'right' && (
