@@ -48,7 +48,10 @@ function SheetContent({
   side?: 'top' | 'right' | 'bottom' | 'left';
   showCloseButton?: boolean;
 }) {
-  const [width, setWidth] = useState(512);
+  const [width, setWidth] = useState(() => {
+    if (typeof window === 'undefined') return 512;
+    return Math.min(512, Math.max(320, window.innerWidth * 0.75));
+  });
   const isResizing = useRef(false);
 
   const handleResizeMouseDown = useCallback(
@@ -64,7 +67,8 @@ function SheetContent({
       const onMouseMove = (me: MouseEvent) => {
         if (!isResizing.current) return;
         const delta = startX - me.clientX;
-        const newWidth = Math.min(960, Math.max(320, startWidth + delta));
+        const maxWidth = Math.min(960, window.innerWidth * 0.9);
+        const newWidth = Math.min(maxWidth, Math.max(320, startWidth + delta));
         setWidth(newWidth);
       };
 
