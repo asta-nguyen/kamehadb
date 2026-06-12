@@ -39,7 +39,7 @@ export function useTbCreateAccounts(connectionId: string) {
   return useMutation({
     mutationFn: (accounts: CreateTigerBeetleAccountInput[]) => api.tbCreateAccounts(connectionId, accounts),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId, 'accounts'] });
     },
   });
 }
@@ -49,7 +49,8 @@ export function useTbCreateTransfers(connectionId: string) {
   return useMutation({
     mutationFn: (transfers: CreateTigerBeetleTransferInput[]) => api.tbCreateTransfers(connectionId, transfers),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId] });
+      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId, 'transfers'] });
+      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId, 'balances'] });
     },
   });
 }
