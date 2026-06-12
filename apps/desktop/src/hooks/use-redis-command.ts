@@ -1,4 +1,5 @@
 import { post } from '@/lib/api';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import type { RedisCommandResult } from '@kamehadb/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -11,6 +12,8 @@ export function useRedisCommand(connectionId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['redis-keys', connectionId!] });
+      queryClient.invalidateQueries({ queryKey: ['redis-key', connectionId!] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REDIS_STATS(connectionId) });
     },
   });
 }
