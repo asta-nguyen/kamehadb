@@ -9,65 +9,56 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - v1.3 Adding MCP server
 
+### Changed
+
+- Table action columns in the row browser, Mongo document table, and Qdrant points table now pin to the left edge and stay visible during horizontal scroll.
+
 ---
 
 ## [v1.2.0] — 2026-06-12
 
 ### Added
 
-- **Migration Assistant** — compare two schema snapshots (before/after) and generate the DDL migration SQL to go from one to the other (`CREATE TABLE`, `ALTER TABLE`, `CREATE/DROP INDEX`, etc.). Accessed via the connection dropdown menu. ([@opencode])
-- **Query history performance panel** — history is now grouped by normalized query pattern (literals stripped) with duration per group, favorites filter, and text search. ([@opencode])
-- **Copy result table as snapshot** — "Copy table" button in the result toolbar copies the result grid as tab-separated text to clipboard for quick sharing. ([@opencode])
-- **Global search palette** (`Ctrl+K`) — fuzzy-search across connections, schema tables/columns, open tabs, and quick actions (New Query, Graph, DB Stats, AI Chat). Uses cmdk with keyboard navigation. Search button visible in the header for non-keyboard users. ([@opencode])
-- **Connection health badges** — status dot now shows connected/green, slow/yellow (≥500ms latency), reconnecting/pulsing, or offline/red. Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before settling on disconnected.
-- **Schema change timeline** — capture schema snapshots (tables, columns, indexes) on demand and view a chronological changelog of additions, removals, and type changes. Accessed via the connection dropdown menu. ([@opencode])
-- **Time-aware welcome screen** — greetings change by time of day (morning/afternoon/evening/night) with a pool of curated messages, last-shown tracking, and returning-visitor prompt rotation.
-- **Connection hover tooltip** — hover connection name to see kind, host:port, database, status with latency, and last-updated timestamp.
-- **Pin connections to top** — "Pin to top"/"Unpin" in connection dropdown. Pinned connections appear in a separate "Pinned" section at the top of the sidebar. State persisted to localStorage.
-- **Workspace tabs memory** — open tabs and active tab are saved to localStorage and restored on page load, so sessions survive refresh.
-- **Sidebar database icons** — replaced generic Lucide `Database` icon with engine-specific `DbIcon` (PostgreSQL, MySQL, MongoDB, Redis, SQL Server, Oracle, ClickHouse, MariaDB) and local SVG logos (DuckDB, SQLite, TigerBeetle, Qdrant).
-- TigerBeetle seed script (`seed:tigerbeetle`) added to sidecar package.json. ([@opencode])
-- **DuckDB adapter** — connect to local `.duckdb` files for embedded analytical queries. ([@JoeJoeflyn])
-- **TigerBeetle adapter** — connect to TigerBeetle distributed ledger clusters with built-in connection pooling. ([@JoeJoeflyn])
-- **Docker compose services for DuckDB and TigerBeetle** — add `docker-compose.yml` entries for DuckDB (CLI + HTTP) and TigerBeetle. Start with `docker compose up -d duckdb tigerbeetle`.
+#### Database Support
 
-- **SQL Server adapter** — connect to Microsoft SQL Server databases via the existing SQL adapter path. ([@JoeJoeflyn])
-- **Oracle adapter** — connect to Oracle databases with schema browsing, query execution, and metadata support. ([@JoeJoeflyn])
-- **ClickHouse adapter** — connect to ClickHouse for columnar analytics workloads, including query execution and schema inspection. ([@JoeJoeflyn])
-- **Query history with favorites** — persistent, connection-scoped query history (`useQueryHistory` hook + `POST /query-history`) allowing users to save, recall, and favorite previously executed SQL. ([@JoeJoeflyn])
+- Added SQL Server, Oracle, ClickHouse, DuckDB, and TigerBeetle adapters. ([@JoeJoeflyn])
+- Added Docker Compose services and seed tooling for DuckDB and TigerBeetle. ([@JoeJoeflyn])
 
-- New vector database dependency: **Qdrant v1.13.6** (added to `docker-compose.yml`, exposed on ports `6333` HTTP / `6334` gRPC, persistent volume `qdrant_data`). Required for AI schema retrieval. Start it with `docker compose up -d qdrant` (or `docker compose up -d` to start the full dev stack including Qdrant). The sidecar talks to it via `QDRANT_URL` (defaults to `http://127.0.0.1:6333`).
-- AI schema context now uses Qdrant vector search to retrieve only relevant table DDLs instead of injecting the full schema into the system prompt. The sidecar embeds each table's DDL into Qdrant on first use and searches by query similarity on each chat. Adds a new `QdrantSchemaStore` (`apps/sidecar/src/ai/qdrant-store.ts`) that handles collection creation, embedding upsert, and similarity search. If Qdrant is unreachable the sidecar falls back to the previous "send full DDL" path so chat still works, but schema retrieval will be slower and less precise.
-- AI chat system prompt now instructs the assistant to use case-insensitive substring matching on user-supplied terms, splitting on non-alphanumeric characters and ORing unanchored and prefix-anchored variants so the assistant handles punctuation, case, codes vs. names ("germany" ↔ "DE"), plurals, and synonyms correctly across PostgreSQL, MySQL, SQLite, MongoDB, and Redis. Prevents the assistant from silently returning empty result sets when stored values differ from the user's phrasing.
-- AI chat now also passes canonical term expansions (countries, US states, currencies, languages, common abbreviations) as data the assistant must consume verbatim in its WHERE filters, so user terms like "who lives in germany" reliably match rows stored as `DE` and "users in CA" match either Canada or California. Implemented as `expandTerms` / `renderExpansionsForPrompt` in `@kamehadb/shared` and called from the sidecar's `buildSystemPrompt`.
-- Proactive Qdrant schema indexing at startup with enriched embedding text (column purpose, table purpose, DDL), hash-based incremental sync, and orphan cleanup. ([@JoeJoeflyn])
-- AI chat streaming via `@tanstack/ai` — server-side `POST /ai/chat` now streams SSE events; client uses `useChat()` for real-time response rendering with stop/cancel support. ([@JoeJoeflyn])
-- Server-side schema search for PostgreSQL, MySQL, and SQLite using ILIKE/LIKE queries. ([@JoeJoeflyn])
-- Client-side fuzzy table name filtering in the schema tree (`fuzzyMatch` in utils). ([@JoeJoeflyn])
-- Configurable row limit dropdown (10–500) in the table data view. ([@JoeJoeflyn])
-- Connection dialog: read-only toggle so users can enable write statements (CREATE, INSERT, UPDATE, DELETE, DROP, etc.) per connection without editing the metadata DB directly
+#### Schema & Queries
+
+- Added a Migration Assistant that compares schema snapshots and generates migration DDL. ([@JoeJoeflyn])
+- Added a schema change timeline for tracking table, column, index, and type changes. ([@JoeJoeflyn])
+- Added persistent query history with favorites, text search, and performance grouping. ([@JoeJoeflyn])
+- Added a global search palette (`Ctrl+K`) for connections, schema objects, tabs, and quick actions. ([@JoeJoeflyn])
+- Added result-table snapshot copying as tab-separated text. ([@JoeJoeflyn])
+
+#### UI & UX
+
+- Added connection health badges, connection detail tooltips, and pinned connections.
+- Added workspace tab persistence, engine-specific database icons, and a time-aware welcome screen.
 
 ### Changed
 
-- Connection dialog: custom color picker (native `<input type="color">`) alongside the preset badge colors, so users can pick any color instead of being limited to the 8 presets- Replaced native `<input>`, `<textarea>`, `<label>`, `<button>`, and `<select>` elements with shadcn UI components (`Input`, `Textarea`, `Label`, `Button`, `Select`) across the desktop app. ([@opencode])
-- Replaced native `<table>` with shadcn `Table` (div-based grid) in the data grid. Column resize hook rewritten to drive `gridTemplateColumns` on rows; resize handles preserved. ([@opencode])
-- Qdrant vector map: persist and restore `colorBy` and camera state (position and target) across tab switches.
+- SQL and Mongo data tables now support horizontal scrolling, field visibility controls, resizable columns, and explicit row actions.
+- Desktop forms and data tables now use shared UI components for more consistent behavior and styling. ([@JoeJoeflyn])
+- AI provider settings now use a single active-provider model.
+- Qdrant vector maps now persist color and camera state across tab switches.
 - Project license changed from MIT to Apache-2.0.
-- Redis refresh and Redis command flows now invalidate the full connection-scoped key cache instead of a single wildcard entry; TigerBeetle account and transfer mutations now invalidate the connection-scoped explorer queries; AI chat streams now update the matching assistant message by id instead of the last assistant entry.
 
 ### Fixed
 
-- SQL and Mongo table views now show every available field by default, keep newly discovered fields visible, and only hide fields explicitly disabled from the Fields dropdown.
-- **JSON record viewer rendered HTML entities instead of characters** — `formatJsonSyntax` was using `escapeHtml()` then matching `&quot;` entities, but React re-escapes text content, causing `&amp;quot;` rendering. Rewritten to tokenize raw JSON with proper quote matching. ([@opencode])
-- TigerBeetle seed script now reuses the existing `tigerbeetle` connection instead of creating a fresh `tigerbeetle-seed-*` row on every run, so retries no longer clutter the metadata SQLite database.
-- SQL editor ignored the connection's read-only setting because of a duplicate client-side safety check in `useRunQuery`; the server already enforces the rule, so the redundant client check (which used a stale cache) has been removed
-- AI chat: SQL query results were being rendered with a "MONGODB" language label because the chat panel was collapsing `json`-tagged code fences into the JavaScript bucket. `normalizeCodeLanguage` now keeps `json` as its own label (`json`), so `\`\`\`json`result blocks render as JSON, not MongoDB. Helper extracted to`apps/desktop/src/lib/ai-chat-helpers.ts` with a vitest spec.
-- AI chat: "Thinking..." spinner was shown for the full duration of an LLM stream, visually competing with the streaming text. The spinner is now suppressed as soon as the assistant has produced any text, so users see the streamed response land in the assistant bubble without a competing indicator.
-- AI chat: code highlighting no longer reparses `highlight.js` HTML with a regex. The chat panel now renders `highlight.js`'s token tree directly and sanitizes emitted scope names before converting them into React spans, removing the HTML parsing path from AI response rendering.
-- AI settings: Provider management has been simplified to a single active-provider model. Providers can now be promoted to activeProvider directly from the settings UI using a dedicated Set active action (instead of only becoming active when the current provider was disabled). Setting a provider active automatically disables other provider configurations, and the active provider is now highlighted more clearly throughout the desktop UI, including the provider list, detail view, and picker.
-- Desktop UI: sidebar connection names now align flush-left with their database icons, and MongoDB document-card values now render left-aligned instead of centered in the value column.
-- Mongo table view: wide documents now support horizontal scrolling, users can choose which fields stay visible from a field picker, and row details are opened from a sticky right-side action column with an explicit view icon instead of relying on row-click behavior.
-- SQL table browser: the shared data grid now mirrors the Mongo table UX with horizontal scrolling for wide rows, a visible-field picker, and a sticky right-side view action so PostgreSQL/MySQL/MariaDB/SQL Server/Oracle/ClickHouse/DuckDB-style tables do not rely on row-click for record details.
+- Fixed field visibility so newly discovered SQL and Mongo fields remain visible unless explicitly hidden.
+- Fixed JSON record rendering and AI chat code-language highlighting. ([@JoeJoeflyn])
+- Fixed AI chat loading indicators, code highlighting, and concurrent streams updating the wrong assistant message.
+- Fixed stale Redis key lists and TigerBeetle account, transfer, and balance views after mutations.
+- Fixed TigerBeetle seed retries creating duplicate saved connections.
+- Fixed the SQL editor incorrectly blocking writes after read-only mode was disabled.
+- Fixed sidebar connection-name and Mongo document-value alignment.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
 
 ---
 

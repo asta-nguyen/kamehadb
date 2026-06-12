@@ -183,14 +183,14 @@ export function DocumentTableView({
           rows={documents}
           columns={tableColumns}
           rowKey={(doc, i) => (doc._id ? String(doc._id) : String(i))}
+          prefixHeader="Actions"
+          prefixWidth="56px"
+          prefixCellClassName="bg-background"
           showIndex
           onSortChange={onSortChange}
           sortColumn={currentSort?.field}
           sortDirection={currentSort?.dir === -1 ? 'desc' : 'asc'}
-          suffixHeader="Actions"
-          suffixWidth="56px"
-          suffixCellClassName="bg-background"
-          suffix={(doc) => (
+          prefix={(doc) => (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">

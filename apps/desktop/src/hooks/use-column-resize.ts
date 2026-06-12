@@ -46,7 +46,7 @@ function computeMinWidths(
 }
 
 export function useColumnResize(columnCount: number, options: Options = {}) {
-  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 280, minAutoWidth = 64 } = options;
+  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 120 } = options;
 
   // null = unresized column, will use minmax(auto, 1fr) for content-based + fill
   // number = user-resized width in px (fixed, no longer flexes)
@@ -56,7 +56,7 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
         min: minAutoWidth,
         max: maxAutoWidth,
         font: '11px system-ui, -apple-system, sans-serif',
-        padding: 12,
+        padding: 20,
       });
     }
     return Array(columnCount).fill(null);
@@ -71,7 +71,7 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
           min: minAutoWidth,
           max: maxAutoWidth,
           font: '11px system-ui, -apple-system, sans-serif',
-          padding: 12,
+          padding: 20,
         }),
       );
     } else {
@@ -82,9 +82,8 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
   const dragRef = useRef<DragState | null>(null);
 
   // Each column uses minmax(contentWidth, 1fr) — a content-based floor that
-  // expands to fill leftover table space. If total content width is less than
-  // the container, extra space distributes equally. If more, columns shrink to
-  // their minimums and the table scrolls.
+  // expands to fill leftover table space. The larger minimum widths keep
+  // fields readable, and the table wrapper handles horizontal overflow.
   const dataTemplate = useMemo(
     () => widths.map((w) => (w == null ? 'minmax(0, 1fr)' : `minmax(${w}px, 1fr)`)).join(' '),
     [widths],

@@ -221,16 +221,15 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           rows={result.rows}
           columns={tableColumns}
           rowKey={(_, i) => String(i)}
+          prefixHeader="Actions"
+          prefixWidth="64px"
+          prefixCellClassName="bg-background"
           showIndex
           indexOffset={state.offset}
           onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
           sortColumn={state.sortColumn}
           sortDirection={state.sortDirection}
-          suffixHeader="Actions"
-          suffixWidth="64px"
-          suffixHeaderClassName="bg-muted"
-          suffixCellClassName="bg-background"
-          suffix={(row) => (
+          prefix={(row) => (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
