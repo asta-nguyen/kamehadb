@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_73dc9470465a2c::t_052cb4e6ef7168 41-45,64-67
+.github/workflows/release.yml
+  s_73dc9470465a2c::t_052cb4e6ef7168 40-44,81-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "ccde7bfe04f38835120d10ebb586c8beec7ec479",
+  "prompts": {},
+  "sessions": {
+    "s_73dc9470465a2c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ebc9b-3b3e-76d2-98f0-8115d0c2f217",
+        "model": "gpt-5.5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
