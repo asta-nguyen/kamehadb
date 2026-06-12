@@ -9,7 +9,9 @@ import { QdrantView } from '@/components/qdrant-view';
 import { RedisQuery } from '@/components/redis-query';
 import { RedisView } from '@/components/redis-view';
 import { SchemaGraph } from '@/components/schema-graph';
+import { SchemaTimeline } from '@/components/schema-timeline';
 import { GlobalSearch } from '@/components/global-search';
+import { MigrationAssistant } from '@/components/migration-assistant';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
@@ -37,6 +39,7 @@ import {
   BarChart3,
   Box,
   Database,
+  History,
   Monitor,
   Moon,
   Plus,
@@ -149,6 +152,10 @@ function TabBar() {
               <BarChart3 className="size-3" />
             ) : tab.type === 'table-stats' ? (
               <Activity className="size-3" />
+            ) : tab.type === 'schema-timeline' ? (
+              <History className="size-3" />
+            ) : tab.type === 'migration' ? (
+              <Terminal className="size-3" />
             ) : (
               <Table2 className="size-3" />
             )}
@@ -391,6 +398,8 @@ function Workspace() {
         </Suspense>
       )}
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'schema-timeline' && <SchemaTimeline connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'migration' && <MigrationAssistant connectionId={activeTab.connectionId} />}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
       )}

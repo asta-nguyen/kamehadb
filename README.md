@@ -175,14 +175,11 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Pin / favorites connections
 - [x] Workspace tabs memory
 - [x] Production safety mode — prevent accidental writes to production
+- [x] Schema change timeline — track column additions, removals, index changes for debugging
+- [x] Migration assistant
 
 ### Future Ideas
 
-- [ ] Live monitoring dashboard — per connection: CPU, Memory, Connections, QPS, Slow queries
-- [ ] Data lineage / impact analysis — click a table to see usage (API endpoints, joins, reports)
-- [ ] Schema change timeline — track column additions, removals, index changes for debugging
-- [ ] Data diff viewer — compare Dev vs Staging, Staging vs Production, Before vs After migration
-- [ ] Query result sharing — generate shareable snapshots of query results
 - [ ] Collaboration features
 
 ## License
