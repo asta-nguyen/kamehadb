@@ -40,6 +40,8 @@ import {
   openQdrantSearchTab,
   openRedisQueryTab,
   openRedisTab,
+  openMigrationTab,
+  openSchemaTimelineTab,
   setActiveConnection,
   setConnectionLatency,
   setConnectionStatus,
@@ -53,6 +55,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  History,
   Loader2,
   MoreVertical,
   Pin,
@@ -301,15 +304,35 @@ function ConnectionItem({
               conn.kind !== 'redis' &&
               conn.kind !== 'qdrant' &&
               conn.kind !== 'tigerbeetle' && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openDatabaseStatsTab(conn.id);
-                  }}
-                >
-                  <BarChart3 className="mr-2 size-3.5" />
-                  Stats
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openDatabaseStatsTab(conn.id);
+                    }}
+                  >
+                    <BarChart3 className="mr-2 size-3.5" />
+                    Stats
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openSchemaTimelineTab(conn.id);
+                    }}
+                  >
+                    <History className="mr-2 size-3.5" />
+                    Schema Timeline
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setActiveConnection(conn.id);
+                      openMigrationTab(conn.id);
+                    }}
+                  >
+                    <Terminal className="mr-2 size-3.5" />
+                    Migration Assistant
+                  </DropdownMenuItem>
+                </>
               )}
             <DropdownMenuItem onClick={() => setShowEdit(true)}>
               <Settings2 className="mr-2 size-3.5" />

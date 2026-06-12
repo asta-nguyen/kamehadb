@@ -231,7 +231,15 @@ type MongoCompletionContext =
   | 'string'
   | 'general';
 
-// Simple heuristic: look at surrounding braces/brackets to determine context
+// Heuristic parser to infer the MongoDB autocomplete context from partial input.
+// Needed to decide which suggestions to show: pipeline stages, stage-specific
+// operators, or general expression operators. Counts unmatched brackets/braces
+// (openBrackets/openBraces/closeBrackets/closeBraces) to determine depth, then
+// inspects the last line with a regex (stageMatch) to detect stage keys like
+// $match, $group, $project, etc. Returns one of the context types:
+// 'pipeline','stage','match','group','project','addfields','expression',
+// 'general'. Limitations: does not handle braces inside strings, comments, or
+// nested complex syntax reliably.
 function detectContext(textUntil: string): MongoCompletionContext {
   // Count unmatched braces: { and [
   // This gives us depth and context
@@ -286,6 +294,18 @@ function detectContext(textUntil: string): MongoCompletionContext {
   return 'general';
 }
 
+/**
+ * Generate autocomplete suggestions for Mongo queries based on cursor position.
+ * Uses {@link detectContext} to infer the current context (pipeline stage,
+ * match operator, group accumulator, etc.), then aggregates matching entries
+ * from the relevant suggestion builders (buildStagesSuggestions,
+ * buildOperatorSuggestions, buildAccumulatorSuggestions,
+ * buildExpressionSuggestions, buildFieldsSuggestions, buildCollectionsSuggestions).
+ * When `data` is null, field and collection suggestions are omitted.
+ * @param textUntil - The text preceding the cursor in the editor.
+ * @param data - Schema metadata (collections, fields) or null for bare suggestions.
+ * @returns Filtered {@link MongoCompletionEntry[]} for the current context.
+ */
 export function buildMongoCompletionEntries(
   textUntil: string,
   data: MongoCompletionsData | null,
@@ -302,7 +322,7 @@ export function buildMongoCompletionEntries(
     case 'match':
       // Inside $match: suggest query operators
       entries.push(...buildOperatorSuggestions());
-      if (data) {
+      if (data && Array.isArray(data.collections)) {
         entries.push(...buildFieldsSuggestions(data.collections));
         entries.push(...buildCollectionsSuggestions(data.collections));
       }
@@ -312,7 +332,7 @@ export function buildMongoCompletionEntries(
       // Inside $group: suggest accumulators for computed fields
       entries.push(...buildAccumulatorSuggestions());
       entries.push(...buildExpressionSuggestions());
-      if (data) {
+      if (data && Array.isArray(data.collections)) {
         entries.push(...buildFieldsSuggestions(data.collections));
       }
       break;
@@ -321,7 +341,7 @@ export function buildMongoCompletionEntries(
     case 'addfields':
       // Inside $project/$addFields: suggest expressions
       entries.push(...buildExpressionSuggestions());
-      if (data) {
+      if (data && Array.isArray(data.collections)) {
         entries.push(...buildFieldsSuggestions(data.collections));
       }
       break;
@@ -339,7 +359,7 @@ export function buildMongoCompletionEntries(
       entries.push(...buildOperatorSuggestions());
       entries.push(...buildAccumulatorSuggestions());
       entries.push(...buildExpressionSuggestions());
-      if (data) {
+      if (data && Array.isArray(data.collections)) {
         entries.push(...buildFieldsSuggestions(data.collections));
         entries.push(...buildCollectionsSuggestions(data.collections));
       }

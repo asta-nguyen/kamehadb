@@ -102,6 +102,24 @@ export function openDatabaseStatsTab(connectionId: string) {
   });
 }
 
+export function openSchemaTimelineTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:schema-timeline`,
+    type: 'schema-timeline' as const,
+    title: 'Schema Timeline',
+    connectionId,
+  });
+}
+
+export function openMigrationTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:migration`,
+    type: 'migration' as const,
+    title: 'Migration Assistant',
+    connectionId,
+  });
+}
+
 export function openRedisTab(connectionId: string) {
   openTab({
     id: `${connectionId}:redis`,

@@ -127,6 +127,15 @@ export const api = {
   getActiveConnections: (connectionId: string) =>
     request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/connections`),
 
+  captureSchemaSnapshot: (connectionId: string) =>
+    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/capture-schema`),
+
+  getSchemaChangelog: (connectionId: string) =>
+    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema-changelog`),
+
+  generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
+    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/generate-migration`, input),
+
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
     request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined, true),

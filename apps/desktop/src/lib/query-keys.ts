@@ -33,6 +33,7 @@ export const QUERY_KEYS = {
   QDRANT_STATS: (connectionId: string | null, collection: string | null) =>
     ['qdrant-stats', connectionId, collection] as const,
   CONNECTION_HEALTH: (connectionId: string | null) => ['connection-health', connectionId] as const,
+  SCHEMA_CHANGELOG: (connectionId: string | null) => ['schema-changelog', connectionId] as const,
   AI_SETTINGS: ['ai-settings'] as const,
   QUERY_HISTORY: (connectionId: string | null) => ['query-history', connectionId] as const,
   QUERY_HISTORY_FAVORITES: (connectionId: string | null) => ['query-history-favorites', connectionId] as const,
