@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { CreateTigerBeetleAccountInput, CreateTigerBeetleTransferInput } from '@kamehadb/shared';
 
@@ -35,13 +35,22 @@ export function useTbBalances(connectionId: string | null, accountId: string | n
 }
 
 export function useTbCreateAccounts(connectionId: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (accounts: CreateTigerBeetleAccountInput[]) => api.tbCreateAccounts(connectionId, accounts),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId, 'accounts'] });
+    },
   });
 }
 
 export function useTbCreateTransfers(connectionId: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (transfers: CreateTigerBeetleTransferInput[]) => api.tbCreateTransfers(connectionId, transfers),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId, 'transfers'] });
+      queryClient.invalidateQueries({ queryKey: ['tigerbeetle', connectionId, 'balances'] });
+    },
   });
 }
