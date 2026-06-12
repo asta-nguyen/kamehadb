@@ -7,9 +7,58 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- v1.3 Adding MCP server
+
+### Changed
+
+- Table action columns in the row browser, Mongo document table, and Qdrant points table now pin to the left edge and stay visible during horizontal scroll.
+
+---
+
+## [v1.2.0] — 2026-06-12
+
 ### Added
 
-- v1.2 Adding MCP server
+#### Database Support
+
+- Added SQL Server, Oracle, ClickHouse, DuckDB, and TigerBeetle adapters. ([@JoeJoeflyn])
+- Added Docker Compose services and seed tooling for DuckDB and TigerBeetle. ([@JoeJoeflyn])
+
+#### Schema & Queries
+
+- Added a Migration Assistant that compares schema snapshots and generates migration DDL. ([@JoeJoeflyn])
+- Added a schema change timeline for tracking table, column, index, and type changes. ([@JoeJoeflyn])
+- Added persistent query history with favorites, text search, and performance grouping. ([@JoeJoeflyn])
+- Added a global search palette (`Ctrl+K`) for connections, schema objects, tabs, and quick actions. ([@JoeJoeflyn])
+- Added result-table snapshot copying as tab-separated text. ([@JoeJoeflyn])
+
+#### UI & UX
+
+- Added connection health badges, connection detail tooltips, and pinned connections.
+- Added workspace tab persistence, engine-specific database icons, and a time-aware welcome screen.
+
+### Changed
+
+- SQL and Mongo data tables now support horizontal scrolling, field visibility controls, resizable columns, and explicit row actions.
+- Desktop forms and data tables now use shared UI components for more consistent behavior and styling. ([@JoeJoeflyn])
+- AI provider settings now use a single active-provider model.
+- Qdrant vector maps now persist color and camera state across tab switches.
+- Project license changed from MIT to Apache-2.0.
+
+### Fixed
+
+- Fixed field visibility so newly discovered SQL and Mongo fields remain visible unless explicitly hidden.
+- Fixed JSON record rendering and AI chat code-language highlighting. ([@JoeJoeflyn])
+- Fixed AI chat loading indicators, code highlighting, and concurrent streams updating the wrong assistant message.
+- Fixed stale Redis key lists and TigerBeetle account, transfer, and balance views after mutations.
+- Fixed TigerBeetle seed retries creating duplicate saved connections.
+- Fixed the SQL editor incorrectly blocking writes after read-only mode was disabled.
+- Fixed sidebar connection-name and Mongo document-value alignment.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
 
 ---
 

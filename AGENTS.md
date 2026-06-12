@@ -4,7 +4,7 @@ This file provides guidance for coding agents working in this repository.
 
 ## Project Overview
 
-KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, and Redis. It includes schema browsing, a Monaco SQL editor, PostgreSQL stats views, Redis and Mongo explorers, and an AI chat panel with schema-aware context.
+KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB, and TigerBeetle. It includes schema browsing, a Monaco SQL editor, PostgreSQL stats views, Redis and Mongo explorers, and an AI chat panel with schema-aware context.
 
 There is also a separate marketing/docs site in `landing/`, but it is not part of the pnpm workspace used by the desktop app and sidecar.
 
@@ -155,22 +155,54 @@ Supported now:
 - SQLite
 - MongoDB
 - Redis
+- SQL Server
+- Oracle
+- ClickHouse
+- DuckDB
+- TigerBeetle
+- MariaDB
 
 Notes:
 
-- PostgreSQL has the richest stats support
-- MySQL and SQLite go through the SQL adapter path
-- MongoDB uses a dedicated route and adapter flow
-- Redis uses a dedicated route and adapter flow, not the SQL route
+- PostgreSQL has the richest stats support.
+- PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, and DuckDB use the SQL adapter path.
+- MongoDB uses a dedicated route and adapter flow.
+- Redis uses a dedicated route and adapter flow, not the SQL route.
+- DuckDB connects to local .duckdb files (file-based).
+- TigerBeetle uses a dedicated adapter and connects to a local or remote TigerBeetle cluster.
 
 ## Connection Defaults For Docker
 
-| Engine     | Port | User   | Password | Database |
-| ---------- | ---- | ------ | -------- | -------- |
-| PostgreSQL | 5432 | kameha | kameha   | kamehadb |
-| MySQL      | 3306 | kameha | kameha   | kamehadb |
-| MariaDB    | 3307 | kameha | kameha   | kamehadb |
-| Redis      | 6379 | —      | —        | —        |
+| Engine      | Port | User    | Password | Database |
+| ----------- | ---- | ------- | -------- | -------- |
+| PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
+| MySQL       | 3306 | kameha  | kameha   | kamehadb |
+| MariaDB     | 3307 | kameha  | kameha   | kamehadb |
+| Redis       | 6379 | —       | —        | —        |
+| SQL Server  | 1433 | sa      | Kameha1! | kamehadb |
+| Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
+| ClickHouse  | 8123 | default | default  | kamehadb |
+| DuckDB      | 5432 | —       | —        | —        |
+| TigerBeetle | 3000 | —       | —        | —        |
+
+### TigerBeetle Initialization
+
+TigerBeetle requires a one-time `format` step before first start. The docker-compose entrypoint auto-detects missing data files and runs format automatically.
+
+To seed sample data (accounts + transfers):
+
+```bash
+docker compose up -d tigerbeetle     # Start (auto-formats if first run)
+pnpm seed:tigerbeetle                # Create sample accounts + transfers
+```
+
+Or from the sidecar package:
+
+```bash
+pnpm --filter @kamehadb/sidecar seed:tigerbeetle
+```
+
+Override connection with env vars: `TB_HOST`, `TB_PORT`, `TB_CLUSTER_ID`.
 
 ## Testing And Verification
 
@@ -229,6 +261,38 @@ These guidelines prioritize caution and precision over speed.
 - **Verifiable Goals**: Transform "fix bug" into "write reproducing test $\rightarrow$ make it pass."
 - **Structured Plans**: For multi-step tasks, define: `[Step] $\rightarrow$ verify: [check]`.
 - **Verification Gate**: No task is "done" until success criteria are verified via tool output.
+
+### 5. Always Use shadcn Components
+
+- **Rule**: ALWAYS use the shadcn UI components from `apps/desktop/src/components/ui/` instead of raw HTML elements when an equivalent exists.
+- **Available components** (in `ui/`): `Button`, `Input`, `Textarea`, `Label`, `Select` (+ parts), `Table` (+ parts), `Card`, `Badge`, `Dialog`, `Sheet`, `DropdownMenu`, `Tabs`, `Tooltip`, `ScrollArea`, `Progress`, `Separator`, `Command`, `Sonner` toaster.
+- **Mapping**:
+  - `<input>` → `<Input>`
+  - `<textarea>` → `<Textarea>`
+  - `<label>` → `<Label>`
+  - `<button>` → `<Button>` (use `variant`/`size` props, not bespoke className hacks)
+  - `<select>` → `<Select>` + `<SelectTrigger>` + `<SelectContent>` + `<SelectItem>` + `<SelectValue>`
+  - `<table>/<thead>/<tbody>/<tr>/<th>/<td>` → `<Table>/<TableHeader>/<TableBody>/<TableRow>/<TableHead>/<TableCell>`
+- **No new shadcn components without a shadcn CLI install** — if a shadcn component does not exist in `ui/`, install it via the shadcn CLI before using it; never hand-roll a parallel component.
+- **Acceptable exceptions** (document the reason inline): buttons required by a third-party library (e.g. React Flow's `<Controls>`), elements with required `role` attributes that shadcn doesn't expose (e.g. `role="switch"` toggles).
+
+### 6. Always Comment Non-Trivial Code (How / Why / What)
+
+- **Rule**: Every non-trivial function, hook, or block of logic must carry a short comment that explains the **what** (one line), the **why** (one line of intent / tradeoff), and the **how** only when the mechanism is non-obvious.
+- **What is "non-trivial"**: anything that isn't a one-liner that re-states its name. Trivial `return x + 1` lines don't need a comment. A new function, a hook, a state machine, a tricky expression, a side effect, a workaround — these all do.
+- **Comment style** (match the existing project style; short, plain prose):
+  ```ts
+  // Resize a column by direct DOM mutation during the drag for smoothness,
+  // then commit the final pixel width to React state on mouseup so re-renders
+  // only happen once per drag. (How / Why / What)
+  ```
+- **Bad**: comments that just repeat the function name (`// Increments counter`), comments that lie, comments without intent ("TODO" without context).
+- **Good**: comments that name the tradeoff, call out a workaround, or document a non-obvious invariant.
+- **No section-header comment walls** — keep comments tight and attached to the code they describe.
+
+## File Search
+
+For any file search or grep in the current git-indexed directory, use fff tools (`ffgrep`, `fffind`) instead of glob or grep. fff is the MCP server at `~/.local/bin/fff-mcp` — it's faster, supports smart-case with fuzzy fallback, frecency-ranked results, and git-aware annotations.
 
 ## Operational Rules
 
@@ -347,49 +411,3 @@ const id = Number(row.id);
 - One short line per comment is the default; multi-line only when truly needed
 - Place the comment above the line it explains, not as a trailing line
 - Use full sentences with proper punctuation; no "TODO later" or "fix me" leftovers
-
-<!-- headroom:rtk-instructions -->
-
-# RTK (Rust Token Killer) - Token-Optimized Commands
-
-When running shell commands, **always prefix with `rtk`**. This reduces context
-usage by 60-90% with zero behavior change. If rtk has no filter for a command,
-it passes through unchanged — so it is always safe to use.
-
-## Key Commands
-
-```bash
-# Git (59-80% savings)
-rtk git status          rtk git diff            rtk git log
-
-# Files & Search (60-75% savings)
-rtk ls <path>           rtk read <file>         rtk grep <pattern>
-rtk find <pattern>      rtk diff <file>
-
-# Test (90-99% savings) — shows failures only
-rtk pytest tests/       rtk cargo test          rtk test <cmd>
-
-# Build & Lint (80-90% savings) — shows errors only
-rtk tsc                 rtk lint                rtk cargo build
-rtk prettier --check    rtk mypy                rtk ruff check
-
-# Analysis (70-90% savings)
-rtk err <cmd>           rtk log <file>          rtk json <file>
-rtk summary <cmd>       rtk deps                rtk env
-
-# GitHub (26-87% savings)
-rtk gh pr view <n>      rtk gh run list         rtk gh issue list
-
-# Infrastructure (85% savings)
-rtk docker ps           rtk kubectl get         rtk docker logs <c>
-
-# Package managers (70-90% savings)
-rtk pip list            rtk pnpm install        rtk npm run <script>
-```
-
-## Rules
-
-- In command chains, prefix each segment: `rtk git add . && rtk git commit -m "msg"`
-- For debugging, use raw command without rtk prefix
-- `rtk proxy <cmd>` runs command without filtering but tracks usage
-<!-- /headroom:rtk-instructions -->

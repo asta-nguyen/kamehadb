@@ -1,24 +1,28 @@
-import { MongoView } from '@/components/mongo-view';
-import { RedisView } from '@/components/redis-view';
-import { QdrantView } from '@/components/qdrant-view';
+import { AIChatPanel } from '@/components/ai-chat-panel';
+import { ApiSettingsPage } from '@/components/api-settings-page';
+import { DatabaseStats } from '@/components/database-stats';
+import { DbIcon } from '@/components/db-icon';
 import { MongoQuery } from '@/components/mongo-query';
-import { RedisQuery } from '@/components/redis-query';
+import { MongoView } from '@/components/mongo-view';
 import { QdrantQuery } from '@/components/qdrant-query';
+import { QdrantView } from '@/components/qdrant-view';
+import { RedisQuery } from '@/components/redis-query';
+import { RedisView } from '@/components/redis-view';
 import { SchemaGraph } from '@/components/schema-graph';
+import { SchemaTimeline } from '@/components/schema-timeline';
+import { GlobalSearch } from '@/components/global-search';
+import { MigrationAssistant } from '@/components/migration-assistant';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
 import { TableView } from '@/components/table-view';
-import { DatabaseStats } from '@/components/database-stats';
-import { AIChatPanel } from '@/components/ai-chat-panel';
-import { ApiSettingsPage } from '@/components/api-settings-page';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnections } from '@/hooks/use-connections';
 import {
-  appStore,
   applyTheme,
+  appStore,
   closeAiChatPanel,
   closeAllTabs,
   closeTab,
@@ -34,8 +38,8 @@ import {
   Activity,
   BarChart3,
   Box,
-  Boxes,
   Database,
+  History,
   Monitor,
   Moon,
   Plus,
@@ -46,54 +50,98 @@ import {
   Terminal,
   X,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useMemo, useRef } from 'react';
+import type { DbKind } from '@kamehadb/shared';
+import { GREETINGS, PROMPTS, KIND_LABELS, KINDS } from '@/lib/constants';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+
+function pick<T>(arr: readonly T[], last?: T): T {
+  if (arr.length === 0) {
+    throw new Error('pick: arr must not be empty');
+  }
+  const filtered = last !== undefined ? arr.filter((item) => item !== last) : [...arr];
+  const pool = filtered.length > 0 ? filtered : arr;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function getGreeting(): [string, string] {
+  const hour = new Date().getHours();
+  const bucket = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
+  const lastGreeting = localStorage.getItem('lastGreeting') ?? undefined;
+  const line1 = pick(GREETINGS[bucket], lastGreeting);
+  localStorage.setItem('lastGreeting', line1);
+  const returning = localStorage.getItem('kamehadb_visits');
+  const line2 = returning ? pick(PROMPTS) : 'Create or select a connection to get started';
+  if (!returning) localStorage.setItem('kamehadb_visits', '1');
+  return [line1, line2];
+}
+
+const SQL_KINDS: DbKind[] = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'oracle', 'clickhouse', 'mariadb', 'duckdb'];
+const isSql = (k: string | undefined) => k && SQL_KINDS.includes(k as DbKind);
 
 const QdrantVectorMap = lazy(() =>
   import('@/components/qdrant-vector-map').then((m) => ({ default: m.QdrantVectorMap })),
 );
 const QdrantStatsPanel = lazy(() => import('@/components/qdrant-stats').then((m) => ({ default: m.QdrantStatsPanel })));
 
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Light', Icon: Sun },
+  { value: 'system', label: 'System', Icon: Monitor },
+  { value: 'dark', label: 'Dark', Icon: Moon },
+] as const;
+
 function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
-  const { data: connections, isLoading } = useConnections();
+  const connectionStatus = useStore(appStore, (s) => s.connectionStatus);
+  const { data: connections } = useConnections();
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
   const activeTab = openedTabs.find((t) => t.id === activeTabId);
 
-  const visibleTabs = activeConnectionId && (activeConnection || isLoading) ? openedTabs : [];
-
-  const connectionColorMap = useMemo(() => {
-    if (!connections) return new Map<string, string>();
-    return new Map(connections.map((c) => [c.id, c.color ?? '']));
-  }, [connections]);
+  const getSignalColor = (connectionId: string) => {
+    const st = connectionStatus[connectionId];
+    if (st === 'connected' || st === 'slow') return '#22c55e';
+    if (st === 'reconnecting') return '#f97316';
+    if (st === 'disconnected') return '#ef4444';
+    return '#6b7280';
+  };
 
   return (
     <div className="flex items-center h-8 border-b border-border bg-muted/20 shrink-0 overflow-x-auto">
-      {visibleTabs.map((tab) => {
-        const connColor = connectionColorMap.get(tab.connectionId) || null;
+      {openedTabs.map((tab) => {
         return (
           <div
             key={tab.id}
+            role="button"
+            tabIndex={0}
             className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-xs shrink-0 select-none ${
               tab.id === activeTabId ? 'bg-background border-b-2 border-b-primary' : 'hover:bg-muted/50'
             }`}
             onClick={() =>
               appStore.setState((s) => ({ ...s, activeTabId: tab.id, activeConnectionId: tab.connectionId }))
             }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                appStore.setState((s) => ({ ...s, activeTabId: tab.id, activeConnectionId: tab.connectionId }));
+              }
+            }}
           >
-            {connColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: connColor }} />}
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: getSignalColor(tab.connectionId) }}
+            />
             {tab.type === 'query' || tab.type === 'redis-query' ? (
               <Terminal className="size-3" />
             ) : tab.type === 'graph' ? (
               <Share2 className="size-3" />
             ) : tab.type === 'mongo' || tab.type === 'mongo-query' ? (
-              <Database className="size-3" />
+              <Table2 className="size-3" />
             ) : tab.type === 'redis' ? (
               <Box className="size-3" />
             ) : tab.type === 'qdrant' ? (
-              <Boxes className="size-3" />
+              <DbIcon kind="qdrant" className="size-3" />
             ) : tab.type === 'qdrant-search' ? (
               <Search className="size-3" />
             ) : tab.type === 'qdrant-graph' ? (
@@ -104,11 +152,16 @@ function TabBar() {
               <BarChart3 className="size-3" />
             ) : tab.type === 'table-stats' ? (
               <Activity className="size-3" />
+            ) : tab.type === 'schema-timeline' ? (
+              <History className="size-3" />
+            ) : tab.type === 'migration' ? (
+              <Terminal className="size-3" />
             ) : (
               <Table2 className="size-3" />
             )}
             <span className="truncate max-w-30">{tab.title}</span>
             <button
+              type="button"
               className="ml-1 hover:bg-muted rounded-sm p-0.5"
               onClick={(e) => {
                 e.stopPropagation();
@@ -124,6 +177,7 @@ function TabBar() {
         <>
           {activeTab && (activeTab.type === 'redis-query' || activeTab.type === 'redis') ? (
             <button
+              type="button"
               className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => openRedisQueryTab(activeConnectionId)}
               title="Redis Query"
@@ -132,6 +186,7 @@ function TabBar() {
             </button>
           ) : activeTab && (activeTab.type === 'mongo-query' || activeTab.type === 'mongo') ? (
             <button
+              type="button"
               className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => {
                 const mongoDb = appStore.state.activeMongoDatabase;
@@ -143,12 +198,10 @@ function TabBar() {
             >
               <Database className="size-3.5" />
             </button>
-          ) : activeConnection &&
-            (activeConnection.kind === 'postgres' ||
-              activeConnection.kind === 'mysql' ||
-              activeConnection.kind === 'sqlite') ? (
+          ) : activeConnection && isSql(activeConnection.kind) ? (
             <>
               <button
+                type="button"
                 className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
                 onClick={() => openNewQueryTab(activeConnectionId)}
                 title="New Query"
@@ -156,6 +209,7 @@ function TabBar() {
                 <Plus className="size-3.5" />
               </button>
               <button
+                type="button"
                 className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
                 onClick={() => openGraphTab(activeConnectionId)}
                 title="Schema Graph"
@@ -170,6 +224,79 @@ function TabBar() {
   );
 }
 
+function WelcomePage({ greeting, prompt }: { greeting: string; prompt: string }) {
+  const { data: connections } = useConnections();
+  const connectionStatus = useStore(appStore, (s) => s.connectionStatus);
+  const hasConnections = connections && connections.length > 0;
+  const count = connections?.length ?? 0;
+
+  // Show kinds that have at least one connection profile; fall back to all
+  // KINDS when no connections exist at all.
+  const displayKinds = useMemo(() => {
+    if (!connections || connections.length === 0) return KINDS;
+    const kindsUsed = new Set(connections.map((c) => c.kind));
+    return KINDS.filter((k) => kindsUsed.has(k));
+  }, [connections]);
+
+  return (
+    <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-background via-background to-muted/30">
+      <div className="text-center max-w-lg mx-auto px-6">
+        {/* Greeting */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">{greeting}</h1>
+          <p className="text-sm text-muted-foreground">{prompt}</p>
+        </div>
+
+        {/* Connections quick status */}
+        {hasConnections && (
+          <div className="flex items-center justify-center gap-1.5 mb-6 text-xs text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-primary" />
+            {count} connection{count !== 1 ? 's' : ''} configured
+          </div>
+        )}
+
+        {/* Database icons — glow when at least one connection of this kind is online */}
+        <div className="flex flex-wrap justify-center gap-3 mb-8">
+          {displayKinds.map((kind) => {
+            const isOn = connections?.some(
+              (c) => c.kind === kind && (connectionStatus[c.id] === 'connected' || connectionStatus[c.id] === 'slow'),
+            );
+            return (
+              <div
+                key={kind}
+                className={`relative flex flex-col items-center gap-1.5 p-3 rounded-lg border min-w-[72px] transition-all ${
+                  isOn
+                    ? 'bg-muted/50 border-emerald-500/30 shadow-[0_0_12px_-2px_rgba(34,197,94,0.4)]'
+                    : 'bg-muted/10 border-red-500/20 opacity-50 shadow-[0_0_8px_-2px_rgba(239,68,68,0.2)]'
+                }`}
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-background/60">
+                  <DbIcon kind={kind} className="size-5" />
+                </span>
+                <span className="text-[11px] text-muted-foreground/70 font-medium">{KIND_LABELS[kind] ?? kind}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {!hasConnections && <p className="text-xs text-muted-foreground/60 mb-6">{KINDS.length} databases supported</p>}
+
+        {/* Keyboard shortcuts hint */}
+        <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground/50">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-[10px]">⌘K</kbd>
+            Quick search
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-[10px]">⌘N</kbd>
+            New query
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Workspace() {
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
@@ -177,30 +304,16 @@ function Workspace() {
   const { data: connections } = useConnections();
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
+  const greetingLine = useMemo(() => getGreeting(), []);
 
-  // Auto-open appropriate view for connection type when no tabs open
-  useEffect(() => {
-    if (!activeConnectionId || !activeConnection || openedTabs.length > 0) return;
-
-    // No tabs - show default empty state (user can click Stats from sidebar)
-    return;
-  }, [activeConnectionId, activeConnection?.kind, openedTabs]);
-
-  if (!activeConnectionId) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-base font-medium mb-1">Welcome to kamehadb</h2>
-          <p className="text-sm text-muted-foreground">Create or select a connection to get started</p>
-        </div>
-      </div>
-    );
+  if (!activeConnectionId || !activeConnection) {
+    return <WelcomePage greeting={greetingLine[0]} prompt={greetingLine[1]} />;
   }
 
   const visibleTabs = openedTabs;
 
   if (visibleTabs.length === 0) {
-    if (activeConnection?.kind === 'mongodb' || activeConnection?.kind === 'qdrant') {
+    if (activeConnection.kind === 'mongodb' || activeConnection.kind === 'qdrant') {
       return (
         <div className="h-full flex items-center justify-center">
           <div className="text-center">
@@ -215,9 +328,7 @@ function Workspace() {
         <div className="text-center space-y-3">
           <p className="text-sm text-muted-foreground">Select a table or open a tab</p>
           <div className="flex items-center justify-center gap-2">
-            {(activeConnection?.kind === 'postgres' ||
-              activeConnection?.kind === 'mysql' ||
-              activeConnection?.kind === 'sqlite') && (
+            {isSql(activeConnection.kind) && (
               <>
                 <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
                   <Terminal className="size-3.5 mr-1.5" />
@@ -269,14 +380,16 @@ function Workspace() {
       {activeTab.type === 'qdrant' && (
         <QdrantView connectionId={activeTab.connectionId} collection={activeTab.collection} />
       )}
-      {activeTab.type === 'qdrant-search' && <QdrantQuery tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'qdrant-search' && (
+        <QdrantQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
       {activeTab.type === 'qdrant-graph' && (
         <Suspense
           fallback={
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading map…</div>
           }
         >
-          <QdrantVectorMap connectionId={activeTab.connectionId} collection={activeTab.collection} />
+          <QdrantVectorMap tab={activeTab} connectionId={activeTab.connectionId} collection={activeTab.collection} />
         </Suspense>
       )}
       {activeTab.type === 'qdrant-stats' && (
@@ -285,6 +398,8 @@ function Workspace() {
         </Suspense>
       )}
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'schema-timeline' && <SchemaTimeline connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'migration' && <MigrationAssistant connectionId={activeTab.connectionId} />}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
       )}
@@ -310,13 +425,8 @@ function MainLayout() {
 
 function ThemeToggle() {
   const theme = useStore(appStore, (state) => state.theme);
-  const themeOptions = [
-    { value: 'light', label: 'Light', Icon: Sun },
-    { value: 'system', label: 'System', Icon: Monitor },
-    { value: 'dark', label: 'Dark', Icon: Moon },
-  ] as const;
   const activeIndex = Math.max(
-    themeOptions.findIndex((option) => option.value === theme),
+    THEME_OPTIONS.findIndex((option) => option.value === theme),
     0,
   );
 
@@ -328,7 +438,7 @@ function ThemeToggle() {
           transform: `translateX(${activeIndex * 1.875}rem)`,
         }}
       />
-      {themeOptions.map(({ value, label, Icon }) => (
+      {THEME_OPTIONS.map(({ value, label, Icon }) => (
         <button
           key={value}
           type="button"
@@ -347,7 +457,7 @@ function ThemeToggle() {
   );
 }
 
-function Header() {
+function Header({ onSearchOpen }: { onSearchOpen: () => void }) {
   return (
     <header className="h-10 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background">
       <div className="flex items-center gap-3">
@@ -358,7 +468,16 @@ function Header() {
           <span className="font-mono text-sm font-bold tracking-widest text-primary ml-0.5">DB</span>
         </div>
       </div>
-      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={onSearchOpen} className="gap-1.5 text-xs text-muted-foreground/60">
+          <Search className="size-3.5" />
+          <span className="hidden sm:inline">Search</span>
+          <kbd className="hidden sm:inline-flex ml-1 items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50">
+            <span>⌘</span>K
+          </kbd>
+        </Button>
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
@@ -367,6 +486,7 @@ function App() {
   const view = useStore(appStore, (state) => state.view);
   const theme = useStore(appStore, (state) => state.theme);
   const closeAllChordUntilRef = useRef(0);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -406,6 +526,7 @@ function App() {
 
       if (hasCommandModifier && key === 'k' && !event.shiftKey && !event.altKey) {
         event.preventDefault();
+        setSearchOpen(true);
         closeAllChordUntilRef.current = Date.now() + 2500;
         return;
       }
@@ -436,8 +557,9 @@ function App() {
   return (
     <TooltipProvider>
       <Toaster />
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <div className="h-screen w-screen flex flex-col">
-        <Header />
+        <Header onSearchOpen={() => setSearchOpen(true)} />
         <div className="flex-1 flex overflow-hidden">
           <Sidebar />
           {view === 'api-settings' ? <ApiSettingsPage /> : <MainLayout />}

@@ -1,62 +1,159 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 
-type UseColumnResizeReturn = {
-  widths: number[];
-  totalWidth: number;
-  onMouseDown: (index: number, e: React.MouseEvent) => void;
-  setWidths: React.Dispatch<React.SetStateAction<number[]>>;
+const SENTINEL = '__kameha_unresized__';
+
+type Options = {
+  prefix?: string;
+  suffix?: string;
+  // Sampled cell values per column for body-based width calculation.
+  // Outer array = columns, inner array = sampled text values for that column.
+  sampleValues?: string[][];
+  maxAutoWidth?: number;
+  minAutoWidth?: number;
 };
 
-export function useColumnResize(columnCount: number, defaultWidth = 120): UseColumnResizeReturn {
-  const [widths, setWidths] = useState<number[]>(() => Array(columnCount).fill(defaultWidth));
-  // Reconcile widths when columnCount changes: trim if smaller, fill new indices with defaultWidth.
-  useEffect(() => {
-    setWidths((prev) => {
-      if (prev.length === columnCount) return prev;
-      if (prev.length > columnCount) return prev.slice(0, columnCount);
-      return [...prev, ...Array(columnCount - prev.length).fill(defaultWidth)];
-    });
-  }, [columnCount, defaultWidth]);
-  const refs = useRef<{ idx: number; startX: number; startW: number; th: HTMLElement; moved: boolean } | null>(null);
+type DragState = {
+  idx: number;
+  startX: number;
+  startW: number;
+  allRows: HTMLElement[];
+  moved: boolean;
+};
+
+function measureText(text: string, font: string): number {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return text.length * 8;
+  ctx.font = font;
+  return ctx.measureText(text).width;
+}
+
+// Compute minimum column widths from the actual body content of sampled rows.
+// Each column gets a width based on its widest cell value.
+function computeMinWidths(
+  sampleValues: string[][],
+  opts: { min: number; max: number; font: string; padding: number },
+): number[] {
+  return sampleValues.map((cells) => {
+    let maxW = 0;
+    for (const cell of cells) {
+      if (!cell) continue;
+      const w = measureText(cell, opts.font);
+      if (w > maxW) maxW = w;
+    }
+    return Math.round(Math.max(opts.min, Math.min(opts.max, maxW + opts.padding)));
+  });
+}
+
+export function useColumnResize(columnCount: number, options: Options = {}) {
+  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 120 } = options;
+
+  // null = unresized column, will use minmax(auto, 1fr) for content-based + fill
+  // number = user-resized width in px (fixed, no longer flexes)
+  const [widths, setWidths] = useState<(number | null)[]>(() => {
+    if (sampleValues && sampleValues.length === columnCount) {
+      return computeMinWidths(sampleValues, {
+        min: minAutoWidth,
+        max: maxAutoWidth,
+        font: '11px system-ui, -apple-system, sans-serif',
+        padding: 20,
+      });
+    }
+    return Array(columnCount).fill(null);
+  });
+
+  const measuredRef = useRef(!!sampleValues);
+
+  if (widths.length !== columnCount) {
+    if (sampleValues && sampleValues.length === columnCount && !measuredRef.current) {
+      setWidths(
+        computeMinWidths(sampleValues, {
+          min: minAutoWidth,
+          max: maxAutoWidth,
+          font: '11px system-ui, -apple-system, sans-serif',
+          padding: 20,
+        }),
+      );
+    } else {
+      setWidths(Array(columnCount).fill(null));
+    }
+  }
+
+  const dragRef = useRef<DragState | null>(null);
+
+  // Each column uses minmax(contentWidth, 1fr) — a content-based floor that
+  // expands to fill leftover table space. The larger minimum widths keep
+  // fields readable, and the table wrapper handles horizontal overflow.
+  const dataTemplate = useMemo(
+    () => widths.map((w) => (w == null ? 'minmax(0, 1fr)' : `minmax(${w}px, 1fr)`)).join(' '),
+    [widths],
+  );
+
+  const fullTemplate = useMemo(() => {
+    const parts = [prefix, dataTemplate, suffix].filter((s) => s && s.length > 0);
+    return parts.join(' ');
+  }, [prefix, dataTemplate, suffix]);
 
   const onMouseDown = useCallback(
     (index: number, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const th = (e.currentTarget as HTMLElement).closest('th') as HTMLElement;
-      if (!th) return;
+      const handle = e.currentTarget as HTMLElement;
+      const head = handle.closest('[data-slot="table-head"]') as HTMLElement | null;
+      if (!head) return;
+      const row = head.parentElement as HTMLElement;
+      if (!row) return;
+
       const startX = e.clientX;
-      const startW = th.getBoundingClientRect().width;
-      refs.current = { idx: index, startX, startW, th, moved: false };
+      const startW = head.getBoundingClientRect().width;
+      const table = row.closest('[data-slot="table"]') as HTMLElement | null;
+      const allRows = table ? Array.from(table.querySelectorAll<HTMLElement>('[data-slot="table-row"]')) : [row];
+
+      dragRef.current = { idx: index, startX, startW, allRows, moved: false };
+
+      const baseDataTemplate = dataTemplate;
 
       const onMove = (me: MouseEvent) => {
-        if (!refs.current) return;
-        refs.current.moved = true;
-        const diff = me.clientX - refs.current.startX;
-        const w = Math.max(40, refs.current.startW + diff);
-        refs.current.th.style.width = `${w}px`;
+        if (!dragRef.current) return;
+        dragRef.current.moved = true;
+        const diff = me.clientX - dragRef.current.startX;
+        const w = Math.max(40, dragRef.current.startW + diff);
+
+        // During drag, convert the column being resized to a fixed px width
+        // while keeping minmax(N, 1fr) for other columns.
+        const serialized = baseDataTemplate
+          .replace(/minmax\(\s*0\s*,\s*1fr\s*\)/g, SENTINEL)
+          .replace(/minmax\(\s*\d+px\s*,\s*1fr\s*\)/g, SENTINEL);
+        const parts = serialized.length > 0 ? serialized.split(' ').filter((s) => s.length > 0) : [];
+        if (dragRef.current.idx >= 0 && dragRef.current.idx < parts.length) {
+          parts[dragRef.current.idx] = `${w}px`;
+        }
+        const newDataTemplate = parts.map((p) => (p === SENTINEL ? 'minmax(0, 1fr)' : p)).join(' ');
+        const next = [prefix, newDataTemplate, suffix].filter((s) => s && s.length > 0).join(' ');
+        for (const r of dragRef.current.allRows) r.style.gridTemplateColumns = next;
       };
 
       const onUp = () => {
-        if (refs.current) {
-          if (refs.current.moved) {
-            const finalW = Math.max(40, parseFloat(refs.current.th.style.width) || defaultWidth);
-            const i = refs.current.idx;
-            setWidths((prev: number[]) => {
+        if (dragRef.current?.moved) {
+          const i = dragRef.current.idx;
+          const headEl = handle.closest('[data-slot="table-head"]') as HTMLElement | null;
+          if (headEl) {
+            const w = headEl.getBoundingClientRect().width;
+            // Lock this column to the dragged px width (no longer flex).
+            setWidths((prev) => {
               const next = [...prev];
-              next[i] = finalW;
+              next[i] = Math.max(40, Math.round(w));
               return next;
             });
-            const th = refs.current.th;
-            const prevent = (ce: MouseEvent) => {
-              ce.stopPropagation();
-              ce.preventDefault();
-              th.removeEventListener('click', prevent, true);
-            };
-            th.addEventListener('click', prevent, true);
           }
+          const suppress = (ce: MouseEvent) => {
+            ce.stopPropagation();
+            ce.preventDefault();
+            document.removeEventListener('click', suppress, true);
+          };
+          document.addEventListener('click', suppress, true);
         }
-        refs.current = null;
+        dragRef.current = null;
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         document.body.style.cursor = '';
@@ -68,9 +165,17 @@ export function useColumnResize(columnCount: number, defaultWidth = 120): UseCol
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     },
-    [defaultWidth],
+    [dataTemplate, prefix, suffix, setWidths],
   );
 
-  const totalWidth = widths.reduce((sum: number, w: number) => sum + w, 0);
-  return { widths, totalWidth, onMouseDown, setWidths };
+  const totalWidth = widths.reduce<number>((sum, w) => sum + (w ?? 0), 0);
+
+  return {
+    widths,
+    totalWidth,
+    dataTemplate,
+    fullTemplate,
+    onMouseDown,
+    setWidths,
+  };
 }

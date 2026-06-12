@@ -51,6 +51,7 @@ export function validateProviderConfig(provider: AIProvider, config: AIProviderC
       return null;
     case '9router':
       if (!config.baseUrl) return 'Base URL is required for 9Router';
+      if (!config.apiKey) return 'API key is required for 9Router';
       return null;
   }
 }

@@ -243,6 +243,48 @@ mongoRouter.post(
   },
 );
 
+// GET /mongo/:connectionId/completions
+// Returns collection names + field names from sample documents for autocomplete.
+mongoRouter.get('/:connectionId/completions', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const database = c.req.query('database') || '';
+  const cacheKey = `mongo:${connectionId}:completions:${database}`;
+  const cached = getCached<{ collections: { name: string; fields: string[] }[] }>(cacheKey);
+  if (cached) return c.json(cached);
+
+  try {
+    const adapter = await getAdapter(connectionId);
+    try {
+      const collections = await adapter.listCollections(database || undefined);
+      // Sample one document from each collection to extract field names
+      const result = [];
+      for (const coll of collections) {
+        let fields: string[] = [];
+        try {
+          const sample = await adapter.findDocuments({
+            collection: coll.name,
+            database: database || undefined,
+            limit: 1,
+          });
+          if (sample.documents.length > 0) {
+            fields = Object.keys(sample.documents[0]);
+          }
+        } catch {
+          // skip collections we can't sample
+        }
+        result.push({ name: coll.name, fields });
+      }
+      const data = { collections: result };
+      setCache(cacheKey, data);
+      return c.json(data);
+    } finally {
+      await adapter.close();
+    }
+  } catch (err) {
+    return handleError(c, err, 'completions');
+  }
+});
+
 // GET /mongo/:connectionId/test
 mongoRouter.get('/:connectionId/test', async (c) => {
   try {

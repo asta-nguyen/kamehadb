@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ChatInput } from '@/components/chat-input';
+import { buildHighlightedCodeTree, type SafeHighlightNode } from '@/lib/ai-chat-highlight';
+import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/variants';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,50 +9,50 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useChatHistory, useClearChatHistory, useClearSchemaCache } from '@/hooks/use-ai-chat';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useChat } from '@/hooks/use-chat';
 import { useConnections } from '@/hooks/use-connections';
-import { openQueryTabWithSql, navigateTo, appStore } from '@/store';
-import { useChat, fetchServerSentEvents } from '@tanstack/ai-react';
-import type { UIMessage } from '@tanstack/ai-react';
-import hljs from 'highlight.js/lib/core';
-import sql from 'highlight.js/lib/languages/sql';
-import javascript from 'highlight.js/lib/languages/javascript';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import type { ChatMessage } from '@/lib/ai-chat-helpers';
+import { getChatTextContent, normalizeCodeLanguage, toUIMessage, type CodeLanguage } from '@/lib/ai-chat-helpers';
+import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
 import {
   Bot,
-  Send,
+  Check,
+  Copy,
+  Database,
   Loader2,
+  MoreHorizontal,
+  Play,
+  RefreshCw,
+  Settings2,
   Sparkles,
   Terminal,
-  Play,
-  Copy,
-  Check,
-  Database,
-  MoreHorizontal,
-  Settings2,
-  RefreshCw,
   Trash2,
-  StopCircle,
   X,
 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, Fragment } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { QUERY_KEYS } from '@/lib/query-keys';
 
-hljs.registerLanguage('sql', sql);
-hljs.registerLanguage('javascript', javascript);
+/**
+ * Render the pre-sanitized highlight tree without ever injecting raw HTML.
+ * The helper already strips unsafe scope/class data, so this renderer only
+ * needs to map text and span nodes into React elements recursively.
+ */
+function renderHighlightNodes(nodes: SafeHighlightNode[], keyPrefix = 'code'): React.ReactNode[] {
+  return nodes.map((node, index) => {
+    const key = `${keyPrefix}-${index}`;
+    if (node.type === 'text') return <Fragment key={key}>{node.value}</Fragment>;
 
-type CodeLanguage = 'sql' | 'javascript' | 'redis';
-
-const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-
-function highlightCode(code: string, language: CodeLanguage): string {
-  if (language === 'redis') return escapeHtml(code);
-  return hljs.highlight(code, { language }).value;
+    return (
+      <span key={key} className={node.className}>
+        {renderHighlightNodes(node.children, key)}
+      </span>
+    );
+  });
 }
 
 type AIChatPanelProps = {
@@ -61,30 +61,36 @@ type AIChatPanelProps = {
   onClose?: () => void;
 };
 
-function QueryBlock({
-  code,
-  language,
-  onInsert,
-  onRun,
-}: {
+type ReadonlyQueryBlock = {
+  variant: 'readonly';
   code: string;
   language: CodeLanguage;
-  onInsert?: () => void;
-  onRun?: () => void;
-}) {
+};
+
+type ExecutableQueryBlock = {
+  variant: 'executable';
+  code: string;
+  language: CodeLanguage;
+  connectionId: string;
+  onInsert: () => void;
+  onRun: () => void;
+};
+
+type QueryBlockProps = ReadonlyQueryBlock | ExecutableQueryBlock;
+
+function QueryBlock(props: QueryBlockProps) {
   const [isCopied, setIsCopied] = useState(false);
-  const canOpenSql = language === 'sql' && onInsert && onRun;
-  const languageLabel = language === 'javascript' ? 'mongodb' : language;
+  const languageLabel = props.language === 'javascript' && props.variant === 'executable' ? 'mongodb' : props.language;
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(code);
+      await navigator.clipboard.writeText(props.code);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 1500);
     } catch (err) {
       console.error('Failed to copy query:', err);
     }
-  }, [code]);
+  }, [props.code]);
 
   return (
     <div className="my-2 overflow-hidden rounded-md border border-border/70 bg-card shadow-sm">
@@ -105,7 +111,7 @@ function QueryBlock({
             </TooltipTrigger>
             <TooltipContent>Copy {languageLabel}</TooltipContent>
           </Tooltip>
-          {canOpenSql && (
+          {props.variant === 'executable' && (
             <>
               <Tooltip>
                 <TooltipTrigger
@@ -115,7 +121,7 @@ function QueryBlock({
                     size: 'icon',
                     className: 'size-6 text-muted-foreground hover:text-foreground',
                   })}
-                  onClick={onInsert}
+                  onClick={props.onInsert}
                 >
                   <Terminal className="size-3" />
                 </TooltipTrigger>
@@ -129,7 +135,7 @@ function QueryBlock({
                     size: 'icon',
                     className: 'size-6 text-muted-foreground hover:text-foreground',
                   })}
-                  onClick={onRun}
+                  onClick={props.onRun}
                 >
                   <Play className="size-3" />
                 </TooltipTrigger>
@@ -139,25 +145,11 @@ function QueryBlock({
           )}
         </div>
       </div>
-      {/* highlight.js v11+ strips/ignores unescaped HTML tags (like <script>)
-          rather than emitting entities, so user-supplied tags won't render.
-          This safety depends on using hljs.highlight (v11+) and must be
-          revisited if the highlighter or version changes. If you swap to a
-          different highlighter or feed pre-escaped HTML into highlightCode,
-          add explicit sanitization (e.g. DOMPurify) here. */}
-      <pre
-        className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]"
-        dangerouslySetInnerHTML={{ __html: highlightCode(code, language) }}
-      />
+      <pre className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]">
+        {renderHighlightNodes(buildHighlightedCodeTree(props.code, props.language))}
+      </pre>
     </div>
   );
-}
-
-function normalizeCodeLanguage(language: string): CodeLanguage {
-  const normalized = language.toLowerCase();
-  if (normalized === 'javascript' || normalized === 'js' || normalized === 'json') return 'javascript';
-  if (normalized === 'redis') return 'redis';
-  return 'sql';
 }
 
 function extractCodeBlocks(content: string): { type: 'text' | 'code'; value: string; language?: CodeLanguage }[] {
@@ -183,37 +175,99 @@ function extractCodeBlocks(content: string): { type: 'text' | 'code'; value: str
   return blocks;
 }
 
-function getMsgContent(msg: UIMessage): string {
-  return msg.parts
-    .filter((p): p is { type: 'text'; content: string } => p.type === 'text')
-    .map((p) => p.content)
-    .join('');
-}
-
-function MessageBubble({ msg, connectionId }: { msg: UIMessage; connectionId: string | null }) {
-  const [isCopied, setIsCopied] = useState(false);
-
-  function formatTime(date?: Date) {
-    if (!date) return '';
+function formatChatTime(date?: Date) {
+  if (!date) return '';
+  const today = new Date();
+  const isToday = date.toDateString() === today.toDateString();
+  if (isToday) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
+  return (
+    date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+    ', ' +
+    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  );
+}
 
-  if (msg.role === 'user') {
-    return (
-      <div className="mb-3 flex justify-end">
-        <div className="group max-w-[88%]">
-          {msg.createdAt && (
-            <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatTime(msg.createdAt)}</div>
-          )}
-          <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
-            {getMsgContent(msg)}
-          </div>
+type UserMessageProps = {
+  msg: ChatMessage;
+};
+
+function UserMessage({ msg }: UserMessageProps) {
+  return (
+    <div className="mb-3 flex justify-end">
+      <div className="group max-w-[88%]">
+        {msg.createdAt && (
+          <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatChatTime(msg.createdAt)}</div>
+        )}
+        <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
+          {getChatTextContent(msg)}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  const content = getMsgContent(msg);
+type StreamingAssistantMessageProps = {
+  msg: ChatMessage;
+};
+
+function StreamingAssistantMessage({ msg: _msg }: StreamingAssistantMessageProps) {
+  return (
+    <div className="group mb-3 flex gap-2">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
+        <Bot className="size-3.5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          Thinking...
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessageHeader({
+  msg,
+  onCopy,
+  isCopied,
+}: {
+  msg: ChatMessage;
+  onCopy: () => void;
+  isCopied: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-1">
+      <span className="text-xs font-medium text-muted-foreground/70">Assistant</span>
+      {msg.createdAt && <span className="text-xs text-muted-foreground/40">{formatChatTime(msg.createdAt)}</span>}
+      <Tooltip>
+        <TooltipTrigger
+          aria-label="Copy response"
+          className={buttonVariants({
+            variant: 'ghost',
+            size: 'icon',
+            className:
+              'ml-auto size-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
+          })}
+          onClick={onCopy}
+        >
+          {isCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        </TooltipTrigger>
+        <TooltipContent>Copy response</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+type AssistantMessageProps = {
+  msg: ChatMessage;
+  connectionId: string | null;
+};
+
+function AssistantMessage({ msg, connectionId }: AssistantMessageProps) {
+  const [isCopied, setIsCopied] = useState(false);
+  const content = getChatTextContent(msg);
   const blocks = extractCodeBlocks(content);
 
   const handleCopyResponse = async () => {
@@ -232,52 +286,26 @@ function MessageBubble({ msg, connectionId }: { msg: UIMessage; connectionId: st
         <Bot className="size-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-medium text-muted-foreground/70">Assistant</span>
-          {msg.createdAt && <span className="text-xs text-muted-foreground/40">{formatTime(msg.createdAt)}</span>}
-          <Tooltip>
-            <TooltipTrigger
-              aria-label="Copy response"
-              className={buttonVariants({
-                variant: 'ghost',
-                size: 'icon',
-                className:
-                  'ml-auto size-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
-              })}
-              onClick={handleCopyResponse}
-            >
-              {isCopied ? <Check className="size-3" /> : <Copy className="size-3" />}
-            </TooltipTrigger>
-            <TooltipContent>Copy response</TooltipContent>
-          </Tooltip>
-        </div>
-        {blocks.map((block, i) =>
+        <AssistantMessageHeader msg={msg} onCopy={handleCopyResponse} isCopied={isCopied} />
+        {blocks.map((block) =>
           block.type === 'code' ? (
-            <QueryBlock
-              key={i}
-              code={block.value}
-              language={block.language ?? 'sql'}
-              onInsert={
-                block.language === 'sql'
-                  ? () => {
-                      if (!connectionId) return;
-                      openQueryTabWithSql(connectionId, block.value, false);
-                    }
-                  : undefined
-              }
-              onRun={
-                block.language === 'sql'
-                  ? () => {
-                      if (!connectionId) return;
-                      openQueryTabWithSql(connectionId, block.value, true);
-                    }
-                  : undefined
-              }
-            />
+            block.language === 'sql' && connectionId ? (
+              <QueryBlock
+                key={block.value}
+                variant="executable"
+                code={block.value}
+                language={block.language ?? 'sql'}
+                connectionId={connectionId}
+                onInsert={() => openQueryTabWithSql(connectionId, block.value, false)}
+                onRun={() => openQueryTabWithSql(connectionId, block.value, true)}
+              />
+            ) : (
+              <QueryBlock key={block.value} variant="readonly" code={block.value} language={block.language ?? 'sql'} />
+            )
           ) : (
             block.value && (
               <div
-                key={i}
+                key={block.value.slice(0, 50)}
                 className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
@@ -325,12 +353,11 @@ const CHAT_MODE_CONFIG = {
 } as const;
 
 export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelProps) {
-  const [panelWidth, setPanelWidth] = useState(width);
+  const [widthOverride, setWidthOverride] = useState<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
-  const [input, setInput] = useState('');
+  const panelWidth = widthOverride ?? width;
   const { data: connections } = useConnections();
 
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
@@ -347,27 +374,43 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
         ? CHAT_MODE_CONFIG.redis
         : CHAT_MODE_CONFIG.sql;
 
-  const connection = useMemo(() => fetchServerSentEvents('/ai/chat'), []);
-  const forwardedProps = useMemo(
-    () => (connectionId ? { connectionId, mongoDatabase } : undefined),
-    [connectionId, mongoDatabase],
-  );
+  const chat = useChat({
+    url: '/ai/chat',
+    forwardedProps: connectionId ? { connectionId, mongoDatabase } : undefined,
+  });
 
-  const chat = useChat({ connection, forwardedProps });
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chat.messages]);
 
-  const clearChatHistory = useClearChatHistory();
-  const clearSchemaCache = useClearSchemaCache();
+  const queryClient = useQueryClient();
 
-  const { data: chatHistory } = useChatHistory(connectionId, 50, mongoDatabase);
+  const clearChatHistory = useMutation({
+    mutationFn: (args: { connectionId: string; mongoDatabase?: string }) =>
+      api.clearChatHistory(args.connectionId, args.mongoDatabase),
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT_HISTORY(args.connectionId, args.mongoDatabase) });
+    },
+  });
+  const clearSchemaCache = useMutation({
+    mutationFn: (args: { connectionId: string }) => api.clearSchemaCache(args.connectionId),
+    onSuccess: (_data, args) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT_HISTORY(args.connectionId) });
+    },
+  });
+
+  const { data: chatHistory } = useQuery({
+    queryKey: QUERY_KEYS.CHAT_HISTORY(connectionId, mongoDatabase),
+    queryFn: () => api.getChatHistory(connectionId!, 50, mongoDatabase),
+    enabled: !!connectionId,
+  });
 
   useEffect(() => {
     if (chatHistory?.messages && chat.messages.length === 0 && !historyLoadedRef.current) {
       historyLoadedRef.current = true;
-      const uiMessages: UIMessage[] = chatHistory.messages.map((m) => ({
-        id: crypto.randomUUID(),
-        role: m.role as 'user' | 'assistant',
-        parts: [{ type: 'text' as const, content: m.content }],
-      }));
+      const uiMessages: ChatMessage[] = chatHistory.messages.map(toUIMessage);
       chat.setMessages(uiMessages);
     }
   }, [chatHistory, chat]);
@@ -380,34 +423,12 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     }
   }, [connectionId, chat]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [chat.messages, chat.isLoading]);
-
-  function handleSend(textOverride?: string) {
-    const text = (textOverride ?? input).trim();
-    if (!text) return;
-    setInput('');
+  function handleSuggestionClick(text: string) {
     chat.sendMessage(text);
   }
 
   function handleStop() {
     chat.stop();
-  }
-
-  function handleSuggestionClick(text: string) {
-    handleSend(text);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.repeat) return;
-    if ((e.nativeEvent as KeyboardEvent).isComposing) return;
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
   }
 
   function handleClearHistory() {
@@ -434,7 +455,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     const handleMouseMove = (e: MouseEvent) => {
       const delta = startXRef.current - e.clientX;
       const newWidth = Math.max(280, Math.min(600, startWidthRef.current + delta));
-      setPanelWidth(newWidth);
+      setWidthOverride(newWidth);
     };
 
     const handleMouseUp = () => {
@@ -454,11 +475,21 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     <aside className="border-l border-border bg-background flex shrink-0 h-full" style={{ width: panelWidth }}>
       <div
         onMouseDown={handleMouseDown}
-        className={`w-1 cursor-col-resize shrink-0 transition-colors ${
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize AI chat panel"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleMouseDown(e as unknown as React.MouseEvent);
+          }
+        }}
+        className={`w-1 cursor-col-resize shrink-0 transition-colors border-0 m-0 ${
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border/60'
         }`}
       />
-      <div className="flex h-full min-w-0 flex-1 flex-col">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
         <div className="shrink-0 border-b border-border bg-muted/10 px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -538,7 +569,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
           )}
         </div>
 
-        <div className="flex-1 overflow-auto" ref={scrollRef}>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-3 pb-4">
             {chat.messages.length === 0 && !chat.isLoading && (
               <div className="py-5 text-muted-foreground">
@@ -549,68 +580,42 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 </div>
                 <p className="mb-1 text-center text-sm font-medium text-foreground/80">{chatMode.title}</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-                  {chatMode.suggestions.map((prompt, i) => (
-                    <button
-                      key={i}
+                  {chatMode.suggestions.map((prompt) => (
+                    <Button
+                      key={prompt}
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => handleSuggestionClick(prompt)}
                       disabled={chat.isLoading}
-                      className={`rounded-full border border-border/50 bg-muted/35 px-2.5 py-1.5 text-xs text-muted-foreground/85 transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
+                      className={`rounded-full bg-muted/35 text-muted-foreground/85 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
                     >
                       {prompt}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
             )}
 
-            {chat.messages.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} connectionId={connectionId} />
-            ))}
-
-            {chat.isLoading && (
-              <div className="mb-3 flex gap-2">
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
-                  <Bot className="size-3.5 text-primary" />
-                </div>
-                <div className="flex h-7 items-center gap-1.5 rounded-md bg-muted/45 px-2 text-sm text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" />
-                  Thinking...
-                </div>
-              </div>
-            )}
+            {chat.messages.map((msg, i) => {
+              const isLastAssistant = chat.isLoading && i === chat.messages.length - 1 && msg.role === 'assistant';
+              if (msg.role === 'user') {
+                return <UserMessage key={msg.id} msg={msg} />;
+              }
+              if (isLastAssistant) {
+                return <StreamingAssistantMessage key={msg.id} msg={msg} />;
+              }
+              return <AssistantMessage key={msg.id} msg={msg} connectionId={connectionId} />;
+            })}
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-border bg-muted/10 p-2">
-          <div className="flex items-end gap-2 rounded-lg border border-border/70 bg-background p-1.5 shadow-sm transition-shadow focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/25">
-            <Textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={chatMode.placeholder}
-              rows={2}
-              className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-1.5 py-1 text-sm leading-relaxed shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/50"
-            />
-            {chat.isLoading ? (
-              <Tooltip>
-                <TooltipTrigger
-                  aria-label="Stop generation"
-                  className={buttonVariants({ size: 'icon', className: 'size-8 shrink-0' })}
-                  onClick={handleStop}
-                >
-                  <StopCircle className="size-3.5" />
-                </TooltipTrigger>
-                <TooltipContent>Stop generation</TooltipContent>
-              </Tooltip>
-            ) : (
-              <Button size="icon" className="size-8 shrink-0" onClick={() => handleSend()} disabled={!input.trim()}>
-                <Send className="size-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
+        <ChatInput
+          isLoading={chat.isLoading}
+          placeholder={chatMode.placeholder}
+          onSend={(t) => chat.sendMessage(t)}
+          onStop={handleStop}
+        />
       </div>
     </aside>
   );

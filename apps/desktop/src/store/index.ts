@@ -2,6 +2,20 @@ import { Store } from '@tanstack/store';
 import { nanoid } from 'nanoid';
 import type { AppStoreState, AppView, WorkspaceTab } from '@kamehadb/shared';
 
+// Restore saved session tabs from localStorage
+function restoreTabs(): WorkspaceTab[] {
+  try {
+    const raw = localStorage.getItem('kamehadb_tabs');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function restoreActiveTab(): string | null {
+  return localStorage.getItem('kamehadb_active_tab') ?? null;
+}
+
 const initialState: AppStoreState = {
   activeConnectionId: null,
   activeDatabaseId: null,
@@ -9,14 +23,16 @@ const initialState: AppStoreState = {
   activeTableId: null,
   activeMongoDatabase: null,
   aiPanelConnectionId: null,
-  openedTabs: [],
-  activeTabId: null,
+  openedTabs: restoreTabs(),
+  activeTabId: restoreActiveTab(),
   sidebarCollapsed: false,
   density: 'compact',
   view: 'workspace',
   theme: (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system',
   expandedConnections: [],
+  pinnedConnections: JSON.parse(localStorage.getItem('kamehadb_pinned') ?? '[]'),
   connectionStatus: {},
+  connectionLatency: {},
 };
 
 export const appStore = new Store<AppStoreState>(initialState);
@@ -68,19 +84,6 @@ export function openQueryTabWithSql(connectionId: string, sql: string, shouldAut
   return tab.id;
 }
 
-export function openMongoTab(connectionId: string, database: string, collection: string) {
-  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'mongo').length;
-  const tab: WorkspaceTab = {
-    id: `mongo-${nanoid()}`,
-    type: 'mongo',
-    title: collection || `Mongo Query ${tabCount + 1}`,
-    connectionId,
-    database,
-    collection,
-  };
-  openTab(tab);
-}
-
 export function openGraphTab(connectionId: string) {
   openTab({
     id: `${connectionId}:graph`,
@@ -95,6 +98,24 @@ export function openDatabaseStatsTab(connectionId: string) {
     id: `${connectionId}:db-stats`,
     type: 'database-stats' as const,
     title: 'Database Stats',
+    connectionId,
+  });
+}
+
+export function openSchemaTimelineTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:schema-timeline`,
+    type: 'schema-timeline' as const,
+    title: 'Schema Timeline',
+    connectionId,
+  });
+}
+
+export function openMigrationTab(connectionId: string) {
+  openTab({
+    id: `${connectionId}:migration`,
+    type: 'migration' as const,
+    title: 'Migration Assistant',
     connectionId,
   });
 }
@@ -175,26 +196,6 @@ export function openQdrantGraphTab(connectionId: string, collection: string) {
   });
 }
 
-export function openQdrantStatsTab(connectionId: string, collection: string) {
-  openTab({
-    id: `${connectionId}:qdrant-stats:${collection}`,
-    type: 'qdrant-stats' as const,
-    title: `Stats: ${collection}`,
-    connectionId,
-    collection,
-  });
-}
-
-export function openTableStatsTab(connectionId: string, tableId: string) {
-  openTab({
-    id: `${connectionId}:${tableId}:stats`,
-    type: 'table-stats' as const,
-    title: `Stats: ${tableId}`,
-    connectionId,
-    tableId,
-  });
-}
-
 export function openAiChatPanel(connectionId: string) {
   appStore.setState((state) => ({
     ...state,
@@ -237,10 +238,13 @@ export function updateTabAutoRun(tabId: string, autoRun: boolean) {
   }));
 }
 
-export function clearTabAutoRun(tabId: string) {
+export function updateTabQdrantGraphState(
+  tabId: string,
+  updates: { colorBy?: string; camera?: { position: number[]; target: number[] } },
+) {
   appStore.setState((state) => ({
     ...state,
-    openedTabs: state.openedTabs.map((t) => (t.id === tabId ? { ...t, autoRun: false } : t)),
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId && t.type === 'qdrant-graph' ? { ...t, ...updates } : t)),
   }));
 }
 
@@ -260,8 +264,26 @@ export function navigateTo(view: AppView) {
   appStore.setState((state) => ({ ...state, view }));
 }
 
-export function toggleSidebar() {
-  appStore.setState((state) => ({ ...state, sidebarCollapsed: !state.sidebarCollapsed }));
+// Persist opened tabs to localStorage whenever they change
+appStore.subscribe(() => {
+  const { openedTabs, activeTabId } = appStore.state;
+  try {
+    localStorage.setItem('kamehadb_tabs', JSON.stringify(openedTabs));
+    if (activeTabId) localStorage.setItem('kamehadb_active_tab', activeTabId);
+    else localStorage.removeItem('kamehadb_active_tab');
+  } catch {
+    // Storage quota or other write error — skip
+  }
+});
+
+export function togglePinnedConnection(id: string) {
+  appStore.setState((state) => {
+    const pinned = state.pinnedConnections.includes(id)
+      ? state.pinnedConnections.filter((p) => p !== id)
+      : [...state.pinnedConnections, id];
+    localStorage.setItem('kamehadb_pinned', JSON.stringify(pinned));
+    return { ...state, pinnedConnections: pinned };
+  });
 }
 
 export function toggleExpandedConnection(id: string) {
@@ -273,32 +295,30 @@ export function toggleExpandedConnection(id: string) {
   });
 }
 
-export function setExpandedConnections(ids: string[]) {
-  appStore.setState((state) => ({ ...state, expandedConnections: ids }));
-}
+const LATENCY_SLOW_THRESHOLD = 500;
 
-export function setConnectionStatus(id: string, status: 'connected' | 'disconnected') {
+export function setConnectionStatus(id: string, status: 'connected' | 'slow' | 'disconnected' | 'reconnecting') {
   appStore.setState((state) => {
     if (state.connectionStatus[id] === status) return state;
     return { ...state, connectionStatus: { ...state.connectionStatus, [id]: status } };
   });
 }
 
+export function setConnectionLatency(id: string, latencyMs: number) {
+  appStore.setState((state) => ({
+    ...state,
+    connectionLatency: { ...state.connectionLatency, [id]: latencyMs },
+    connectionStatus: {
+      ...state.connectionStatus,
+      [id]: latencyMs > LATENCY_SLOW_THRESHOLD ? 'slow' : 'connected',
+    },
+  }));
+}
+
 export function setTheme(theme: 'light' | 'dark' | 'system') {
   localStorage.setItem('theme', theme);
   appStore.setState((state) => ({ ...state, theme }));
   applyTheme(theme);
-}
-
-export function toggleTheme() {
-  appStore.setState((state) => {
-    const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
-    const currentIdx = themes.indexOf(state.theme);
-    const nextTheme = themes[(currentIdx + 1) % themes.length];
-    localStorage.setItem('theme', nextTheme);
-    applyTheme(nextTheme);
-    return { ...state, theme: nextTheme };
-  });
 }
 
 export function applyTheme(theme: 'light' | 'dark' | 'system') {
@@ -310,9 +330,3 @@ export function applyTheme(theme: 'light' | 'dark' | 'system') {
     root.classList.toggle('dark', theme === 'dark');
   }
 }
-
-export function setActiveTab(tabId: string | null) {
-  appStore.setState((state) => ({ ...state, activeTabId: tabId }));
-}
-
-export { updateTabSql as setTabSql };

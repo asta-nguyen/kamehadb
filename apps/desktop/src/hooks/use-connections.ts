@@ -1,20 +1,31 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import type { ConnectionProfile, CreateConnectionProfileInput, UpdateConnectionProfileInput } from '@kamehadb/shared';
+import { QUERY_KEYS } from '@/lib/query-keys';
+import { setConnectionStatus } from '@/store';
+import type {
+  ConnectionProfile,
+  CreateConnectionProfileInput,
+  TestConnectionResult,
+  UpdateConnectionProfileInput,
+} from '@kamehadb/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export function useConnections() {
   return useQuery({
-    queryKey: ['connections'],
+    queryKey: QUERY_KEYS.CONNECTIONS,
     queryFn: api.listConnections,
   });
 }
 
-export function useConnection(id: string | null) {
-  return useQuery({
-    queryKey: ['connection', id],
-    queryFn: () => api.getConnection(id!),
-    enabled: !!id,
+export function useConnectionHealth(connectionId: string | null) {
+  return useQuery<TestConnectionResult, Error, 'connected' | 'disconnected'>({
+    queryKey: QUERY_KEYS.CONNECTION_HEALTH(connectionId),
+    queryFn: () => api.checkConnectionHealth(connectionId!),
+    enabled: Boolean(connectionId),
+    refetchInterval: 30_000,
+    retry: 2,
+    retryDelay: 1000,
+    select: (result) => (result.success ? 'connected' : 'disconnected'),
   });
 }
 
@@ -22,7 +33,7 @@ export function useCreateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateConnectionProfileInput) => api.createConnection(input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['connections'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
   });
 }
 
@@ -30,7 +41,7 @@ export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateConnectionProfileInput }) => api.updateConnection(id, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['connections'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
   });
 }
 
@@ -38,13 +49,15 @@ export function useDeleteConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.deleteConnection(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['connections'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
   });
 }
 
 export function useTestConnection() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateConnectionProfileInput) => api.testConnection(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
   });
 }
 
@@ -59,22 +72,25 @@ export function useRefreshConnection() {
       return { id, result };
     },
     onMutate: (id) => {
-      const name = (qc.getQueryData<ConnectionProfile[]>(['connections']) ?? []).find((c) => c.id === id)?.name ?? id;
+      const name =
+        (qc.getQueryData<ConnectionProfile[]>(QUERY_KEYS.CONNECTIONS) ?? []).find((c) => c.id === id)?.name ?? id;
       return { toastId: toast.loading(`Reloading "${name}"...`) };
     },
     onSuccess: ({ id, result }, _vars, context) => {
+      setConnectionStatus(id, result.success ? 'connected' : 'disconnected');
+
       // Invalidate every connection-scoped cache entry so any future mount
       // fetches fresh data, and force-refetch the ones backing currently
       // visible views so the user sees new tables/collections/keys right
       // away without having to collapse-and-reopen the tree.
       const keysToInvalidate = [
-        ['connection', id],
-        ['databases', id],
-        ['schemas', id],
-        ['tables', id],
-        ['columns', id],
-        ['indexes', id],
-        ['preview', id],
+        QUERY_KEYS.CONNECTION(id),
+        QUERY_KEYS.DATABASES(id),
+        QUERY_KEYS.SCHEMAS(id),
+        QUERY_KEYS.TABLES(id),
+        QUERY_KEYS.COLUMNS(id),
+        QUERY_KEYS.INDEXES(id),
+        QUERY_KEYS.PREVIEW(id),
         ['table-stats', id],
         ['index-stats', id],
         ['db-sizes', id],
@@ -117,7 +133,8 @@ export function useRefreshConnection() {
       const kind = result.success ? 'success' : 'error';
       if (context?.toastId !== undefined) toast[kind](message, { id: context.toastId });
     },
-    onError: (err, _vars, context) => {
+    onError: (err, vars, context) => {
+      setConnectionStatus(vars, 'disconnected');
       if (context?.toastId !== undefined) {
         toast.error(err instanceof Error ? err.message : 'Reload failed', { id: context.toastId });
       }

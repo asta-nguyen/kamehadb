@@ -6,16 +6,21 @@
   </a>
 </p>
 
-**KamehaDB** is a local-first, cross-platform database GUI with built-in AI that connects to PostgreSQL, MySQL, SQLite, MongoDB, and Redis — letting you browse schemas, run queries, and generate SQL through conversation.
+**KamehaDB** is a local-first, cross-platform database GUI with built-in AI that connects to PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, and TigerBeetle — letting you browse schemas, run queries, and generate SQL through conversation.
 
 ## Features
 
 - **AI-SQL Generation** — Chat with AI to generate, explain, and debug SQL queries. Supports OpenAI, Ollama (local & cloud), and 9Router. AI has access to your schema context for accurate query generation.
 - **Schema-Aware Context** — AI automatically knows your table structure, columns, types, and foreign key relationships when generating queries.
-- **Multi-engine support** — PostgreSQL, MySQL, SQLite, MongoDB, Redis
+- **Multi-engine support** — PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, TigerBeetle, and MariaDB
 - **Schema browser** — Browse databases, schemas, tables, columns, and indexes
 - **SQL editor** — Monaco-based editor with syntax highlighting, autocomplete, and FK-aware JOIN/ON suggestions
 - **ER diagram** — Auto-generated graph of tables and foreign key relationships (powered by ReactFlow + dagre)
+- **Global search (Ctrl+K)** — Fuzzy-search across connections, tables, columns, open tabs, and quick actions
+- **Charts** — Built-in bar, line, area, and pie chart views for query results (powered by recharts)
+- **Connection health monitoring** — Live status badges with latency tracking, slow/reconnecting/offline states, and tooltips
+- **Pin & favorites** — Pin connections to the top of the sidebar for quick access, persisted across sessions
+- **Workspace tabs memory** — Open tabs survive page refresh via localStorage persistence
 - **Connection URL** — paste `postgresql://`, `mysql://`, or `redis://` URIs to auto-fill connection fields
 - **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine
 
@@ -25,7 +30,7 @@
 # Install dependencies
 pnpm install
 
-# Start dev services (PostgreSQL, MySQL, MariaDB, Redis)
+# Start dev services
 docker compose up -d
 
 # Run the app (sidecar + desktop)
@@ -47,12 +52,19 @@ Configure AI providers in the app settings (API Settings page):
 
 ### Connection defaults (Docker)
 
-| Engine     | Port | User   | Password | Database |
-| ---------- | ---- | ------ | -------- | -------- |
-| PostgreSQL | 5432 | kameha | kameha   | kamehadb |
-| MySQL      | 3306 | kameha | kameha   | kamehadb |
-| MariaDB    | 3307 | kameha | kameha   | kamehadb |
-| Redis      | 6379 | —      | —        | —        |
+| Engine      | Port | User    | Password | Database |
+| ----------- | ---- | ------- | -------- | -------- |
+| Engine      | Port | User    | Password | Database |
+| ----------  | ---- | ------  | -------- | -------- |
+| PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
+| MySQL       | 3306 | kameha  | kameha   | kamehadb |
+| MariaDB     | 3307 | kameha  | kameha   | kamehadb |
+| Redis       | 6379 | —       | —        | —        |
+| SQL Server  | 1433 | sa      | Kameha1! | kamehadb |
+| Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
+| ClickHouse  | 8123 | default | default  | kamehadb |
+| DuckDB      | 5432 | —       | —        | —        |
+| TigerBeetle | 3000 | —       | —        | —        |
 
 ## Project Structure
 
@@ -74,6 +86,10 @@ kamehadb/
 ```bash
 pnpm test
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, project conventions, verification requirements, and pull request guidance.
 
 ## macOS Gatekeeper
 
@@ -132,7 +148,7 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 
 - **Desktop**: Tauri v2, React 19, Vite, Tailwind CSS v4, Base UI (`@base-ui/react`), TanStack (Query, Store, Table)
 - **Editor**: Monaco (via `@monaco-editor/react`), custom SQL autocomplete with FK-aware JOIN/ON hints, markdown rendering with `react-markdown`
-- **Sidecar**: Hono, PostgreSQL (`pg`), MySQL (`mysql2`), SQLite (`better-sqlite3`), MongoDB (`mongodb`), Redis (`ioredis`)
+- **Sidecar**: Hono, PostgreSQL (`pg`), MySQL (`mysql2`), SQLite (`better-sqlite3`), MongoDB (`mongodb`), Redis (`ioredis`), SQL Server (`mssql`), Oracle (`oracledb`), ClickHouse, DuckDB (`duckdb`), TigerBeetle (`tigerbeetle-node`)
 - **Graph**: ReactFlow (`@xyflow/react`), dagre auto-layout
 - **AI**: Multi-provider abstraction (OpenAI, Ollama local/cloud, 9Router)
 
@@ -147,20 +163,29 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Redis
 - [x] Data export (CSV, JSON, SQL)
 - [x] Qdrant (vectordb)
+- [x] SQL Server
+- [x] Oracle
+- [x] ClickHouse
+- [x] DuckDB
+- [x] Tigerbeetle
+- [x] MariaDB
 
-### Not Yet Supported
+### In Progress
 
-- [ ] SQL Server
-- [ ] Oracle
-- [ ] ClickHouse
+- [x] Query history with favorites
+- [x] Data visualization / charts
+- [x] Connection health monitoring
+- [x] Global search (Ctrl+K)
+- [x] Pin / favorites connections
+- [x] Workspace tabs memory
+- [x] Production safety mode — prevent accidental writes to production
+- [x] Schema change timeline — track column additions, removals, index changes for debugging
+- [x] Migration assistant
 
 ### Future Ideas
 
-- [ ] Query history with favorites
-- [ ] Migration assistant
-- [ ] Data visualization / charts
 - [ ] Collaboration features
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](./LICENSE).

@@ -1,16 +1,38 @@
 import { z } from 'zod';
 
-export { expandTerms, renderExpansionsForPrompt } from './term-expansion.js';
-export type { TermExpansion } from './term-expansion.js';
-
 // Database kind
-export type DbKind = 'postgres' | 'sqlite' | 'mysql' | 'redis' | 'mongodb' | 'qdrant';
+export type DbKind =
+  | 'postgres'
+  | 'sqlite'
+  | 'mysql'
+  | 'redis'
+  | 'mongodb'
+  | 'qdrant'
+  | 'sqlserver'
+  | 'oracle'
+  | 'clickhouse'
+  | 'mariadb'
+  | 'duckdb'
+  | 'tigerbeetle';
 
 // Connection profile (without secret)
 export const ConnectionProfileSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
+  kind: z.enum([
+    'postgres',
+    'sqlite',
+    'mysql',
+    'redis',
+    'mongodb',
+    'qdrant',
+    'sqlserver',
+    'oracle',
+    'clickhouse',
+    'mariadb',
+    'duckdb',
+    'tigerbeetle',
+  ]),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -28,7 +50,20 @@ export type ConnectionProfile = z.infer<typeof ConnectionProfileSchema>;
 // Connection profile input (for create/update, without id/timestamps)
 const BaseCreateSchema = z.object({
   name: z.string().min(1),
-  kind: z.enum(['postgres', 'sqlite', 'mysql', 'redis', 'mongodb', 'qdrant']),
+  kind: z.enum([
+    'postgres',
+    'sqlite',
+    'mysql',
+    'redis',
+    'mongodb',
+    'qdrant',
+    'sqlserver',
+    'oracle',
+    'clickhouse',
+    'mariadb',
+    'duckdb',
+    'tigerbeetle',
+  ]),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -69,12 +104,6 @@ export type CreateConnectionProfileInput = z.infer<typeof CreateConnectionProfil
 export const UpdateConnectionProfileSchema = BaseCreateSchema.partial();
 export type UpdateConnectionProfileInput = z.infer<typeof UpdateConnectionProfileSchema>;
 
-// Credential reference
-export type CredentialRef = {
-  connectionId: string;
-  secretKey: string;
-};
-
 // Query result
 export type QueryColumn = {
   name: string;
@@ -114,6 +143,7 @@ export type ColumnInfo = {
   default: string | null;
   primaryKey: boolean;
   foreignKey?: {
+    schema?: string;
     table: string;
     column: string;
   };
@@ -167,6 +197,7 @@ export type TestConnectionResult = {
   success: boolean;
   message?: string;
   serverVersion?: string;
+  latencyMs?: number;
 };
 
 // SQL adapter contract
@@ -219,6 +250,68 @@ export type TableStats = {
   autovacuumCount: number;
   nLiveTup: number;
   nDeadTup: number;
+};
+
+// Schema snapshot for change timeline
+export type SchemaColumnSnapshot = {
+  name: string;
+  type: string;
+  nullable: boolean;
+  default: string | null;
+  primaryKey: boolean;
+};
+
+export type SchemaIndexSnapshot = {
+  name: string;
+  columns: string[];
+  unique: boolean;
+  primary: boolean;
+};
+
+export type SchemaTableSnapshot = {
+  id: string;
+  name: string;
+  schema?: string;
+  columns: SchemaColumnSnapshot[];
+  indexes: SchemaIndexSnapshot[];
+};
+
+export type SchemaSnapshotRecord = {
+  id: string;
+  connectionId: string;
+  capturedAt: string;
+  tables: SchemaTableSnapshot[];
+};
+
+export type SchemaChangeDescriptor =
+  | { type: 'table_added'; table: string }
+  | { type: 'table_removed'; table: string }
+  | { type: 'column_added'; table: string; column: string; dataType: string }
+  | { type: 'column_removed'; table: string; column: string; dataType: string }
+  | { type: 'column_changed'; table: string; column: string; from: string; to: string }
+  | { type: 'index_added'; table: string; index: string; columns: string[] }
+  | { type: 'index_removed'; table: string; index: string; columns: string[] };
+
+export type SchemaChangelogEntry = {
+  snapshotId: string;
+  capturedAt: string;
+  changes: SchemaChangeDescriptor[];
+};
+
+export type SchemaChangelog = {
+  entries: SchemaChangelogEntry[];
+};
+
+export type MigrationInput = {
+  fromSnapshotId: string;
+  toSnapshotId: string;
+};
+
+export type MigrationResult = {
+  statements: string[];
+  dialect: string;
+  fromSnapshot: string;
+  toSnapshot: string;
 };
 
 export type DatabaseSize = {
@@ -456,6 +549,83 @@ export interface QdrantAdapter {
   close(): Promise<void>;
 }
 
+// TigerBeetle types
+export type TigerBeetleAccount = {
+  id: string;
+  debitsPending: string;
+  debitsPosted: string;
+  creditsPending: string;
+  creditsPosted: string;
+  userData128: string;
+  userData64: string;
+  userData32: number;
+  reserved: number;
+  ledger: number;
+  code: number;
+  flags: number;
+  timestamp: string;
+};
+
+export type TigerBeetleTransfer = {
+  id: string;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: string;
+  pendingId: string;
+  userData128: string;
+  userData64: string;
+  userData32: number;
+  timeout: number;
+  ledger: number;
+  code: number;
+  flags: number;
+  timestamp: string;
+};
+
+export type TigerBeetleAccountBalance = {
+  debitsPending: string;
+  debitsPosted: string;
+  creditsPending: string;
+  creditsPosted: string;
+  timestamp: string;
+};
+
+export type CreateTigerBeetleAccountInput = {
+  id: string;
+  ledger: number;
+  code: number;
+  flags?: number;
+  userData128?: string;
+  userData64?: string;
+  userData32?: number;
+  reserved?: number;
+};
+
+export type CreateTigerBeetleTransferInput = {
+  id: string;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: string;
+  ledger: number;
+  code: number;
+  flags?: number;
+  pendingId?: string;
+  userData128?: string;
+  userData64?: string;
+  userData32?: number;
+  timeout?: number;
+};
+
+export type TigerBeetleCreateResult = {
+  index: number;
+  status: string;
+  timestamp?: string;
+};
+
+export type TigerBeetleExplorerData = {
+  accounts: TigerBeetleAccount[];
+};
+
 // AI types
 export type AIProvider = 'ollama-local' | 'ollama-cloud' | 'openai' | '9router';
 
@@ -483,14 +653,6 @@ export type AIChatRequest = {
   latestMessage?: AIChatMessage;
   provider?: AIProvider;
   model?: string;
-};
-
-export type AIChatResponse = {
-  message: AIChatMessage;
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-  };
 };
 
 // Health check
@@ -551,9 +713,21 @@ export type WorkspaceTab =
       mode?: 'text' | 'similar' | 'raw';
       pointId?: string | number;
     }
-  | { id: string; type: 'qdrant-graph'; title: string; connectionId: string; collection: string }
+  | {
+      id: string;
+      type: 'qdrant-graph';
+      title: string;
+      connectionId: string;
+      collection: string;
+      colorBy?: string;
+      camera?: { position: number[]; target: number[] };
+    }
   | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }
-  | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string };
+  | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string }
+  | { id: string; type: 'schema-timeline'; title: string; connectionId: string }
+  | { id: string; type: 'migration'; title: string; connectionId: string }
+  // TigerBeetle account/transfer explorer
+  | { id: string; type: 'tigerbeetle'; title: string; connectionId: string };
 
 export type AppView = 'workspace' | 'api-settings';
 
@@ -571,7 +745,9 @@ export type AppStoreState = {
   view: AppView;
   theme: 'light' | 'dark' | 'system';
   expandedConnections: string[];
-  connectionStatus: Record<string, 'connected' | 'disconnected'>;
+  pinnedConnections: string[];
+  connectionLatency: Record<string, number>;
+  connectionStatus: Record<string, 'connected' | 'slow' | 'disconnected' | 'reconnecting'>;
 };
 
 // SQL safety check constants and helper
@@ -589,6 +765,33 @@ export const DESTRUCTIVE_KEYWORDS = [
 ];
 
 export const SAFE_KEYWORDS = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
+
+// Query history
+export type QueryHistoryEntry = {
+  id: string;
+  connectionId: string;
+  query: string;
+  executedAt: string;
+  durationMs?: number;
+  rowCount?: number;
+  favorite: boolean;
+  name?: string;
+};
+
+export const SaveQueryHistorySchema = z.object({
+  query: z.string().min(1),
+  durationMs: z.number().optional(),
+  rowCount: z.number().optional(),
+});
+
+export type SaveQueryHistoryInput = z.infer<typeof SaveQueryHistorySchema>;
+
+export const UpdateQueryHistorySchema = z.object({
+  favorite: z.boolean().optional(),
+  name: z.string().optional(),
+});
+
+export type UpdateQueryHistoryInput = z.infer<typeof UpdateQueryHistorySchema>;
 
 export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
   const normalized = sql.trim().toUpperCase();

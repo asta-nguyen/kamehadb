@@ -1,15 +1,13 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { chat, toServerSentEventsResponse } from '@tanstack/ai';
-import { openaiCompatibleText } from '@tanstack/ai-openai/compatible';
 import * as metadataStore from '../db/metadata-store.js';
-import { resolveProviderConfig, validateProviderConfig, createEmbedding } from '../ai/provider.js';
+import { validateProviderConfig, createProvider, createEmbedding } from '../ai/provider.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
 import { searchRelevantSchema } from '../ai/qdrant-store.js';
 import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
 import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
-import type { AIProvider, DbKind } from '@kamehadb/shared';
+import type { AIProvider, ConnectionProfile, DbKind, AIChatMessage } from '@kamehadb/shared';
 
 export const aiRouter = new Hono();
 const providerConfigSchema = z.object({
@@ -105,21 +103,42 @@ function buildSystemPrompt(ddl: string | null, mongoSchema: string | null, conne
   let prompt = `You are a database assistant embedded in a database admin tool called kamehadb. Your job is to help users write queries and understand their data.
 
 Rules:
-- Generate ONLY valid queries — no commentary outside code blocks unless the user asks.
-- Use \`\`\`sql ... \`\`\` for SQL queries.
-- Use MongoDB aggregation pipeline syntax in \`\`\`javascript ... \`\`\` for MongoDB queries.
-- Use Redis CLI command syntax in \`\`\`redis ... \`\`\` for Redis commands.
-- Default to read-only queries. If the user asks for writes, note the risk.
-- Be concise.`;
+- Be concise. Put the natural-language answer FIRST, then put the SQL query in a code block at the bottom. Never guess actual row counts or values — you only have the schema.
+- Default to read-only queries. If the user asks for a write, note the risk before providing it.
+- Always use the correct language tag for the code block (see per-database rules below).`;
 
   if (connectionKind === 'redis') {
-    prompt += `\n\nCurrent connection type: Redis.
-For Redis requests, answer with Redis CLI commands, not SQL. Prefer read-only commands such as SCAN, TYPE, TTL, MEMORY USAGE, INFO, DBSIZE, HGETALL, LRANGE, SMEMBERS, and ZRANGE.`;
+    prompt += `\n\nCurrent connection: Redis.
+- Use \`\`\`redis\`\`\` blocks with Redis CLI syntax only.
+- Prefer read-only commands: SCAN, TYPE, TTL, MEMORY USAGE, INFO, DBSIZE, HGETALL, LRANGE, SMEMBERS, ZRANGE.
+- Do NOT use SQL or JavaScript syntax.`;
   } else if (connectionKind === 'mongodb') {
-    prompt += `\n\nCurrent connection type: MongoDB.
-For MongoDB requests, answer with MongoDB filter, find, or aggregation syntax, not SQL.`;
+    prompt += `\n\nCurrent connection: MongoDB.
+- Use \`\`\`javascript\`\`\` blocks for all queries (filter, find, aggregate, etc.).
+- Do NOT use SQL syntax.
+- Write the query using direct shell syntax: \`db.collectionName.find(...)\` or \`db.collectionName.aggregate([...])\`.
+- Prefix the query with a comment explaining what it does.`;
+  } else if (connectionKind === 'tigerbeetle') {
+    prompt += `\n\nCurrent connection: TigerBeetle (financial transaction database).
+- Do NOT use SQL, MongoDB, or Redis syntax.
+- TigerBeetle is a double-entry accounting database with accounts and transfers.
+- Use the TigerBeetle CLI syntax or Node.js client API in \`\`\`javascript\`\`\` blocks.
+- Key operations: create_accounts, lookup_accounts, create_transfers, lookup_transfers, get_account_transfers, get_account_balances.
+- Accounts have: id (u128), debits_posted, debits_pending, credits_posted, credits_pending, flags, ledger, code.
+- Transfers have: id (u128), debit_account_id, credit_account_id, amount, flags, ledger, code.
+- Prefer read-only operations: lookup_accounts, lookup_transfers, get_account_balances.`;
+  } else if (connectionKind === 'qdrant') {
+    prompt += `\n\nCurrent connection: Qdrant (vector database).
+- Do NOT use SQL, MongoDB, or Redis syntax.
+- Use \`\`\`json\`\`\` blocks for Qdrant REST API request bodies (POST /collections/{name}/points/scroll, /search, /query, etc.).
+- For semantic/vector searches, remind the user that a query vector is required — you do not have one, so show the request shape with a placeholder vector.
+- For filtering without a vector, use the scroll endpoint with a \`filter\` block.
+- Prefer read-only operations: scroll, search, query, get, count.`;
   } else if (connectionKind) {
-    prompt += `\n\nCurrent connection type: ${connectionKind}.`;
+    prompt += `\n\nCurrent connection: ${connectionKind} (SQL).
+- Use \`\`\`sql\`\`\` blocks only. Do NOT use \`\`\`javascript\`\`\` or \`\`\`js\`\`\` — this is a SQL database, not MongoDB.
+- The system will automatically run the SQL query and feed the results back to you for your final answer, so you don't need to guess row counts or values.
+- Write queries directly without extra back-and-forth.`;
   }
 
   if (ddl) {
@@ -139,18 +158,9 @@ aiRouter.post(
   zValidator(
     'json',
     z.object({
-      forwardedProps: z
-        .object({
-          connectionId: z.string().optional(),
-          mongoDatabase: z.string().optional(),
-          provider: z.string().optional(),
-          model: z.string().optional(),
-        })
-        .optional(),
       connectionId: z.string().optional(),
       mongoDatabase: z.string().optional(),
       messages: z.array(z.object({ role: z.string(), content: z.string() }).passthrough()),
-      latestMessage: z.object({ role: z.string(), content: z.string() }).optional(),
       provider: z.string().optional(),
       model: z.string().optional(),
     }),
@@ -158,23 +168,16 @@ aiRouter.post(
   async (c) => {
     try {
       const body = c.req.valid('json');
+      const { connectionId, mongoDatabase } = body;
 
-      const connectionId = body.forwardedProps?.connectionId ?? body.connectionId;
-      const mongoDatabase = body.forwardedProps?.mongoDatabase ?? body.mongoDatabase;
-      const providerOverride = body.forwardedProps?.provider ?? body.provider;
-      const modelOverride = body.forwardedProps?.model ?? body.model;
-
-      // Find last user message for persistence (forwardedProps format or legacy)
-      const latestUserMsg =
-        body.messages.filter((m) => m.role === 'user').at(-1)?.content ?? body.latestMessage?.content;
-
+      const latestUserMsg = body.messages.filter((m) => m.role === 'user').at(-1)?.content;
       if (connectionId && latestUserMsg) {
         metadataStore.saveChatMessage(connectionId, 'user', latestUserMsg, mongoDatabase);
       }
 
       const settings = metadataStore.getAISettings();
       // Resolve which provider config to use
-      const providerName: AIProvider = (providerOverride as AIProvider) ?? settings.activeProvider;
+      const providerName: AIProvider = (body.provider as AIProvider) ?? settings.activeProvider;
       const providerConfig = settings.providers[providerName];
       if (!providerConfig) {
         return c.json({ error: 'AI_CONFIG_ERROR', message: `Provider "${providerName}" has no configuration.` }, 400);
@@ -189,14 +192,15 @@ aiRouter.post(
       }
 
       // Allow per-request model override
-      const config = { ...providerConfig, model: modelOverride ?? providerConfig.model };
+      const config = { ...providerConfig, model: body.model ?? providerConfig.model };
 
       // Build schema context if connectionId provided
       let ddl: string | null = null;
       let mongoSchema: string | null = null;
       let connectionKind: DbKind | undefined;
+      let profile: ConnectionProfile | null = null;
       if (connectionId) {
-        const profile = metadataStore.getProfile(connectionId);
+        profile = metadataStore.getProfile(connectionId) ?? null;
         connectionKind = profile?.kind;
 
         const cacheKey = mongoDatabase
@@ -220,7 +224,7 @@ aiRouter.post(
                 } finally {
                   await adapter.close();
                 }
-              } else if (profile.kind !== 'redis') {
+              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle' && profile.kind !== 'qdrant') {
                 const password = metadataStore.getProfilePassword(connectionId);
                 const adapter = createSqlAdapter(profile, password);
                 if (adapter) {
@@ -255,42 +259,127 @@ aiRouter.post(
       }
 
       const systemPrompt = buildSystemPrompt(ddl, mongoSchema, connectionKind);
-      console.log('System prompt:', systemPrompt);
-      const llmMessages = [{ role: 'system', content: systemPrompt }, ...body.messages] as any;
+      const llmMessages = [{ role: 'system' as const, content: systemPrompt }, ...body.messages] as AIChatMessage[];
 
-      const resolved = resolveProviderConfig(providerName, config);
+      const provider = createProvider(providerName, config);
       const abortController = new AbortController();
+      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'qdrant', 'tigerbeetle'].includes(connectionKind);
 
-      const stream = chat({
-        adapter: openaiCompatibleText(config.model, {
-          baseURL: resolved.baseUrl,
-          apiKey: resolved.apiKey,
-        }),
-        messages: llmMessages,
-        abortController,
-      });
+      // Extract SQL queries from code fences in LLM output
+      function extractSqlQueries(text: string): string[] {
+        const queries: string[] = [];
+        const sqlRegex = /```sql\n?([\s\S]*?)```/g;
+        let match: RegExpExecArray | null;
+        while ((match = sqlRegex.exec(text)) !== null) {
+          const q = match[1].trim();
+          if (q) queries.push(q);
+        }
+        return queries;
+      }
 
-      let assistantContent = '';
-      const wrappedStream = (async function* () {
-        try {
-          for await (const chunk of stream) {
-            if (chunk.type === 'TEXT_MESSAGE_CONTENT') {
-              assistantContent += (chunk as { delta: string }).delta;
+      const generate = async function* () {
+        // Step 1: Collect SQL from the LLM silently (not streamed).
+        // The user sees a "Thinking..." indicator while this happens.
+        let sqlGeneration = '';
+        for await (const chunk of provider.chatStream(llmMessages, abortController.signal)) {
+          sqlGeneration += chunk;
+        }
+
+        let finalAnswer = '';
+
+        // Step 2: Execute any SQL queries found in the LLM's output.
+        if (isSqlConnection && connectionId && profile) {
+          const sqlQueries = extractSqlQueries(sqlGeneration);
+          if (sqlQueries.length > 0) {
+            const pwd = metadataStore.getProfilePassword(connectionId);
+            const allResults: unknown[] = [];
+            let errorMessage: string | null = null;
+
+            for (const query of sqlQueries) {
+              const sqlAdapter = createSqlAdapter(profile, pwd);
+              if (!sqlAdapter) continue;
+              try {
+                const result = await sqlAdapter.runQuery({ query });
+                allResults.push(...(result.rows ?? []));
+              } catch (err) {
+                errorMessage = String(err);
+              } finally {
+                await sqlAdapter.close();
+              }
             }
-            yield chunk;
-          }
-        } finally {
-          if (connectionId && assistantContent) {
-            try {
-              metadataStore.saveChatMessage(connectionId, 'assistant', assistantContent, mongoDatabase);
-            } catch (e) {
-              console.error('[AI] Failed to save assistant message:', e);
+
+            const resultBlock =
+              allResults.length > 0
+                ? JSON.stringify(allResults.slice(0, 50), null, 2)
+                : JSON.stringify({ error: errorMessage });
+
+            // Step 3: Generate the final answer with real data —
+            // answer FIRST as natural language, SQL query in a code block at the bottom.
+            const answerMessages: AIChatMessage[] = [
+              ...llmMessages,
+              { role: 'assistant', content: sqlGeneration },
+              {
+                role: 'user',
+                content: `The SQL query returned these results. Put the answer FIRST as a natural-language sentence, then put the SQL query in a \`\`\`sql\`\`\` code block at the bottom:\n\n${resultBlock}`,
+              },
+            ];
+            for await (const chunk of provider.chatStream(answerMessages, abortController.signal)) {
+              finalAnswer += chunk;
+              yield `data: ${JSON.stringify({ type: 'content', delta: chunk })}\n\n`;
             }
           }
         }
-      })();
 
-      return toServerSentEventsResponse(wrappedStream, { abortController });
+        // No SQL queries found — just stream the LLM's original response
+        if (!finalAnswer) {
+          finalAnswer = sqlGeneration;
+          yield `data: ${JSON.stringify({ type: 'content', delta: sqlGeneration })}\n\n`;
+        }
+
+        // Persist assistant message to history
+        if (connectionId && finalAnswer) {
+          try {
+            metadataStore.saveChatMessage(connectionId, 'assistant', finalAnswer, mongoDatabase);
+          } catch (e) {
+            console.error('[AI] Failed to save assistant message:', {
+              connectionId,
+              mongoDatabase,
+              contentLength: finalAnswer.length,
+              error: e instanceof Error ? e.message : e,
+            });
+          }
+        }
+
+        yield `data: ${JSON.stringify({ type: 'done' })}\n\n`;
+      };
+
+      return new Response(
+        new ReadableStream({
+          async start(controller) {
+            const encoder = new TextEncoder();
+            try {
+              for await (const chunk of generate()) {
+                controller.enqueue(encoder.encode(chunk));
+              }
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Stream error';
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message })}\n\n`));
+            } finally {
+              controller.close();
+            }
+          },
+          cancel() {
+            abortController.abort();
+          },
+        }),
+        {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+          },
+        },
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI chat failed';
       console.error('[AI] chat error:', message);

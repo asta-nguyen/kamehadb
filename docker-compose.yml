@@ -49,6 +49,38 @@ services:
     volumes:
       - redis_data:/data
 
+  duckdb:
+    image: duckdb/duckdb:latest
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    volumes:
+      - duckdb_data:/data
+
+  tigerbeetle:
+    image: ghcr.io/tigerbeetle/tigerbeetle:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - tigerbeetle_data:/data
+    security_opt:
+      - seccomp=unconfined
+    entrypoint: []
+    command: >
+      sh -c "
+      test -f /data/0_0.tigerbeetle || /tigerbeetle format --cluster=0 --replica=0 --replica-count=1 --development /data/0_0.tigerbeetle;
+      /tigerbeetle start --addresses=0.0.0.0:3000 --development /data/0_0.tigerbeetle
+      "
+
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
   qdrant:
     image: qdrant/qdrant:v1.13.6
     restart: unless-stopped
@@ -63,4 +95,7 @@ volumes:
   mysql_data:
   mariadb_data:
   redis_data:
+  duckdb_data:
+  tigerbeetle_data:
+  mongodb_data:
   qdrant_data:

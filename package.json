@@ -2,7 +2,7 @@
   "name": "kamehadb",
   "private": true,
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"pnpm --filter @kamehadb/sidecar dev\" \"pnpm --filter @kamehadb/desktop dev\"",
@@ -21,6 +21,11 @@
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css,md}": "prettier --write"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "oracledb"
+    ]
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.1",

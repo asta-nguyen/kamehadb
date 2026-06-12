@@ -59,7 +59,7 @@ const whyKamehadb: {
   {
     icon: Gift,
     title: '100% Free & Open Source',
-    description: 'No subscriptions, no premium tiers, no telemetry. The full source is on GitHub under MIT.',
+    description: 'No subscriptions, no premium tiers, no telemetry. The full source is on GitHub under Apache-2.0.',
   },
   {
     icon: Shield,

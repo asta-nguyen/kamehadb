@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useQdrantCollections } from '@/hooks/use-qdrant';
+import { Button } from '@/components/ui/button';
 import { openQdrantTab } from '@/store';
-import { AlertCircle, Boxes, Loader2, Search } from 'lucide-react';
+import { AlertCircle, Loader2, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 interface QdrantExplorerProps {
   connectionId: string;
@@ -20,50 +22,52 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
 
   return (
     <div className="space-y-1">
-      <div className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+      <div className="flex items-center justify-between px-2 py-1 text-muted-foreground text-xs font-medium tracking-wider uppercase">
         <span>Collections</span>
-        <span className="normal-case font-normal">{collections?.length ?? 0}</span>
+        <span className="font-normal normal-case">{collections?.length ?? 0}</span>
       </div>
       <div className="px-2 py-1">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
-          <input
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter..."
-            className="w-full h-6 pl-6 pr-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="pl-6 pr-2 h-6 text-xs"
           />
         </div>
       </div>
       {isLoading ? (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground animate-spin size-4" />
         </div>
       ) : isError ? (
-        <div className="flex items-start gap-1.5 px-2 py-1 text-xs text-destructive">
-          <AlertCircle className="size-3 mt-0.5 shrink-0" />
+        <div className="flex items-start px-2 py-1 text-destructive text-xs gap-1.5">
+          <AlertCircle className="mt-0.5 shrink-0 size-3" />
           <span className="break-all">{error instanceof Error ? error.message : 'Failed to load collections'}</span>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="px-2 py-1 text-xs text-muted-foreground italic">
+        <div className="px-2 py-1 text-muted-foreground text-xs italic">
           {collections?.length === 0 ? 'No collections' : 'No matches'}
         </div>
       ) : (
         filtered.map((col) => (
           <div
             key={col.name}
-            className="group w-full flex items-center gap-1.5 px-2 py-1 text-xs hover:bg-muted rounded-md transition-colors"
+            className="flex items-center px-2 py-1 w-full text-xs rounded-md gap-1.5 grow transition-colors hover:bg-muted"
           >
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => openQdrantTab(connectionId, col.name)}
-              className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
+              className="flex flex-1 items-center min-w-0 text-left font-normal gap-1.5"
               title={`${col.name} · ${col.pointsCount} points`}
             >
-              <Boxes className="size-3 shrink-0 text-muted-foreground" />
+              <Search className="text-muted-foreground shrink-0 size-3" />
               <span className="truncate">{col.name}</span>
-              <span className="ml-auto text-xs text-muted-foreground/70">{col.pointsCount}</span>
-            </button>
+              <span className="ml-auto text-muted-foreground/70 text-xs">{col.pointsCount}</span>
+            </Button>
           </div>
         ))
       )}

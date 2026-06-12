@@ -30,7 +30,7 @@ type CompletionsData = {
       name: string;
       type: string;
       primaryKey: boolean;
-      foreignKey?: { table: string; column: string };
+      foreignKey?: { table: string; column: string; schema?: string };
     }>;
   }>;
 };
@@ -46,10 +46,10 @@ function useCompletionsSchema(connectionId: string | null) {
 
 function TableNode({ data }: NodeProps) {
   return (
-    <div className="rounded-lg border border-border bg-popover shadow-sm min-w-45">
+    <div className="min-w-48 bg-popover border-border rounded-lg shadow-xs border">
       <Handle type="target" position={Position.Top} className="!bg-border" />
-      <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border bg-muted/30 rounded-t-lg">
-        <Table2 className="size-3 text-muted-foreground" />
+      <div className="flex items-center px-3 py-1.5 bg-muted/30 border-b border-border rounded-t-lg gap-1.5">
+        <Table2 className="text-muted-foreground size-3" />
         <span className="text-xs font-semibold">{data.label as string}</span>
       </div>
       <div className="px-0 py-0">
@@ -58,21 +58,21 @@ function TableNode({ data }: NodeProps) {
             name: string;
             type: string;
             primaryKey: boolean;
-            foreignKey?: { table: string; column: string };
+            foreignKey?: { table: string; column: string; schema?: string };
           }>
         ).map((col) => (
           <div
             key={col.name}
-            className="flex items-center gap-2 px-3 py-1 text-xs border-b border-border/40 last:border-b-0"
+            className="flex items-center px-3 py-1 text-xs border-b border-border/40 gap-2 last:border-b-0"
           >
             {col.primaryKey ? (
-              <span className="size-1.5 rounded-full bg-primary shrink-0" title="PK" />
+              <span className="bg-primary rounded-full shrink-0 size-1.5" title="PK" />
             ) : col.foreignKey ? (
-              <span className="size-1.5 rounded-full bg-muted-foreground shrink-0" title="FK" />
+              <span className="bg-muted-foreground rounded-full shrink-0 size-1.5" title="FK" />
             ) : (
-              <span className="size-1.5 rounded-full bg-transparent shrink-0" />
+              <span className="bg-transparent rounded-full shrink-0 size-1.5" />
             )}
-            <span className="font-mono text-foreground/90 truncate" title={col.name}>
+            <span className="text-foreground/90 font-mono truncate" title={col.name}>
               {col.name}
             </span>
             <span className="ml-auto text-muted-foreground/60 shrink-0">{col.type}</span>
@@ -144,30 +144,30 @@ function buildGraph(data: CompletionsData) {
     g.setNode(label, { width: 220, height });
   }
 
+  const tableByQualified = new Map(data.tables.map((t) => [t.schema ? `${t.schema}.${t.name}` : t.name, t]));
+
   for (const table of data.tables) {
     const sourceLabel = table.schema ? `${table.schema}.${table.name}` : table.name;
     for (const col of table.columns) {
-      if (col.foreignKey) {
-        const targetLabel = col.foreignKey.table;
-        const qualifiedTarget = data.tables.find(
-          (t) => t.name === targetLabel || `${t.schema}.${t.name}` === targetLabel,
-        );
-        if (!qualifiedTarget) continue;
-        const targetId = qualifiedTarget.schema
-          ? `${qualifiedTarget.schema}.${qualifiedTarget.name}`
-          : qualifiedTarget.name;
-        g.setEdge(sourceLabel, targetId);
-        edges.push({
-          id: `${sourceLabel}-${col.name}->${targetId}`,
-          source: sourceLabel,
-          target: targetId,
-          label: `${col.name}`,
-          type: 'smoothstep',
-          markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-          style: { stroke: 'var(--primary)', strokeWidth: 1.5, opacity: 0.7 },
-          labelStyle: { fontSize: 10, fill: 'var(--muted-foreground)' },
-        });
-      }
+      if (!col.foreignKey) continue;
+      const qualifiedTarget =
+        tableByQualified.get(col.foreignKey.table) ??
+        (col.foreignKey.schema ? tableByQualified.get(`${col.foreignKey.schema}.${col.foreignKey.table}`) : undefined);
+      if (!qualifiedTarget) continue;
+      const targetId = qualifiedTarget.schema
+        ? `${qualifiedTarget.schema}.${qualifiedTarget.name}`
+        : qualifiedTarget.name;
+      g.setEdge(sourceLabel, targetId);
+      edges.push({
+        id: `${sourceLabel}-${col.name}->${targetId}`,
+        source: sourceLabel,
+        target: targetId,
+        label: `${col.name}`,
+        type: 'smoothstep',
+        markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+        style: { stroke: 'var(--primary)', strokeWidth: 1.5, opacity: 0.7 },
+        labelStyle: { fontSize: 10, fill: 'var(--muted-foreground)' },
+      });
     }
   }
 
@@ -228,17 +228,17 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Loader2 className="text-muted-foreground animate-spin size-5" />
       </div>
     );
   }
 
   if (!completions || completions.tables.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">No tables found</div>;
+    return <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No tables found</div>;
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -254,7 +254,7 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
         <Background gap={20} size={1} color="var(--border)" />
         <Controls
           showInteractive={true}
-          className="!bg-popover !border !border-border [&>button]:!bg-popover [&>button]:!border [&>button]:!border-border [&>button]:hover:!bg-muted [&>button>svg]:!fill-foreground [&>svg]:!fill-foreground"
+          className="!bg-popover !border !border-border [&>button>svg]:!fill-foreground [&>button]:!bg-popover [&>button]:!border [&>button]:!border-border [&>svg]:!fill-foreground [&>button]:hover:!bg-muted"
           style={{ '--xy-controls-button-color': 'var(--foreground)' } as React.CSSProperties}
         >
           <button onClick={handleAutoArrange} className="react-flow__controls-button" title="Auto Arrange">

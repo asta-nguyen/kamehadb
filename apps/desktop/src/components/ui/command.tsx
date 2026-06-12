@@ -3,6 +3,7 @@ import { Command as CommandPrimitive } from 'cmdk';
 
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group';
 import { SearchIcon, CheckIcon } from 'lucide-react';
 
@@ -43,7 +44,9 @@ function CommandDialog({
         className={cn('top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0', className)}
         showCloseButton={showCloseButton}
       >
-        {children}
+        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground">
+          {children}
+        </Command>
       </DialogContent>
     </Dialog>
   );

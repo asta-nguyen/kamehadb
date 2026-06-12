@@ -1,7 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { useRedisKeys, useRedisKeyDetails, useRedisStats } from '@/hooks/use-redis';
 import { Loader2, Search, Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Users } from 'lucide-react';
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -20,6 +19,50 @@ const typeColors: Record<string, string> = {
   set: 'text-muted-foreground',
   zset: 'text-muted-foreground',
 };
+
+function formatValue(value: unknown, type: string): ReactNode {
+  if (value === null || value === undefined) return <span className="text-muted-foreground italic">null</span>;
+
+  switch (type) {
+    case 'string':
+      return <span className="font-mono text-xs bg-muted px-2 py-1 rounded">{String(value)}</span>;
+    case 'list':
+    case 'set':
+    case 'zset':
+      if (Array.isArray(value)) {
+        return (
+          <div className="space-y-0.5">
+            {value.slice(0, 20).map((item, i) => (
+              <div key={`${item}-${i}`} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-6 text-right">{i}</span>
+                <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(item)}</code>
+              </div>
+            ))}
+            {value.length > 20 && (
+              <div className="text-xs text-muted-foreground pl-8">... and {value.length - 20} more</div>
+            )}
+          </div>
+        );
+      }
+      break;
+    case 'hash':
+      if (typeof value === 'object' && value !== null) {
+        return (
+          <div className="space-y-0.5">
+            {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
+              <div key={k} className="flex items-center gap-2">
+                <code className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">{k}</code>
+                <span className="text-muted-foreground">:</span>
+                <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(v)}</code>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      break;
+  }
+  return <code className="text-xs bg-muted px-2 py-1 rounded">{JSON.stringify(value)}</code>;
+}
 
 interface RedisExplorerProps {
   connectionId: string;
@@ -44,50 +87,6 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
 
   const handleKeyClick = (key: string) => {
     setSelectedKey(key === selectedKey ? null : key);
-  };
-
-  const formatValue = (value: unknown, type: string): React.ReactNode => {
-    if (value === null || value === undefined) return <span className="text-muted-foreground italic">null</span>;
-
-    switch (type) {
-      case 'string':
-        return <span className="font-mono text-xs bg-muted px-2 py-1 rounded">{String(value)}</span>;
-      case 'list':
-      case 'set':
-      case 'zset':
-        if (Array.isArray(value)) {
-          return (
-            <div className="space-y-0.5">
-              {value.slice(0, 20).map((item, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-6 text-right">{i}</span>
-                  <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(item)}</code>
-                </div>
-              ))}
-              {value.length > 20 && (
-                <div className="text-xs text-muted-foreground pl-8">... and {value.length - 20} more</div>
-              )}
-            </div>
-          );
-        }
-        break;
-      case 'hash':
-        if (typeof value === 'object' && value !== null) {
-          return (
-            <div className="space-y-0.5">
-              {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
-                <div key={k} className="flex items-center gap-2">
-                  <code className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">{k}</code>
-                  <span className="text-muted-foreground">:</span>
-                  <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(v)}</code>
-                </div>
-              ))}
-            </div>
-          );
-        }
-        break;
-    }
-    return <code className="text-xs bg-muted px-2 py-1 rounded">{JSON.stringify(value)}</code>;
   };
 
   return (
@@ -119,31 +118,33 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
               const Icon = typeIcons[entry.type] || Box;
               const isSelected = selectedKey === entry.key;
               return (
-                <button
+                <Button
                   key={entry.key}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleKeyClick(entry.key)}
-                  className={`w-full flex items-center gap-1.5 px-2 py-1 text-xs rounded-md transition-colors group ${
-                    isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
-                  }`}
+                  className={`w-full font-normal ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
                   title={`${entry.key} (${entry.type})`}
                 >
                   <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
                   <span className="truncate flex-1 text-left">{entry.key}</span>
                   <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
-                </button>
+                </Button>
               );
             })
           )}
         </div>
         <div className="px-2 py-1 border-t border-border flex items-center justify-between">
           <span className="text-xs text-muted-foreground">{filteredKeys.length} keys</span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setShowStats(!showStats)}
-            className={`p-1 rounded hover:bg-muted transition-colors ${showStats ? 'text-primary' : 'text-muted-foreground'}`}
+            className={showStats ? 'text-primary' : 'text-muted-foreground'}
             title="Show stats"
           >
             <BarChart3 className="size-3" />
-          </button>
+          </Button>
         </div>
         {showStats && (
           <div className="px-3 py-2 border-t border-border bg-muted/30">

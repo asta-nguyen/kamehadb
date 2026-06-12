@@ -5,16 +5,11 @@ const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 let apiBase = import.meta.env.DEV ? DEV_PROXY_API_BASE : DIRECT_SIDECAR_API_BASE;
 let sidecarBase = SIDECAR_API_BASE;
 
-export function setApiPort(port: number) {
-  apiBase = `http://127.0.0.1:${port}`;
-  sidecarBase = `http://127.0.0.1:${port}`;
-}
-
 export function getApiBase(): string {
   return apiBase;
 }
 
-export async function request<T>(
+async function request<T>(
   method: string,
   path: string,
   body?: unknown,
@@ -31,9 +26,15 @@ export async function request<T>(
 
   if (res.status === 204) return undefined as T;
 
-  const data = await res.json();
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    const text = await res.text();
+    throw new Error(`API error (${res.status}): ${text.slice(0, 200)}`);
+  }
   if (!res.ok) {
-    throw new Error(data.message || `API error: ${res.status}`);
+    throw new Error((data as { message?: string }).message || `API error: ${res.status}`);
   }
   return data as T;
 }
@@ -72,9 +73,6 @@ export const api = {
 
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
     request<{ success: boolean }>('POST', '/ai/settings', input),
-
-  aiChat: (input: import('@kamehadb/shared').AIChatRequest & { signal?: AbortSignal }) =>
-    request<import('@kamehadb/shared').AIChatResponse>('POST', '/ai/chat', input, false, input.signal),
 
   getChatHistory: (connectionId: string, limit = 50, mongoDatabase?: string) => {
     const dbParam = mongoDatabase ? `&database=${encodeURIComponent(mongoDatabase)}` : '';
@@ -129,6 +127,15 @@ export const api = {
   getActiveConnections: (connectionId: string) =>
     request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/connections`),
 
+  captureSchemaSnapshot: (connectionId: string) =>
+    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/capture-schema`),
+
+  getSchemaChangelog: (connectionId: string) =>
+    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema-changelog`),
+
+  generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
+    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/generate-migration`, input),
+
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
     request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined, true),
@@ -171,6 +178,17 @@ export const api = {
   runRedisCommand: (connectionId: string, command: string) =>
     request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
 
+  // MongoDB completions
+  getMongoCompletions: (connectionId: string, database?: string) => {
+    const query = database ? `?database=${encodeURIComponent(database)}` : '';
+    return request<{ collections: { name: string; fields: string[] }[] }>(
+      'GET',
+      `/mongo/${connectionId}/completions${query}`,
+      undefined,
+      true,
+    );
+  },
+
   // MongoDB command
   runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
     request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }, true),
@@ -203,114 +221,57 @@ export const api = {
 
   embedText: (text: string, model?: string) =>
     request<{ vector: number[]; dimensions: number }>('POST', `/ai/embed`, { text, model }),
+
+  // TigerBeetle API
+  tbListAccounts: (connectionId: string, limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return request<{ accounts: import('@kamehadb/shared').TigerBeetleAccount[] }>(
+      'GET',
+      `/tigerbeetle/${connectionId}/accounts${query}`,
+      undefined,
+      true,
+    );
+  },
+
+  tbLookupAccount: (connectionId: string, id: string) =>
+    request<import('@kamehadb/shared').TigerBeetleAccount>(
+      'GET',
+      `/tigerbeetle/${connectionId}/accounts/${id}`,
+      undefined,
+      true,
+    ),
+
+  tbCreateAccounts: (connectionId: string, accounts: import('@kamehadb/shared').CreateTigerBeetleAccountInput[]) =>
+    request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
+      'POST',
+      `/tigerbeetle/${connectionId}/accounts`,
+      { accounts },
+      true,
+    ),
+
+  tbGetTransfers: (connectionId: string, accountId: string, limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return request<{ transfers: import('@kamehadb/shared').TigerBeetleTransfer[] }>(
+      'GET',
+      `/tigerbeetle/${connectionId}/transfers/${accountId}${query}`,
+      undefined,
+      true,
+    );
+  },
+
+  tbGetBalances: (connectionId: string, accountId: string) =>
+    request<{ balances: import('@kamehadb/shared').TigerBeetleAccountBalance[] }>(
+      'GET',
+      `/tigerbeetle/${connectionId}/balances/${accountId}`,
+      undefined,
+      true,
+    ),
+
+  tbCreateTransfers: (connectionId: string, transfers: import('@kamehadb/shared').CreateTigerBeetleTransferInput[]) =>
+    request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
+      'POST',
+      `/tigerbeetle/${connectionId}/transfers`,
+      { transfers },
+      true,
+    ),
 };
-
-// --- AI Chat Streaming ---
-
-export type AiStreamChunk = { type: 'chunk'; delta: string };
-export type AiStreamSqlExecuting = { type: 'sql_executing'; count: number };
-export type AiStreamDone = { type: 'done'; inputTokens: number; outputTokens: number };
-export type AiStreamEvent = AiStreamChunk | AiStreamSqlExecuting | AiStreamDone | { type: 'error'; message: string };
-
-export async function* aiChatStream(input: {
-  connectionId?: string;
-  mongoDatabase?: string;
-  messages: import('@kamehadb/shared').AIChatMessage[];
-  latestMessage?: import('@kamehadb/shared').AIChatMessage;
-  provider?: string;
-  model?: string;
-  signal?: AbortSignal;
-}): AsyncGenerator<AiStreamEvent, void, void> {
-  const res = await fetch(`${apiBase}/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      connectionId: input.connectionId ?? undefined,
-      mongoDatabase: input.mongoDatabase,
-      messages: input.messages,
-      latestMessage: input.latestMessage,
-      provider: input.provider,
-      model: input.model,
-    }),
-    signal: input.signal,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: `Stream error: ${res.status}` }));
-    yield { type: 'error', message: err.message || `Stream error: ${res.status}` };
-    return;
-  }
-
-  const reader = res.body?.getReader();
-  if (!reader) {
-    yield { type: 'error', message: 'Response body is not readable' };
-    return;
-  }
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let currentEvent = '';
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('event: ')) {
-          currentEvent = trimmed.slice(7).trim();
-        } else if (trimmed.startsWith('data: ')) {
-          // Sidecar wraps every event payload in JSON (e.g. `{"text":"..."}` for
-          // chunks, `{"usage":{...}}` for done, `{"error":"..."}` for errors).
-          // Parse it instead of forwarding the raw JSON string as the delta.
-          const raw = trimmed.slice(6);
-          let parsed: unknown = null;
-          try {
-            parsed = JSON.parse(raw);
-          } catch {
-            parsed = null;
-          }
-
-          if (currentEvent === 'chunk' && parsed && typeof parsed === 'object' && 'text' in parsed) {
-            const text = (parsed as { text: unknown }).text;
-            if (typeof text === 'string' && text.length > 0) {
-              yield { type: 'chunk', delta: text };
-            }
-          } else if (currentEvent === 'sql_executing' && parsed && typeof parsed === 'object' && 'count' in parsed) {
-            const count = (parsed as { count: unknown }).count;
-            if (typeof count === 'number') {
-              yield { type: 'sql_executing', count };
-            }
-          } else if (currentEvent === 'done' && parsed && typeof parsed === 'object' && 'usage' in parsed) {
-            const usage = (parsed as { usage: { inputTokens?: number; outputTokens?: number } }).usage;
-            yield {
-              type: 'done',
-              inputTokens: usage?.inputTokens ?? 0,
-              outputTokens: usage?.outputTokens ?? 0,
-            };
-          } else if (currentEvent === 'error') {
-            const message =
-              parsed &&
-              typeof parsed === 'object' &&
-              'error' in parsed &&
-              typeof (parsed as { error: unknown }).error === 'string'
-                ? (parsed as { error: string }).error
-                : raw;
-            yield { type: 'error', message };
-          }
-          currentEvent = '';
-        }
-      }
-    }
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') return;
-    yield { type: 'error', message: err instanceof Error ? err.message : 'Stream error' };
-  } finally {
-    reader.releaseLock();
-  }
-}
