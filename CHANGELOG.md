@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - v1.3 Adding MCP server
 
+### Added
+
+- PostgreSQL backup and restore dialogs in the desktop connection menu, with local `pg_dump`, `pg_restore`, and `psql` execution, live command output, and cancel support.
+
 ### Changed
 
 - Table action columns in the row browser, Mongo document table, and Qdrant points table now pin to the left edge and stay visible during horizontal scroll.

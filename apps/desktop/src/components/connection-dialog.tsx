@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
-import { Loader2, Plug, Plus, Check, FolderOpen } from 'lucide-react';
+import { Plug, Plus, Check, FolderOpen } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { DbIcon } from '@/components/db-icon';
 import { KIND_LABELS, KINDS, DEFAULT_PORTS, PRESET_COLORS } from '@/lib/constants';
 
@@ -467,7 +468,7 @@ function DialogActions({
   return (
     <div className="flex items-center gap-3 pt-2 pb-1">
       <Button type="button" variant="outline" size="sm" onClick={onTest} disabled={isTesting} className="gap-1.5">
-        {isTesting ? <Loader2 className="size-3.5 animate-spin" /> : <Plug className="size-3.5" />}
+        {isTesting ? <Spinner size="sm" className="size-3.5" /> : <Plug className="size-3.5" />}
         Test
       </Button>
       {testMessage != null && (
@@ -480,7 +481,7 @@ function DialogActions({
         Cancel
       </Button>
       <Button size="sm" type="submit" disabled={isSaving}>
-        {isSaving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+        {isSaving ? <Spinner size="sm" className="size-3.5" /> : null}
         {isEditing ? 'Update' : 'Save'}
       </Button>
     </div>

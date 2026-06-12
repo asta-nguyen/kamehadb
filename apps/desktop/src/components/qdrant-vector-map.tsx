@@ -4,11 +4,12 @@ import { useStore } from '@tanstack/react-store';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { WorkspaceTab } from '@kamehadb/shared';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import { api } from '@/lib/api';
 import { appStore, openQdrantSearchTab, updateTabQdrantGraphState } from '@/store';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 const BG_DARK = 0x0b0b0c;
 const BG_LIGHT = 0xf8fafc;
@@ -295,7 +296,7 @@ function useVectorScene(
 
 export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: QdrantVectorMapProps) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ['qdrant-map', connectionId, collection],
+    queryKey: QUERY_KEYS.QDRANT_MAP(connectionId, collection),
     queryFn: () =>
       api.scrollQdrantPoints(connectionId, {
         collection,
@@ -374,7 +375,7 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Spinner size="lg" />
       </div>
     );
   }

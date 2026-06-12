@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
-import { Loader2, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 function simpleEmbed(text: string, dims: number): number[] {
   const words = text.toLowerCase().split(/\s+/).filter(Boolean);
@@ -299,11 +300,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
             />
           </Label>
           <Button size="sm" onClick={run} disabled={state.running} className="ml-auto">
-            {state.running ? (
-              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Play className="size-3.5 mr-1.5" />
-            )}
+            {state.running ? <Spinner size="sm" className="size-3.5 mr-1.5" /> : <Play className="size-3.5 mr-1.5" />}
             Search
           </Button>
         </div>

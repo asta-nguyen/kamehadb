@@ -1,5 +1,5 @@
 import { useQdrantStats } from '@/hooks/use-qdrant';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface QdrantStatsPanelProps {
   connectionId: string;
@@ -12,7 +12,7 @@ export function QdrantStatsPanel({ connectionId, collection }: QdrantStatsPanelP
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="text-muted-foreground animate-spin size-5" />
+        <Spinner size="lg" />
       </div>
     );
   }
