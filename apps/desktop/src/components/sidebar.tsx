@@ -22,6 +22,7 @@ import {
   useConnectionHealth,
 } from '@/hooks/use-connections';
 import { getApiBase } from '@/lib/api';
+import { isTauriRuntime } from '@/lib/tauri';
 import {
   GROUP_LABELS,
   GROUP_ORDER,
@@ -73,6 +74,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
 import { MongoExplorer } from './mongo-explorer';
+import { PostgresBackupDialog } from './postgres-backup-dialog';
+import { PostgresMaintenanceMenu } from './postgres-maintenance-menu';
+import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { QdrantExplorer } from './qdrant-explorer';
 import { TigerBeetleExplorer } from './tigerbeetle-explorer';
 import { SchemaTree } from './schema-tree';
@@ -99,6 +103,8 @@ function ConnectionItem({
   const pinned = pinnedConnections.includes(conn.id);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showBackup, setShowBackup] = useState(false);
+  const [showRestore, setShowRestore] = useState(false);
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
   const healthCheck = useConnectionHealth(conn.id);
@@ -231,6 +237,18 @@ function ConnectionItem({
               <Sparkles className="mr-2 size-3.5" />
               AI Chat
             </DropdownMenuItem>
+            {conn.kind === 'postgres' ? (
+              <PostgresMaintenanceMenu
+                onOpenBackup={() => {
+                  setActiveConnection(conn.id);
+                  setShowBackup(true);
+                }}
+                onOpenRestore={() => {
+                  setActiveConnection(conn.id);
+                  setShowRestore(true);
+                }}
+              />
+            ) : null}
             {conn.kind !== 'mongodb' &&
               conn.kind !== 'redis' &&
               conn.kind !== 'qdrant' &&
@@ -356,6 +374,12 @@ function ConnectionItem({
       {showEdit && (
         <ConnectionDialog open={showEdit} onOpenChange={(open) => setShowEdit(open)} editConnection={conn} />
       )}
+      {conn.kind === 'postgres' && isTauriRuntime() ? (
+        <>
+          <PostgresBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
+          <PostgresRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
+        </>
+      ) : null}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
           <DialogHeader>

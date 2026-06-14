@@ -23,6 +23,7 @@
     "@tanstack/react-table": "^8",
     "@tanstack/store": "^0.7",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@xyflow/react": "^12.10.2",
     "class-variance-authority": "^0.7.1",
