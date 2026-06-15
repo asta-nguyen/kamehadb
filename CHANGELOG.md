@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - v1.3 Adding MCP server
 
+### Added
+
+- PostgreSQL connections now expose an embedded `Open PSQL` terminal tab in the desktop app, with connection-aware launch and session teardown on tab close.
+
 ### Changed
 
 - Table action columns in the row browser, Mongo document table, and Qdrant points table now pin to the left edge and stay visible during horizontal scroll.

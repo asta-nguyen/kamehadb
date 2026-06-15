@@ -37,6 +37,7 @@ import {
   openGraphTab,
   openMongoQueryTab,
   openNewQueryTab,
+  openPostgresPsqlTab,
   openQdrantSearchTab,
   openRedisQueryTab,
   openRedisTab,
@@ -73,6 +74,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
 import { MongoExplorer } from './mongo-explorer';
+import { PostgresMaintenanceMenu } from './postgres-maintenance-menu';
 import { QdrantExplorer } from './qdrant-explorer';
 import { TigerBeetleExplorer } from './tigerbeetle-explorer';
 import { SchemaTree } from './schema-tree';
@@ -231,6 +233,14 @@ function ConnectionItem({
               <Sparkles className="mr-2 size-3.5" />
               AI Chat
             </DropdownMenuItem>
+            {conn.kind === 'postgres' ? (
+              <PostgresMaintenanceMenu
+                onOpenPsql={() => {
+                  setActiveConnection(conn.id);
+                  openPostgresPsqlTab(conn.id, conn.database);
+                }}
+              />
+            ) : null}
             {conn.kind !== 'mongodb' &&
               conn.kind !== 'redis' &&
               conn.kind !== 'qdrant' &&
