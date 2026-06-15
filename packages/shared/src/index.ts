@@ -252,6 +252,68 @@ export type TableStats = {
   nDeadTup: number;
 };
 
+// Schema snapshot for change timeline
+export type SchemaColumnSnapshot = {
+  name: string;
+  type: string;
+  nullable: boolean;
+  default: string | null;
+  primaryKey: boolean;
+};
+
+export type SchemaIndexSnapshot = {
+  name: string;
+  columns: string[];
+  unique: boolean;
+  primary: boolean;
+};
+
+export type SchemaTableSnapshot = {
+  id: string;
+  name: string;
+  schema?: string;
+  columns: SchemaColumnSnapshot[];
+  indexes: SchemaIndexSnapshot[];
+};
+
+export type SchemaSnapshotRecord = {
+  id: string;
+  connectionId: string;
+  capturedAt: string;
+  tables: SchemaTableSnapshot[];
+};
+
+export type SchemaChangeDescriptor =
+  | { type: 'table_added'; table: string }
+  | { type: 'table_removed'; table: string }
+  | { type: 'column_added'; table: string; column: string; dataType: string }
+  | { type: 'column_removed'; table: string; column: string; dataType: string }
+  | { type: 'column_changed'; table: string; column: string; from: string; to: string }
+  | { type: 'index_added'; table: string; index: string; columns: string[] }
+  | { type: 'index_removed'; table: string; index: string; columns: string[] };
+
+export type SchemaChangelogEntry = {
+  snapshotId: string;
+  capturedAt: string;
+  changes: SchemaChangeDescriptor[];
+};
+
+export type SchemaChangelog = {
+  entries: SchemaChangelogEntry[];
+};
+
+export type MigrationInput = {
+  fromSnapshotId: string;
+  toSnapshotId: string;
+};
+
+export type MigrationResult = {
+  statements: string[];
+  dialect: string;
+  fromSnapshot: string;
+  toSnapshot: string;
+};
+
 export type DatabaseSize = {
   schema: string;
   table: string;
@@ -662,6 +724,8 @@ export type WorkspaceTab =
     }
   | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string }
+  | { id: string; type: 'schema-timeline'; title: string; connectionId: string }
+  | { id: string; type: 'migration'; title: string; connectionId: string }
   // TigerBeetle account/transfer explorer
   | { id: string; type: 'tigerbeetle'; title: string; connectionId: string };
 

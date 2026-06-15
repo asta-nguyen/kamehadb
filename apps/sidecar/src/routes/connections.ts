@@ -54,106 +54,141 @@ connectionsRouter.get('/', (c) => {
 // NOTE: literal routes must be registered BEFORE /:id to avoid Hono trie conflicts.
 connectionsRouter.get('/health', async (c) => {
   const abortController = new AbortController();
+  const PER_CHECK_TIMEOUT = 5_000;
+
+  /** Wrap a health check with a per-connection timeout so one hanging
+   *  adapter (e.g. TigerBeetle) doesn't block the entire SSE stream. */
+  const withTimeout = (promise: Promise<{ success: boolean; message?: string; latencyMs?: number }>, ms: number) =>
+    Promise.race([
+      promise,
+      new Promise<{ success: boolean; message: string; latencyMs?: number }>((resolve) =>
+        setTimeout(() => resolve({ success: false, message: `Timeout after ${ms}ms` }), ms),
+      ),
+    ]);
 
   const streamHealth = async function* () {
     while (!abortController.signal.aborted) {
       const profiles = metadataStore.listProfiles();
-      // Include latency so the desktop can show "Connected • 42ms" tooltips
-      // and differentiate 'connected' from 'slow' based on a threshold.
       const results: Record<string, { success: boolean; message?: string; latencyMs?: number }> = {};
 
-      for (const profile of profiles) {
-        const password = metadataStore.getProfilePassword(profile.id);
-        try {
-          let result: { success: boolean; message?: string; latencyMs?: number };
-          const start = performance.now();
-          switch (profile.kind) {
-            case 'postgres':
-              result = await testPostgresConnection({
-                host: profile.host!,
-                port: profile.port!,
-                database: profile.database!,
-                username: profile.username!,
-                password: password ?? '',
-              });
-              break;
-            case 'mongodb':
-              result = await createMongoAdapter({
-                connectionString: profile.connectionString!,
-                database: profile.database,
-              }).testConnection();
-              break;
-            case 'redis':
-              const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
-              result = await testRedisConnection({
-                host: profile.host!,
-                port: profile.port!,
-                password: password ?? undefined,
-                database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
-              });
-              break;
-            case 'qdrant':
-              result = await createQdrantDbAdapter(profile).testConnection();
-              break;
-            case 'sqlite':
-              result = await testSqliteConnection(profile.filePath);
-              break;
-            case 'mysql':
-            case 'mariadb':
-              result = await testMysqlConnection({
-                host: profile.host!,
-                port: profile.port!,
-                database: profile.database,
-                username: profile.username!,
-                password: password ?? '',
-              });
-              break;
-            case 'sqlserver':
-              result = await testSqlServerConnection({
-                host: profile.host!,
-                port: profile.port!,
-                database: profile.database,
-                username: profile.username!,
-                password: password ?? '',
-              });
-              break;
-            case 'oracle':
-              result = await testOracleConnection({
-                host: profile.host!,
-                port: profile.port!,
-                database: profile.database,
-                username: profile.username!,
-                password: password ?? '',
-              });
-              break;
-            case 'clickhouse':
-              result = await testClickHouseConnection({
-                host: profile.host!,
-                port: profile.port!,
-                database: profile.database,
-                username: profile.username!,
-                password: password ?? '',
-              });
-              break;
-            case 'duckdb':
-              result = await testDuckDBConnection(profile.filePath!);
-              break;
-            case 'tigerbeetle':
-              result = await createTigerBeetleDbAdapter(profile).testConnection();
-              break;
-            default:
-              result = { success: false, message: `Unsupported: ${profile.kind}` };
+      // Run all health checks in parallel so a single slow adapter
+      // doesn't block the entire stream.
+      await Promise.allSettled(
+        profiles.map(async (profile) => {
+          const password = metadataStore.getProfilePassword(profile.id);
+          try {
+            let result: { success: boolean; message?: string; latencyMs?: number };
+            const start = performance.now();
+            switch (profile.kind) {
+              case 'postgres':
+                result = await withTimeout(
+                  testPostgresConnection({
+                    host: profile.host!,
+                    port: profile.port!,
+                    database: profile.database!,
+                    username: profile.username!,
+                    password: password ?? '',
+                  }),
+                  PER_CHECK_TIMEOUT,
+                );
+                break;
+              case 'mongodb':
+                result = await withTimeout(
+                  createMongoAdapter({
+                    connectionString: profile.connectionString!,
+                    database: profile.database,
+                  }).testConnection(),
+                  PER_CHECK_TIMEOUT,
+                );
+                break;
+              case 'redis': {
+                const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
+                result = await withTimeout(
+                  testRedisConnection({
+                    host: profile.host!,
+                    port: profile.port!,
+                    password: password ?? undefined,
+                    database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
+                  }),
+                  PER_CHECK_TIMEOUT,
+                );
+                break;
+              }
+              case 'qdrant':
+                result = await withTimeout(createQdrantDbAdapter(profile).testConnection(), PER_CHECK_TIMEOUT);
+                break;
+              case 'sqlite':
+                result = await withTimeout(testSqliteConnection(profile.filePath), PER_CHECK_TIMEOUT);
+                break;
+              case 'mysql':
+              case 'mariadb':
+                result = await withTimeout(
+                  testMysqlConnection({
+                    host: profile.host!,
+                    port: profile.port!,
+                    database: profile.database,
+                    username: profile.username!,
+                    password: password ?? '',
+                  }),
+                  PER_CHECK_TIMEOUT,
+                );
+                break;
+              case 'sqlserver':
+                result = await withTimeout(
+                  testSqlServerConnection({
+                    host: profile.host!,
+                    port: profile.port!,
+                    database: profile.database,
+                    username: profile.username!,
+                    password: password ?? '',
+                  }),
+                  PER_CHECK_TIMEOUT,
+                );
+                break;
+              case 'oracle':
+                result = await withTimeout(
+                  testOracleConnection({
+                    host: profile.host!,
+                    port: profile.port!,
+                    database: profile.database,
+                    username: profile.username!,
+                    password: password ?? '',
+                  }),
+                  PER_CHECK_TIMEOUT,
+                );
+                break;
+              case 'clickhouse':
+                result = await withTimeout(
+                  testClickHouseConnection({
+                    host: profile.host!,
+                    port: profile.port!,
+                    database: profile.database,
+                    username: profile.username!,
+                    password: password ?? '',
+                  }),
+                  PER_CHECK_TIMEOUT,
+                );
+                break;
+              case 'duckdb':
+                result = await withTimeout(testDuckDBConnection(profile.filePath!), PER_CHECK_TIMEOUT);
+                break;
+              case 'tigerbeetle':
+                result = await withTimeout(createTigerBeetleDbAdapter(profile).testConnection(), PER_CHECK_TIMEOUT);
+                break;
+              default:
+                result = { success: false, message: `Unsupported: ${profile.kind}` };
+            }
+            result.latencyMs = Math.round(performance.now() - start);
+            results[profile.id] = result;
+          } catch (err) {
+            results[profile.id] = {
+              success: false,
+              latencyMs: 0,
+              message: err instanceof Error ? err.message : 'Unknown error',
+            };
           }
-          result.latencyMs = Math.round(performance.now() - start);
-          results[profile.id] = result;
-        } catch (err) {
-          results[profile.id] = {
-            success: false,
-            latencyMs: 0,
-            message: err instanceof Error ? err.message : 'Unknown error',
-          };
-        }
-      }
+        }),
+      );
 
       yield `data: ${JSON.stringify(results)}\n\n`;
 

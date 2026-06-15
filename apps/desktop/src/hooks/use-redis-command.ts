@@ -11,7 +11,9 @@ export function useRedisCommand(connectionId: string | null) {
       return post<RedisCommandResult>(`/redis/${connectionId}/command`, { command });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REDIS_KEYS(connectionId!, '*') });
+      queryClient.invalidateQueries({ queryKey: ['redis-keys', connectionId!] });
+      queryClient.invalidateQueries({ queryKey: ['redis-key', connectionId!] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REDIS_STATS(connectionId) });
     },
   });
 }

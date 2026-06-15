@@ -23,6 +23,7 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
         ssl: profile.ssl,
       });
     case 'mysql':
+    case 'mariadb':
       return createMysqlAdapter({
         host: profile.host,
         port: profile.port,

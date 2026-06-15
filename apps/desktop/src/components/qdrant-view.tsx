@@ -265,10 +265,13 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             rows={page?.points ?? []}
             columns={columns}
             rowKey={(p) => String(p.id)}
-            fixedTemplate="192px minmax(0, 1fr) 40px"
+            prefixHeader="Actions"
+            prefixWidth="40px"
+            prefixCellClassName="bg-background"
+            fixedTemplate="40px 192px minmax(0, 1fr)"
             stickyHeader
             rowClassName="group"
-            suffix={(p) => (
+            prefix={(p) => (
               <Button
                 variant="ghost"
                 size="icon"
@@ -282,7 +285,6 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
                 <Sparkles className="size-3.5" />
               </Button>
             )}
-            suffixWidth="40px"
             emptyMessage="No points"
             className="overflow-visible"
           />

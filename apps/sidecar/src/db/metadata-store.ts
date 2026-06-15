@@ -281,6 +281,18 @@ export function initMetadataStore(dbPath: string): void {
     CREATE INDEX IF NOT EXISTS idx_query_history_favorite ON query_history(connection_id, favorite);
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_snapshots (
+      id TEXT PRIMARY KEY,
+      connection_id TEXT NOT NULL,
+      captured_at TEXT NOT NULL,
+      snapshot_data TEXT NOT NULL
+    );
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_schema_snaps_conn ON schema_snapshots(connection_id);
+  `);
+
   // Migration: Add mongo_database column if it doesn't exist
   try {
     db.exec('ALTER TABLE chat_messages ADD COLUMN mongo_database TEXT');
@@ -732,4 +744,36 @@ export function clearChatMessages(connectionId: string, mongoDatabase?: string |
   } else {
     getDb().prepare('DELETE FROM chat_messages WHERE connection_id = ? AND mongo_database IS NULL').run(connectionId);
   }
+}
+
+export function saveSchemaSnapshot(connectionId: string, snapshotData: string): string {
+  const id = nanoid();
+  getDb()
+    .prepare('INSERT INTO schema_snapshots (id, connection_id, captured_at, snapshot_data) VALUES (?, ?, ?, ?)')
+    .run(id, connectionId, new Date().toISOString(), snapshotData);
+  return id;
+}
+
+export function getSchemaSnapshots(connectionId: string): { id: string; capturedAt: string }[] {
+  const rows = getDb()
+    .prepare('SELECT id, captured_at FROM schema_snapshots WHERE connection_id = ? ORDER BY captured_at ASC')
+    .all(connectionId) as { id: string; captured_at: string }[];
+  return rows.map((r) => ({ id: r.id, capturedAt: r.captured_at }));
+}
+
+export function getSchemaSnapshotData(id: string): string | null {
+  const row = getDb().prepare('SELECT snapshot_data FROM schema_snapshots WHERE id = ?').get(id) as
+    | { snapshot_data: string }
+    | undefined;
+  return row?.snapshot_data ?? null;
+}
+
+export function deleteOldSchemaSnapshots(connectionId: string, keep: number): void {
+  getDb()
+    .prepare(
+      `DELETE FROM schema_snapshots WHERE connection_id = ? AND id NOT IN (
+        SELECT id FROM schema_snapshots WHERE connection_id = ? ORDER BY captured_at DESC LIMIT ?
+      )`,
+    )
+    .run(connectionId, connectionId, keep);
 }

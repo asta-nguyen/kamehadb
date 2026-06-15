@@ -127,6 +127,15 @@ export const api = {
   getActiveConnections: (connectionId: string) =>
     request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/connections`),
 
+  captureSchemaSnapshot: (connectionId: string) =>
+    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/capture-schema`),
+
+  getSchemaChangelog: (connectionId: string) =>
+    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema-changelog`),
+
+  generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
+    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/generate-migration`, input),
+
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
     request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined, true),
@@ -168,6 +177,17 @@ export const api = {
 
   runRedisCommand: (connectionId: string, command: string) =>
     request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
+
+  // MongoDB completions
+  getMongoCompletions: (connectionId: string, database?: string) => {
+    const query = database ? `?database=${encodeURIComponent(database)}` : '';
+    return request<{ collections: { name: string; fields: string[] }[] }>(
+      'GET',
+      `/mongo/${connectionId}/completions${query}`,
+      undefined,
+      true,
+    );
+  },
 
   // MongoDB command
   runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>

@@ -1,16 +1,28 @@
 import { lazy, Suspense, useCallback, useReducer, useRef, useState } from 'react';
 import type { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
-import { get, post } from '@/lib/api';
+import { get, post, api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartView } from '@/components/chart-view';
-import { Play, Loader2, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChart3 } from 'lucide-react';
+import { collectRecordFields } from '@/hooks/use-field-visibility';
+import {
+  Play,
+  Loader2,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  Table2,
+  BarChart3,
+  Braces,
+} from 'lucide-react';
 import JSON5 from 'json5';
 import type { WorkspaceTab, DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
+import { buildMongoCompletionEntries, type MongoCompletionsData } from '@/lib/mongo-autocomplete';
 
 const Editor = lazy(() => import('@monaco-editor/react').then((m) => ({ default: m.Editor })));
 
@@ -84,6 +96,7 @@ function MongoQueryToolbar({
   onCollectionChange,
   onRun,
   onToggleChart,
+  onFormat,
 }: {
   db: string;
   collection: string;
@@ -98,6 +111,7 @@ function MongoQueryToolbar({
   onCollectionChange: (v: string) => void;
   onRun: () => void;
   onToggleChart: () => void;
+  onFormat: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
@@ -162,6 +176,15 @@ function MongoQueryToolbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onFormat}
+          className="h-7 text-xs gap-1.5 px-2"
+          title="Format pipeline"
+        >
+          <Braces className="size-3.5" />
+        </Button>
         {resultTotal != null && !running && (
           <Button
             variant="ghost"
@@ -224,7 +247,7 @@ function AggregationResult({
   return (
     <>
       {columns.length > 0 && (
-        <div className="border rounded-md overflow-x-auto">
+        <div className="border rounded-md">
           <div
             className="grid text-xs bg-muted/50"
             style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(140px, 1fr))` }}
@@ -328,13 +351,12 @@ function AggregationResult({
   );
 }
 
-// Derive column metadata from the first document in a result set so
-// ChartView (which expects QueryColumn[]) can consume Mongo results.
+// Derive column metadata from every document so sparse fields remain
+// available when ChartView consumes Mongo aggregation results.
 function deriveColumns(docs: Record<string, unknown>[]): QueryResult['columns'] {
   if (docs.length === 0) return [];
-  const sample = docs[0];
-  return Object.keys(sample).map((name) => {
-    const val = sample[name];
+  return collectRecordFields(docs).map((name) => {
+    const val = docs.find((doc) => doc[name] !== undefined)?.[name];
     let type = 'string';
     if (typeof val === 'number') type = Number.isInteger(val) ? 'integer' : 'number';
     else if (typeof val === 'boolean') type = 'boolean';
@@ -416,9 +438,18 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     enabled: !!connectionId && !!state.db,
   });
 
+  const { data: completionsData } = useQuery({
+    queryKey: ['mongo-completions', connectionId],
+    queryFn: () => api.getMongoCompletions(connectionId),
+    enabled: !!connectionId,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // The Monaco keybinding calls into the latest handleRun without re-binding
   // the editor action — keep a ref so the keybinding stays valid.
   const runRef = useRef<() => Promise<void>>(async () => {});
+  const completionsRef = useRef<MongoCompletionsData | null>(null);
+  completionsRef.current = completionsData ?? null;
   const handleRun = useCallback(
     async (p?: number) => {
       if (!state.collection || !state.db) return;
@@ -460,6 +491,49 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         runRef.current();
       },
     });
+
+    // Register completion provider for MongoDB aggregation pipeline syntax
+    const provider = monaco.languages.registerCompletionItemProvider('javascript', {
+      triggerCharacters: ['.', ' ', '$', '{', '[', '"', ':'],
+      provideCompletionItems: (model, position) => {
+        const data = completionsRef.current;
+        if (!data) return { suggestions: [] };
+
+        const textUntil = model.getValueInRange({
+          startLineNumber: 1,
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column,
+        });
+
+        const suggestions = buildMongoCompletionEntries(textUntil, data).map((item) => ({
+          label: item.label,
+          kind:
+            item.kind === 'stage'
+              ? monaco.languages.CompletionItemKind.Function
+              : item.kind === 'operator'
+                ? monaco.languages.CompletionItemKind.Operator
+                : item.kind === 'field'
+                  ? monaco.languages.CompletionItemKind.Field
+                  : item.kind === 'collection'
+                    ? monaco.languages.CompletionItemKind.Struct
+                    : monaco.languages.CompletionItemKind.Keyword,
+          insertText: item.insertText,
+          detail: item.detail,
+          sortText: item.sortText,
+          range: {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: Math.max(1, position.column - 20),
+            endColumn: position.column,
+          },
+        }));
+
+        return { suggestions };
+      },
+    });
+
+    editor.onDidDispose(() => provider.dispose());
   }, []);
 
   const handleDbChange = useCallback((value: string | null) => {
@@ -482,6 +556,14 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         onCollectionChange={(v) => dispatch({ type: 'setCollection', value: v })}
         onRun={() => handleRun()}
         onToggleChart={() => dispatch({ type: 'toggleChart' })}
+        onFormat={() => {
+          try {
+            const parsed = JSON5.parse(state.pipeline);
+            dispatch({ type: 'setPipeline', value: JSON5.stringify(parsed, null, 2) });
+          } catch {
+            /* invalid pipeline — no-op */
+          }
+        }}
       />
 
       <div className="flex flex-col min-h-0 flex-1">

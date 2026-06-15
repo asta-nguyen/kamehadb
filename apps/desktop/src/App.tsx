@@ -9,7 +9,9 @@ import { QdrantView } from '@/components/qdrant-view';
 import { RedisQuery } from '@/components/redis-query';
 import { RedisView } from '@/components/redis-view';
 import { SchemaGraph } from '@/components/schema-graph';
+import { SchemaTimeline } from '@/components/schema-timeline';
 import { GlobalSearch } from '@/components/global-search';
+import { MigrationAssistant } from '@/components/migration-assistant';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
@@ -37,6 +39,7 @@ import {
   BarChart3,
   Box,
   Database,
+  History,
   Monitor,
   Moon,
   Plus,
@@ -90,20 +93,23 @@ function TabBar() {
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const activeTabId = useStore(appStore, (state) => state.activeTabId);
   const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
+  const connectionStatus = useStore(appStore, (s) => s.connectionStatus);
   const { data: connections } = useConnections();
 
   const activeConnection = connections?.find((c) => c.id === activeConnectionId);
   const activeTab = openedTabs.find((t) => t.id === activeTabId);
 
-  const connectionColorMap = useMemo(() => {
-    if (!connections) return new Map<string, string>();
-    return new Map(connections.map((c) => [c.id, c.color ?? '']));
-  }, [connections]);
+  const getSignalColor = (connectionId: string) => {
+    const st = connectionStatus[connectionId];
+    if (st === 'connected' || st === 'slow') return '#22c55e';
+    if (st === 'reconnecting') return '#f97316';
+    if (st === 'disconnected') return '#ef4444';
+    return '#6b7280';
+  };
 
   return (
     <div className="flex items-center h-8 border-b border-border bg-muted/20 shrink-0 overflow-x-auto">
       {openedTabs.map((tab) => {
-        const connColor = connectionColorMap.get(tab.connectionId) || null;
         return (
           <div
             key={tab.id}
@@ -122,13 +128,16 @@ function TabBar() {
               }
             }}
           >
-            {connColor && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: connColor }} />}
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ backgroundColor: getSignalColor(tab.connectionId) }}
+            />
             {tab.type === 'query' || tab.type === 'redis-query' ? (
               <Terminal className="size-3" />
             ) : tab.type === 'graph' ? (
               <Share2 className="size-3" />
             ) : tab.type === 'mongo' || tab.type === 'mongo-query' ? (
-              <Database className="size-3" />
+              <Table2 className="size-3" />
             ) : tab.type === 'redis' ? (
               <Box className="size-3" />
             ) : tab.type === 'qdrant' ? (
@@ -143,6 +152,10 @@ function TabBar() {
               <BarChart3 className="size-3" />
             ) : tab.type === 'table-stats' ? (
               <Activity className="size-3" />
+            ) : tab.type === 'schema-timeline' ? (
+              <History className="size-3" />
+            ) : tab.type === 'migration' ? (
+              <Terminal className="size-3" />
             ) : (
               <Table2 className="size-3" />
             )}
@@ -213,8 +226,17 @@ function TabBar() {
 
 function WelcomePage({ greeting, prompt }: { greeting: string; prompt: string }) {
   const { data: connections } = useConnections();
+  const connectionStatus = useStore(appStore, (s) => s.connectionStatus);
   const hasConnections = connections && connections.length > 0;
   const count = connections?.length ?? 0;
+
+  // Show kinds that have at least one connection profile; fall back to all
+  // KINDS when no connections exist at all.
+  const displayKinds = useMemo(() => {
+    if (!connections || connections.length === 0) return KINDS;
+    const kindsUsed = new Set(connections.map((c) => c.kind));
+    return KINDS.filter((k) => kindsUsed.has(k));
+  }, [connections]);
 
   return (
     <div className="h-full flex flex-col items-center justify-center bg-gradient-to-b from-background via-background to-muted/30">
@@ -227,32 +249,37 @@ function WelcomePage({ greeting, prompt }: { greeting: string; prompt: string })
 
         {/* Connections quick status */}
         {hasConnections && (
-          <div className="flex items-center justify-center gap-1.5 mb-8 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-1.5 mb-6 text-xs text-muted-foreground">
             <span className="size-1.5 rounded-full bg-primary" />
             {count} connection{count !== 1 ? 's' : ''} configured
           </div>
         )}
 
-        {/* Supported databases */}
-        {!hasConnections && (
-          <>
-            <div className="flex flex-wrap justify-center gap-3 mb-8">
-              {KINDS.slice(0, 8).map((kind) => (
-                <div
-                  key={kind}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-lg bg-muted/50 border border-border/40 min-w-[72px]"
-                >
-                  <DbIcon kind={kind} className="size-5 opacity-70" />
-                  <span className="text-[11px] text-muted-foreground/70 font-medium">{KIND_LABELS[kind] ?? kind}</span>
-                </div>
-              ))}
-            </div>
+        {/* Database icons — glow when at least one connection of this kind is online */}
+        <div className="flex flex-wrap justify-center gap-3 mb-8">
+          {displayKinds.map((kind) => {
+            const isOn = connections?.some(
+              (c) => c.kind === kind && (connectionStatus[c.id] === 'connected' || connectionStatus[c.id] === 'slow'),
+            );
+            return (
+              <div
+                key={kind}
+                className={`relative flex flex-col items-center gap-1.5 p-3 rounded-lg border min-w-[72px] transition-all ${
+                  isOn
+                    ? 'bg-muted/50 border-emerald-500/30 shadow-[0_0_12px_-2px_rgba(34,197,94,0.4)]'
+                    : 'bg-muted/10 border-red-500/20 opacity-50 shadow-[0_0_8px_-2px_rgba(239,68,68,0.2)]'
+                }`}
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-background/60">
+                  <DbIcon kind={kind} className="size-5" />
+                </span>
+                <span className="text-[11px] text-muted-foreground/70 font-medium">{KIND_LABELS[kind] ?? kind}</span>
+              </div>
+            );
+          })}
+        </div>
 
-            <p className="text-xs text-muted-foreground/60 mb-6">
-              Plus DuckDB, SQLite, TigerBeetle, Qdrant &mdash; {KINDS.length} databases supported
-            </p>
-          </>
-        )}
+        {!hasConnections && <p className="text-xs text-muted-foreground/60 mb-6">{KINDS.length} databases supported</p>}
 
         {/* Keyboard shortcuts hint */}
         <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground/50">
@@ -371,6 +398,8 @@ function Workspace() {
         </Suspense>
       )}
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'schema-timeline' && <SchemaTimeline connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'migration' && <MigrationAssistant connectionId={activeTab.connectionId} />}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
       )}
