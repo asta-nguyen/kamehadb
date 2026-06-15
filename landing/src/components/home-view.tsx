@@ -38,6 +38,10 @@ import mongodb from 'thesvg/mongodb';
 import redis from 'thesvg/redis';
 import qdrant from 'thesvg/qdrant';
 
+type HomeViewProps = {
+  readonly githubStars: number | null;
+};
+
 const features: { icon: LucideIcon; title: string; description: string }[] = [
   {
     icon: Database,
@@ -377,9 +381,17 @@ function TerminalTypewriter() {
   );
 }
 
-export default function Home() {
+export default function HomeView({ githubStars }: HomeViewProps) {
+  // Format star count: 9 → "9", 1200 → "1.2k"
+  const formattedStars =
+    githubStars !== null
+      ? githubStars >= 1000
+        ? `${(githubStars / 1000).toFixed(1).replace(/\.0$/, '')}k`
+        : `${githubStars}`
+      : null;
+
   return (
-    <div className="min-h-screen bg-canvas font-sans antialiased">
+    <main id="content" className="min-h-screen bg-canvas font-sans antialiased">
       {/* Navigation */}
       <motion.nav
         className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-canvas/70 border-b border-border/60 before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-linear-to-r before:from-transparent before:via-amber-500/30 before:to-transparent"
@@ -471,7 +483,7 @@ export default function Home() {
             transition={{ duration: 0.6, delay: 0.4 }}
           >
             KamehaDB is a cross-platform desktop GUI for SQL, document, cache, vector, and ledger systems — built with
-            AI in, not bolted on. Powered by Tauri + a Node sidecar, runs entirely on your machine.
+            AI in, not bolted on. Runs entirely on your machine.
           </motion.p>
           <motion.div
             className="flex items-center justify-center gap-2 mb-10"
@@ -481,7 +493,9 @@ export default function Home() {
           >
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-strong/80 backdrop-blur-sm border border-border/50 rounded-full text-xs font-medium text-muted">
               <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-              <span className="tracking-tight">3+ stars on GitHub</span>
+              <span className="tracking-tight">
+                {formattedStars !== null ? `${formattedStars} Stars` : 'Stars on GitHub'}
+              </span>
             </div>
           </motion.div>
 
@@ -982,6 +996,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }
