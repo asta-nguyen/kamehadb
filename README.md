@@ -13,7 +13,7 @@
 - **12+ engines, one app** — SQL, document, cache, vector, and ledger systems side by side: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, TigerBeetle
 - **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine. No hosted proxy, no telemetry
 - **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, Redis commands, and Qdrant searches. Streaming responses with stop/cancel
-- **Schema timeline + migration assistant** — capture on-demand snapshots, see what changed between them, and auto-generate DDL to migrate from one state to the next
+- **Schema timeline + diff + migration assistant** — capture on-demand snapshots, compare schemas side by side with per-table change cards (columns, indexes), and auto-generate DDL to migrate from one state to the next
 - **Global search (Ctrl+K)** — fuzzy search across connections, tables, columns, open tabs, and quick actions across every connected engine
 - **Engine-native tooling** — PostgreSQL stats, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers
 - **Query history with favorites** — normalized patterns, duration per group, per-connection

@@ -33,15 +33,7 @@ import {
   appStore,
   navigateTo,
   openAiChatPanel,
-  openDatabaseStatsTab,
-  openGraphTab,
-  openMongoQueryTab,
-  openNewQueryTab,
-  openQdrantSearchTab,
-  openRedisQueryTab,
   openRedisTab,
-  openMigrationTab,
-  openSchemaTimelineTab,
   setActiveConnection,
   setConnectionLatency,
   setConnectionStatus,
@@ -51,25 +43,20 @@ import {
 import type { ConnectionProfile } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import {
-  BarChart3,
   ChevronDown,
   ChevronRight,
-  FileText,
-  History,
   Loader2,
   MoreVertical,
   Pin,
   PinOff,
   RefreshCw,
-  Search,
   Settings2,
-  Share2,
   Sparkles,
-  Terminal,
   Trash2,
 } from 'lucide-react';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ConnectionToolMenuItems } from './connection-tool-menu-items';
 import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
 import { MongoExplorer } from './mongo-explorer';
@@ -231,109 +218,7 @@ function ConnectionItem({
               <Sparkles className="mr-2 size-3.5" />
               AI Chat
             </DropdownMenuItem>
-            {conn.kind !== 'mongodb' &&
-              conn.kind !== 'redis' &&
-              conn.kind !== 'qdrant' &&
-              conn.kind !== 'tigerbeetle' && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openNewQueryTab(conn.id);
-                    }}
-                  >
-                    <FileText className="mr-2 size-3.5" />
-                    New Query
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openGraphTab(conn.id);
-                    }}
-                  >
-                    <Share2 className="mr-2 size-3.5" />
-                    Graph
-                  </DropdownMenuItem>
-                </>
-              )}
-            {conn.kind === 'qdrant' && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveConnection(conn.id);
-                  openQdrantSearchTab(conn.id);
-                }}
-              >
-                <Search className="mr-2 size-3.5" />
-                Vector Search
-              </DropdownMenuItem>
-            )}
-            {conn.kind === 'mongodb' && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveConnection(conn.id);
-                  openMongoQueryTab(conn.id, appStore.state.activeMongoDatabase ?? 'admin', '');
-                }}
-              >
-                <Terminal className="mr-2 size-3.5" />
-                Aggregation
-              </DropdownMenuItem>
-            )}
-            {conn.kind === 'redis' && (
-              <>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openRedisQueryTab(conn.id);
-                  }}
-                >
-                  <Terminal className="mr-2 size-3.5" />
-                  Query
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openRedisTab(conn.id);
-                  }}
-                >
-                  <BarChart3 className="mr-2 size-3.5" />
-                  Stats
-                </DropdownMenuItem>
-              </>
-            )}
-            {conn.kind !== 'mongodb' &&
-              conn.kind !== 'redis' &&
-              conn.kind !== 'qdrant' &&
-              conn.kind !== 'tigerbeetle' && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openDatabaseStatsTab(conn.id);
-                    }}
-                  >
-                    <BarChart3 className="mr-2 size-3.5" />
-                    Stats
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openSchemaTimelineTab(conn.id);
-                    }}
-                  >
-                    <History className="mr-2 size-3.5" />
-                    Schema Timeline
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openMigrationTab(conn.id);
-                    }}
-                  >
-                    <Terminal className="mr-2 size-3.5" />
-                    Migration Assistant
-                  </DropdownMenuItem>
-                </>
-              )}
+            <ConnectionToolMenuItems conn={conn} />
             <DropdownMenuItem onClick={() => setShowEdit(true)}>
               <Settings2 className="mr-2 size-3.5" />
               Edit

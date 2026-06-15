@@ -1,11 +1,14 @@
 import { useSchemaChangelog, useCaptureSchemaSnapshot } from '@/hooks/use-schema-changelog';
+import { useConnections } from '@/hooks/use-connections';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Camera, History, Plus, Minus, Pencil } from 'lucide-react';
+import { isSqlKind } from '@/lib/sql-kinds';
+import { Loader2, Camera, GitCompare, History, Plus, Minus, Pencil } from 'lucide-react';
 import type { SchemaChangeDescriptor } from '@kamehadb/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { openSchemaDiffTab } from '@/store';
 import { toast } from 'sonner';
 
 const CHANGE_ICONS: Record<SchemaChangeDescriptor['type'], typeof Plus> = {
@@ -103,14 +106,20 @@ function ChangeBadge({ type }: { type: SchemaChangeDescriptor['type'] }) {
 
 export function SchemaTimeline({ connectionId }: { connectionId: string }) {
   const { data, isLoading, error } = useSchemaChangelog(connectionId);
+  const { data: connections } = useConnections();
   const { mutateAsync: capture, isPending: capturing } = useCaptureSchemaSnapshot();
   const queryClient = useQueryClient();
+  const connection = connections?.find((item) => item.id === connectionId);
+  const canCompare = isSqlKind(connection?.kind);
 
   const handleCapture = async () => {
     try {
       const result = await capture(connectionId);
       toast.success(`Snapshot captured — ${result.tableCount} tables`);
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_CHANGELOG(connectionId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_SNAPSHOTS(connectionId) }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_CHANGELOG(connectionId) }),
+      ]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Capture failed');
     }
@@ -125,10 +134,29 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
           <History className="size-4" />
           Schema Change Timeline
         </h2>
-        <Button variant="default" size="sm" className="h-7 text-xs gap-1" onClick={handleCapture} disabled={capturing}>
-          {capturing ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
-          {capturing ? 'Capturing...' : 'Capture Snapshot'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {canCompare && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => openSchemaDiffTab(connectionId)}
+            >
+              <GitCompare className="size-3.5" />
+              Compare
+            </Button>
+          )}
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={handleCapture}
+            disabled={capturing}
+          >
+            {capturing ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+            {capturing ? 'Capturing...' : 'Capture Snapshot'}
+          </Button>
+        </div>
       </div>
 
       {error && (

@@ -252,68 +252,6 @@ export type TableStats = {
   nDeadTup: number;
 };
 
-// Schema snapshot for change timeline
-export type SchemaColumnSnapshot = {
-  name: string;
-  type: string;
-  nullable: boolean;
-  default: string | null;
-  primaryKey: boolean;
-};
-
-export type SchemaIndexSnapshot = {
-  name: string;
-  columns: string[];
-  unique: boolean;
-  primary: boolean;
-};
-
-export type SchemaTableSnapshot = {
-  id: string;
-  name: string;
-  schema?: string;
-  columns: SchemaColumnSnapshot[];
-  indexes: SchemaIndexSnapshot[];
-};
-
-export type SchemaSnapshotRecord = {
-  id: string;
-  connectionId: string;
-  capturedAt: string;
-  tables: SchemaTableSnapshot[];
-};
-
-export type SchemaChangeDescriptor =
-  | { type: 'table_added'; table: string }
-  | { type: 'table_removed'; table: string }
-  | { type: 'column_added'; table: string; column: string; dataType: string }
-  | { type: 'column_removed'; table: string; column: string; dataType: string }
-  | { type: 'column_changed'; table: string; column: string; from: string; to: string }
-  | { type: 'index_added'; table: string; index: string; columns: string[] }
-  | { type: 'index_removed'; table: string; index: string; columns: string[] };
-
-export type SchemaChangelogEntry = {
-  snapshotId: string;
-  capturedAt: string;
-  changes: SchemaChangeDescriptor[];
-};
-
-export type SchemaChangelog = {
-  entries: SchemaChangelogEntry[];
-};
-
-export type MigrationInput = {
-  fromSnapshotId: string;
-  toSnapshotId: string;
-};
-
-export type MigrationResult = {
-  statements: string[];
-  dialect: string;
-  fromSnapshot: string;
-  toSnapshot: string;
-};
-
 export type DatabaseSize = {
   schema: string;
   table: string;
@@ -336,6 +274,8 @@ export type ConnectionInfo = {
   waitEvent: string | null;
   durationSeconds: number;
 };
+export * from './schema-tools';
+export * from './workspace-tabs';
 
 // Redis types
 export type RedisKeyType = 'string' | 'hash' | 'list' | 'set' | 'zset' | 'stream';
@@ -667,87 +607,6 @@ export type ApiError = {
   error: string;
   message: string;
   statusCode: number;
-};
-
-// TanStack Store state
-export type WorkspaceTab =
-  | {
-      id: string;
-      type: 'table' | 'query' | 'redis-query' | 'redis' | 'graph' | 'stats' | 'database-stats';
-      title: string;
-      connectionId: string;
-      sql?: string;
-      command?: string;
-      autoRun?: boolean;
-    }
-  | {
-      id: string;
-      type: 'mongo';
-      title: string;
-      connectionId: string;
-      database: string;
-      collection: string;
-    }
-  | {
-      id: string;
-      type: 'mongo-query';
-      title: string;
-      connectionId: string;
-      database: string;
-      collection: string;
-      pipeline?: string;
-    }
-  | {
-      id: string;
-      type: 'qdrant';
-      title: string;
-      connectionId: string;
-      collection: string;
-    }
-  | {
-      id: string;
-      type: 'qdrant-search';
-      title: string;
-      connectionId: string;
-      collection?: string;
-      mode?: 'text' | 'similar' | 'raw';
-      pointId?: string | number;
-    }
-  | {
-      id: string;
-      type: 'qdrant-graph';
-      title: string;
-      connectionId: string;
-      collection: string;
-      colorBy?: string;
-      camera?: { position: number[]; target: number[] };
-    }
-  | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }
-  | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string }
-  | { id: string; type: 'schema-timeline'; title: string; connectionId: string }
-  | { id: string; type: 'migration'; title: string; connectionId: string }
-  // TigerBeetle account/transfer explorer
-  | { id: string; type: 'tigerbeetle'; title: string; connectionId: string };
-
-export type AppView = 'workspace' | 'api-settings';
-
-export type AppStoreState = {
-  activeConnectionId: string | null;
-  activeDatabaseId: string | null;
-  activeSchemaId: string | null;
-  activeTableId: string | null;
-  activeMongoDatabase: string | null;
-  aiPanelConnectionId: string | null;
-  openedTabs: WorkspaceTab[];
-  activeTabId: string | null;
-  sidebarCollapsed: boolean;
-  density: 'compact' | 'comfortable';
-  view: AppView;
-  theme: 'light' | 'dark' | 'system';
-  expandedConnections: string[];
-  pinnedConnections: string[];
-  connectionLatency: Record<string, number>;
-  connectionStatus: Record<string, 'connected' | 'slow' | 'disconnected' | 'reconnecting'>;
 };
 
 // SQL safety check constants and helper
