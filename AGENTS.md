@@ -299,6 +299,20 @@ For any file search or grep in the current git-indexed directory, use fff tools 
 - **Package Manager**: ALWAYS use `pnpm` for this project, except for the `landing/` directory which is managed via `npm`.
 - **Changelog**: All user-facing changes must be recorded in `CHANGELOG.md` under `[Unreleased]` before merging.
 
+## Public-Surface Drift Prevention
+
+When a feature wave adds new engines, major workflows, or changes the product descriptor, sync these five surfaces in the same PR so they do not drift:
+
+1. **`landing/src/components/home-view.tsx`** — hero copy, engine carousel, feature cards, Compare panel screenshots
+2. **`landing/src/app/layout.tsx`** — `<title>`, `<meta name="description">`, keywords, OG/Twitter metadata
+3. **`landing/public/og-image.svg`** — the OG card text (matches the hero headline)
+4. **`landing/public/images/`** — Compare panel screenshots (`sql-panel.png`, `chat-panel.png`, plus any new ones)
+5. **`README.md`** — one-liner, feature list, engine table, install docs
+
+Run `npm --prefix landing run build` and `pnpm build` after any landing or README change to confirm nothing is broken.
+
+After every material product change, run through this list before merging.
+
 ## TypeScript Coding Standards
 
 These rules apply to all TypeScript code in `apps/`, `packages/`, and `landing/`.
