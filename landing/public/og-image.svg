@@ -62,33 +62,33 @@
     KamehaDB
   </text>
   <text x="506" y="248" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="32" font-weight="500" fill="#9FC6ED">
-    Database management reimagined
+    Local-first desktop database workspace
   </text>
 
-  <text x="506" y="338" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="26" font-weight="500" fill="#D8E8F8">
-    Visual schema exploration and AI-assisted queries
+  <text x="506" y="338" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="500" fill="#D8E8F8">
+    One desktop GUI for SQL, document, cache, vector & ledger systems,
   </text>
-  <text x="506" y="380" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="26" font-weight="500" fill="#D8E8F8">
-    for PostgreSQL, MySQL, SQLite, MongoDB, and Redis.
+  <text x="506" y="372" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="24" font-weight="500" fill="#D8E8F8">
+    with AI built in. 12+ engines supported.
   </text>
 
   <g opacity="0.95">
     <rect x="506" y="462" width="146" height="52" rx="26" fill="#0D2647" stroke="#21D0FF" stroke-opacity="0.32" />
     <circle cx="536" cy="488" r="8" fill="#21D0FF" />
     <text x="557" y="496" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="600" fill="#EAF5FF">
-      AI Query
+      AI Built-in
     </text>
 
-    <rect x="671" y="462" width="182" height="52" rx="26" fill="#241809" stroke="#FFC429" stroke-opacity="0.32" />
+    <rect x="671" y="462" width="200" height="52" rx="26" fill="#241809" stroke="#FFC429" stroke-opacity="0.32" />
     <circle cx="701" cy="488" r="8" fill="#FFC429" />
     <text x="722" y="496" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="600" fill="#FFF2CB">
-      Schema Graph
+      Schema Timeline
     </text>
 
-    <rect x="872" y="462" width="184" height="52" rx="26" fill="#0D2647" stroke="#21D0FF" stroke-opacity="0.32" />
-    <circle cx="902" cy="488" r="8" fill="#21D0FF" />
-    <text x="923" y="496" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="600" fill="#EAF5FF">
-      Five Engines
+    <rect x="890" y="462" width="166" height="52" rx="26" fill="#0D2647" stroke="#21D0FF" stroke-opacity="0.32" />
+    <circle cx="920" cy="488" r="8" fill="#21D0FF" />
+    <text x="941" y="496" font-family="'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="22" font-weight="600" fill="#EAF5FF">
+      12+ Engines
     </text>
   </g>
 </svg>

@@ -361,8 +361,9 @@ export function createPostgresAdapter(connection: {
       let sql = `SELECT * FROM "${schema}"."${table}"`;
 
       if (input.search) {
+        // Only search text-like columns — casting ints/dates/bools to text forces seq-scans
         const colResult = await query(
-          `SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 ORDER BY ordinal_position`,
+          `SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND (data_type IN ('text', 'character varying', 'character', 'varchar', 'char', 'name', 'uuid') OR domain_name = 'citext') ORDER BY ordinal_position`,
           [schema, table],
         );
         const searchCols = colResult.rows.map((r: any) => r.column_name as string);

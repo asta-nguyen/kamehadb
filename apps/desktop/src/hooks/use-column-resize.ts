@@ -1,7 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 
-const SENTINEL = '__kameha_unresized__';
-
 type Options = {
   prefix?: string;
   suffix?: string;
@@ -18,6 +16,7 @@ type DragState = {
   startW: number;
   allRows: HTMLElement[];
   moved: boolean;
+  finalW: number; // tracks the pixel width during drag so onUp commits accurately
 };
 
 function measureText(text: string, font: string): number {
@@ -80,14 +79,14 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
   }
 
   const dragRef = useRef<DragState | null>(null);
+  // Snapshot of widths at drag start so onMove preserves previously-resized columns.
+  const widthsAtDragStartRef = useRef(widths);
+  // Prefix/suffix column count for mapping data col index to full template index.
+  const prefixCountRef = useRef(0);
 
-  // Each column uses minmax(contentWidth, 1fr) — a content-based floor that
-  // expands to fill leftover table space. The larger minimum widths keep
-  // fields readable, and the table wrapper handles horizontal overflow.
-  const dataTemplate = useMemo(
-    () => widths.map((w) => (w == null ? 'minmax(0, 1fr)' : `minmax(${w}px, 1fr)`)).join(' '),
-    [widths],
-  );
+  // Resized columns get a fixed px width so they never flex beyond what
+  // the user dragged. Unresized columns share leftover space via minmax(0, 1fr).
+  const dataTemplate = useMemo(() => widths.map((w) => (w == null ? 'minmax(0, 1fr)' : `${w}px`)).join(' '), [widths]);
 
   const fullTemplate = useMemo(() => {
     const parts = [prefix, dataTemplate, suffix].filter((s) => s && s.length > 0);
@@ -108,44 +107,59 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
       const startW = head.getBoundingClientRect().width;
       const table = row.closest('[data-slot="table"]') as HTMLElement | null;
       const allRows = table ? Array.from(table.querySelectorAll<HTMLElement>('[data-slot="table-row"]')) : [row];
+      // The DataTable wraps the table in a div with overflow-x-auto, which is the
+      // primary scroll container for horizontal column resize scrolling.
+      const scrollContainer = table?.parentElement as HTMLElement | null;
 
-      dragRef.current = { idx: index, startX, startW, allRows, moved: false };
-
-      const baseDataTemplate = dataTemplate;
+      dragRef.current = { idx: index, startX, startW, allRows, moved: false, finalW: startW };
+      // Snapshot widths so onMove can rebuild the full template
+      // while preserving all previously-resized columns.
+      widthsAtDragStartRef.current = widths;
+      prefixCountRef.current = prefix ? prefix.split(' ').filter(Boolean).length + (suffix ? 1 : 0) : suffix ? 1 : 0;
 
       const onMove = (me: MouseEvent) => {
         if (!dragRef.current) return;
         dragRef.current.moved = true;
         const diff = me.clientX - dragRef.current.startX;
         const w = Math.max(40, dragRef.current.startW + diff);
+        dragRef.current.finalW = w;
 
-        // During drag, convert the column being resized to a fixed px width
-        // while keeping minmax(N, 1fr) for other columns.
-        const serialized = baseDataTemplate
-          .replace(/minmax\(\s*0\s*,\s*1fr\s*\)/g, SENTINEL)
-          .replace(/minmax\(\s*\d+px\s*,\s*1fr\s*\)/g, SENTINEL);
-        const parts = serialized.length > 0 ? serialized.split(' ').filter((s) => s.length > 0) : [];
-        if (dragRef.current.idx >= 0 && dragRef.current.idx < parts.length) {
-          parts[dragRef.current.idx] = `${w}px`;
-        }
-        const newDataTemplate = parts.map((p) => (p === SENTINEL ? 'minmax(0, 1fr)' : p)).join(' ');
-        const next = [prefix, newDataTemplate, suffix].filter((s) => s && s.length > 0).join(' ');
+        // Rebuild the grid template from the widths snapshot, replacing only
+        // the dragged column's width. This keeps previously-resized columns intact.
+        // Resized columns use a fixed px value so they don't flex wider.
+        const baseWidths = widthsAtDragStartRef.current;
+        const newWidths = [...baseWidths];
+        newWidths[dragRef.current.idx] = w;
+        const dt = newWidths.map((cw) => (cw == null ? 'minmax(0, 1fr)' : `${cw}px`)).join(' ');
+        const next = [prefix, dt, suffix].filter((s) => s && s.length > 0).join(' ');
         for (const r of dragRef.current.allRows) r.style.gridTemplateColumns = next;
+
+        // Auto-scroll when the mouse nears the scroll container edges so the
+        // user can keep dragging a column past the visible viewport.
+        if (scrollContainer) {
+          const EDGE_THRESHOLD = 30;
+          const SCROLL_SPEED = 12;
+          const rect = scrollContainer.getBoundingClientRect();
+          if (me.clientX > rect.right - EDGE_THRESHOLD) {
+            scrollContainer.scrollLeft += SCROLL_SPEED;
+          } else if (me.clientX < rect.left + EDGE_THRESHOLD) {
+            scrollContainer.scrollLeft -= SCROLL_SPEED;
+          }
+        }
       };
 
       const onUp = () => {
         if (dragRef.current?.moved) {
+          // Capture values before calling setWidths — React processes the
+          // updater asynchronously (after dragRef.current is nulled below),
+          // so accessing dragRef.current inside the callback would crash.
           const i = dragRef.current.idx;
-          const headEl = handle.closest('[data-slot="table-head"]') as HTMLElement | null;
-          if (headEl) {
-            const w = headEl.getBoundingClientRect().width;
-            // Lock this column to the dragged px width (no longer flex).
-            setWidths((prev) => {
-              const next = [...prev];
-              next[i] = Math.max(40, Math.round(w));
-              return next;
-            });
-          }
+          const finalW = dragRef.current.finalW;
+          setWidths((prev) => {
+            const next = [...prev];
+            next[i] = Math.max(40, Math.round(finalW));
+            return next;
+          });
           const suppress = (ce: MouseEvent) => {
             ce.stopPropagation();
             ce.preventDefault();
@@ -165,7 +179,7 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     },
-    [dataTemplate, prefix, suffix, setWidths],
+    [widths, dataTemplate, prefix, suffix, setWidths],
   );
 
   const totalWidth = widths.reduce<number>((sum, w) => sum + (w ?? 0), 0);

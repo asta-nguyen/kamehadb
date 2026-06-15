@@ -1,5 +1,5 @@
-import { listProfiles, getProfilePassword, getAISettings } from '../db/metadata-store.js';
-import { createSqlAdapter } from '../adapters/factory.js';
+import { listProfiles, getAISettings } from '../db/metadata-store.js';
+import { getSqlAdapter } from '../routes/sql.js';
 import { buildSchemaIndex } from './qdrant-store.js';
 
 export async function indexAllConnections(): Promise<void> {
@@ -22,22 +22,12 @@ export async function indexAllConnections(): Promise<void> {
 
   for (const profile of sqlProfiles) {
     try {
-      const password = getProfilePassword(profile.id);
-      const adapter = createSqlAdapter(profile, password);
-      if (!adapter) {
-        console.warn(`[AI Indexer] Could not create adapter for ${profile.name}`);
-        continue;
-      }
-
-      try {
-        const count = await buildSchemaIndex(adapter, profile.id, settings.activeProvider, activeConfig, false);
-        if (count > 0) {
-          console.log(`[AI Indexer] Indexed ${count} table(s) for "${profile.name}"`);
-        } else {
-          console.log(`[AI Indexer] Schema unchanged for "${profile.name}"`);
-        }
-      } finally {
-        await adapter.close();
+      const adapter = await getSqlAdapter(profile.id);
+      const count = await buildSchemaIndex(adapter, profile.id, settings.activeProvider, activeConfig, false);
+      if (count > 0) {
+        console.log(`[AI Indexer] Indexed ${count} table(s) for "${profile.name}"`);
+      } else {
+        console.log(`[AI Indexer] Schema unchanged for "${profile.name}"`);
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

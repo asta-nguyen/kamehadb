@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { isQuerySafe } from '@kamehadb/shared';
+import { isQuerySafe, type SqlAdapter } from '@kamehadb/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
@@ -14,7 +14,22 @@ function handleError(c: any, err: unknown, context: string) {
   return c.json({ error: 'INTERNAL_ERROR', message }, 500);
 }
 
-async function getSqlAdapter(connectionId: string) {
+// Module-level adapter cache to avoid creating + destroying connection pools per request
+const adapterCache = new Map<string, SqlAdapter>();
+
+/** Evict a cached adapter (e.g. when connection profile is updated). */
+export function invalidateAdapterCache(connectionId: string): void {
+  const adapter = adapterCache.get(connectionId);
+  if (adapter) {
+    adapterCache.delete(connectionId);
+    adapter.close().catch(() => {});
+  }
+}
+
+export async function getSqlAdapter(connectionId: string) {
+  const cached = adapterCache.get(connectionId);
+  if (cached) return cached;
+
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) throw new Error('Connection not found');
 
@@ -33,7 +48,7 @@ async function getSqlAdapter(connectionId: string) {
   const adapter = createSqlAdapter(profile, password);
   if (!adapter) {
     console.warn(`[SQL] Unsupported connection kind for ${connectionId}: ${profile.kind}`);
-    return {
+    const fallback = {
       testConnection: () => Promise.resolve({ success: false, message: `Unsupported for ${profile.kind}` }),
       listDatabases: () => Promise.resolve([]),
       listSchemas: () => Promise.resolve([]),
@@ -45,7 +60,10 @@ async function getSqlAdapter(connectionId: string) {
       runQuery: () => Promise.reject(new Error('Not supported')),
       close: () => Promise.resolve(),
     };
+    adapterCache.set(connectionId, fallback);
+    return fallback;
   }
+  adapterCache.set(connectionId, adapter);
   return adapter;
 }
 
@@ -69,13 +87,9 @@ sqlRouter.get('/:connectionId/databases', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      const databases = await adapter.listDatabases();
-      setCache(cacheKey, databases);
-      return c.json(databases);
-    } finally {
-      await adapter.close();
-    }
+    const databases = await adapter.listDatabases();
+    setCache(cacheKey, databases);
+    return c.json(databases);
   } catch (err) {
     return handleError(c, err, 'listDatabases');
   }
@@ -90,13 +104,9 @@ sqlRouter.get('/:connectionId/schemas', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      const schemas = await adapter.listSchemas();
-      setCache(cacheKey, schemas);
-      return c.json(schemas);
-    } finally {
-      await adapter.close();
-    }
+    const schemas = await adapter.listSchemas();
+    setCache(cacheKey, schemas);
+    return c.json(schemas);
   } catch (err) {
     return handleError(c, err, 'listSchemas');
   }
@@ -112,13 +122,9 @@ sqlRouter.get('/:connectionId/tables', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      const tables = await adapter.listTables(schema || undefined);
-      setCache(cacheKey, tables);
-      return c.json(tables);
-    } finally {
-      await adapter.close();
-    }
+    const tables = await adapter.listTables(schema || undefined);
+    setCache(cacheKey, tables);
+    return c.json(tables);
   } catch (err) {
     return handleError(c, err, 'listTables');
   }
@@ -134,13 +140,9 @@ sqlRouter.get('/:connectionId/tables/:tableId/columns', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      const columns = await adapter.getTableColumns(tableId);
-      setCache(cacheKey, columns);
-      return c.json(columns);
-    } finally {
-      await adapter.close();
-    }
+    const columns = await adapter.getTableColumns(tableId);
+    setCache(cacheKey, columns);
+    return c.json(columns);
   } catch (err) {
     return handleError(c, err, 'getTableColumns');
   }
@@ -156,13 +158,9 @@ sqlRouter.get('/:connectionId/tables/:tableId/indexes', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      const indexes = await adapter.getTableIndexes(tableId);
-      setCache(cacheKey, indexes);
-      return c.json(indexes);
-    } finally {
-      await adapter.close();
-    }
+    const indexes = await adapter.getTableIndexes(tableId);
+    setCache(cacheKey, indexes);
+    return c.json(indexes);
   } catch (err) {
     return handleError(c, err, 'getTableIndexes');
   }
@@ -178,14 +176,10 @@ sqlRouter.get('/:connectionId/completions', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      const tables = await adapter.getCompletions(schema || undefined);
-      const result = { tables };
-      setCache(cacheKey, result);
-      return c.json(result);
-    } finally {
-      await adapter.close();
-    }
+    const tables = await adapter.getCompletions(schema || undefined);
+    const result = { tables };
+    setCache(cacheKey, result);
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'completions');
   }
@@ -199,20 +193,16 @@ sqlRouter.get('/:connectionId/search-schema', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      if (!('searchSchema' in adapter)) {
-        return c.json({ error: 'NOT_SUPPORTED', message: 'Schema search not available for this database type' }, 400);
-      }
-      const schema = c.req.query('schema') || undefined;
-      const rawLimit = c.req.query('limit');
-      const parsed = rawLimit ? Number(rawLimit) : undefined;
-      const limit =
-        parsed !== undefined && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000 ? parsed : undefined;
-      const results = await adapter.searchSchema!({ query: q, schema, limit });
-      return c.json(results);
-    } finally {
-      await adapter.close();
+    if (!('searchSchema' in adapter)) {
+      return c.json({ error: 'NOT_SUPPORTED', message: 'Schema search not available for this database type' }, 400);
     }
+    const schema = c.req.query('schema') || undefined;
+    const rawLimit = c.req.query('limit');
+    const parsed = rawLimit ? Number(rawLimit) : undefined;
+    const limit =
+      parsed !== undefined && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1000 ? parsed : undefined;
+    const results = await adapter.searchSchema!({ query: q, schema, limit });
+    return c.json(results);
   } catch (err) {
     return handleError(c, err, 'searchSchema');
   }
@@ -245,12 +235,8 @@ sqlRouter.post(
   async (c) => {
     try {
       const adapter = await getSqlAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.previewRows(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close();
-      }
+      const result = await adapter.previewRows(c.req.valid('json'));
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'previewRows');
     }
@@ -284,14 +270,9 @@ sqlRouter.post(
         }
       }
 
-      const password = metadataStore.getProfilePassword(connectionId);
       const adapter = await getSqlAdapter(connectionId);
-      try {
-        const result = await adapter.runQuery(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close();
-      }
+      const result = await adapter.runQuery(c.req.valid('json'));
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'runQuery');
     }
@@ -308,34 +289,30 @@ sqlRouter.get('/:connectionId/tables/:tableId/stats', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      if (!('getTableStats' in adapter)) {
-        return c.json({
-          tableId,
-          name: tableId.split('.').pop() || tableId,
-          schema: tableId.includes('.') ? tableId.split('.')[0] : '',
-          rowEstimate: 0,
-          totalBytes: 0,
-          indexesBytes: 0,
-          toastBytes: 0,
-          bloatBytes: 0,
-          bloatPercent: 0,
-          lastVacuum: null,
-          lastAutovacuum: null,
-          lastAnalyze: null,
-          lastAutoanalyze: null,
-          vacuumCount: 0,
-          autovacuumCount: 0,
-          nLiveTup: 0,
-          nDeadTup: 0,
-        });
-      }
-      const stats = await adapter.getTableStats!(tableId);
-      setCache(cacheKey, stats);
-      return c.json(stats);
-    } finally {
-      await adapter.close();
+    if (!('getTableStats' in adapter)) {
+      return c.json({
+        tableId,
+        name: tableId.split('.').pop() || tableId,
+        schema: tableId.includes('.') ? tableId.split('.')[0] : '',
+        rowEstimate: 0,
+        totalBytes: 0,
+        indexesBytes: 0,
+        toastBytes: 0,
+        bloatBytes: 0,
+        bloatPercent: 0,
+        lastVacuum: null,
+        lastAutovacuum: null,
+        lastAnalyze: null,
+        lastAutoanalyze: null,
+        vacuumCount: 0,
+        autovacuumCount: 0,
+        nLiveTup: 0,
+        nDeadTup: 0,
+      });
     }
+    const stats = await adapter.getTableStats!(tableId);
+    setCache(cacheKey, stats);
+    return c.json(stats);
   } catch (err) {
     return handleError(c, err, 'getTableStats');
   }
@@ -351,16 +328,12 @@ sqlRouter.get('/:connectionId/tables/:tableId/index-stats', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      if (!('getIndexStats' in adapter)) {
-        return c.json([]);
-      }
-      const stats = await adapter.getIndexStats!(tableId);
-      setCache(cacheKey, stats);
-      return c.json(stats);
-    } finally {
-      await adapter.close();
+    if (!('getIndexStats' in adapter)) {
+      return c.json([]);
     }
+    const stats = await adapter.getIndexStats!(tableId);
+    setCache(cacheKey, stats);
+    return c.json(stats);
   } catch (err) {
     return handleError(c, err, 'getIndexStats');
   }
@@ -376,16 +349,12 @@ sqlRouter.get('/:connectionId/sizes', async (c) => {
 
   try {
     const adapter = await getSqlAdapter(connectionId);
-    try {
-      if (!('getDatabaseSizes' in adapter)) {
-        return c.json([]);
-      }
-      const sizes = await adapter.getDatabaseSizes!(schema || undefined);
-      setCache(cacheKey, sizes);
-      return c.json(sizes);
-    } finally {
-      await adapter.close();
+    if (!('getDatabaseSizes' in adapter)) {
+      return c.json([]);
     }
+    const sizes = await adapter.getDatabaseSizes!(schema || undefined);
+    setCache(cacheKey, sizes);
+    return c.json(sizes);
   } catch (err) {
     return handleError(c, err, 'getDatabaseSizes');
   }
@@ -395,15 +364,11 @@ sqlRouter.get('/:connectionId/sizes', async (c) => {
 sqlRouter.get('/:connectionId/connections', async (c) => {
   try {
     const adapter = await getSqlAdapter(c.req.param('connectionId'));
-    try {
-      if (!('getActiveConnections' in adapter)) {
-        return c.json([]);
-      }
-      const connections = await adapter.getActiveConnections!();
-      return c.json(connections);
-    } finally {
-      await adapter.close();
+    if (!('getActiveConnections' in adapter)) {
+      return c.json([]);
     }
+    const connections = await adapter.getActiveConnections!();
+    return c.json(connections);
   } catch (err) {
     return handleError(c, err, 'getActiveConnections');
   }
@@ -414,35 +379,30 @@ sqlRouter.post('/:connectionId/capture-schema', async (c) => {
   const connectionId = c.req.param('connectionId');
   try {
     const adapter = await getSqlAdapter(connectionId);
-    let tables;
-    try {
-      tables = await adapter.listTables();
-      if (!tables || tables.length === 0) {
-        return c.json({ error: 'EMPTY', message: 'No tables found in this database' }, 400);
-      }
-
-      const snapshot = {
-        connectionId,
-        capturedAt: new Date().toISOString(),
-        tables: await Promise.all(
-          tables.map(async (t) => ({
-            id: t.id,
-            name: t.name,
-            schema: t.schema,
-            columns: await adapter.getTableColumns(t.id),
-            indexes: await adapter.getTableIndexes(t.id),
-          })),
-        ),
-      };
-
-      const id = metadataStore.saveSchemaSnapshot(connectionId, JSON.stringify(snapshot));
-      // Keep only the last 50 snapshots per connection
-      metadataStore.deleteOldSchemaSnapshots(connectionId, 50);
-
-      return c.json({ id, capturedAt: snapshot.capturedAt, tableCount: snapshot.tables.length });
-    } finally {
-      await adapter.close();
+    const tables = await adapter.listTables();
+    if (!tables || tables.length === 0) {
+      return c.json({ error: 'EMPTY', message: 'No tables found in this database' }, 400);
     }
+
+    const snapshot = {
+      connectionId,
+      capturedAt: new Date().toISOString(),
+      tables: await Promise.all(
+        tables.map(async (t) => ({
+          id: t.id,
+          name: t.name,
+          schema: t.schema,
+          columns: await adapter.getTableColumns(t.id),
+          indexes: await adapter.getTableIndexes(t.id),
+        })),
+      ),
+    };
+
+    const id = metadataStore.saveSchemaSnapshot(connectionId, JSON.stringify(snapshot));
+    // Keep only the last 50 snapshots per connection
+    metadataStore.deleteOldSchemaSnapshots(connectionId, 50);
+
+    return c.json({ id, capturedAt: snapshot.capturedAt, tableCount: snapshot.tables.length });
   } catch (err) {
     return handleError(c, err, 'captureSchema');
   }

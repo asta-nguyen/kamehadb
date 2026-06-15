@@ -69,7 +69,7 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
 import { MongoExplorer } from './mongo-explorer';
@@ -81,14 +81,12 @@ function SpinningRefresh({ spinning, className = '' }: { spinning: boolean; clas
   return <RefreshCw className={`size-3.5 ${className} ${spinning ? 'animate-spin' : ''}`} />;
 }
 
-function ConnectionItem({
+const ConnectionItem = memo(function ConnectionItem({
   conn,
   isActive,
-  onSelect,
 }: {
   conn: ConnectionProfile;
   isActive: boolean;
-  onSelect: () => void;
 }) {
   const expandedConnections = useStore(appStore, (state) => state.expandedConnections);
   const connectionStatus = useStore(appStore, (state) => state.connectionStatus);
@@ -128,7 +126,7 @@ function ConnectionItem({
     <div className="relative grow">
       <div
         onClick={() => {
-          onSelect();
+          setActiveConnection(conn.id);
           if (conn.kind === 'redis') {
             openRedisTab(conn.id);
           } else {
@@ -140,7 +138,7 @@ function ConnectionItem({
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onSelect();
+            setActiveConnection(conn.id);
             if (conn.kind === 'redis') {
               openRedisTab(conn.id);
             } else {
@@ -422,7 +420,7 @@ function ConnectionItem({
       )}
     </div>
   );
-}
+});
 
 function ConnectionGroup({
   kind,
@@ -448,12 +446,7 @@ function ConnectionGroup({
         <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">{conns.length}</span>
       </div>
       {conns.map((conn) => (
-        <ConnectionItem
-          key={conn.id}
-          conn={conn}
-          isActive={conn.id === activeConnectionId}
-          onSelect={() => setActiveConnection(conn.id)}
-        />
+        <ConnectionItem key={conn.id} conn={conn} isActive={conn.id === activeConnectionId} />
       ))}
     </div>
   );

@@ -19,31 +19,116 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-#### Database Support
+- Landing page GitHub stars badge is now server-rendered with static revalidation, so the initial HTML includes the count when available.
+- **Query history performance panel** — history is now grouped by normalized query pattern (literals stripped) with duration per group, favorites filter, and text search. ([@opencode])
+- **Copy result table as snapshot** — "Copy table" button in the result toolbar copies the result grid as tab-separated text to clipboard for quick sharing. ([@opencode])
+- **Global search palette (`Ctrl+K`)** — fuzzy-search across connections, schema tables/columns, open tabs, and quick actions (New Query, Graph, DB Stats, AI Chat). Uses cmdk with keyboard navigation. Search button visible in the header for non-keyboard users. ([@opencode])
+- **Connection health badges** — status dot now shows:
+  - connected/green
+  - slow/yellow (≥500ms latency)
+  - reconnecting/pulsing
+  - offline/red  
+    Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before marking disconnected.
+- **Time-aware welcome screen** — greetings change by time of day (morning/afternoon/evening/night) with curated messages, last-shown tracking, and returning-visitor prompt rotation.
+- **Connection hover tooltip** — shows connection details:
+  - kind
+  - host:port
+  - database
+  - status + latency
+  - last-updated timestamp
+- **Pin connections to top** — "Pin to top"/"Unpin" in connection dropdown. Pinned connections appear in a dedicated "Pinned" section in sidebar. Stored in localStorage.
+- **Workspace tabs memory** — open tabs and active tab are saved and restored on reload.
+- **Sidebar database icons** — engine-specific icons added:
+  - PostgreSQL
+  - MySQL
+  - MongoDB
+  - Redis
+  - SQL Server
+  - Oracle
+  - ClickHouse
+  - MariaDB  
+    Plus local SVGs for DuckDB, SQLite, TigerBeetle, Qdrant.
+- TigerBeetle seed script (`seed:tigerbeetle`) added to sidecar package.json. ([@opencode])
+- **DuckDB adapter** — connect to local `.duckdb` files for embedded analytics. ([@JoeJoeflyn])
+- **TigerBeetle adapter** — connect to distributed ledger clusters with connection pooling. ([@JoeJoeflyn])
+- **Docker compose services for DuckDB and TigerBeetle**
+  - Added `docker-compose.yml` entries
+  - Start with:
+    ```bash
+    docker compose up -d duckdb tigerbeetle
+    ```
+- **SQL Server adapter** — connect to Microsoft SQL Server databases via existing SQL adapter path. ([@JoeJoeflyn])
+- **Oracle adapter** — schema browsing, query execution, metadata support. ([@JoeJoeflyn])
+- **ClickHouse adapter** — columnar analytics support, schema inspection, query execution. ([@JoeJoeflyn])
+- **Query history with favorites** — persistent, connection-scoped query history with:
+  - save / recall queries
+  - favorites support  
+    ([@JoeJoeflyn])
+- **Qdrant v1.13.6 integration**
+  - Vector DB added to docker-compose (ports 6333/6334)
+  - Persistent volume `qdrant_data`
+  - Start with:
+    ```bash
+    docker compose up -d qdrant
+    ```
+- AI schema context now uses Qdrant vector search instead of full schema injection:
+  - Embeds table DDLs
+  - Semantic search per query
+  - Fallback to full schema if Qdrant is unavailable
+- New `QdrantSchemaStore`:
+  - Collection creation
+  - Embedding upserts
+  - Similarity search
+  - Incremental sync + orphan cleanup ([@JoeJoeflyn])
+- AI chat improvements:
+  - Case-insensitive substring matching
+  - Robust term splitting (punctuation-safe)
+  - Handles plurals, synonyms, abbreviations (e.g. "DE" ↔ "germany")
+- Canonical term expansion system:
+  - Countries
+  - US states
+  - Currencies
+  - Languages
+  - Common abbreviations  
+    Implemented via `expandTerms` and `renderExpansionsForPrompt`
+- Proactive Qdrant indexing at startup:
+  - Hash-based incremental sync
+  - Enriched embeddings (DDL + metadata)
+- AI chat streaming via `@tanstack/ai`
+  - SSE streaming responses
+  - `useChat()` client integration
+  - Stop/cancel support ([@JoeJoeflyn])
+- Server-side schema search:
+  - PostgreSQL / MySQL / SQLite using LIKE queries ([@JoeJoeflyn])
+- Client-side fuzzy schema filtering (`fuzzyMatch`) ([@JoeJoeflyn])
+- Configurable row limit dropdown (10–500)
+- Connection dialog improvements:
+  - Read-only toggle for write permissions
+  - Custom color picker (`<input type="color">`)
+- UI overhaul:
+  - Replaced native inputs with shadcn components
+  - Replaced tables with shadcn `Table` grid system ([@opencode])
+- Qdrant vector map:
+  - Persist colorBy
+  - Persist camera position + target
+- v1.2 MCP server added
 
-- Added SQL Server, Oracle, ClickHouse, DuckDB, and TigerBeetle adapters. ([@JoeJoeflyn])
-- Added Docker Compose services and seed tooling for DuckDB and TigerBeetle. ([@JoeJoeflyn])
+---
 
-#### Schema & Queries
+## Changed
 
-- Added a Migration Assistant that compares schema snapshots and generates migration DDL. ([@JoeJoeflyn])
-- Added a schema change timeline for tracking table, column, index, and type changes. ([@JoeJoeflyn])
-- Added persistent query history with favorites, text search, and performance grouping. ([@JoeJoeflyn])
-- Added a global search palette (`Ctrl+K`) for connections, schema objects, tabs, and quick actions. ([@JoeJoeflyn])
-- Added result-table snapshot copying as tab-separated text. ([@JoeJoeflyn])
-
-#### UI & UX
-
-- Added connection health badges, connection detail tooltips, and pinned connections.
-- Added workspace tab persistence, engine-specific database icons, and a time-aware welcome screen.
-
-### Changed
-
-- SQL and Mongo data tables now support horizontal scrolling, field visibility controls, resizable columns, and explicit row actions.
-- Desktop forms and data tables now use shared UI components for more consistent behavior and styling. ([@JoeJoeflyn])
-- AI provider settings now use a single active-provider model.
-- Qdrant vector maps now persist color and camera state across tab switches.
-- Project license changed from MIT to Apache-2.0.
+- SQL Server, Oracle, ClickHouse adapters refined and standardized ([@JoeJoeflyn])
+- Query history system improved (favorites + persistence) ([@JoeJoeflyn])
+- Data tables:
+  - horizontal scrolling support
+  - field visibility controls
+  - resizable columns
+  - row actions
+- Desktop UI:
+  - unified component system ([@JoeJoeflyn])
+- AI provider settings switched to single active-provider model
+- Qdrant vector maps now persist state across tabs
+- Project license changed from MIT → Apache-2.0
 
 ### Fixed
 

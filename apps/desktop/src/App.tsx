@@ -366,43 +366,68 @@ function Workspace() {
     );
   }
 
+  // Render all opened tabs but hide inactive ones (except qdrant-graph which
+  // has a Three.js render loop that wastes GPU when invisible).
+  // Use invisible+absolute instead of display:none (hidden) because
+  // Monaco editor crashes with "Cannot read properties of null (reading 'finalW')"
+  // when it cannot measure layout in a zero-size container.
   return (
-    <div className="h-full flex flex-col">
-      {activeTab.type === 'query' && (
-        <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
-      )}
-      {activeTab.type === 'table' && <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />}
-      {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'mongo-query' && <MongoQuery tab={activeTab} connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'redis' && <RedisView connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'redis-query' && <RedisQuery tab={activeTab} connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'qdrant' && (
-        <QdrantView connectionId={activeTab.connectionId} collection={activeTab.collection} />
-      )}
-      {activeTab.type === 'qdrant-search' && (
-        <QdrantQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
-      )}
-      {activeTab.type === 'qdrant-graph' && (
-        <Suspense
-          fallback={
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading map…</div>
+    <div className="relative h-full flex flex-col">
+      {openedTabs.map((tab) => (
+        <div
+          key={tab.id}
+          className={
+            tab.type === 'qdrant-graph'
+              ? tab.id !== activeTab.id
+                ? 'hidden'
+                : 'flex-1 flex flex-col min-h-0'
+              : tab.id !== activeTab.id
+                ? 'invisible absolute inset-0 overflow-hidden'
+                : 'flex-1 flex flex-col min-h-0'
           }
         >
-          <QdrantVectorMap tab={activeTab} connectionId={activeTab.connectionId} collection={activeTab.collection} />
-        </Suspense>
-      )}
-      {activeTab.type === 'qdrant-stats' && (
-        <Suspense>
-          <QdrantStatsPanel connectionId={activeTab.connectionId} collection={activeTab.collection} />
-        </Suspense>
-      )}
-      {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'schema-timeline' && <SchemaTimeline connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'migration' && <MigrationAssistant connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
-        <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
-      )}
+          {tab.type === 'query' && <SqlEditor tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'table' && <TableView connectionId={tab.connectionId} tableId={tab.title} />}
+          {tab.type === 'graph' && <SchemaGraph connectionId={tab.connectionId} />}
+          {tab.type === 'mongo' && <MongoView tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'mongo-query' && <MongoQuery tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'redis' && <RedisView connectionId={tab.connectionId} />}
+          {tab.type === 'redis-query' && <RedisQuery tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'qdrant' && (
+            <QdrantView connectionId={tab.connectionId} collection={'collection' in tab ? tab.collection : ''} />
+          )}
+          {tab.type === 'qdrant-search' && <QdrantQuery tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'qdrant-graph' && tab.id === activeTab.id && (
+            <Suspense
+              fallback={
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  Loading map…
+                </div>
+              }
+            >
+              <QdrantVectorMap
+                tab={tab}
+                connectionId={tab.connectionId}
+                collection={'collection' in tab ? tab.collection : ''}
+              />
+            </Suspense>
+          )}
+          {tab.type === 'qdrant-stats' && (
+            <Suspense>
+              <QdrantStatsPanel
+                connectionId={tab.connectionId}
+                collection={'collection' in tab ? tab.collection : ''}
+              />
+            </Suspense>
+          )}
+          {tab.type === 'database-stats' && <DatabaseStats connectionId={tab.connectionId} />}
+          {tab.type === 'schema-timeline' && <SchemaTimeline connectionId={tab.connectionId} />}
+          {tab.type === 'migration' && <MigrationAssistant connectionId={tab.connectionId} />}
+          {tab.type === 'table-stats' && 'tableId' in tab && (
+            <TableStats connectionId={tab.connectionId} tableId={tab.tableId} />
+          )}
+        </div>
+      ))}
     </div>
   );
 }
