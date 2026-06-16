@@ -141,6 +141,17 @@ export function openRedisQueryTab(connectionId: string) {
   openTab(tab);
 }
 
+export function openMongoShellTab(connectionId: string) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'mongo-shell').length;
+  const tab: WorkspaceTab = {
+    id: `mongo-shell-${nanoid()}`,
+    type: 'mongo-shell',
+    title: `Mongo Shell ${tabCount + 1}`,
+    connectionId,
+  };
+  openTab(tab);
+}
+
 export function openMongoQueryTab(connectionId: string, database: string, collection: string) {
   const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'mongo-query').length;
   const tab: WorkspaceTab = {
@@ -245,6 +256,13 @@ export function updateTabQdrantGraphState(
   appStore.setState((state) => ({
     ...state,
     openedTabs: state.openedTabs.map((t) => (t.id === tabId && t.type === 'qdrant-graph' ? { ...t, ...updates } : t)),
+  }));
+}
+
+export function updateTabShellSessionId(tabId: string, sessionId: string) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) => (t.id === tabId && t.type === 'mongo-shell' ? { ...t, sessionId } : t)),
   }));
 }
 
