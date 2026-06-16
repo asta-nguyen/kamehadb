@@ -727,7 +727,9 @@ export type WorkspaceTab =
   | { id: string; type: 'schema-timeline'; title: string; connectionId: string }
   | { id: string; type: 'migration'; title: string; connectionId: string }
   // TigerBeetle account/transfer explorer
-  | { id: string; type: 'tigerbeetle'; title: string; connectionId: string };
+  | { id: string; type: 'tigerbeetle'; title: string; connectionId: string }
+  // Interactive Mongo shell (mongosh) via desktop PTY
+  | { id: string; type: 'mongo-shell'; title: string; connectionId: string; sessionId?: string };
 
 export type AppView = 'workspace' | 'api-settings';
 

@@ -179,6 +179,35 @@ export const api = {
     request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
 
   // MongoDB completions
+  // MongoDB shell (mongosh) — works in both Tauri and browser dev mode
+  startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
+    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }, true),
+
+  writeMongoShell: (sessionId: string, data: string) =>
+    request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }, true),
+
+  /** Check if a shell session is still alive (204 = alive, 404 = dead).
+   *  Distinguish 404 (no such session) from transient server errors — don't
+   *  kill a healthy session on a temporary 5xx. */
+  pingMongoShell: (sessionId: string) =>
+    fetch(`${getApiBase()}/mongo/shell/${sessionId}/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: '' }),
+    }).then((r) => {
+      if (r.ok) return true;
+      if (r.status === 404) return false;
+      return true; // transient server error — keep session alive
+    }),
+
+  stopMongoShell: (sessionId: string) => request<void>('DELETE', `/mongo/shell/${sessionId}`, undefined, true),
+
+  resizeMongoShell: (sessionId: string, cols: number, rows: number) =>
+    request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }, true),
+
+  getShellStreamUrl: (connectionId: string, sessionId: string) =>
+    `${getApiBase()}/mongo/${connectionId}/shell/${sessionId}/stream`,
+
   getMongoCompletions: (connectionId: string, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
     return request<{ collections: { name: string; fields: string[] }[] }>(

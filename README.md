@@ -22,6 +22,7 @@
 - **Schema browser & ER diagram** — auto-generated ER graphs via ReactFlow + dagre
 - **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
 - **Schema-aware SQL editor** — Monaco with FK-aware JOIN/ON suggestions and autocomplete across tables, columns, functions, keywords
+- **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation
 - **Connection URL** — paste `postgresql://`, `mysql://`, `redis://`, etc. to auto-fill connection fields
 
 ## Quick Start
