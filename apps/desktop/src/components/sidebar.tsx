@@ -21,7 +21,7 @@ import {
   useRefreshConnection,
   useConnectionHealth,
 } from '@/hooks/use-connections';
-import { getApiBase } from '@/lib/api';
+import { getApiBase } from '@/lib/api-client';
 import {
   GROUP_LABELS,
   GROUP_ORDER,

@@ -1,5 +1,4 @@
 import { ChatInput } from '@/components/chat-input';
-import { buildHighlightedCodeTree, type SafeHighlightNode } from '@/lib/ai-chat-highlight';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/variants';
 import {
@@ -12,8 +11,15 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useChat } from '@/hooks/use-chat';
 import { useConnections } from '@/hooks/use-connections';
-import type { ChatMessage } from '@/lib/ai-chat-helpers';
-import { getChatTextContent, normalizeCodeLanguage, toUIMessage, type CodeLanguage } from '@/lib/ai-chat-helpers';
+import {
+  buildHighlightedCodeTree,
+  getChatTextContent,
+  normalizeCodeLanguage,
+  toUIMessage,
+  type ChatMessage,
+  type CodeLanguage,
+  type SafeHighlightNode,
+} from '@/lib/ai-chat-helpers';
 import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
 import {
   Bot,

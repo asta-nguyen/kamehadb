@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { applyTheme, appStore, closeAllTabs, closeTab, setTheme } from '@/store';
+import { api } from '@/lib/api';
 import { useStore } from '@tanstack/react-store';
 import { Monitor, Moon, Search, Sun } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -76,7 +77,28 @@ function Header({ onSearchOpen }: { readonly onSearchOpen: () => void }) {
 function App() {
   const view = useStore(appStore, (state) => state.view);
   const theme = useStore(appStore, (state) => state.theme);
+  const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const closeAllChordUntilRef = useRef(0);
+
+  // Kill orphaned mongo-shell PTY sessions when their tabs are closed.
+  // Lives in App() (always mounted) rather than Workspace() (unmounted when
+  // ApiSettingsPage is active) so cleanup still fires after cross-view tab close.
+  const prevShellTabsRef = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    const prev = prevShellTabsRef.current;
+    const current = new Map<string, string>();
+    for (const t of openedTabs) {
+      if (t.type === 'mongo-shell' && t.sessionId) {
+        current.set(t.id, t.sessionId);
+      }
+    }
+    for (const [tabId, sessionId] of prev) {
+      if (!current.has(tabId)) {
+        api.stopMongoShell(sessionId).catch(() => {});
+      }
+    }
+    prevShellTabsRef.current = current;
+  }, [openedTabs]);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {

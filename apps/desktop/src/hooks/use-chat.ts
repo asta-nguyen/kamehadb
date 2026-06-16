@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { getApiBase } from '@/lib/api';
+import { getApiBase } from '@/lib/api-client';
 
 export type ChatMessage = {
   id: string;

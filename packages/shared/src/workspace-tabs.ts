@@ -74,7 +74,14 @@ export type WorkspaceTab =
       readonly fromSnapshotId?: string;
       readonly toSnapshotId?: string;
     }
-  | { readonly id: string; readonly type: 'tigerbeetle'; readonly title: string; readonly connectionId: string };
+  | { readonly id: string; readonly type: 'tigerbeetle'; readonly title: string; readonly connectionId: string }
+  | {
+      readonly id: string;
+      readonly type: 'mongo-shell';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly sessionId?: string;
+    };
 
 export type AppView = 'workspace' | 'api-settings';
 

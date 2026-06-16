@@ -5,7 +5,7 @@ import { WorkspaceContent } from '@/components/workspace-content';
 import { WorkspaceTabBar } from '@/components/workspace-tab-bar';
 import { useConnections } from '@/hooks/use-connections';
 import { GREETINGS, KIND_LABELS, KINDS, PROMPTS } from '@/lib/constants';
-import { isSqlKind } from '@/lib/sql-kinds';
+import { isSqlKind } from '@/lib/constants';
 import { appStore, closeAiChatPanel, openDatabaseStatsTab, openGraphTab, openNewQueryTab } from '@/store';
 import { useStore } from '@tanstack/react-store';
 import { BarChart3, Share2, Terminal } from 'lucide-react';

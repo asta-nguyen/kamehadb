@@ -1,4 +1,4 @@
-import { post } from '@/lib/api';
+import { post } from '@/lib/api-client';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import type { RedisCommandResult } from '@kamehadb/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

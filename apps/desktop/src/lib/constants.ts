@@ -86,6 +86,22 @@ export const KINDS: DbKind[] = [
   'tigerbeetle',
 ];
 
+/** Engine kinds that use the SQL adapter path (not Mongo/Redis/Qdrant/TigerBeetle). */
+export const SQL_KINDS: readonly DbKind[] = [
+  'postgres',
+  'mysql',
+  'sqlite',
+  'sqlserver',
+  'oracle',
+  'clickhouse',
+  'mariadb',
+  'duckdb',
+] as const;
+
+export function isSqlKind(kind: string | undefined): kind is DbKind {
+  return kind !== undefined && SQL_KINDS.includes(kind as DbKind);
+}
+
 export const DEFAULT_PORTS: Record<DbKind, number> = {
   postgres: 5432,
   mysql: 3306,

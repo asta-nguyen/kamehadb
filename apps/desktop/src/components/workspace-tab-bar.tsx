@@ -1,7 +1,7 @@
 import { useConnections } from '@/hooks/use-connections';
 import { DbIcon } from '@/components/db-icon';
 import { appStore, closeTab, openGraphTab, openMongoQueryTab, openNewQueryTab, openRedisQueryTab } from '@/store';
-import { isSqlKind } from '@/lib/sql-kinds';
+import { isSqlKind } from '@/lib/constants';
 import { useStore } from '@tanstack/react-store';
 import { Activity, BarChart3, Box, Database, History, Plus, Search, Share2, Table2, Terminal, X } from 'lucide-react';
 

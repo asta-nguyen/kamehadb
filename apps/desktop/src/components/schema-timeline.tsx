@@ -3,7 +3,7 @@ import { useConnections } from '@/hooks/use-connections';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { isSqlKind } from '@/lib/sql-kinds';
+import { isSqlKind } from '@/lib/constants';
 import { Loader2, Camera, GitCompare, History, Plus, Minus, Pencil } from 'lucide-react';
 import type { SchemaChangeDescriptor } from '@kamehadb/shared';
 import { useQueryClient } from '@tanstack/react-query';

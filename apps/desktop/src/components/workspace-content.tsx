@@ -3,6 +3,7 @@ import type { WorkspaceTab } from '@kamehadb/shared';
 import { DatabaseStats } from '@/components/database-stats';
 import { MigrationAssistant } from '@/components/migration-assistant';
 import { MongoQuery } from '@/components/mongo-query';
+import { MongoShell } from '@/components/mongo-shell';
 import { MongoView } from '@/components/mongo-view';
 import { QdrantQuery } from '@/components/qdrant-query';
 import { QdrantView } from '@/components/qdrant-view';
@@ -37,6 +38,9 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   }
   if (activeTab.type === 'mongo-query') {
     return <MongoQuery tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'mongo-shell') {
+    return <MongoShell key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis') {
     return <RedisView connectionId={activeTab.connectionId} />;

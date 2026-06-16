@@ -1,6 +1,6 @@
 import type { ConnectionProfile } from '@kamehadb/shared';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { isSqlKind } from '@/lib/sql-kinds';
+import { isSqlKind } from '@/lib/constants';
 import {
   appStore,
   openDatabaseStatsTab,

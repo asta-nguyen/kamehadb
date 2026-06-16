@@ -1,5 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { get, post } from '@/lib/api';
+import { get, post } from '@/lib/api-client';
 import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
 import type { CollectionInfo, DatabaseInfo, DocumentResult, FindDocumentsInput } from '@kamehadb/shared';
 

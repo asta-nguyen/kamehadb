@@ -1,11 +1,15 @@
 import { request } from './api-client';
-import { schemaApi } from './schema-api';
-
-export { getApiBase } from './api-client';
-export { get, post } from './api-client';
+import type {
+  MigrationInput,
+  MigrationResult,
+  SchemaChangelog,
+  SchemaDiffInput,
+  SchemaDiffResult,
+  SchemaSnapshotSummary,
+} from '@kamehadb/shared';
 
 export const api = {
-  request: request as <T>(method: string, path: string, body?: unknown) => Promise<T>,
+  request,
   health: () => request<{ status: string; uptime: number; version: string }>('GET', '/health'),
 
   listConnections: () => request<import('@kamehadb/shared').ConnectionProfile[]>('GET', '/connections'),
@@ -83,7 +87,21 @@ export const api = {
 
   getActiveConnections: (connectionId: string) =>
     request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/connections`),
-  ...schemaApi,
+
+  captureSchemaSnapshot: (connectionId: string) =>
+    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/capture-schema`),
+
+  getSchemaSnapshots: (connectionId: string) =>
+    request<{ snapshots: readonly SchemaSnapshotSummary[] }>('GET', `/sql/${connectionId}/schema-snapshots`),
+
+  getSchemaChangelog: (connectionId: string) =>
+    request<SchemaChangelog>('GET', `/sql/${connectionId}/schema-changelog`),
+
+  getSchemaDiff: (connectionId: string, input: SchemaDiffInput) =>
+    request<SchemaDiffResult>('POST', `/sql/${connectionId}/schema-diff`, input),
+
+  generateMigration: (connectionId: string, input: MigrationInput) =>
+    request<MigrationResult>('POST', `/sql/${connectionId}/generate-migration`, input),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
@@ -128,6 +146,35 @@ export const api = {
     request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
 
   // MongoDB completions
+  // MongoDB shell (mongosh) — works in both Tauri and browser dev mode
+  startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
+    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }, true),
+
+  writeMongoShell: (sessionId: string, data: string) =>
+    request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }, true),
+
+  /** Check if a shell session is still alive (204 = alive, 404 = dead).
+   *  Distinguish 404 (no such session) from transient server errors — don't
+   *  kill a healthy session on a temporary 5xx. */
+  pingMongoShell: (sessionId: string) =>
+    fetch(`${getApiBase()}/mongo/shell/${sessionId}/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: '' }),
+    }).then((r) => {
+      if (r.ok) return true;
+      if (r.status === 404) return false;
+      return true; // transient server error — keep session alive
+    }),
+
+  stopMongoShell: (sessionId: string) => request<void>('DELETE', `/mongo/shell/${sessionId}`, undefined, true),
+
+  resizeMongoShell: (sessionId: string, cols: number, rows: number) =>
+    request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }, true),
+
+  getShellStreamUrl: (connectionId: string, sessionId: string) =>
+    `${getApiBase()}/mongo/${connectionId}/shell/${sessionId}/stream`,
+
   getMongoCompletions: (connectionId: string, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
     return request<{ collections: { name: string; fields: string[] }[] }>(

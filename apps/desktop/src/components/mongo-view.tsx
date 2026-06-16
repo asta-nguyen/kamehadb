@@ -13,6 +13,7 @@ import { MongoViewHeader } from '@/components/mongo-view-header';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
+import { openMongoShellTab } from '@/store';
 
 const PAGE_LIMIT = 20;
 
@@ -289,6 +290,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         onRefresh={onRefresh}
         onExportJSON={handleExportJSON}
         onExportCSV={handleExportCSV}
+        onOpenShell={() => openMongoShellTab(connectionId)}
       />
 
       <Tabs

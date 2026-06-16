@@ -170,6 +170,25 @@ export function updateTabQdrantGraphState(
   }));
 }
 
+export function openMongoShellTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'mongo-shell').length;
+  openTab({
+    id: `mongo-shell-${nanoid()}`,
+    type: 'mongo-shell',
+    title: `Mongo Shell ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function updateTabShellSessionId(tabId: string, sessionId: string): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'mongo-shell' ? { ...tab, sessionId } : tab,
+    ),
+  }));
+}
+
 export function closeTab(tabId: string): void {
   appStore.setState((state) => {
     const tabs = state.openedTabs.filter((tab) => tab.id !== tabId);
