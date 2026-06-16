@@ -28,7 +28,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - slow/yellow (≥500ms latency)
   - reconnecting/pulsing
   - offline/red  
-    Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before marking disconnected.
+  Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before marking disconnected.
 - **Time-aware welcome screen** — greetings change by time of day (morning/afternoon/evening/night) with curated messages, last-shown tracking, and returning-visitor prompt rotation.
 - **Connection hover tooltip** — shows connection details:
   - kind
@@ -47,7 +47,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Oracle
   - ClickHouse
   - MariaDB  
-    Plus local SVGs for DuckDB, SQLite, TigerBeetle, Qdrant.
+  Plus local SVGs for DuckDB, SQLite, TigerBeetle, Qdrant.
 - TigerBeetle seed script (`seed:tigerbeetle`) added to sidecar package.json. ([@opencode])
 - **DuckDB adapter** — connect to local `.duckdb` files for embedded analytics. ([@JoeJoeflyn])
 - **TigerBeetle adapter** — connect to distributed ledger clusters with connection pooling. ([@JoeJoeflyn])
@@ -63,7 +63,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Query history with favorites** — persistent, connection-scoped query history with:
   - save / recall queries
   - favorites support  
-    ([@JoeJoeflyn])
+  ([@JoeJoeflyn])
 - **Qdrant v1.13.6 integration**
   - Vector DB added to docker-compose (ports 6333/6334)
   - Persistent volume `qdrant_data`
@@ -90,7 +90,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Currencies
   - Languages
   - Common abbreviations  
-    Implemented via `expandTerms` and `renderExpansionsForPrompt`
+  Implemented via `expandTerms` and `renderExpansionsForPrompt`
 - Proactive Qdrant indexing at startup:
   - Hash-based incremental sync
   - Enriched embeddings (DDL + metadata)
