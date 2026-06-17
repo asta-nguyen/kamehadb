@@ -197,6 +197,40 @@ export function openQdrantSearchTab(
   openTab(tab);
 }
 
+export function openPostgresVectorSearchTab(
+  connectionId: string,
+  opts?: { table?: string; schema?: string; column?: string; vectorText?: string; mode?: 'similar' | 'raw' },
+) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'postgres-vector-search').length;
+  const tab: WorkspaceTab = {
+    id: `pgvector-${nanoid()}`,
+    type: 'postgres-vector-search',
+    title: opts?.table ? `Vector Search: ${opts.table}` : `Vector Search ${tabCount + 1}`,
+    connectionId,
+    table: opts?.table,
+    schema: opts?.schema,
+    column: opts?.column,
+    vectorText: opts?.vectorText,
+    mode: opts?.mode,
+  };
+  openTab(tab);
+}
+
+export function openPostgresVectorMapTab(
+  connectionId: string,
+  opts: { table: string; schema: string; column: string },
+) {
+  openTab({
+    id: `pgvector-map-${nanoid()}`,
+    type: 'postgres-vector-map',
+    title: `Map: ${opts.table}`,
+    connectionId,
+    table: opts.table,
+    schema: opts.schema,
+    column: opts.column,
+  });
+}
+
 export function openQdrantGraphTab(connectionId: string, collection: string) {
   openTab({
     id: `${connectionId}:qdrant-graph:${collection}`,
@@ -256,6 +290,18 @@ export function updateTabQdrantGraphState(
   appStore.setState((state) => ({
     ...state,
     openedTabs: state.openedTabs.map((t) => (t.id === tabId && t.type === 'qdrant-graph' ? { ...t, ...updates } : t)),
+  }));
+}
+
+export function updateTabPostgresVectorMapState(
+  tabId: string,
+  updates: { camera?: { position: [number, number, number]; target: [number, number, number] } },
+) {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((t) =>
+      t.id === tabId && t.type === 'postgres-vector-map' ? { ...t, ...updates } : t,
+    ),
   }));
 }
 

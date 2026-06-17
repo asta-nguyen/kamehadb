@@ -102,7 +102,7 @@ export const api = {
     if (limit) params.set('limit', String(limit));
     return request<import('@kamehadb/shared').SchemaSearchMatch[]>(
       'GET',
-      `/sql/${connectionId}/search-schema?${params}`,
+      `/sql/${connectionId}/schema/search?${params}`,
     );
   },
 
@@ -116,25 +116,50 @@ export const api = {
   getIndexStats: (connectionId: string, tableId: string) =>
     request<import('@kamehadb/shared').IndexStats[]>(
       'GET',
-      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/index-stats`,
+      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/indexes/stats`,
     ),
 
   getDatabaseSizes: (connectionId: string, schema?: string) => {
     const query = schema ? `?schema=${encodeURIComponent(schema)}` : '';
-    return request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/sizes${query}`);
+    return request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/database/sizes${query}`);
   },
 
   getActiveConnections: (connectionId: string) =>
-    request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/connections`),
+    request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/sessions`),
 
   captureSchemaSnapshot: (connectionId: string) =>
-    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/capture-schema`),
+    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/schema/snapshots`),
 
   getSchemaChangelog: (connectionId: string) =>
-    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema-changelog`),
+    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema/changelog`),
 
   generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
-    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/generate-migration`, input),
+    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/schema/migrations`, input),
+
+  // PostgreSQL pgvector API
+  getPostgresVectorCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').PostgresVectorCapability>(
+      'GET',
+      `/sql/${connectionId}/vectors/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchPostgresVector: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSearchInput) =>
+    request<import('@kamehadb/shared').PostgresVectorSearchResult>(
+      'POST',
+      `/sql/${connectionId}/vectors/search`,
+      input,
+      true,
+    ),
+
+  getPostgresVectorSample: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSampleInput) =>
+    request<import('@kamehadb/shared').PostgresVectorSampleResult>(
+      'POST',
+      `/sql/${connectionId}/vectors/sample`,
+      input,
+      true,
+    ),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
@@ -176,10 +201,14 @@ export const api = {
     request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined, true),
 
   runRedisCommand: (connectionId: string, command: string) =>
-    request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
+    request<import('@kamehadb/shared').RedisCommandResult>(
+      'POST',
+      `/redis/${connectionId}/commands`,
+      { command },
+      true,
+    ),
 
-  // MongoDB completions
-  // MongoDB shell (mongosh) — works in both Tauri and browser dev mode
+  // MongoDB shell
   startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
     request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }, true),
 
@@ -203,6 +232,7 @@ export const api = {
   stopMongoShell: (sessionId: string) => request<void>('DELETE', `/mongo/shell/${sessionId}`, undefined, true),
 
   resizeMongoShell: (sessionId: string, cols: number, rows: number) =>
+    // MongoDB autocomplete
     request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }, true),
 
   getShellStreamUrl: (connectionId: string, sessionId: string) =>
@@ -212,7 +242,7 @@ export const api = {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
     return request<{ collections: { name: string; fields: string[] }[] }>(
       'GET',
-      `/mongo/${connectionId}/completions${query}`,
+      `/mongo/${connectionId}/autocomplete${query}`,
       undefined,
       true,
     );

@@ -246,9 +246,9 @@ mongoRouter.post(
   },
 );
 
-// GET /mongo/:connectionId/completions
+// GET /mongo/:connectionId/autocomplete
 // Returns collection names + field names from sample documents for autocomplete.
-mongoRouter.get('/:connectionId/completions', async (c) => {
+mongoRouter.get('/:connectionId/autocomplete', async (c) => {
   const connectionId = c.req.param('connectionId');
   const database = c.req.query('database') || '';
   const cacheKey = `mongo:${connectionId}:completions:${database}`;

@@ -20,8 +20,9 @@
 - **Charts** — bar, line, area, pie views on any query result or Mongo collection (powered by recharts)
 - **Health monitoring** — live status badges with latency tracking; slow/reconnecting/offline states with tooltips
 - **Schema browser & ER diagram** — auto-generated ER graphs via ReactFlow + dagre
-- **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
 - **Schema-aware SQL editor** — Monaco with FK-aware JOIN/ON suggestions and autocomplete across tables, columns, functions, keywords
+- **PostgreSQL pgvector workflows** — detect vector columns and indexes, run guided vector/raw search, inspect nearest neighbors, and open a sampled PCA vector map
+- **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
 - **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation
 - **Connection URL** — paste `postgresql://`, `mysql://`, `redis://`, etc. to auto-fill connection fields
 

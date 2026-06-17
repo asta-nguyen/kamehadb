@@ -94,7 +94,7 @@ export function useRefreshConnection() {
         ['table-stats', id],
         ['index-stats', id],
         ['db-sizes', id],
-        ['completions', id],
+        ['autocomplete', id],
         ['active-connections', id],
         ['redis-keys', id],
         ['redis-key', id],

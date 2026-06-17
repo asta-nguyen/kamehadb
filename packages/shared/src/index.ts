@@ -147,6 +147,9 @@ export type ColumnInfo = {
     table: string;
     column: string;
   };
+  // pgvector: set when column type is vector(n)
+  isVector?: boolean;
+  vectorDimensions?: number;
 };
 
 export type TableCompletions = {
@@ -160,6 +163,8 @@ export type IndexInfo = {
   columns: string[];
   unique: boolean;
   primary: boolean;
+  // pgvector: index method (ivfflat, hnsw) when applicable
+  method?: string;
 };
 
 // API input types
@@ -226,6 +231,7 @@ export type IndexStats = {
   columns: string[];
   unique: boolean;
   primary: boolean;
+  method?: string;
   sizeBytes: number;
   scans: number;
   reads: number;
@@ -549,6 +555,70 @@ export interface QdrantAdapter {
   close(): Promise<void>;
 }
 
+// PostgreSQL pgvector types
+export type PostgresVectorColumn = {
+  tableSchema: string;
+  tableName: string;
+  columnName: string;
+  dimensions: number;
+};
+
+export type PostgresVectorIndex = {
+  name: string;
+  tableSchema: string;
+  tableName: string;
+  columnName: string;
+  method: 'ivfflat' | 'hnsw';
+  operator: 'l2' | 'cosine' | 'inner_product';
+};
+
+export type PostgresVectorCapability = {
+  available: boolean;
+  version: string | null;
+  columns: PostgresVectorColumn[];
+  indexes: PostgresVectorIndex[];
+};
+
+export type PostgresVectorSearchInput = {
+  table: string;
+  schema?: string;
+  column: string;
+  vector: number[];
+  filter?: string;
+  metric?: 'l2' | 'cosine' | 'inner_product';
+  limit?: number;
+};
+
+export type PostgresVectorSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type PostgresVectorSearchResult = {
+  hits: PostgresVectorSearchHit[];
+  durationMs: number;
+};
+
+export type PostgresVectorSampleInput = {
+  table: string;
+  schema?: string;
+  column: string;
+  limit?: number;
+};
+
+export type PostgresVectorSamplePoint = {
+  id: string | number;
+  vector: number[];
+  // Row payload for hover tooltips, excluding the vector column itself to keep payloads small
+  payload: Record<string, unknown>;
+};
+
+export type PostgresVectorSampleResult = {
+  points: PostgresVectorSamplePoint[];
+  dimensions: number;
+};
+
 // TigerBeetle types
 export type TigerBeetleAccount = {
   id: string;
@@ -728,6 +798,29 @@ export type WorkspaceTab =
   | { id: string; type: 'migration'; title: string; connectionId: string }
   // TigerBeetle account/transfer explorer
   | { id: string; type: 'tigerbeetle'; title: string; connectionId: string }
+  // PostgreSQL pgvector search
+  | {
+      id: string;
+      type: 'postgres-vector-search';
+      title: string;
+      connectionId: string;
+      table?: string;
+      schema?: string;
+      column?: string;
+      vectorText?: string;
+      mode?: 'similar' | 'raw';
+    }
+  | {
+      id: string;
+      type: 'postgres-vector-map';
+      title: string;
+      connectionId: string;
+      table: string;
+      schema: string;
+      column: string;
+      // Saved camera state for Three.js persistence across tab switches
+      camera?: { position: [number, number, number]; target: [number, number, number] };
+    }
   // Interactive Mongo shell (mongosh) via desktop PTY
   | { id: string; type: 'mongo-shell'; title: string; connectionId: string; sessionId?: string };
 
