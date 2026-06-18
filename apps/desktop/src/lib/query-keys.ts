@@ -10,7 +10,7 @@ export const QUERY_KEYS = {
     ['preview', connectionId, input] as const,
   DATABASES: (connectionId: string | null, schema?: string | null) => ['databases', connectionId, schema] as const,
   SCHEMAS: (connectionId: string | null) => ['schemas', connectionId] as const,
-  COMPLETIONS: (connectionId: string | null) => ['completions', connectionId] as const,
+  COMPLETIONS: (connectionId: string | null) => ['autocomplete', connectionId] as const,
   MONGO_DATABASES: (connectionId: string | null) => ['mongo-databases', connectionId] as const,
   MONGO_COLLECTIONS: (connectionId: string | null, db: string | null) =>
     ['mongo-collections', connectionId, db] as const,
@@ -32,6 +32,12 @@ export const QUERY_KEYS = {
   ) => ['qdrant-points', connectionId, collection, offset ?? null, filter ?? null, limit] as const,
   QDRANT_STATS: (connectionId: string | null, collection: string | null) =>
     ['qdrant-stats', connectionId, collection] as const,
+  POSTGRES_VECTOR_CAPABILITIES: (connectionId: string | null) =>
+    ['postgres-vector-capabilities', connectionId] as const,
+  POSTGRES_VECTOR_SAMPLE: (
+    connectionId: string | null,
+    input?: import('@kamehadb/shared').PostgresVectorSampleInput | null,
+  ) => ['postgres-vector-sample', connectionId, input] as const,
   CONNECTION_HEALTH: (connectionId: string | null) => ['connection-health', connectionId] as const,
   SCHEMA_CHANGELOG: (connectionId: string | null) => ['schema-changelog', connectionId] as const,
   AI_SETTINGS: ['ai-settings'] as const,

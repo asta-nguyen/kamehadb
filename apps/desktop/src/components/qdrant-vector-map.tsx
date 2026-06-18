@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { WorkspaceTab } from '@kamehadb/shared';
 import { api } from '@/lib/api';
+import { projectVectorsTo3d } from '@/lib/pca3d';
 import { appStore, openQdrantSearchTab, updateTabQdrantGraphState } from '@/store';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,51 +35,6 @@ const PALETTE = [
   '#6366f1',
 ];
 const SPREAD = 100;
-
-function dot(a: number[], b: number[]): number {
-  let s = 0;
-  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-  return s;
-}
-function normalize(v: number[]): void {
-  const n = Math.sqrt(dot(v, v)) || 1;
-  for (let i = 0; i < v.length; i++) v[i] /= n;
-}
-
-function pca3d(vectors: number[][]): [number, number, number][] {
-  const n = vectors.length;
-  const d = vectors[0].length;
-  const mean = new Array(d).fill(0);
-  for (const v of vectors) for (let j = 0; j < d; j++) mean[j] += v[j];
-  for (let j = 0; j < d; j++) mean[j] /= n;
-  const X = vectors.map((v) => v.map((x, j) => x - mean[j]));
-
-  const topComponent = (exclude: number[][]): number[] => {
-    let v = new Array(d).fill(0).map((_, i) => Math.sin(i + 1));
-    normalize(v);
-    for (let iter = 0; iter < 50; iter++) {
-      const u = X.map((row) => dot(row, v));
-      const w = new Array(d).fill(0);
-      for (let i = 0; i < n; i++) {
-        const ui = u[i];
-        const row = X[i];
-        for (let j = 0; j < d; j++) w[j] += row[j] * ui;
-      }
-      for (const e of exclude) {
-        const p = dot(w, e);
-        for (let j = 0; j < d; j++) w[j] -= p * e[j];
-      }
-      normalize(w);
-      v = w;
-    }
-    return v;
-  };
-
-  const pc1 = topComponent([]);
-  const pc2 = topComponent([pc1]);
-  const pc3 = topComponent([pc1, pc2]);
-  return X.map((row) => [dot(row, pc1), dot(row, pc2), dot(row, pc3)]);
-}
 
 function toNumericVector(vector: unknown, vectorName?: string): number[] | null {
   if (Array.isArray(vector) && typeof vector[0] === 'number') return vector as number[];
@@ -329,25 +285,10 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
   }, [points]);
 
   const positions = useMemo(() => {
-    if (points.length < 2) return null;
-    const coords = pca3d(points.map((p) => p.vector));
-    const mins = [Infinity, Infinity, Infinity];
-    const maxs = [-Infinity, -Infinity, -Infinity];
-    for (const c of coords)
-      for (let a = 0; a < 3; a++) {
-        mins[a] = Math.min(mins[a], c[a]);
-        maxs[a] = Math.max(maxs[a], c[a]);
-      }
-    const center = [0, 1, 2].map((a) => (mins[a] + maxs[a]) / 2);
-    const range = Math.max(...[0, 1, 2].map((a) => maxs[a] - mins[a]), 1e-6);
-    const scale = SPREAD / range;
-    const arr = new Float32Array(coords.length * 3);
-    coords.forEach((c, i) => {
-      arr[i * 3] = (c[0] - center[0]) * scale;
-      arr[i * 3 + 1] = (c[1] - center[1]) * scale;
-      arr[i * 3 + 2] = (c[2] - center[2]) * scale;
-    });
-    return arr;
+    return projectVectorsTo3d(
+      points.map((point) => point.vector),
+      SPREAD,
+    );
   }, [points]);
 
   const { legend, colorValue } = useMemo(() => {

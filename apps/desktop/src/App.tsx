@@ -2,8 +2,11 @@ import { AIChatPanel } from '@/components/ai-chat-panel';
 import { ApiSettingsPage } from '@/components/api-settings-page';
 import { DatabaseStats } from '@/components/database-stats';
 import { DbIcon } from '@/components/db-icon';
+import { MongoShell } from '@/components/mongo-shell';
 import { MongoQuery } from '@/components/mongo-query';
 import { MongoView } from '@/components/mongo-view';
+import { PostgresVectorQuery } from '@/components/postgres-vector-query';
+import { PostgresVectorMap } from '@/components/postgres-vector-map';
 import { QdrantQuery } from '@/components/qdrant-query';
 import { QdrantView } from '@/components/qdrant-view';
 import { RedisQuery } from '@/components/redis-query';
@@ -20,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useConnections } from '@/hooks/use-connections';
+import { api } from '@/lib/api';
 import {
   applyTheme,
   appStore,
@@ -156,6 +160,10 @@ function TabBar() {
               <History className="size-3" />
             ) : tab.type === 'migration' ? (
               <Terminal className="size-3" />
+            ) : tab.type === 'postgres-vector-search' ? (
+              <Search className="size-3" />
+            ) : tab.type === 'postgres-vector-map' ? (
+              <Share2 className="size-3" />
             ) : (
               <Table2 className="size-3" />
             )}
@@ -375,6 +383,9 @@ function Workspace() {
       {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
       {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
       {activeTab.type === 'mongo-query' && <MongoQuery tab={activeTab} connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'mongo-shell' && (
+        <MongoShell key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
       {activeTab.type === 'redis' && <RedisView connectionId={activeTab.connectionId} />}
       {activeTab.type === 'redis-query' && <RedisQuery tab={activeTab} connectionId={activeTab.connectionId} />}
       {activeTab.type === 'qdrant' && (
@@ -400,6 +411,12 @@ function Workspace() {
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
       {activeTab.type === 'schema-timeline' && <SchemaTimeline connectionId={activeTab.connectionId} />}
       {activeTab.type === 'migration' && <MigrationAssistant connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'postgres-vector-search' && (
+        <PostgresVectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
+      {activeTab.type === 'postgres-vector-map' && (
+        <PostgresVectorMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
       )}
@@ -485,7 +502,28 @@ function Header({ onSearchOpen }: { onSearchOpen: () => void }) {
 function App() {
   const view = useStore(appStore, (state) => state.view);
   const theme = useStore(appStore, (state) => state.theme);
+  const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const closeAllChordUntilRef = useRef(0);
+
+  // Kill orphaned mongo-shell PTY sessions when their tabs are closed.
+  // Lives in App() (always mounted) rather than Workspace() (unmounted when
+  // ApiSettingsPage is active) so cleanup still fires after cross-view tab close.
+  const prevShellTabsRef = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    const prev = prevShellTabsRef.current;
+    const current = new Map<string, string>();
+    for (const t of openedTabs) {
+      if (t.type === 'mongo-shell' && t.sessionId) {
+        current.set(t.id, t.sessionId);
+      }
+    }
+    for (const [tabId, sessionId] of prev) {
+      if (!current.has(tabId)) {
+        api.stopMongoShell(sessionId).catch(() => {});
+      }
+    }
+    prevShellTabsRef.current = current;
+  }, [openedTabs]);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {

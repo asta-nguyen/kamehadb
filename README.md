@@ -6,7 +6,7 @@
   </a>
 </p>
 
-**KamehaDB** is a local-first, cross-platform database GUI with built-in AI that connects to PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, and TigerBeetle — letting you browse schemas, run queries, and generate SQL through conversation.
+**KamehaDB** is a local-first, cross-platform desktop database workspace that connects to PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle — browse schemas, run queries, chat with AI, capture schema history, and generate migrations, all in one Tauri app with a local Node sidecar.
 
 ## Features
 
@@ -20,8 +20,10 @@
 - **Charts** — bar, line, area, pie views on any query result or Mongo collection (powered by recharts)
 - **Health monitoring** — live status badges with latency tracking; slow/reconnecting/offline states with tooltips
 - **Schema browser & ER diagram** — auto-generated ER graphs via ReactFlow + dagre
-- **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
 - **Schema-aware SQL editor** — Monaco with FK-aware JOIN/ON suggestions and autocomplete across tables, columns, functions, keywords
+- **PostgreSQL pgvector workflows** — detect vector columns and indexes, run guided vector/raw search, inspect nearest neighbors, and open a sampled PCA vector map
+- **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
+- **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation
 - **Connection URL** — paste `postgresql://`, `mysql://`, `redis://`, etc. to auto-fill connection fields
 
 ## Quick Start
@@ -54,8 +56,6 @@ Configure AI providers in the app settings (API Settings page):
 
 | Engine      | Port | User    | Password | Database |
 | ----------- | ---- | ------- | -------- | -------- |
-| Engine      | Port | User    | Password | Database |
-| ----------  | ---- | ------  | -------- | -------- |
 | PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
 | MySQL       | 3306 | kameha  | kameha   | kamehadb |
 | MariaDB     | 3307 | kameha  | kameha   | kamehadb |
@@ -65,6 +65,7 @@ Configure AI providers in the app settings (API Settings page):
 | ClickHouse  | 8123 | default | default  | kamehadb |
 | DuckDB      | 5432 | —       | —        | —        |
 | TigerBeetle | 3000 | —       | —        | —        |
+| Qdrant      | 6333 | —       | —        | —        |
 
 ## Project Structure
 

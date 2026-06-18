@@ -21,6 +21,7 @@ import {
   useRefreshConnection,
   useConnectionHealth,
 } from '@/hooks/use-connections';
+import { usePostgresVectorCapabilities } from '@/hooks/use-postgres-vector';
 import { getApiBase } from '@/lib/api';
 import { isTauriRuntime } from '@/lib/tauri';
 import {
@@ -38,6 +39,7 @@ import {
   openGraphTab,
   openMongoQueryTab,
   openNewQueryTab,
+  openPostgresVectorSearchTab,
   openQdrantSearchTab,
   openRedisQueryTab,
   openRedisTab,
@@ -49,7 +51,7 @@ import {
   toggleExpandedConnection,
   togglePinnedConnection,
 } from '@/store';
-import type { ConnectionProfile } from '@kamehadb/shared';
+import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import {
   BarChart3,
@@ -108,6 +110,8 @@ function ConnectionItem({
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
   const healthCheck = useConnectionHealth(conn.id);
+  const { data: pgVectorCapabilities } = usePostgresVectorCapabilities(conn.kind === 'postgres' ? conn.id : null);
+  const canOpenVectorSearch = !!pgVectorCapabilities?.available && pgVectorCapabilities.columns.length > 0;
 
   // SSE is the primary health source (has latency + reconnecting states).
   // Fall back to healthCheck on first render before SSE arrives.
@@ -263,6 +267,17 @@ function ConnectionItem({
                     <FileText className="mr-2 size-3.5" />
                     New Query
                   </DropdownMenuItem>
+                  {conn.kind === 'postgres' && canOpenVectorSearch && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setActiveConnection(conn.id);
+                        openPostgresVectorSearchTab(conn.id);
+                      }}
+                    >
+                      <Search className="mr-2 size-3.5" />
+                      Vector Search
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onClick={() => {
                       setActiveConnection(conn.id);
@@ -467,7 +482,7 @@ function ConnectionGroup({
           <DbIcon kind={kind as any} className="size-3.5" />
         )}
         <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">
-          {isPinned ? 'Pinned' : (GROUP_LABELS[kind] ?? kind)}
+          {isPinned ? 'Pinned' : (GROUP_LABELS[kind as DbKind] ?? kind)}
         </span>
         <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">{conns.length}</span>
       </div>

@@ -52,20 +52,9 @@ export const KIND_LABELS: Record<DbKind, string> = {
   tigerbeetle: 'TigerBeetle',
 };
 
-export const GROUP_LABELS: Record<string, string> = {
-  postgres: 'PostgreSQL',
-  sqlite: 'SQLite',
-  mysql: 'MySQL',
-  redis: 'Redis',
-  mongodb: 'MongoDB',
-  qdrant: 'Qdrant',
-  sqlserver: 'SQL Server',
-  oracle: 'Oracle',
-  clickhouse: 'ClickHouse',
-  mariadb: 'MariaDB',
-  duckdb: 'DuckDB',
-  tigerbeetle: 'TigerBeetle',
-};
+// Alias for GROUP_LABELS to match semantic usage — labels by engine kind are the
+// same regardless of whether they appear as group headers or individual badges.
+export const GROUP_LABELS = KIND_LABELS;
 
 export const SIDEBAR_MIN_WIDTH = 250;
 export const SIDEBAR_MAX_WIDTH = 400;

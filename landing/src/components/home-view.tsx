@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { ThemeToggle } from './theme-toggle';
 import {
   Database,
@@ -18,35 +18,78 @@ import {
   Shield,
   Brain,
   Code2,
+  History,
+  LineChart,
+  Activity,
+  Search,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Compare } from './ui/compare';
+import postgresql from 'thesvg/postgresql';
+import mysql from 'thesvg/mysql';
+import mariadb from 'thesvg/mariadb';
+import sqlite from 'thesvg/sqlite';
+import microsoftSqlServer from 'thesvg/microsoft-sql-server';
+import oracle from 'thesvg/oracle';
+import clickhouse from 'thesvg/clickhouse';
+import duckdb from 'thesvg/duckdb';
+import mongodb from 'thesvg/mongodb';
+import redis from 'thesvg/redis';
+import qdrant from 'thesvg/qdrant';
+
+type HomeViewProps = {
+  readonly githubStars: number | null;
+};
 
 const features: { icon: LucideIcon; title: string; description: string }[] = [
   {
     icon: Database,
-    title: 'Multi-Database Support',
+    title: 'One workspace, 12 engines',
     description:
-      'Connect to PostgreSQL, MySQL, SQLite, MongoDB, and Redis — all from one unified interface. Browse schemas, collections, and keys with an intuitive tree view.',
+      'Relational, document, cache, vector, and ledger systems in a single desktop app. Browse schemas, collections, keyspaces, points, and accounts side by side.',
   },
   {
     icon: Sparkles,
-    title: 'AI Query Generation',
+    title: 'AI that knows your schema',
     description:
-      'Describe what you want in plain English. AI transforms your intent into optimized SQL, aggregation pipelines, or Redis commands.',
+      'Describe what you want in plain English. The assistant reads your real DDL, indexes, and constraints to generate SQL, MongoDB pipelines, Redis commands, and Qdrant searches.',
+  },
+  {
+    icon: Search,
+    title: 'Global search — Ctrl+K',
+    description:
+      'Fuzzy-find any connection, table, column, or open tab. Jump into a query, a stats page, or the AI chat without leaving the keyboard.',
   },
   {
     icon: MessageSquare,
-    title: 'Contextual AI Chat',
+    title: 'Contextual AI chat',
     description:
-      'Chat with AI that knows your database schema. Ask follow-up questions, debug slow queries, and get precise answers.',
+      'Persistent history per connection, streamed responses, and a Run button to execute the SQL the assistant writes. Bring your own OpenAI, Ollama, or 9Router.',
   },
   {
     icon: Workflow,
-    title: 'Schema Visualization',
+    title: 'Schema timeline + migration assistant',
     description:
-      'Auto-detect table structures, field types, indexes, and relationships. Generate ER diagrams and understand any database instantly.',
+      'Capture snapshots on demand, see what changed between them, and generate the DDL to migrate from one state to the next — without writing ALTER TABLE by hand.',
+  },
+  {
+    icon: LineChart,
+    title: 'Built-in charts',
+    description:
+      'Turn any query result or Mongo collection into bar, line, area, or pie charts. Histograms, aggregates, and time series without exporting to a notebook.',
+  },
+  {
+    icon: History,
+    title: 'Query history with favorites',
+    description:
+      'Normalized query history per connection, grouped by pattern with duration stats. Star the ones you reach for every day; reuse, fork, and rerun in one click.',
+  },
+  {
+    icon: Activity,
+    title: 'Engine-native tooling',
+    description:
+      'PostgreSQL stats, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers — purpose-built screens for each engine.',
   },
 ];
 
@@ -99,13 +142,142 @@ const whyKamehadb: {
   },
 ];
 
-const engines = [
-  { name: 'PostgreSQL', color: 'text-blue-500' },
-  { name: 'MySQL', color: 'text-orange-500' },
-  { name: 'SQLite', color: 'text-teal-500' },
-  { name: 'MongoDB', color: 'text-green-500' },
-  { name: 'Redis', color: 'text-red-500' },
+const marqueeEngines: { label: string; svg: { svg: string } | string | null }[] = [
+  { label: 'PostgreSQL', svg: postgresql },
+  { label: 'MySQL', svg: mysql },
+  { label: 'MariaDB', svg: mariadb },
+  { label: 'SQLite', svg: sqlite },
+  { label: 'SQL Server', svg: microsoftSqlServer },
+  { label: 'Oracle', svg: oracle },
+  { label: 'ClickHouse', svg: clickhouse },
+  { label: 'DuckDB', svg: duckdb },
+  { label: 'MongoDB', svg: mongodb },
+  { label: 'Redis', svg: redis },
+  { label: 'Qdrant', svg: qdrant },
+  { label: 'TigerBeetle', svg: '/images/tigerbeetle.svg' },
 ];
+
+const engineByLabel = new Map(marqueeEngines.map((engine) => [engine.label, engine] as const));
+
+const engineSwapTransition = {
+  duration: 0.9,
+  ease: 'easeInOut',
+} as const;
+
+function EngineCarousel() {
+  const [labels, setLabels] = useState<string[]>(() => marqueeEngines.slice(0, 6).map((l) => l.label));
+
+  useEffect(() => {
+    // Drive each slot independently so six logos stay mounted at all times,
+    // while each timed update swaps only the logo layer inside one fixed card.
+    const timers: Set<ReturnType<typeof setTimeout>> = new Set();
+
+    const cycle = (idx: number) => {
+      const delay = 7000 + Math.random() * 4000;
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        setLabels((prev) => {
+          const visible = new Set(prev);
+          const invisible = marqueeEngines.map((e) => e.label).filter((l) => !visible.has(l));
+          const nextLabel = invisible[Math.floor(Math.random() * invisible.length)];
+          const next = [...prev];
+          next[idx] = nextLabel;
+          return next;
+        });
+        cycle(idx);
+      }, delay);
+      timers.add(timer);
+    };
+
+    for (let i = 0; i < 6; i++) cycle(i);
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-2.5">
+      {[0, 1].map((row) => (
+        <div key={row} className="flex items-center justify-center gap-3">
+          {labels.slice(row * 3, row * 3 + 3).map((label, i) => {
+            const idx = row * 3 + i;
+            const engine = engineByLabel.get(label);
+
+            if (engine === undefined) {
+              return null;
+            }
+
+            return (
+              <div
+                key={idx}
+                className="group relative flex items-center justify-center w-20 h-12 px-2 bg-white/80 dark:bg-surface-strong/80 backdrop-blur-sm border border-slate-200/70 dark:border-slate-700/60 rounded-xl shadow-sm overflow-hidden"
+                title={engine.label}
+              >
+                {/* Gradient accent glow on hover */}
+                <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-amber-500/[0.03] to-rose-500/[0.03]" />
+                {/* Bottom accent line */}
+                <div className="absolute bottom-0 left-2 right-2 h-[1.5px] rounded-full bg-gradient-to-r from-amber-400/0 via-amber-500/30 to-rose-500/0" />
+                <div className="relative h-4 w-14 overflow-hidden">
+                  <AnimatePresence initial={false} mode="sync">
+                    <motion.div
+                      key={label}
+                      className="absolute inset-0 flex items-center justify-center"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={engineSwapTransition}
+                    >
+                      <EngineLogo engine={engine} />
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EngineLogo({ engine }: { engine: { label: string; svg: { svg: string } | string | null } }) {
+  if (typeof engine.svg === 'string') {
+    return (
+      <Image
+        src={engine.svg}
+        alt={engine.label}
+        width={48}
+        height={16}
+        className="h-4 w-auto max-w-full object-contain"
+      />
+    );
+  }
+
+  if (engine.svg) {
+    return <BrandIcon icon={engine.svg} />;
+  }
+
+  return <span className="text-[9px] font-bold text-indigo-500">TB</span>;
+}
+
+function BrandIcon({ icon, className }: { icon: { svg: string }; className?: string }) {
+  return (
+    <span
+      // Give inline SVG logos a real width so `width="100%"` resolves to pixels
+      // instead of collapsing the vector to 0px inside the carousel slot.
+      className={cn('inline-flex h-4 w-12 max-w-full items-center justify-center overflow-hidden', className)}
+      dangerouslySetInnerHTML={{
+        __html: icon.svg
+          .replace(/width='[^']*'/g, "width='100%'")
+          .replace(/width="[^"]*"/g, 'width="100%"')
+          .replace(/height='[^']*'/g, "height='100%'")
+          .replace(/height="[^"]*"/g, 'height="100%"')
+          .replace(
+            /<svg/,
+            '<svg style="width:100%;height:100%;max-width:100%;max-height:100%" preserveAspectRatio="xMidYMid meet"',
+          ),
+      }}
+    />
+  );
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -209,9 +381,17 @@ function TerminalTypewriter() {
   );
 }
 
-export default function Home() {
+export default function HomeView({ githubStars }: HomeViewProps) {
+  // Format star count: 9 → "9", 1200 → "1.2k"
+  const formattedStars =
+    githubStars !== null
+      ? githubStars >= 1000
+        ? `${(githubStars / 1000).toFixed(1).replace(/\.0$/, '')}k`
+        : `${githubStars}`
+      : null;
+
   return (
-    <div className="min-h-screen bg-canvas font-sans antialiased">
+    <main id="content" className="min-h-screen bg-canvas font-sans antialiased">
       {/* Navigation */}
       <motion.nav
         className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-canvas/70 border-b border-border/60 before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-linear-to-r before:from-transparent before:via-amber-500/30 before:to-transparent"
@@ -272,7 +452,7 @@ export default function Home() {
               transition={{ duration: 0.4 }}
             >
               <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-              Now with AI-powered query generation
+              12+ engines • SQL, document, cache, vector & ledger
             </motion.div>
             <motion.div
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-medium"
@@ -290,9 +470,9 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            Database management{' '}
+            Your databases, in one{' '}
             <span className="bg-gradient-to-r from-amber-500 to-rose-500 bg-clip-text text-transparent">
-              reimagined
+              local-first workspace
             </span>
           </motion.h1>
 
@@ -302,8 +482,8 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            Connect to any database, explore schemas visually, and query with AI. The modern database management tool
-            built for developers.
+            KamehaDB is a cross-platform desktop GUI for SQL, document, cache, vector, and ledger systems — built with
+            AI in, not bolted on. Runs entirely on your machine.
           </motion.p>
           <motion.div
             className="flex items-center justify-center gap-2 mb-10"
@@ -313,7 +493,9 @@ export default function Home() {
           >
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-strong/80 backdrop-blur-sm border border-border/50 rounded-full text-xs font-medium text-muted">
               <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-              <span className="tracking-tight">3+ stars on GitHub</span>
+              <span className="tracking-tight">
+                {formattedStars !== null ? `${formattedStars} Stars` : 'Stars on GitHub'}
+              </span>
             </div>
           </motion.div>
 
@@ -369,29 +551,29 @@ export default function Home() {
 
           {/* Supported Engines */}
           <motion.div
-            className="mt-12 pt-6 border-t border-border"
+            className="mt-16 pt-0 relative"
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={stagger}
           >
-            <motion.p className="text-sm text-muted font-medium mb-4" variants={fadeUp} transition={{ duration: 0.4 }}>
-              Works with your favorite databases
-            </motion.p>
-            <div className="flex items-center justify-center flex-wrap gap-3">
-              {engines.map((engine, i) => (
-                <motion.div
-                  key={engine.name}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-surface-strong border border-slate-200 dark:border-slate-700 rounded-full text-sm font-medium text-slate-700 dark:text-body shadow-sm"
-                  variants={fadeUp}
-                  transition={{ duration: 0.4, delay: i * 0.08 }}
-                  whileHover={{ scale: 1.05, y: -2 }}
-                >
-                  <Database className={cn('w-4 h-4', engine.color)} />
-                  {engine.name}
-                </motion.div>
-              ))}
-            </div>
+            {/* Gradient accent divider */}
+            <div className="absolute left-1/2 -translate-x-1/2 top-0 w-24 h-[1.5px] bg-gradient-to-r from-amber-400/0 via-amber-500 to-rose-500/0" />
+
+            <motion.div
+              className="flex items-center justify-center gap-3 mb-6"
+              variants={fadeUp}
+              transition={{ duration: 0.4 }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="text-sm font-medium text-muted">
+                12+ engines — <span className="text-body">SQL, document, cache, vector &amp; ledger</span>
+              </span>
+            </motion.div>
+
+            <motion.div className="max-w-3xl mx-auto" variants={fadeUp} transition={{ duration: 0.5 }}>
+              <EngineCarousel />
+            </motion.div>
           </motion.div>
         </div>
       </section>
@@ -597,9 +779,9 @@ export default function Home() {
                   {
                     step: '2',
                     title: 'Add your connection',
-                    desc: 'Connect to PostgreSQL, MySQL, SQLite, MongoDB, or Redis',
+                    desc: 'PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, or TigerBeetle',
                   },
-                  { step: '3', title: 'Start exploring', desc: 'Visualize schemas and query with AI assistance' },
+                  { step: '3', title: 'Start exploring', desc: 'Browse schemas, run queries, and chat with AI' },
                 ].map((item, i) => (
                   <motion.div
                     key={i}
@@ -762,10 +944,10 @@ export default function Home() {
             variants={fadeUp}
             transition={{ duration: 0.5 }}
           >
-            Ready to level up your database workflow?
+            One app for every database you run
           </motion.h2>
           <motion.p className="text-xl text-body mb-10" variants={fadeUp} transition={{ duration: 0.5 }}>
-            Free, open source, and runs entirely on your machine.
+            Free, open source, and local-first. No telemetry, no cloud proxy — your data stays on your machine.
           </motion.p>
           <motion.div variants={fadeUp} transition={{ duration: 0.5 }}>
             <motion.a
@@ -814,6 +996,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }
