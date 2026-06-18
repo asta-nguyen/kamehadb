@@ -67,7 +67,10 @@ export const QUERY_KEYS = {
   TABLE_STATS: (connectionId: string) => ['table-stats', connectionId] as const,
   INDEX_STATS: (connectionId: string) => ['index-stats', connectionId] as const,
   DB_SIZES: (connectionId: string) => ['db-sizes', connectionId] as const,
+  SCHEMA_SNAPSHOTS: (connectionId: string | null) => ['schema-snapshots', connectionId] as const,
   SCHEMA_CHANGELOG: (connectionId: string | null) => ['schema-changelog', connectionId] as const,
+  SCHEMA_DIFF: (connectionId: string | null, input?: import('@kamehadb/shared').SchemaDiffInput | null) =>
+    ['schema-diff', connectionId, input ?? null] as const,
   AI_SETTINGS: ['ai-settings'] as const,
   QUERY_HISTORY: (connectionId: string | null) => ['query-history', connectionId] as const,
   QUERY_HISTORY_FAVORITES: (connectionId: string | null) => ['query-history-favorites', connectionId] as const,

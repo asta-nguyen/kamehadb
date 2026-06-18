@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
-import { getApiBase } from '@/lib/api';
 import type { ChatMessage } from '@/lib/ai-chat-helpers';
+import { getApiBase } from '@/lib/api-client';
 
 type UseChatOptions = {
   url: string;

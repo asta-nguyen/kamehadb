@@ -6,7 +6,7 @@ import {
   useRefreshConnection,
   useConnectionHealth,
 } from '@/hooks/use-connections';
-import { getApiBase } from '@/lib/api';
+import { getApiBase } from '@/lib/api-client';
 import { isTauriRuntime } from '@/lib/tauri';
 import {
   GROUP_LABELS,
@@ -143,7 +143,7 @@ function ConnectionItem({
           onDelete={() => setShowDeleteConfirm(true)}
           onOpenPsql={() => {
             setActiveConnection(conn.id);
-            openPostgresPsqlTab(conn.id, conn.database);
+            openPostgresPsqlTab(conn.id);
           }}
           onBackup={() => setShowBackup(true)}
           onRestore={() => setShowRestore(true)}

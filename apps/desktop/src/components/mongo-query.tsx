@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useReducer, useRef, useState } from 'react';
 import type { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
-import { get, post, api } from '@/lib/api';
+import { api } from '@/lib/api';
+import { get, post } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';

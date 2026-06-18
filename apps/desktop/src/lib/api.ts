@@ -1,54 +1,7 @@
-const DEV_PROXY_API_BASE = 'http://127.0.0.1:3170';
-const DIRECT_SIDECAR_API_BASE = 'http://127.0.0.1:3170';
-const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
-
-let apiBase = import.meta.env.DEV ? DEV_PROXY_API_BASE : DIRECT_SIDECAR_API_BASE;
-let sidecarBase = SIDECAR_API_BASE;
-
-export function getApiBase(): string {
-  return apiBase;
-}
-
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-  useSidecar = false,
-  signal?: AbortSignal,
-): Promise<T> {
-  const base = useSidecar ? sidecarBase : apiBase;
-  const res = await fetch(`${base}${path}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-  });
-
-  if (res.status === 204) return undefined as T;
-
-  let data: unknown;
-  try {
-    data = await res.json();
-  } catch {
-    const text = await res.text();
-    throw new Error(`API error (${res.status}): ${text.slice(0, 200)}`);
-  }
-  if (!res.ok) {
-    throw new Error((data as { message?: string }).message || `API error: ${res.status}`);
-  }
-  return data as T;
-}
-
-export async function get<T>(path: string, useSidecar = true): Promise<T> {
-  return request<T>('GET', path, undefined, useSidecar);
-}
-
-export async function post<T>(path: string, body: unknown, useSidecar = true): Promise<T> {
-  return request<T>('POST', path, body, useSidecar);
-}
+import { getApiBase, request } from './api-client';
 
 export const api = {
-  request: request as <T>(method: string, path: string, body?: unknown) => Promise<T>,
+  request,
   health: () => request<{ status: string; uptime: number; version: string }>('GET', '/health'),
 
   listConnections: () => request<import('@kamehadb/shared').ConnectionProfile[]>('GET', '/connections'),
@@ -130,8 +83,17 @@ export const api = {
   captureSchemaSnapshot: (connectionId: string) =>
     request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/schema/snapshots`),
 
+  getSchemaSnapshots: (connectionId: string) =>
+    request<{ snapshots: readonly import('@kamehadb/shared').SchemaSnapshotSummary[] }>(
+      'GET',
+      `/sql/${connectionId}/schema/snapshots`,
+    ),
+
   getSchemaChangelog: (connectionId: string) =>
     request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema/changelog`),
+
+  getSchemaDiff: (connectionId: string, input: import('@kamehadb/shared').SchemaDiffInput) =>
+    request<import('@kamehadb/shared').SchemaDiffResult>('POST', `/sql/${connectionId}/schema/diff`, input),
 
   generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
     request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/schema/migrations`, input),
