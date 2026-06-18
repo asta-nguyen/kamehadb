@@ -5,6 +5,8 @@ import { DbIcon } from '@/components/db-icon';
 import { MongoShell } from '@/components/mongo-shell';
 import { MongoQuery } from '@/components/mongo-query';
 import { MongoView } from '@/components/mongo-view';
+import { PostgresVectorQuery } from '@/components/postgres-vector-query';
+import { PostgresVectorMap } from '@/components/postgres-vector-map';
 import { QdrantQuery } from '@/components/qdrant-query';
 import { QdrantView } from '@/components/qdrant-view';
 import { RedisQuery } from '@/components/redis-query';
@@ -158,6 +160,10 @@ function TabBar() {
               <History className="size-3" />
             ) : tab.type === 'migration' ? (
               <Terminal className="size-3" />
+            ) : tab.type === 'postgres-vector-search' ? (
+              <Search className="size-3" />
+            ) : tab.type === 'postgres-vector-map' ? (
+              <Share2 className="size-3" />
             ) : (
               <Table2 className="size-3" />
             )}
@@ -405,6 +411,12 @@ function Workspace() {
       {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
       {activeTab.type === 'schema-timeline' && <SchemaTimeline connectionId={activeTab.connectionId} />}
       {activeTab.type === 'migration' && <MigrationAssistant connectionId={activeTab.connectionId} />}
+      {activeTab.type === 'postgres-vector-search' && (
+        <PostgresVectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
+      {activeTab.type === 'postgres-vector-map' && (
+        <PostgresVectorMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
+      )}
       {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
         <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
       )}

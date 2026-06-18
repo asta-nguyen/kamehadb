@@ -67,9 +67,9 @@ redisRouter.post(
   },
 );
 
-// POST /redis/:connectionId/key
+// POST /redis/:connectionId/keys/value
 redisRouter.post(
-  '/:connectionId/key',
+  '/:connectionId/keys/value',
   zValidator(
     'json',
     z.object({
@@ -91,9 +91,9 @@ redisRouter.post(
   },
 );
 
-// POST /redis/:connectionId/ttl
+// POST /redis/:connectionId/keys/ttl
 redisRouter.post(
-  '/:connectionId/ttl',
+  '/:connectionId/keys/ttl',
   zValidator(
     'json',
     z.object({
@@ -115,9 +115,9 @@ redisRouter.post(
   },
 );
 
-// POST /redis/:connectionId/command
+// POST /redis/:connectionId/commands
 redisRouter.post(
-  '/:connectionId/command',
+  '/:connectionId/commands',
   zValidator(
     'json',
     z.object({

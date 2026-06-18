@@ -7,7 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- v1.3 Adding MCP server
+### Added
+
+- MCP server support.
+- **PostgreSQL pgvector guided search** — PostgreSQL connections with pgvector now expose a dedicated `Vector Search` flow with capability detection, text/raw/similar query modes, filter support, distance metrics, row details, and row-level `Find similar` actions.
+- **PostgreSQL pgvector map** — pgvector search results can open a sampled PCA map tab to inspect vector neighborhoods visually.
+- **PostgreSQL vector metadata in the UI** — schema browsing and PostgreSQL stats now mark vector columns and surface pgvector index methods/operators.
 
 ### Added
 
@@ -15,7 +20,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Table action columns in the row browser, Mongo document table, and Qdrant points table now pin to the left edge and stay visible during horizontal scroll.
+- AI chat for PostgreSQL connections now includes pgvector-aware context and operator guidance when vector columns are present.
+- PostgreSQL pgvector row actions now label the source table path so `Find similar` stays clear when a table has multiple vector columns.
+- PostgreSQL pgvector map selection now uses the actual click position so point picks stay aligned with the cursor.
 
 ---
 
@@ -23,51 +30,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Landing page GitHub stars badge is now server-rendered with static revalidation, so the initial HTML includes the count when available.
 - **Query history performance panel** — history is now grouped by normalized query pattern (literals stripped) with duration per group, favorites filter, and text search. ([@opencode])
 - **Copy result table as snapshot** — "Copy table" button in the result toolbar copies the result grid as tab-separated text to clipboard for quick sharing. ([@opencode])
-- **Global search palette (`Ctrl+K`)** — fuzzy-search across connections, schema tables/columns, open tabs, and quick actions (New Query, Graph, DB Stats, AI Chat). Uses cmdk with keyboard navigation. Search button visible in the header for non-keyboard users. ([@opencode])
-- **Connection health badges** — status dot now shows:
-  - connected/green
-  - slow/yellow (≥500ms latency)
-  - reconnecting/pulsing
-  - offline/red  
-  Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before marking disconnected.
-- **Time-aware welcome screen** — greetings change by time of day (morning/afternoon/evening/night) with curated messages, last-shown tracking, and returning-visitor prompt rotation.
-- **Connection hover tooltip** — shows connection details:
-  - kind
-  - host:port
-  - database
-  - status + latency
-  - last-updated timestamp
-- **Pin connections to top** — "Pin to top"/"Unpin" in connection dropdown. Pinned connections appear in a dedicated "Pinned" section in sidebar. Stored in localStorage.
-- **Workspace tabs memory** — open tabs and active tab are saved and restored on reload.
-- **Sidebar database icons** — engine-specific icons added:
-  - PostgreSQL
-  - MySQL
-  - MongoDB
-  - Redis
-  - SQL Server
-  - Oracle
-  - ClickHouse
-  - MariaDB  
-  Plus local SVGs for DuckDB, SQLite, TigerBeetle, Qdrant.
+- **Global search palette** (`Ctrl+K`) — fuzzy-search across connections, schema tables/columns, open tabs, and quick actions (New Query, Graph, DB Stats, AI Chat). Uses cmdk with keyboard navigation. Search button visible in the header for non-keyboard users. ([@opencode])
+- **Connection health badges** — status dot now shows connected/green, slow/yellow (≥500ms latency), reconnecting/pulsing, or offline/red. Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before settling on disconnected.
+- **Time-aware welcome screen** — greetings change by time of day (morning/afternoon/evening/night) with a pool of curated messages, last-shown tracking, and returning-visitor prompt rotation.
+- **Connection hover tooltip** — hover connection name to see kind, host:port, database, status with latency, and last-updated timestamp.
+- **Pin connections to top** — "Pin to top"/"Unpin" in connection dropdown. Pinned connections appear in a separate "Pinned" section at the top of the sidebar. State persisted to localStorage.
+- **Workspace tabs memory** — open tabs and active tab are saved to localStorage and restored on page load, so sessions survive refresh.
+- **Sidebar database icons** — replaced generic Lucide `Database` icon with engine-specific `DbIcon` (PostgreSQL, MySQL, MongoDB, Redis, SQL Server, Oracle, ClickHouse, MariaDB) and local SVG logos (DuckDB, SQLite, TigerBeetle, Qdrant).
 - TigerBeetle seed script (`seed:tigerbeetle`) added to sidecar package.json. ([@opencode])
-- **DuckDB adapter** — connect to local `.duckdb` files for embedded analytics. ([@JoeJoeflyn])
-- **TigerBeetle adapter** — connect to distributed ledger clusters with connection pooling. ([@JoeJoeflyn])
-- **Docker compose services for DuckDB and TigerBeetle**
-  - Added `docker-compose.yml` entries
-  - Start with:
-    ```bash
-    docker compose up -d duckdb tigerbeetle
-    ```
+- **DuckDB adapter** — connect to local `.duckdb` files for embedded analytical queries. ([@JoeJoeflyn])
+- **TigerBeetle adapter** — connect to TigerBeetle distributed ledger clusters with built-in connection pooling. ([@JoeJoeflyn])
+- **Docker compose services for DuckDB and TigerBeetle** — add `docker-compose.yml` entries for DuckDB (CLI + HTTP) and TigerBeetle. Start with `docker compose up -d duckdb tigerbeetle`.
+- Landing page GitHub stars badge is now server-rendered with static revalidation, so the initial HTML includes the count when available.
+- **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation.
 - **SQL Server adapter** — connect to Microsoft SQL Server databases via existing SQL adapter path. ([@JoeJoeflyn])
 - **Oracle adapter** — schema browsing, query execution, metadata support. ([@JoeJoeflyn])
 - **ClickHouse adapter** — columnar analytics support, schema inspection, query execution. ([@JoeJoeflyn])
 - **Query history with favorites** — persistent, connection-scoped query history with:
   - save / recall queries
   - favorites support  
-  ([@JoeJoeflyn])
+    ([@JoeJoeflyn])
 - **Qdrant v1.13.6 integration**
   - Vector DB added to docker-compose (ports 6333/6334)
   - Persistent volume `qdrant_data`
@@ -94,7 +78,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Currencies
   - Languages
   - Common abbreviations  
-  Implemented via `expandTerms` and `renderExpansionsForPrompt`
+    Implemented via `expandTerms` and `renderExpansionsForPrompt`
 - Proactive Qdrant indexing at startup:
   - Hash-based incremental sync
   - Enriched embeddings (DDL + metadata)
@@ -113,9 +97,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Replaced native inputs with shadcn components
   - Replaced tables with shadcn `Table` grid system ([@opencode])
 - Qdrant vector map:
-  - Persist colorBy
-  - Persist camera position + target
-- v1.2 MCP server added
 
 ---
 

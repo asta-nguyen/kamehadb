@@ -40,8 +40,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
-    queryKey: ['completions', connectionId],
-    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/completions`),
+    queryKey: ['autocomplete', connectionId],
+    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
   });
