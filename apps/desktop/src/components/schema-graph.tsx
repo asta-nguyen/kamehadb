@@ -40,7 +40,7 @@ type CompletionsData = {
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
-    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/completions`),
+    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
   });

@@ -12,7 +12,7 @@ export function getIndicatorColor(conn: ConnectionProfile, status: ConnectionSta
 
 export function getStatusLabel(status: ConnectionStatus, latency?: number) {
   if (status === 'connected' && latency !== undefined) return `Connected • ${latency}ms`;
-  if (status === 'slow') return `Slow • ${latency}ms`;
+  if (status === 'slow') return `Slow • ${latency ?? ''}ms`;
   if (status === 'reconnecting') return 'Reconnecting…';
   return 'Offline';
 }

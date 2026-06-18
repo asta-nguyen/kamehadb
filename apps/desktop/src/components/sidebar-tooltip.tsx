@@ -26,7 +26,7 @@ export function ConnectionTooltip({
           </div>
           <p className="capitalize">
             {conn.kind}
-            {conn.host ? ` · ${conn.host}:${conn.port}` : ''}
+            {conn.host ? ` · ${conn.host}${conn.port ? `:${conn.port}` : ''}` : ''}
           </p>
           {conn.database && <p>db: {conn.database}</p>}
           {conn.updatedAt && (

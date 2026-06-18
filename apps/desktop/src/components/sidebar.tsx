@@ -24,7 +24,7 @@ import {
   setConnectionStatus,
   toggleExpandedConnection,
 } from '@/store';
-import type { ConnectionProfile } from '@kamehadb/shared';
+import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
 import type { ConnectionStatus } from './sidebar.helpers';
 import { useStore } from '@tanstack/react-store';
 import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
@@ -193,7 +193,7 @@ function ConnectionGroup({
           <DbIcon kind={kind as any} className="size-3.5" />
         )}
         <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">
-          {isPinned ? 'Pinned' : (GROUP_LABELS[kind] ?? kind)}
+          {isPinned ? 'Pinned' : (GROUP_LABELS[kind as DbKind] ?? kind)}
         </span>
         <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">{conns.length}</span>
       </div>

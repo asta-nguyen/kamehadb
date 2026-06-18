@@ -15,6 +15,7 @@ import { MongoViewHeader } from '@/components/mongo-view-header';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
+import { openMongoShellTab } from '@/store';
 
 const PAGE_LIMIT = 20;
 
@@ -236,7 +237,9 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
       if (!confirmed) return;
       try {
         await api.deleteMongoDocument(connectionId, { collection, database, filter: { _id: doc._id } });
-        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MONGO_DOCUMENTS(connectionId, database, collection) });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
+        });
       } catch (err) {
         alert(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
@@ -271,7 +274,10 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
   }, [refetch]);
 
   const invalidateDocuments = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MONGO_DOCUMENTS(connectionId, database, collection) }),
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
+      }),
     [connectionId, database, collection, queryClient],
   );
 
@@ -291,6 +297,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         onRefresh={onRefresh}
         onExportJSON={handleExportJSON}
         onExportCSV={handleExportCSV}
+        onOpenShell={() => openMongoShellTab(connectionId)}
       />
 
       <Tabs

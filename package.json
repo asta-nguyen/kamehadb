@@ -24,7 +24,14 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "oracledb"
+      "better-sqlite3",
+      "duckdb",
+      "esbuild",
+      "msw",
+      "node-pty",
+      "oracledb",
+      "sharp",
+      "unrs-resolver"
     ]
   },
   "devDependencies": {

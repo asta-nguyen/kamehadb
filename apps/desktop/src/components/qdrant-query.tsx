@@ -8,25 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
+import { simpleEmbed } from '@/lib/simple-embed';
 import { Play } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-
-function simpleEmbed(text: string, dims: number): number[] {
-  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
-  const vec = new Array(dims).fill(0);
-  for (const word of words) {
-    let h = 0;
-    for (let i = 0; i < word.length; i++) {
-      h = (h << 5) - h + word.charCodeAt(i);
-      h |= 0;
-    }
-    const idx = ((h % dims) + dims) % dims;
-    vec[idx] += 1;
-  }
-  if (words.length === 0) return vec;
-  const mag = Math.sqrt(vec.reduce((s, x) => s + x * x, 0)) || 1;
-  return vec.map((x) => x / mag);
-}
 
 interface QdrantQueryProps {
   tab: Extract<WorkspaceTab, { type: 'qdrant-search' }>;

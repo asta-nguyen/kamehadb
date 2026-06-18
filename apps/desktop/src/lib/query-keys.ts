@@ -10,8 +10,8 @@ export const QUERY_KEYS = {
     ['preview', connectionId, input] as const,
   DATABASES: (connectionId: string | null, schema?: string | null) => ['databases', connectionId, schema] as const,
   SCHEMAS: (connectionId: string | null) => ['schemas', connectionId] as const,
-  COMPLETIONS: (connectionId: string | null) => ['completions', connectionId] as const,
-  MONGO_DATABASES: (connectionId: string | null) => ['mongo', connectionId, 'databases'] as const,
+  COMPLETIONS: (connectionId: string | null) => ['autocomplete', connectionId] as const,
+  MONGO_DATABASES: (connectionId: string | null) => ['mongo-databases', connectionId] as const,
   MONGO_COLLECTIONS: (connectionId: string | null, db: string | null) =>
     ['mongo', connectionId, db, 'collections'] as const,
   MONGO_DOCUMENTS: (
@@ -32,6 +32,9 @@ export const QUERY_KEYS = {
       'documents',
       JSON.stringify({ filter, sort, limit, skip, search }),
     ] as const,
+  /** Prefix key for invalidating all document caches for a collection. */
+  MONGO_DOCUMENTS_PREFIX: (connectionId: string | null, database: string | null, collection: string | null) =>
+    ['mongo', connectionId, database, collection, 'documents'] as const,
   MONGO_STATS: (connectionId: string | null, database: string | null, collection: string | null) =>
     ['mongo-stats', connectionId, database, collection] as const,
   MONGO_COMPLETIONS: (connectionId: string | null) => ['mongo-completions', connectionId] as const,
@@ -53,6 +56,12 @@ export const QUERY_KEYS = {
     ['qdrant-stats', connectionId, collection] as const,
   QDRANT_MAP: (connectionId: string | null, collection: string | null) =>
     ['qdrant-map', connectionId, collection] as const,
+  POSTGRES_VECTOR_CAPABILITIES: (connectionId: string | null) =>
+    ['postgres-vector-capabilities', connectionId] as const,
+  POSTGRES_VECTOR_SAMPLE: (
+    connectionId: string | null,
+    input?: import('@kamehadb/shared').PostgresVectorSampleInput | null,
+  ) => ['postgres-vector-sample', connectionId, input] as const,
   CONNECTION_HEALTH: (connectionId: string | null) => ['connection-health', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,
   TABLE_STATS: (connectionId: string) => ['table-stats', connectionId] as const,

@@ -134,6 +134,14 @@ function TableItem({
                   {col.name}
                 </span>
                 {col.primaryKey && <span className="bg-primary rounded-full shrink-0 size-1.5" title="Primary Key" />}
+                {col.isVector && (
+                  <Badge
+                    variant="secondary"
+                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-[10px] bg-muted/30 border-muted shrink-0"
+                  >
+                    vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
+                  </Badge>
+                )}
                 <Badge
                   variant="outline"
                   className="px-1 py-0 ml-auto h-3.5 text-muted-foreground/80 text-xs bg-muted/30 border-muted shrink-0"

@@ -6,6 +6,7 @@ import { validateProviderConfig, createProvider, createEmbedding } from '../ai/p
 import { buildSchemaContext } from '../ai/schema-context.js';
 import { searchRelevantSchema } from '../ai/qdrant-store.js';
 import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
+import { detectPgVectorCapability } from '../adapters/postgres.js';
 import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
 import type { AIProvider, ConnectionProfile, DbKind, AIChatMessage } from '@kamehadb/shared';
 
@@ -99,7 +100,41 @@ async function buildMongoSchemaContext(
   }
 }
 
-function buildSystemPrompt(ddl: string | null, mongoSchema: string | null, connectionKind?: DbKind): string {
+function buildPostgresVectorPrompt(
+  connectionId: string,
+  capability: Awaited<ReturnType<typeof detectPgVectorCapability>>,
+): string | null {
+  if (!capability.available || capability.columns.length === 0) return null;
+  const columns = capability.columns
+    .slice(0, 8)
+    .map((column) => `- ${column.tableSchema}.${column.tableName}.${column.columnName} (${column.dimensions}d)`)
+    .join('\n');
+  const indexes = capability.indexes
+    .slice(0, 8)
+    .map(
+      (index) => `- ${index.tableSchema}.${index.tableName}.${index.columnName} via ${index.method}/${index.operator}`,
+    )
+    .join('\n');
+  return [
+    `This PostgreSQL connection includes pgvector support for ${connectionId}.`,
+    'When the user asks for vector similarity search, prefer native pgvector SQL with the vector operators below:',
+    '- `<=>` for cosine distance',
+    '- `<->` for L2 distance',
+    '- `<#>` for inner product',
+    'Vector columns:',
+    columns,
+    indexes ? `Vector indexes:\n${indexes}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function buildSystemPrompt(
+  ddl: string | null,
+  mongoSchema: string | null,
+  connectionKind?: DbKind,
+  postgresVectorPrompt?: string | null,
+): string {
   let prompt = `You are a database assistant embedded in a database admin tool called kamehadb. Your job is to help users write queries and understand their data.
 
 Rules:
@@ -147,6 +182,10 @@ Rules:
 
   if (mongoSchema) {
     prompt += `\n\n${mongoSchema}`;
+  }
+
+  if (postgresVectorPrompt) {
+    prompt += `\n\n${postgresVectorPrompt}`;
   }
 
   return prompt;
@@ -197,6 +236,7 @@ aiRouter.post(
       // Build schema context if connectionId provided
       let ddl: string | null = null;
       let mongoSchema: string | null = null;
+      let postgresVectorPrompt: string | null = null;
       let connectionKind: DbKind | undefined;
       let profile: ConnectionProfile | null = null;
       if (connectionId) {
@@ -250,15 +290,49 @@ aiRouter.post(
                     await adapter.close();
                   }
                 }
+                if (profile.kind === 'postgres') {
+                  const vectorCacheKey = `ai-pgvector:${connectionId}`;
+                  postgresVectorPrompt = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA) ?? null;
+                  if (!postgresVectorPrompt) {
+                    const capability = await detectPgVectorCapability({
+                      host: profile.host,
+                      port: profile.port,
+                      database: profile.database,
+                      username: profile.username,
+                      password: password ?? '',
+                      ssl: profile.ssl,
+                    }).catch(() => null);
+                    postgresVectorPrompt = capability ? buildPostgresVectorPrompt(connectionId, capability) : null;
+                    if (postgresVectorPrompt) setCache(vectorCacheKey, postgresVectorPrompt);
+                  }
+                }
               }
             }
           } catch {
             // Silently fail, LLM can work without schema
           }
         }
+
+        if (profile?.kind === 'postgres' && !postgresVectorPrompt) {
+          const password = metadataStore.getProfilePassword(connectionId);
+          const vectorCacheKey = `ai-pgvector:${connectionId}`;
+          postgresVectorPrompt = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA) ?? null;
+          if (!postgresVectorPrompt) {
+            const capability = await detectPgVectorCapability({
+              host: profile.host,
+              port: profile.port,
+              database: profile.database,
+              username: profile.username,
+              password: password ?? '',
+              ssl: profile.ssl,
+            }).catch(() => null);
+            postgresVectorPrompt = capability ? buildPostgresVectorPrompt(connectionId, capability) : null;
+            if (postgresVectorPrompt) setCache(vectorCacheKey, postgresVectorPrompt);
+          }
+        }
       }
 
-      const systemPrompt = buildSystemPrompt(ddl, mongoSchema, connectionKind);
+      const systemPrompt = buildSystemPrompt(ddl, mongoSchema, connectionKind, postgresVectorPrompt);
       const llmMessages = [{ role: 'system' as const, content: systemPrompt }, ...body.messages] as AIChatMessage[];
 
       const provider = createProvider(providerName, config);

@@ -21,6 +21,7 @@ export function ConnectionExpansion({ conn, activeTabId }: { conn: ConnectionPro
         const exists = appStore.state.openedTabs.some((t) => t.id === tabId);
         appStore.setState((s) => ({
           ...s,
+          activeConnectionId: conn.id,
           view: 'workspace',
           activeTabId: tabId,
           openedTabs: exists ? s.openedTabs : [...s.openedTabs, newTab],
