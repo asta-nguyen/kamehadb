@@ -18,6 +18,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Embedded mongosh terminal — open an interactive mongosh session directly inside the Mongo explorer tab. Supports full PTY (node-pty), ANSI colors, terminal resize, and session persistence across tab navigation. ([@JoeJoeflyn])
 
+### Added
+
+- PostgreSQL backup and restore dialogs in the desktop connection menu, with local `pg_dump`, `pg_restore`, and `psql` execution, live command output, and cancel support.
+
 ### Changed
 
 - AI chat for PostgreSQL connections now includes pgvector-aware context and operator guidance when vector columns are present.

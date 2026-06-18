@@ -171,7 +171,7 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Tigerbeetle
 - [x] MariaDB
 
-### In Progress
+### Features
 
 - [x] Query history with favorites
 - [x] Data visualization / charts
@@ -180,8 +180,12 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Pin / favorites connections
 - [x] Workspace tabs memory
 - [x] Production safety mode — prevent accidental writes to production
-- [x] Schema change timeline — track column additions, removals, index changes for debugging
-- [x] Migration assistant
+- [x] PostgreSQL backup & restore
+
+### In Progress
+
+- [ ] Schema change timeline — track column additions, removals, index changes for debugging
+- [ ] Migration assistant
 
 ### Future Ideas
 
