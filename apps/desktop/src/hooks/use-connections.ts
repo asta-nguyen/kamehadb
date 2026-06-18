@@ -22,7 +22,7 @@ export function useConnectionHealth(connectionId: string | null) {
     queryKey: QUERY_KEYS.CONNECTION_HEALTH(connectionId),
     queryFn: () => api.checkConnectionHealth(connectionId!),
     enabled: Boolean(connectionId),
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     retry: 2,
     retryDelay: 1000,
     select: (result) => (result.success ? 'connected' : 'disconnected'),

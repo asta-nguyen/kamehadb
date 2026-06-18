@@ -28,9 +28,26 @@ import {
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
 import type { ConnectionStatus } from './sidebar.helpers';
 import { useStore } from '@tanstack/react-store';
-import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  BarChart3,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  History,
+  Loader2,
+  MoreVertical,
+  Pin,
+  PinOff,
+  RefreshCw,
+  Search,
+  Settings2,
+  Share2,
+  Sparkles,
+  Terminal,
+  Trash2,
+} from 'lucide-react';
+
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
 import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
 import { ConnectionExpansion } from './sidebar-expansion';
@@ -42,14 +59,12 @@ import { PostgresBackupDialog } from './postgres-backup-dialog';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { SpinningRefresh } from './sidebar.helpers';
 
-function ConnectionItem({
+const ConnectionItem = memo(function ConnectionItem({
   conn,
   isActive,
-  onSelect,
 }: {
   conn: ConnectionProfile;
   isActive: boolean;
-  onSelect: () => void;
 }) {
   const expandedConnections = useStore(appStore, (s) => s.expandedConnections);
   const connectionStatus = useStore(appStore, (s) => s.connectionStatus);
@@ -176,7 +191,7 @@ function ConnectionItem({
       )}
     </div>
   );
-}
+});
 
 function ConnectionGroup({
   kind,
@@ -202,12 +217,7 @@ function ConnectionGroup({
         <span className="ml-auto text-xs text-muted-foreground/40 tabular-nums">{conns.length}</span>
       </div>
       {conns.map((conn) => (
-        <ConnectionItem
-          key={conn.id}
-          conn={conn}
-          isActive={conn.id === activeConnectionId}
-          onSelect={() => setActiveConnection(conn.id)}
-        />
+        <ConnectionItem key={conn.id} conn={conn} isActive={conn.id === activeConnectionId} />
       ))}
     </div>
   );

@@ -50,7 +50,7 @@ type PatternGroup = {
 export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose }: QueryHistoryPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const { data: allEntries, isLoading } = useQueryHistory(connectionId, 500);
+  const { data: allEntries, isLoading } = useQueryHistory(connectionId, 100);
   const updateHistory = useUpdateQueryHistory(connectionId);
   const deleteHistory = useDeleteQueryHistory(connectionId);
 

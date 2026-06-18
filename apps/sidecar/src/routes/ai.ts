@@ -5,7 +5,8 @@ import * as metadataStore from '../db/metadata-store.js';
 import { validateProviderConfig, createProvider, createEmbedding } from '../ai/provider.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
 import { searchRelevantSchema } from '../ai/qdrant-store.js';
-import { createSqlAdapter, createMongoDbAdapter } from '../adapters/factory.js';
+import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
+import { getSqlAdapter } from './sql.js';
 import { detectPgVectorCapability } from '../adapters/postgres.js';
 import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
 import type { AIProvider, ConnectionProfile, DbKind, AIChatMessage } from '@kamehadb/shared';
@@ -265,31 +266,22 @@ aiRouter.post(
                   await adapter.close();
                 }
               } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle' && profile.kind !== 'qdrant') {
-                const password = metadataStore.getProfilePassword(connectionId);
-                const adapter = createSqlAdapter(profile, password);
-                if (adapter) {
-                  try {
-                    const userQuery = latestUserMsg;
-                    if (userQuery) {
-                      const relevant = await searchRelevantSchema(
-                        connectionId,
-                        userQuery,
-                        providerName,
-                        config,
-                        5,
-                      ).catch(() => []);
-                      if (relevant.length > 0) {
-                        ddl = relevant.map((r) => r.ddl).join('\n\n');
-                      }
-                    }
-                    if (!ddl) {
-                      ddl = await buildSchemaContext(adapter);
-                    }
-                    setCache(cacheKey, ddl);
-                  } finally {
-                    await adapter.close();
+                const adapter = await getSqlAdapter(connectionId);
+                const userQuery = latestUserMsg;
+                if (userQuery) {
+                  const relevant = await searchRelevantSchema(connectionId, userQuery, providerName, config, 5).catch(
+                    () => [],
+                  );
+                  if (relevant.length > 0) {
+                    ddl = relevant.map((r) => r.ddl).join('\n\n');
                   }
                 }
+                if (!ddl) {
+                  ddl = await buildSchemaContext(adapter);
+                }
+                setCache(cacheKey, ddl);
+
+                // Also detect pgvector capability for postgres connections
                 if (profile.kind === 'postgres') {
                   const vectorCacheKey = `ai-pgvector:${connectionId}`;
                   postgresVectorPrompt = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA) ?? null;
@@ -365,20 +357,16 @@ aiRouter.post(
         if (isSqlConnection && connectionId && profile) {
           const sqlQueries = extractSqlQueries(sqlGeneration);
           if (sqlQueries.length > 0) {
-            const pwd = metadataStore.getProfilePassword(connectionId);
+            const sqlAdapter = await getSqlAdapter(connectionId);
             const allResults: unknown[] = [];
             let errorMessage: string | null = null;
 
             for (const query of sqlQueries) {
-              const sqlAdapter = createSqlAdapter(profile, pwd);
-              if (!sqlAdapter) continue;
               try {
                 const result = await sqlAdapter.runQuery({ query });
                 allResults.push(...(result.rows ?? []));
               } catch (err) {
                 errorMessage = String(err);
-              } finally {
-                await sqlAdapter.close();
               }
             }
 

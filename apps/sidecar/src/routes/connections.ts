@@ -14,6 +14,7 @@ import { createMongoAdapter } from '../adapters/mongodb.js';
 import { createRedisDbAdapter, createQdrantDbAdapter, createTigerBeetleDbAdapter } from '../adapters/factory.js';
 import { testRedisConnection } from '../adapters/redis.js';
 import { clearConnectionCache } from '../lib/cache.js';
+import { invalidateAdapterCache } from './sql.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
@@ -333,6 +334,7 @@ connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema
   const profile = metadataStore.updateProfile(id, c.req.valid('json'));
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
+  invalidateAdapterCache(id);
   return c.json(profile);
 });
 
@@ -341,6 +343,7 @@ connectionsRouter.delete('/:id', (c) => {
   const deleted = metadataStore.deleteProfile(id);
   if (!deleted) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
+  invalidateAdapterCache(id);
   return c.body(null, 204);
 });
 
