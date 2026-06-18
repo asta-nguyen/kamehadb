@@ -273,8 +273,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         }
         return (
           <span
-            onDoubleClick={() => setEditingCell({ rowIndex, column: col.name })}
-            className="cursor-pointer block w-full"
+            onDoubleClick={pkColumns.length > 0 ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
+            className={pkColumns.length > 0 ? 'cursor-pointer block w-full' : 'block w-full'}
           >
             {value === null ? (
               <span className="text-muted-foreground italic">null</span>
@@ -364,6 +364,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           )}
         </div>
       </div>
+      {pkColumns.length === 0 && (
+        <div className="mb-2 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-md">
+          No primary key — in-cell editing disabled to prevent ambiguous row updates.
+        </div>
+      )}
       <div className="border rounded-md">
         <DataTable
           rows={result.rows}
