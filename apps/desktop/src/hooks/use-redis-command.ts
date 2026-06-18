@@ -8,7 +8,7 @@ export function useRedisCommand(connectionId: string | null) {
   return useMutation({
     mutationFn: async ({ command }: { command: string }): Promise<RedisCommandResult> => {
       if (!connectionId) throw new Error('No active connection');
-      return post<RedisCommandResult>(`/redis/${connectionId}/command`, { command });
+      return post<RedisCommandResult>(`/redis/${connectionId}/commands`, { command });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['redis-keys', connectionId!] });

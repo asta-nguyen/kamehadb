@@ -22,9 +22,13 @@ export function useRedisKeyDetails(connectionId: string | null, key: string | nu
   return useQuery({
     queryKey: QUERY_KEYS.REDIS_KEY(connectionId!, key!),
     queryFn: () =>
-      api.request<{ key: string; type: string; ttl: number; value: unknown }>('POST', `/redis/${connectionId}/key`, {
-        key,
-      }),
+      api.request<{ key: string; type: string; ttl: number; value: unknown }>(
+        'POST',
+        `/redis/${connectionId}/keys/value`,
+        {
+          key,
+        },
+      ),
     enabled: !!connectionId && !!key,
     staleTime: 10000,
   });

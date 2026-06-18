@@ -26,7 +26,6 @@ import {
   Check,
   Copy,
   Database,
-  Loader2,
   MoreHorizontal,
   Play,
   RefreshCw,
@@ -36,6 +35,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useCallback, useEffect, useRef, useState, Fragment } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -226,7 +226,7 @@ function StreamingAssistantMessage({ msg: _msg }: StreamingAssistantMessageProps
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
-          <Loader2 className="size-3 animate-spin" />
+          <Spinner size="sm" />
           Thinking...
         </div>
       </div>

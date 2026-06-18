@@ -71,7 +71,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
       await Promise.all(
         sqlConns.map(async (conn) => {
           try {
-            const url = `${getApiBase()}/sql/${conn.id}/search-schema?q=${encodeURIComponent(query)}&limit=5`;
+            const url = `${getApiBase()}/sql/${conn.id}/schema/search?q=${encodeURIComponent(query)}&limit=5`;
             const res = await fetch(url, { signal: abort.signal });
             if (res.ok) {
               const data: SchemaSearchMatch[] = await res.json();

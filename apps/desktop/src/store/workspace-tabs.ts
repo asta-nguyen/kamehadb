@@ -180,6 +180,16 @@ export function openMongoShellTab(connectionId: string): void {
   });
 }
 
+export function openPostgresPsqlTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'postgres-psql').length;
+  openTab({
+    id: `postgres-psql-${nanoid()}`,
+    type: 'postgres-psql',
+    title: `PSQL ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
 export function updateTabShellSessionId(tabId: string, sessionId: string): void {
   appStore.setState((state) => ({
     ...state,

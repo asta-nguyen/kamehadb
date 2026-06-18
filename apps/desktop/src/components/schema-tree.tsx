@@ -5,7 +5,8 @@ import { fuzzyMatch } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronRight, ChevronDown, Database, Table2, Columns3, Loader2, Search } from 'lucide-react';
+import { ChevronRight, ChevronDown, Database, Table2, Columns3, Search } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 function SchemaItem({
   connectionId,
@@ -63,7 +64,7 @@ function SchemaItem({
           <div className="space-y-0.5">
             {isLoading ? (
               <div className="flex justify-center py-2">
-                <Loader2 className="text-muted-foreground/60 animate-spin size-3" />
+                <Spinner size="sm" className="text-muted-foreground/60" />
               </div>
             ) : filteredTables.length === 0 ? (
               <p className="pl-2 py-1 text-muted-foreground/60 text-xs italic">
@@ -120,7 +121,7 @@ function TableItem({
         <div className="pl-2 ml-4 mt-0.5 space-y-0">
           {isLoading ? (
             <div className="flex justify-center py-1.5">
-              <Loader2 className="text-muted-foreground/50 animate-spin size-2.5" />
+              <Spinner size="sm" className="text-muted-foreground/50 size-2.5" />
             </div>
           ) : (
             columns?.map((col) => (
@@ -133,6 +134,14 @@ function TableItem({
                   {col.name}
                 </span>
                 {col.primaryKey && <span className="bg-primary rounded-full shrink-0 size-1.5" title="Primary Key" />}
+                {col.isVector && (
+                  <Badge
+                    variant="secondary"
+                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-[10px] bg-muted/30 border-muted shrink-0"
+                  >
+                    vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
+                  </Badge>
+                )}
                 <Badge
                   variant="outline"
                   className="px-1 py-0 ml-auto h-3.5 text-muted-foreground/80 text-xs bg-muted/30 border-muted shrink-0"
@@ -185,7 +194,7 @@ export function SchemaTree({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Loader2 className="text-muted-foreground animate-spin size-4" />
+        <Spinner size="md" />
       </div>
     );
   }

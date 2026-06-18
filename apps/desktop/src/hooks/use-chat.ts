@@ -1,12 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
+import type { ChatMessage } from '@/lib/ai-chat-helpers';
 import { getApiBase } from '@/lib/api-client';
-
-export type ChatMessage = {
-  id: string;
-  role: 'user' | 'assistant';
-  parts: Array<{ type: 'text'; content: string }>;
-  createdAt?: Date;
-};
 
 type UseChatOptions = {
   url: string;
@@ -34,6 +28,8 @@ export function useChat(options: UseChatOptions) {
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = messages;
 
+  // Uses raw fetch (not the api.ts wrappers) because the chat endpoint
+  // streams SSE (NDJSON) and the wrappers only support JSON request/response.
   const sendMessage = useCallback(
     async (text: string) => {
       const userMsg: ChatMessage = {

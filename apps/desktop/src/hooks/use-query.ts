@@ -23,7 +23,7 @@ export function useRunQuery(connectionId: string | null) {
               key[0] === 'preview' ||
               key[0] === 'databases' ||
               key[0] === 'schemas' ||
-              key[0] === 'completions')
+              key[0] === 'autocomplete')
           );
         },
       });

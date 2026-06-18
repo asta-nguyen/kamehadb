@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Loader2, Copy, Check, ArrowRight, Terminal } from 'lucide-react';
+import { Copy, Check, ArrowRight, Terminal } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useSchemaSnapshots } from '@/hooks/use-schema-changelog';
 import { toast } from 'sonner';
 
@@ -77,7 +78,7 @@ export function MigrationAssistant({
       {loading ? (
         <Card>
           <CardContent className="py-8 flex justify-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <Spinner size="lg" />
           </CardContent>
         </Card>
       ) : snapshots.length === 0 ? (
@@ -135,7 +136,7 @@ export function MigrationAssistant({
               onClick={handleGenerate}
               disabled={!fromId || !toId || fromId === toId || generating}
             >
-              {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Terminal className="size-3.5" />}
+              {generating ? <Spinner size="sm" className="size-3.5" /> : <Terminal className="size-3.5" />}
               {generating ? 'Generating...' : 'Generate Migration SQL'}
             </Button>
           </CardContent>

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { isSqlKind } from '@/lib/constants';
-import { Loader2, Camera, GitCompare, History, Plus, Minus, Pencil } from 'lucide-react';
+import { Camera, GitCompare, History, Plus, Minus, Pencil } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import type { SchemaChangeDescriptor } from '@kamehadb/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
@@ -153,7 +154,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
             onClick={handleCapture}
             disabled={capturing}
           >
-            {capturing ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
+            {capturing ? <Spinner size="sm" className="size-3.5" /> : <Camera className="size-3.5" />}
             {capturing ? 'Capturing...' : 'Capture Snapshot'}
           </Button>
         </div>
@@ -167,7 +168,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <Spinner size="lg" />
         </div>
       ) : entries.length === 0 ? (
         <Card>
