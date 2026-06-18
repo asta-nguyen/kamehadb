@@ -1,54 +1,7 @@
-const DEV_PROXY_API_BASE = 'http://127.0.0.1:3170';
-const DIRECT_SIDECAR_API_BASE = 'http://127.0.0.1:3170';
-const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
-
-let apiBase = import.meta.env.DEV ? DEV_PROXY_API_BASE : DIRECT_SIDECAR_API_BASE;
-let sidecarBase = SIDECAR_API_BASE;
-
-export function getApiBase(): string {
-  return apiBase;
-}
-
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-  useSidecar = false,
-  signal?: AbortSignal,
-): Promise<T> {
-  const base = useSidecar ? sidecarBase : apiBase;
-  const res = await fetch(`${base}${path}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-  });
-
-  if (res.status === 204) return undefined as T;
-
-  let data: unknown;
-  try {
-    data = await res.json();
-  } catch {
-    const text = await res.text();
-    throw new Error(`API error (${res.status}): ${text.slice(0, 200)}`);
-  }
-  if (!res.ok) {
-    throw new Error((data as { message?: string }).message || `API error: ${res.status}`);
-  }
-  return data as T;
-}
-
-export async function get<T>(path: string, useSidecar = true): Promise<T> {
-  return request<T>('GET', path, undefined, useSidecar);
-}
-
-export async function post<T>(path: string, body: unknown, useSidecar = true): Promise<T> {
-  return request<T>('POST', path, body, useSidecar);
-}
+import { getApiBase, request } from './api-client';
 
 export const api = {
-  request: request as <T>(method: string, path: string, body?: unknown) => Promise<T>,
+  request,
   health: () => request<{ status: string; uptime: number; version: string }>('GET', '/health'),
 
   listConnections: () => request<import('@kamehadb/shared').ConnectionProfile[]>('GET', '/connections'),
@@ -102,7 +55,7 @@ export const api = {
     if (limit) params.set('limit', String(limit));
     return request<import('@kamehadb/shared').SchemaSearchMatch[]>(
       'GET',
-      `/sql/${connectionId}/search-schema?${params}`,
+      `/sql/${connectionId}/schema/search?${params}`,
     );
   },
 
@@ -116,25 +69,59 @@ export const api = {
   getIndexStats: (connectionId: string, tableId: string) =>
     request<import('@kamehadb/shared').IndexStats[]>(
       'GET',
-      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/index-stats`,
+      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/indexes/stats`,
     ),
 
   getDatabaseSizes: (connectionId: string, schema?: string) => {
     const query = schema ? `?schema=${encodeURIComponent(schema)}` : '';
-    return request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/sizes${query}`);
+    return request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/database/sizes${query}`);
   },
 
   getActiveConnections: (connectionId: string) =>
-    request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/connections`),
+    request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/sessions`),
 
   captureSchemaSnapshot: (connectionId: string) =>
-    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/capture-schema`),
+    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/schema/snapshots`),
+
+  getSchemaSnapshots: (connectionId: string) =>
+    request<{ snapshots: readonly import('@kamehadb/shared').SchemaSnapshotSummary[] }>(
+      'GET',
+      `/sql/${connectionId}/schema/snapshots`,
+    ),
 
   getSchemaChangelog: (connectionId: string) =>
-    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema-changelog`),
+    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema/changelog`),
+
+  getSchemaDiff: (connectionId: string, input: import('@kamehadb/shared').SchemaDiffInput) =>
+    request<import('@kamehadb/shared').SchemaDiffResult>('POST', `/sql/${connectionId}/schema/diff`, input),
 
   generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
-    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/generate-migration`, input),
+    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/schema/migrations`, input),
+
+  // PostgreSQL pgvector API
+  getPostgresVectorCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').PostgresVectorCapability>(
+      'GET',
+      `/sql/${connectionId}/vectors/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchPostgresVector: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSearchInput) =>
+    request<import('@kamehadb/shared').PostgresVectorSearchResult>(
+      'POST',
+      `/sql/${connectionId}/vectors/search`,
+      input,
+      true,
+    ),
+
+  getPostgresVectorSample: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSampleInput) =>
+    request<import('@kamehadb/shared').PostgresVectorSampleResult>(
+      'POST',
+      `/sql/${connectionId}/vectors/sample`,
+      input,
+      true,
+    ),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
@@ -176,14 +163,48 @@ export const api = {
     request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined, true),
 
   runRedisCommand: (connectionId: string, command: string) =>
-    request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/command`, { command }, true),
+    request<import('@kamehadb/shared').RedisCommandResult>(
+      'POST',
+      `/redis/${connectionId}/commands`,
+      { command },
+      true,
+    ),
 
-  // MongoDB completions
+  // MongoDB shell
+  startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
+    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }, true),
+
+  writeMongoShell: (sessionId: string, data: string) =>
+    request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }, true),
+
+  /** Check if a shell session is still alive (204 = alive, 404 = dead).
+   *  Distinguish 404 (no such session) from transient server errors — don't
+   *  kill a healthy session on a temporary 5xx. */
+  pingMongoShell: (sessionId: string) =>
+    fetch(`${getApiBase()}/mongo/shell/${sessionId}/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: '' }),
+    }).then((r) => {
+      if (r.ok) return true;
+      if (r.status === 404) return false;
+      return true; // transient server error — keep session alive
+    }),
+
+  stopMongoShell: (sessionId: string) => request<void>('DELETE', `/mongo/shell/${sessionId}`, undefined, true),
+
+  resizeMongoShell: (sessionId: string, cols: number, rows: number) =>
+    // MongoDB autocomplete
+    request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }, true),
+
+  getShellStreamUrl: (connectionId: string, sessionId: string) =>
+    `${getApiBase()}/mongo/${connectionId}/shell/${sessionId}/stream`,
+
   getMongoCompletions: (connectionId: string, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
     return request<{ collections: { name: string; fields: string[] }[] }>(
       'GET',
-      `/mongo/${connectionId}/completions${query}`,
+      `/mongo/${connectionId}/autocomplete${query}`,
       undefined,
       true,
     );

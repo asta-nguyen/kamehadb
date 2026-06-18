@@ -69,9 +69,9 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
   },
   {
     icon: Workflow,
-    title: 'Schema timeline + migration assistant',
+    title: 'Schema timeline, diff & migration',
     description:
-      'Capture snapshots on demand, see what changed between them, and generate the DDL to migrate from one state to the next — without writing ALTER TABLE by hand.',
+      'Capture snapshots on demand, compare schemas side by side with per-table change cards, and generate the DDL to migrate from one state to the next — without writing ALTER TABLE by hand.',
   },
   {
     icon: LineChart,

@@ -8,7 +8,7 @@ import { dirname, resolve } from 'path';
 import { initMetadataStore, closeMetadataStore } from './db/metadata-store.js';
 import { connectionsRouter } from './routes/connections.js';
 import { sqlRouter } from './routes/sql.js';
-import { mongoRouter } from './routes/mongo.js';
+import { mongoRouter, killAllMongoShells } from './routes/mongo.js';
 import { redisRouter } from './routes/redis.js';
 import { qdrantRouter } from './routes/qdrant.js';
 import { tigerbeetleRouter } from './routes/tigerbeetle.js';
@@ -86,11 +86,13 @@ async function start() {
 // Graceful shutdown
 process.on('SIGINT', () => {
   log.info('Shutting down...');
+  killAllMongoShells();
   closeMetadataStore();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
+  killAllMongoShells();
   closeMetadataStore();
   process.exit(0);
 });

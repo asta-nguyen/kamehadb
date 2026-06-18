@@ -1,11 +1,12 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { get, post } from '@/lib/api';
+import { get, post } from '@/lib/api-client';
 import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import type { CollectionInfo, DatabaseInfo, DocumentResult, FindDocumentsInput } from '@kamehadb/shared';
 
 export function useMongoDatabases(connectionId: string | null) {
   return useQuery({
-    queryKey: ['mongo', connectionId, 'databases'],
+    queryKey: QUERY_KEYS.MONGO_DATABASES(connectionId),
     queryFn: () => get<DatabaseInfo[]>(`/mongo/${connectionId}/databases`),
     enabled: !!connectionId,
     staleTime: SCHEMA_CACHE_TIME,
@@ -14,7 +15,7 @@ export function useMongoDatabases(connectionId: string | null) {
 
 export function useMongoCollections(connectionId: string | null, database: string | null) {
   return useQuery({
-    queryKey: ['mongo', connectionId, database, 'collections'],
+    queryKey: QUERY_KEYS.MONGO_COLLECTIONS(connectionId, database),
     queryFn: () =>
       get<CollectionInfo[]>(`/mongo/${connectionId}/collections?database=${encodeURIComponent(database ?? '')}`),
     enabled: !!connectionId && !!database,
@@ -33,14 +34,7 @@ export function useMongoDocuments(
   search?: string,
 ) {
   return useQuery({
-    queryKey: [
-      'mongo',
-      connectionId,
-      database,
-      collection,
-      'documents',
-      JSON.stringify({ filter, sort, limit, skip, search }),
-    ],
+    queryKey: QUERY_KEYS.MONGO_DOCUMENTS(connectionId, database, collection, filter, sort, limit, skip, search),
     queryFn: () => {
       const input: FindDocumentsInput = {
         collection: collection!,
@@ -65,7 +59,7 @@ export function useMongoCollectionStats(
   collection: string | null,
 ) {
   return useQuery({
-    queryKey: ['mongo-stats', connectionId, database, collection],
+    queryKey: QUERY_KEYS.MONGO_STATS(connectionId, database, collection),
     queryFn: () =>
       get<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
         `/mongo/${connectionId}/stats?database=${encodeURIComponent(database ?? '')}&collection=${encodeURIComponent(collection ?? '')}`,

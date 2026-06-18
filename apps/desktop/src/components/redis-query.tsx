@@ -3,7 +3,8 @@ import { useRedisCommand } from '@/hooks/use-redis-command';
 import { updateTabCommand } from '@/store';
 import type { RedisCommandResult, WorkspaceTab } from '@kamehadb/shared';
 import type { Monaco, OnMount } from '@monaco-editor/react';
-import { AlertCircle, Clock, Loader2, Play, Terminal } from 'lucide-react';
+import { AlertCircle, Clock, Play, Terminal } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { lazy, Suspense, useCallback, useState } from 'react';
 const Editor = lazy(() => import('@monaco-editor/react'));
 
@@ -238,7 +239,7 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
     <div className="flex flex-col h-full">
       <div className="flex items-center px-4 py-2 border-b border-border gap-2 shrink-0">
         <Button size="sm" onClick={handleRun} disabled={redisCommand.isPending} className="gap-1.5">
-          {redisCommand.isPending ? <Loader2 className="animate-spin size-3.5" /> : <Play className="size-3.5" />}
+          {redisCommand.isPending ? <Spinner size="sm" className="size-3.5" /> : <Play className="size-3.5" />}
           Run
         </Button>
         <span className="text-muted-foreground text-xs">
@@ -271,7 +272,7 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
       <div className="flex-1 min-h-0 overflow-auto">
         {redisCommand.isPending && (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="text-muted-foreground animate-spin size-5" />
+            <Spinner size="lg" />
           </div>
         )}
 

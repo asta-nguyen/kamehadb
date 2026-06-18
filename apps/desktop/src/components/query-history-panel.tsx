@@ -3,7 +3,8 @@ import { Input } from '@/components/ui/input';
 import { useDeleteQueryHistory, useQueryHistory, useUpdateQueryHistory } from '@/hooks/use-query-history';
 import { cn } from '@/lib/utils';
 import type { QueryHistoryEntry } from '@kamehadb/shared';
-import { Clock, Heart, History, Loader2, Search, Trash2, X } from 'lucide-react';
+import { Clock, Heart, History, Search, Trash2, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useMemo, useState } from 'react';
 
 function normalizeQuery(sql: string): string {
@@ -131,7 +132,7 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose }: Quer
       <div className="flex-1 overflow-y-auto min-h-0">
         {isLoading && (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            <Spinner size="md" />
           </div>
         )}
 

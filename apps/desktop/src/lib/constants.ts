@@ -52,20 +52,9 @@ export const KIND_LABELS: Record<DbKind, string> = {
   tigerbeetle: 'TigerBeetle',
 };
 
-export const GROUP_LABELS: Record<string, string> = {
-  postgres: 'PostgreSQL',
-  sqlite: 'SQLite',
-  mysql: 'MySQL',
-  redis: 'Redis',
-  mongodb: 'MongoDB',
-  qdrant: 'Qdrant',
-  sqlserver: 'SQL Server',
-  oracle: 'Oracle',
-  clickhouse: 'ClickHouse',
-  mariadb: 'MariaDB',
-  duckdb: 'DuckDB',
-  tigerbeetle: 'TigerBeetle',
-};
+// Alias for GROUP_LABELS to match semantic usage — labels by engine kind are the
+// same regardless of whether they appear as group headers or individual badges.
+export const GROUP_LABELS = KIND_LABELS;
 
 export const SIDEBAR_MIN_WIDTH = 250;
 export const SIDEBAR_MAX_WIDTH = 400;
@@ -85,6 +74,22 @@ export const KINDS: DbKind[] = [
   'duckdb',
   'tigerbeetle',
 ];
+
+/** Engine kinds that use the SQL adapter path (not Mongo/Redis/Qdrant/TigerBeetle). */
+export const SQL_KINDS: readonly DbKind[] = [
+  'postgres',
+  'mysql',
+  'sqlite',
+  'sqlserver',
+  'oracle',
+  'clickhouse',
+  'mariadb',
+  'duckdb',
+] as const;
+
+export function isSqlKind(kind: string | undefined): kind is DbKind {
+  return kind !== undefined && SQL_KINDS.includes(kind as DbKind);
+}
 
 export const DEFAULT_PORTS: Record<DbKind, number> = {
   postgres: 5432,

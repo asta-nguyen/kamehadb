@@ -47,7 +47,7 @@ export function useTableIndexes(connectionId: string | null, tableId: string | n
 export function usePreviewRows(connectionId: string | null, input: import('@kamehadb/shared').PreviewRowsInput | null) {
   return useQuery({
     queryKey: QUERY_KEYS.PREVIEW(connectionId, input),
-    queryFn: () => api.request<import('@kamehadb/shared').QueryResult>('POST', `/sql/${connectionId}/preview`, input!),
+    queryFn: () => api.request<import('@kamehadb/shared').QueryResult>('POST', `/sql/${connectionId}/rows`, input!),
     enabled: !!connectionId && !!input,
     staleTime: STATS_CACHE_TIME,
     placeholderData: keepPreviousData,
@@ -68,7 +68,10 @@ export function useIndexStats(connectionId: string | null, tableId: string | nul
   return useQuery({
     queryKey: QUERY_KEYS.INDEXES(connectionId, tableId),
     queryFn: () =>
-      api.request<import('@kamehadb/shared').IndexStats[]>('GET', `/sql/${connectionId}/tables/${tableId}/index-stats`),
+      api.request<import('@kamehadb/shared').IndexStats[]>(
+        'GET',
+        `/sql/${connectionId}/tables/${tableId}/indexes/stats`,
+      ),
     enabled: !!connectionId && !!tableId,
     staleTime: STATS_CACHE_TIME,
   });
@@ -79,7 +82,10 @@ export function useDatabaseSizes(connectionId: string | null, schema?: string) {
     queryKey: QUERY_KEYS.DATABASES(connectionId, schema),
     queryFn: () => {
       const params = schema ? `?schema=${encodeURIComponent(schema)}` : '';
-      return api.request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/sizes${params}`);
+      return api.request<import('@kamehadb/shared').DatabaseSize[]>(
+        'GET',
+        `/sql/${connectionId}/database/sizes${params}`,
+      );
     },
     enabled: !!connectionId,
     staleTime: STATS_CACHE_TIME,

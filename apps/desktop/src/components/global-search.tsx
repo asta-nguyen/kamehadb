@@ -17,14 +17,13 @@ import {
   openNewQueryTab,
   setActiveConnection,
 } from '@/store';
-import { getApiBase } from '@/lib/api';
+import { getApiBase } from '@/lib/api-client';
 import { DbIcon } from '@/components/db-icon';
 import { useStore } from '@tanstack/react-store';
 import { BarChart3, Database, FileText, Share2, Sparkles, Table2, Terminal } from 'lucide-react';
-import type { DbKind, SchemaSearchMatch } from '@kamehadb/shared';
+import type { SchemaSearchMatch } from '@kamehadb/shared';
 
-const SQL_KINDS: DbKind[] = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'oracle', 'clickhouse', 'mariadb', 'duckdb'];
-const isSql = (k: string | undefined) => k && SQL_KINDS.includes(k as DbKind);
+import { isSqlKind } from '@/lib/constants';
 
 export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [query, setQuery] = useState('');
@@ -64,7 +63,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
       const abort = new AbortController();
       abortRef.current = abort;
 
-      const sqlConns = connections.filter((c) => isSql(c.kind));
+      const sqlConns = connections.filter((c) => isSqlKind(c.kind));
       const results = new Map<string, SchemaSearchMatch[]>();
 
       const unsupported = new Set<string>();
@@ -72,7 +71,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
       await Promise.all(
         sqlConns.map(async (conn) => {
           try {
-            const url = `${getApiBase()}/sql/${conn.id}/search-schema?q=${encodeURIComponent(query)}&limit=5`;
+            const url = `${getApiBase()}/sql/${conn.id}/schema/search?q=${encodeURIComponent(query)}&limit=5`;
             const res = await fetch(url, { signal: abort.signal });
             if (res.ok) {
               const data: SchemaSearchMatch[] = await res.json();
@@ -122,7 +121,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
   }, [schemaResults, connections]);
 
   const hasResults =
-    (activeConn && isSql(activeConn.kind)) ||
+    (activeConn && isSqlKind(activeConn.kind)) ||
     activeConn ||
     (connections && connections.length > 0) ||
     schemaResults.size > 0 ||
@@ -140,9 +139,9 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
         {!searching && query && query.length >= 2 && !hasResults && <CommandEmpty>No results found</CommandEmpty>}
 
         {/* Actions */}
-        {(activeConn && isSql(activeConn.kind)) || activeConn ? (
+        {(activeConn && isSqlKind(activeConn.kind)) || activeConn ? (
           <CommandGroup heading="Actions">
-            {activeConn && isSql(activeConn.kind) && (
+            {activeConn && isSqlKind(activeConn.kind) && (
               <>
                 <CommandItem
                   value={`new-query-${activeConn.name}`}

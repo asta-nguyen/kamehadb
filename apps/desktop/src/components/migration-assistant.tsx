@@ -1,41 +1,49 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import type { SchemaChangelogEntry } from '@kamehadb/shared';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Loader2, Copy, Check, ArrowRight, Terminal } from 'lucide-react';
+import { Copy, Check, ArrowRight, Terminal } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
+import { useSchemaSnapshots } from '@/hooks/use-schema-changelog';
 import { toast } from 'sonner';
 
-export function MigrationAssistant({ connectionId }: { connectionId: string }) {
-  const [snapshots, setSnapshots] = useState<SchemaChangelogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+export function MigrationAssistant({
+  connectionId,
+  fromSnapshotId,
+  toSnapshotId,
+}: {
+  connectionId: string;
+  fromSnapshotId?: string;
+  toSnapshotId?: string;
+}) {
+  const { data, isLoading: loading } = useSchemaSnapshots(connectionId);
+  const [fromId, setFromId] = useState(fromSnapshotId ?? '');
+  const [toId, setToId] = useState(toSnapshotId ?? '');
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<{
+    statements: readonly string[];
+    fromSnapshot: string;
+    toSnapshot: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const snapshots = data?.snapshots ?? [];
+
+  // Sync local state from props so reused MigrationAssistant instances pick up
+  // updated snapshot IDs passed via navigation (e.g. from Schema Diff handoff).
+  useEffect(() => {
+    if (fromSnapshotId) setFromId(fromSnapshotId);
+    if (toSnapshotId) setToId(toSnapshotId);
+  }, [fromSnapshotId, toSnapshotId]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .getSchemaChangelog(connectionId)
-      .then((data) => {
-        if (!cancelled) {
-          setSnapshots(data.entries ?? []);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [connectionId]);
-
-  const [fromId, setFromId] = useState('');
-  const [toId, setToId] = useState('');
-  const [generating, setGenerating] = useState(false);
-  const [result, setResult] = useState<{ statements: string[]; fromSnapshot: string; toSnapshot: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+    // Auto-select last two snapshots when no explicit IDs are given
+    if (fromSnapshotId || toSnapshotId) return;
+    if (snapshots.length < 2 || (fromId && toId)) return;
+    setFromId(snapshots[snapshots.length - 2].id);
+    setToId(snapshots[snapshots.length - 1].id);
+  }, [fromId, fromSnapshotId, snapshots, toId, toSnapshotId]);
 
   const handleGenerate = async () => {
     if (!fromId || !toId) return;
@@ -70,7 +78,7 @@ export function MigrationAssistant({ connectionId }: { connectionId: string }) {
       {loading ? (
         <Card>
           <CardContent className="py-8 flex justify-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <Spinner size="lg" />
           </CardContent>
         </Card>
       ) : snapshots.length === 0 ? (
@@ -92,13 +100,13 @@ export function MigrationAssistant({ connectionId }: { connectionId: string }) {
             <div className="grid gap-4 sm:grid-cols-2 items-end">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">From (before)</Label>
-                <Select value={fromId} onValueChange={(v) => v !== null && setFromId(v)}>
+                <Select value={fromId} onValueChange={(value) => value !== null && setFromId(value)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
                     {snapshots.map((s) => (
-                      <SelectItem key={s.snapshotId} value={s.snapshotId} className="text-xs font-mono">
+                      <SelectItem key={s.id} value={s.id} className="text-xs font-mono">
                         {new Date(s.capturedAt).toLocaleString()}
                       </SelectItem>
                     ))}
@@ -107,13 +115,13 @@ export function MigrationAssistant({ connectionId }: { connectionId: string }) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">To (after)</Label>
-                <Select value={toId} onValueChange={(v) => v !== null && setToId(v)}>
+                <Select value={toId} onValueChange={(value) => value !== null && setToId(value)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
                     {snapshots.map((s) => (
-                      <SelectItem key={s.snapshotId} value={s.snapshotId} className="text-xs font-mono">
+                      <SelectItem key={s.id} value={s.id} className="text-xs font-mono">
                         {new Date(s.capturedAt).toLocaleString()}
                       </SelectItem>
                     ))}
@@ -128,7 +136,7 @@ export function MigrationAssistant({ connectionId }: { connectionId: string }) {
               onClick={handleGenerate}
               disabled={!fromId || !toId || fromId === toId || generating}
             >
-              {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Terminal className="size-3.5" />}
+              {generating ? <Spinner size="sm" className="size-3.5" /> : <Terminal className="size-3.5" />}
               {generating ? 'Generating...' : 'Generate Migration SQL'}
             </Button>
           </CardContent>

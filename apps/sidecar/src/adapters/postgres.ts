@@ -14,6 +14,9 @@ import type {
   TableCompletions,
   SchemaSearchInput,
   SchemaSearchMatch,
+  PostgresVectorCapability,
+  PostgresVectorColumn,
+  PostgresVectorIndex,
 } from '@kamehadb/shared';
 
 export type IndexStats = {
@@ -22,6 +25,7 @@ export type IndexStats = {
   columns: string[];
   unique: boolean;
   primary: boolean;
+  method?: string;
   sizeBytes: number;
   scans: number;
   reads: number;
@@ -213,12 +217,38 @@ export function createPostgresAdapter(connection: {
       const [schema, table] = tableId.split('.');
       const sql = `SELECT
         c.column_name as name,
-        c.data_type as type,
+        CASE
+          WHEN pt.typname = 'vector' THEN pg_catalog.format_type(pa.atttypid, pa.atttypmod)
+          ELSE c.data_type
+        END as type,
         c.is_nullable = 'YES' as nullable,
         c.column_default as default,
         CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as primary_key,
-        fk.ref_table, fk.ref_column
+        fk.ref_table, fk.ref_column,
+        pt.typname = 'vector' as is_vector,
+        CASE WHEN pt.typname = 'vector'
+          THEN COALESCE(
+            NULLIF(
+              REGEXP_REPLACE(pg_catalog.format_type(pa.atttypid, pa.atttypmod), '^vector\\(([0-9]+)\\)$', '\\1'),
+              'vector'
+            )::int,
+            pa.atttypmod
+          )
+          ELSE NULL
+        END as vector_dimensions
       FROM information_schema.columns c
+      JOIN pg_catalog.pg_namespace pn
+        ON pn.nspname = c.table_schema
+      JOIN pg_catalog.pg_class pc
+        ON pc.relnamespace = pn.oid
+        AND pc.relname = c.table_name
+      JOIN pg_catalog.pg_attribute pa
+        ON pa.attrelid = pc.oid
+        AND pa.attname = c.column_name
+        AND pa.attnum > 0
+        AND NOT pa.attisdropped
+      JOIN pg_catalog.pg_type pt
+        ON pt.oid = pa.atttypid
       LEFT JOIN (
         SELECT ku.column_name
         FROM information_schema.table_constraints tc
@@ -243,6 +273,8 @@ export function createPostgresAdapter(connection: {
         default: (r.default as string) ?? null,
         primaryKey: !!r.primary_key,
         foreignKey: r.ref_table ? { table: r.ref_table as string, column: r.ref_column as string } : undefined,
+        isVector: !!r.is_vector,
+        vectorDimensions: r.vector_dimensions != null ? Number(r.vector_dimensions) : undefined,
       }));
     },
 
@@ -325,12 +357,14 @@ export function createPostgresAdapter(connection: {
         i.relname as name,
         a.attname as column_name,
         ix.indisunique as unique,
-        ix.indisprimary as primary
+        ix.indisprimary as primary,
+        am.amname as method
       FROM pg_index ix
       JOIN pg_class i ON i.oid = ix.indexrelid
       JOIN pg_class t ON t.oid = ix.indrelid
       JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
       JOIN pg_namespace n ON n.oid = t.relnamespace
+      JOIN pg_am am ON am.oid = i.relam
       WHERE n.nspname = $1 AND t.relname = $2
       ORDER BY i.relname, a.attnum`;
 
@@ -345,6 +379,7 @@ export function createPostgresAdapter(connection: {
             columns: [],
             unique: !!row.unique,
             primary: !!row.primary,
+            method: (row.method as string) || undefined,
           });
         }
         indexMap.get(name)!.columns.push(row.column_name as string);
@@ -427,6 +462,7 @@ export function createPostgresAdapter(connection: {
         a.attname as column_name,
         ix.indisunique as unique_index,
         ix.indisprimary as primary_index,
+        am.amname as method,
         pg_relation_size(i.oid) as size_bytes
       FROM pg_index ix
       JOIN pg_class i ON i.oid = ix.indexrelid
@@ -448,6 +484,7 @@ export function createPostgresAdapter(connection: {
             columns: [],
             unique: !!row.unique_index,
             primary: !!row.primary_index,
+            method: (row.method as string) || undefined,
             sizeBytes: Number(row.size_bytes) || 0,
             scans: 0,
             reads: 0,
@@ -616,6 +653,109 @@ export async function testPostgresConnection(input: {
       throw err;
     }
     throw new Error('Unknown error during connection test');
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+export async function detectPgVectorCapability(input: {
+  host?: string;
+  port?: number;
+  database?: string;
+  username?: string;
+  password?: string;
+  ssl?: boolean;
+}): Promise<PostgresVectorCapability> {
+  const client = new pg.Client({
+    host: input.host || 'localhost',
+    port: input.port || 5432,
+    database: input.database,
+    user: input.username,
+    password: input.password,
+    ssl: input.ssl ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10_000,
+  });
+  try {
+    await client.connect();
+    // Check if pgvector extension is installed
+    const extResult = await client.query(`SELECT extname, extversion FROM pg_extension WHERE extname = 'vector'`);
+    if (extResult.rows.length === 0) {
+      return { available: false, version: null, columns: [], indexes: [] };
+    }
+    const version = extResult.rows[0].extversion as string;
+
+    // Discover all vector columns across the database
+    const colResult = await client.query(
+      `SELECT
+        n.nspname AS table_schema,
+        c.relname AS table_name,
+        a.attname AS column_name,
+        COALESCE(
+          NULLIF(REGEXP_REPLACE(pg_catalog.format_type(a.atttypid, a.atttypmod), '^vector\\(([0-9]+)\\)$', '\\1'), 'vector')::int,
+          a.atttypmod
+        ) AS dimensions
+      FROM pg_attribute a
+      JOIN pg_class c ON a.attrelid = c.oid
+      JOIN pg_namespace n ON c.relnamespace = n.oid
+      JOIN pg_type t ON a.atttypid = t.oid
+      WHERE t.typname = 'vector'
+        AND a.attnum > 0
+        AND NOT a.attisdropped
+        AND c.relkind = 'r'
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+      ORDER BY n.nspname, c.relname, a.attnum`,
+    );
+    const columns: PostgresVectorColumn[] = colResult.rows.map((r: Record<string, unknown>) => ({
+      tableSchema: r.table_schema as string,
+      tableName: r.table_name as string,
+      columnName: r.column_name as string,
+      dimensions: Number(r.dimensions) || 0,
+    }));
+
+    // Discover vector indexes (ivfflat, hnsw)
+    // Uses LATERAL join to resolve the opclass OID from pg_index.indclass into a
+    // human-readable distance operator name (l2 / cosine / inner_product).
+    const idxResult = await client.query(
+      `SELECT
+        i.relname AS name,
+        n.nspname AS table_schema,
+        c.relname AS table_name,
+        a.attname AS column_name,
+        am.amname AS method,
+        COALESCE(opr.operator_name, 'cosine') AS operator_name
+      FROM pg_index ix
+      JOIN pg_class i ON i.oid = ix.indexrelid
+      JOIN pg_class c ON c.oid = ix.indrelid
+      JOIN pg_namespace n ON c.relnamespace = n.oid
+      JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(ix.indkey)
+      JOIN pg_am am ON am.oid = i.relam
+      JOIN pg_type t ON a.atttypid = t.oid
+      LEFT JOIN LATERAL (
+        SELECT CASE
+          WHEN o.opcname LIKE '%l2%' OR o.opcname LIKE '%vector_l2%' THEN 'l2'
+          WHEN o.opcname LIKE '%cosine%' OR o.opcname LIKE '%vector_cosine%' THEN 'cosine'
+          WHEN o.opcname LIKE '%ip%' OR o.opcname LIKE '%vector_ip%' THEN 'inner_product'
+          ELSE 'cosine'
+        END AS operator_name
+        FROM pg_opclass o
+        WHERE o.oid = (ix.indclass::int[])[1]
+        LIMIT 1
+      ) opr ON true
+      WHERE t.typname = 'vector'
+        AND am.amname IN ('ivfflat', 'hnsw')
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+      ORDER BY n.nspname, c.relname, i.relname`,
+    );
+    const indexes: PostgresVectorIndex[] = idxResult.rows.map((r: Record<string, unknown>) => ({
+      name: r.name as string,
+      tableSchema: r.table_schema as string,
+      tableName: r.table_name as string,
+      columnName: r.column_name as string,
+      method: r.method as 'ivfflat' | 'hnsw',
+      operator: r.operator_name as 'l2' | 'cosine' | 'inner_product',
+    }));
+
+    return { available: true, version, columns, indexes };
   } finally {
     await client.end().catch(() => {});
   }

@@ -1,6 +1,7 @@
 import { useState, useMemo, type ReactNode } from 'react';
 import { useRedisKeys, useRedisKeyDetails, useRedisStats } from '@/hooks/use-redis';
-import { Loader2, Search, Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Users } from 'lucide-react';
+import { Search, Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Users } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -107,7 +108,7 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
         <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
           {loadingKeys ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              <Spinner size="md" />
             </div>
           ) : filteredKeys.length === 0 ? (
             <div className="px-2 py-4 text-xs text-muted-foreground text-center">
@@ -149,7 +150,7 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
         {showStats && (
           <div className="px-3 py-2 border-t border-border bg-muted/30">
             {loadingStats ? (
-              <Loader2 className="size-4 animate-spin text-muted-foreground mx-auto" />
+              <Spinner size="md" className="mx-auto" />
             ) : statsError ? (
               <div className="text-xs text-destructive">
                 Error: {statsError instanceof Error ? statsError.message : 'Failed to load stats'}
