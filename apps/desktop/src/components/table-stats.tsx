@@ -142,12 +142,15 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 80px' }}>
+                <TableRow
+                  style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 100px 80px' }}
+                >
                   <TableHead>Name</TableHead>
                   <TableHead>Columns</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Scans</TableHead>
                   <TableHead>Usage</TableHead>
+                  <TableHead>Method</TableHead>
                   <TableHead>Type</TableHead>
                 </TableRow>
               </TableHeader>
@@ -155,7 +158,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
                 {indexStats.map((idx) => (
                   <TableRow
                     key={idx.name}
-                    style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 80px' }}
+                    style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 100px 80px' }}
                   >
                     <TableCell className="min-w-0 text-sm font-mono truncate" title={idx.name}>
                       {idx.name}
@@ -180,6 +183,13 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
                         <Badge variant="destructive" className="text-xs">
                           Unused
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {idx.method ? (
+                        <Badge variant="secondary">{idx.method}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell>

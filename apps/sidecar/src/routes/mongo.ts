@@ -4,6 +4,9 @@ import { zValidator } from '@hono/zod-validator';
 import { getCached, setCache } from '../lib/cache.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { createMongoDbAdapter } from '../adapters/factory.js';
+import * as pty from 'node-pty';
+import { nanoid } from 'nanoid';
+import { streamSSE } from 'hono/streaming';
 
 export const mongoRouter = new Hono();
 
@@ -243,9 +246,9 @@ mongoRouter.post(
   },
 );
 
-// GET /mongo/:connectionId/completions
+// GET /mongo/:connectionId/autocomplete
 // Returns collection names + field names from sample documents for autocomplete.
-mongoRouter.get('/:connectionId/completions', async (c) => {
+mongoRouter.get('/:connectionId/autocomplete', async (c) => {
   const connectionId = c.req.param('connectionId');
   const database = c.req.query('database') || '';
   const cacheKey = `mongo:${connectionId}:completions:${database}`;
@@ -298,4 +301,181 @@ mongoRouter.get('/:connectionId/test', async (c) => {
   } catch (err) {
     return handleError(c, err, 'testConnection');
   }
+});
+
+// ---------------------------------------------------------------------------
+// MongoDB Shell (mongosh) — in-browser terminal via HTTP + SSE
+// ---------------------------------------------------------------------------
+// Manages long-running mongosh child processes. The frontend uses an SSE
+// stream for output and POST endpoints for input + lifecycle.
+//
+// These routes work in both Tauri desktop and plain browser dev mode since
+// they communicate with the sidecar directly over HTTP.
+
+interface MongoShellSession {
+  pty: pty.IPty;
+  createdAt: number;
+  /** Output buffer — accumulates PTY data from spawn until SSE connects */
+  buffer: string;
+  disposable?: { dispose: () => void };
+}
+
+const SHELL_TIMEOUT_MS = 30 * 60 * 1000;
+const shellSessions = new Map<string, MongoShellSession>();
+
+// Prune expired sessions every 60 seconds
+const SHELL_CLEANUP = setInterval(() => {
+  const now = Date.now();
+  for (const [id, session] of shellSessions) {
+    if (now - session.createdAt > SHELL_TIMEOUT_MS) {
+      session.pty.kill();
+      shellSessions.delete(id);
+    }
+  }
+}, 60_000);
+
+// Allow the server shutdown handler to clean up all shells
+export function killAllMongoShells(): void {
+  for (const [, session] of shellSessions) {
+    session.pty.kill();
+  }
+  shellSessions.clear();
+  clearInterval(SHELL_CLEANUP);
+}
+
+// POST /mongo/:connectionId/shell — start a mongosh process with a real PTY
+mongoRouter.post('/:connectionId/shell', async (c) => {
+  const connectionId = c.req.param('connectionId');
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+
+  let cols = 80;
+  let rows = 24;
+  try {
+    const body = await c.req.json<{ cols?: number; rows?: number }>();
+    if (body.cols) cols = body.cols;
+    if (body.rows) rows = body.rows;
+  } catch {}
+  const connStr = profile.connectionString || '';
+  const sessionId = nanoid();
+
+  let ptyProcess: pty.IPty;
+  try {
+    // node-pty spawns a real pseudo-terminal so mongosh thinks it's
+    // connected to an actual terminal — colors, box-drawing, and
+    // interactive input all work out of the box.
+    ptyProcess = pty.spawn('mongosh', [connStr], {
+      name: 'xterm-256color',
+      cols,
+      rows,
+      env: { ...process.env } as Record<string, string | undefined>,
+    });
+  } catch (err) {
+    return c.json(
+      {
+        error: 'MONGOSH_NOT_FOUND',
+        message: `mongosh is not installed or not in PATH: ${err instanceof Error ? err.message : String(err)}`,
+      },
+      500,
+    );
+  }
+
+  shellSessions.set(sessionId, { pty: ptyProcess, createdAt: Date.now(), buffer: '' });
+
+  // Capture PTY output from spawn time so it's available when SSE connects.
+  const bufDisposable = ptyProcess.onData((data) => {
+    const session = shellSessions.get(sessionId);
+    if (session) session.buffer += data;
+  });
+  shellSessions.get(sessionId)!.disposable = bufDisposable;
+
+  ptyProcess.onExit(({ exitCode }) => {
+    console.log(`[MongoShell] mongosh exited with code ${exitCode}`);
+    shellSessions.delete(sessionId);
+  });
+
+  return c.json({ sessionId });
+});
+
+// GET /mongo/:connectionId/shell/:sessionId/stream — SSE event stream
+mongoRouter.get('/:connectionId/shell/:sessionId/stream', async (c) => {
+  const sessionId = c.req.param('sessionId');
+  const session = shellSessions.get(sessionId);
+  if (!session) return c.json({ error: 'NOT_FOUND', message: 'Shell session not found' }, 404);
+
+  return streamSSE(c, async (stream) => {
+    const term = session.pty;
+    let running = true;
+
+    // Flush any output that arrived before this SSE client connected.
+    if (session.buffer) {
+      await stream.writeSSE({ data: JSON.stringify({ type: 'output', data: session.buffer }) });
+      session.buffer = '';
+    }
+    // Stop buffering — the SSE stream now owns live output.
+    session.disposable?.dispose();
+    session.disposable = undefined;
+
+    const onDataDisposable = term.onData((data) => {
+      if (!running) return;
+      stream.writeSSE({ data: JSON.stringify({ type: 'output', data }) }).catch(() => {});
+    });
+
+    const onExitDisposable = term.onExit(({ exitCode }) => {
+      if (!running) return;
+      running = false;
+      stream.writeSSE({ data: JSON.stringify({ type: 'exit', code: exitCode }) }).catch(() => {});
+      stream.close();
+    });
+
+    stream.onAbort(() => {
+      running = false;
+      onDataDisposable.dispose();
+      onExitDisposable.dispose();
+      // Resume buffering so the next SSE reconnect picks up any output
+      // produced while no client is connected.
+      session.buffer = '';
+      session.disposable = term.onData((data) => {
+        const s = shellSessions.get(sessionId);
+        if (s) s.buffer += data;
+      });
+    });
+
+    while (running && !stream.closed) {
+      await stream.sleep(5000);
+    }
+  });
+});
+
+// POST /mongo/shell/:sessionId/write — send keystrokes to stdin
+mongoRouter.post('/shell/:sessionId/write', async (c) => {
+  const sessionId = c.req.param('sessionId');
+  const session = shellSessions.get(sessionId);
+  if (!session) return c.json({ error: 'NOT_FOUND', message: 'Shell session not found' }, 404);
+
+  const { data } = await c.req.json<{ data: string }>();
+  session.pty.write(data);
+  return c.body(null, 204);
+});
+
+// POST /mongo/shell/:sessionId/resize — resize the PTY
+mongoRouter.post('/shell/:sessionId/resize', async (c) => {
+  const sessionId = c.req.param('sessionId');
+  const session = shellSessions.get(sessionId);
+  if (!session) return c.json({ error: 'NOT_FOUND', message: 'Shell session not found' }, 404);
+
+  const { cols, rows } = await c.req.json<{ cols: number; rows: number }>();
+  session.pty.resize(cols, rows);
+  return c.body(null, 204);
+});
+
+// DELETE /mongo/shell/:sessionId — kill the shell process
+mongoRouter.delete('/shell/:sessionId', async (c) => {
+  const sessionId = c.req.param('sessionId');
+  const session = shellSessions.get(sessionId);
+  if (!session) return c.json({ error: 'NOT_FOUND', message: 'Shell session not found' }, 404);
+
+  session.pty.kill();
+  shellSessions.delete(sessionId);
+  return c.body(null, 204);
 });

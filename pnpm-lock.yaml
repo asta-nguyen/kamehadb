@@ -47,9 +47,6 @@ importers:
       '@kamehadb/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@kamehadb/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -71,14 +68,17 @@ importers:
       '@tauri-apps/api':
         specifier: ^2
         version: 2.11.0
+      '@tauri-apps/plugin-dialog':
+        specifier: ^2
+        version: 2.7.1
       '@tauri-apps/plugin-opener':
         specifier: ^2
         version: 2.5.4
       '@xterm/addon-fit':
-        specifier: 0.11.0
+        specifier: ^0.11.0
         version: 0.11.0
       '@xterm/xterm':
-        specifier: 6.0.0
+        specifier: ^6.0.0
         version: 6.0.0
       '@xyflow/react':
         specifier: ^12.10.2
@@ -240,6 +240,9 @@ importers:
       nanoid:
         specifier: ^5
         version: 5.1.11
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0
       oracledb:
         specifier: ^7.0.0
         version: 7.0.0
@@ -287,34 +290,6 @@ importers:
         specifier: ^3
         version: 3.25.76
     devDependencies:
-      typescript:
-        specifier: ~5.8.3
-        version: 5.8.3
-
-  packages/ui:
-    dependencies:
-      '@kamehadb/shared':
-        specifier: workspace:*
-        version: link:../shared
-      lucide-react:
-        specifier: ^0.400
-        version: 0.400.0(react@19.2.4)
-      react:
-        specifier: ^19.1.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.1.0
-        version: 19.2.4(react@19.2.4)
-      zod:
-        specifier: ^3
-        version: 3.25.76
-    devDependencies:
-      '@types/react':
-        specifier: ^19.1.8
-        version: 19.2.15
-      '@types/react-dom':
-        specifier: ^19.1.6
-        version: 19.2.3(@types/react@19.2.15)
       typescript:
         specifier: ~5.8.3
         version: 5.8.3
@@ -1747,6 +1722,9 @@ packages:
     resolution: {integrity: sha512-bk3HemqvGRoy+5D/dVMUQHKMYLglD0jVnMm/0iGMH6ufZ+p8r14m6BpIixwij3PBvZdvORUp1YifTD8QxVZ1Nw==}
     engines: {node: '>= 10'}
     hasBin: true
+
+  '@tauri-apps/plugin-dialog@2.7.1':
+    resolution: {integrity: sha512-OK1UBXYt+ojcmxMktzzuyonYIFta8CmAASpX+CA+DTGK24KlHjhYI6x2iOJ/TjZF4N7/ACK1oFmEOjIY9IhzOQ==}
 
   '@tauri-apps/plugin-opener@2.5.4':
     resolution: {integrity: sha512-1HnPkb+AmgO29HBazm4uPLKB+r7zzcTBW1d0fyYp1uP+jwtpoiNDGKMMzz58SFp49nOIrxdE3aUJtT57lfO9CQ==}
@@ -3709,6 +3687,9 @@ packages:
     resolution: {integrity: sha512-OQkWKbjQKbGkMf/xqI1jjy3oCTgMKJac58G2+bjZb3fza6gW2YrCSdMQYaoTb70crvE//Gngr4f0AgVHmqHvBQ==}
     engines: {node: ^12.13 || ^14.13 || >=16}
     hasBin: true
+
+  node-pty@1.1.0:
+    resolution: {integrity: sha512-20JqtutY6JPXTUnL0ij1uad7Qe1baT46lyolh2sSENDd4sTzKZ4nmAFkeAARDKwmlLjPx6XKRlwRUxwjOy+lUg==}
 
   node-releases@2.0.46:
     resolution: {integrity: sha512-GYVXHE2KnrzAfsAjl4uP++evGFCrAU1jta4ubEjIG7YWt/64Gqv66a30yKwWczVjA6j3bM4nBwH7Pk1JmDHaxQ==}
@@ -6162,6 +6143,10 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.11.2
       '@tauri-apps/cli-win32-x64-msvc': 2.11.2
 
+  '@tauri-apps/plugin-dialog@2.7.1':
+    dependencies:
+      '@tauri-apps/api': 2.11.0
+
   '@tauri-apps/plugin-opener@2.5.4':
     dependencies:
       '@tauri-apps/api': 2.11.0
@@ -8353,6 +8338,10 @@ snapshots:
     transitivePeerDependencies:
       - bluebird
       - supports-color
+
+  node-pty@1.1.0:
+    dependencies:
+      node-addon-api: 7.1.1
 
   node-releases@2.0.46: {}
 

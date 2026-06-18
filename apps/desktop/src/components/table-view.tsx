@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/input';
 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { DataTable, type ColumnDef } from '@/components/data-table';
+import { Spinner } from '@/components/ui/spinner';
+import { Badge } from '@/components/ui/badge';
 import {
-  Loader2,
   Key,
   Hash,
   Table2,
@@ -36,7 +37,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -145,7 +145,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   if (isLoading && !result) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -221,15 +221,15 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           rows={result.rows}
           columns={tableColumns}
           rowKey={(_, i) => String(i)}
-          prefixHeader="Actions"
-          prefixWidth="64px"
-          prefixCellClassName="bg-background"
+          suffixHeader="Actions"
+          suffixWidth="64px"
+          suffixCellClassName="bg-background"
           showIndex
           indexOffset={state.offset}
           onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
           sortColumn={state.sortColumn}
           sortDirection={state.sortDirection}
-          prefix={(row) => (
+          suffix={(row) => (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
@@ -245,7 +245,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   <Copy className="size-3.5 mr-2" />
                   Copy row
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
                   <Trash2 className="size-3.5 mr-2" />
                   Delete row
@@ -545,7 +544,16 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                 {columns?.map((col) => (
                   <TableRow key={col.name} style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
                     <TableCell className="px-3 py-1.5 font-medium">{col.name}</TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground">{col.type}</TableCell>
+                    <TableCell className="px-3 py-1.5 text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <span>{col.type}</span>
+                        {col.isVector && (
+                          <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px]">
+                            vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
                     <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
                       {col.default ?? <span className="italic">null</span>}
@@ -575,11 +583,12 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                   <TableHead className="px-3 py-1.5">Name</TableHead>
                   <TableHead className="px-3 py-1.5">Columns</TableHead>
                   <TableHead className="px-3 py-1.5">Unique</TableHead>
+                  <TableHead className="px-3 py-1.5">Method</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {indexes?.map((idx) => (
-                  <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
                     <TableCell className="px-3 py-1.5 font-medium">
                       <div className="flex items-center gap-1">
                         {idx.primary && <Hash className="size-3 text-muted-foreground" />}
@@ -588,6 +597,15 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                     </TableCell>
                     <TableCell className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</TableCell>
                     <TableCell className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</TableCell>
+                    <TableCell className="px-3 py-1.5">
+                      {idx.method ? (
+                        <Badge variant={idx.method === 'hnsw' || idx.method === 'ivfflat' ? 'secondary' : 'outline'}>
+                          {idx.method}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

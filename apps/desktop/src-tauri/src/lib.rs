@@ -12,6 +12,10 @@ use postgres_psql::start_postgres_psql_session;
 use terminal_sessions::{
     resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
 };
+use postgres_tools::{
+    cancel_postgres_job, start_postgres_backup, start_postgres_restore, PostgresJobState,
+};
+
 struct SidecarState(Mutex<Option<Child>>);
 
 #[derive(Serialize)]
@@ -101,10 +105,12 @@ async fn delete_credential(service: String, account: String) -> Result<(), Strin
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
         .manage(TerminalSessionState::default())
+        .manage(PostgresJobState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_data_dir,
             start_sidecar,
@@ -116,6 +122,9 @@ pub fn run() {
             write_terminal_session,
             resize_terminal_session,
             stop_terminal_session,
+            start_postgres_backup,
+            start_postgres_restore,
+            cancel_postgres_job,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

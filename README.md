@@ -13,7 +13,6 @@
 - **12+ engines, one app** — SQL, document, cache, vector, and ledger systems side by side: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, TigerBeetle
 - **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine. No hosted proxy, no telemetry
 - **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, Redis commands, and Qdrant searches. Streaming responses with stop/cancel
-- **Schema timeline + migration assistant** — capture on-demand snapshots, see what changed between them, and auto-generate DDL to migrate from one state to the next
 - **Global search (Ctrl+K)** — fuzzy search across connections, tables, columns, open tabs, and quick actions across every connected engine
 - **Engine-native tooling** — PostgreSQL stats and embedded PSQL terminal, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers
 - **Query history with favorites** — normalized patterns, duration per group, per-connection
@@ -22,6 +21,8 @@
 - **Schema browser & ER diagram** — auto-generated ER graphs via ReactFlow + dagre
 - **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
 - **Schema-aware SQL editor** — Monaco with FK-aware JOIN/ON suggestions and autocomplete across tables, columns, functions, keywords
+- **PostgreSQL pgvector workflows** — detect vector columns and indexes, run guided vector/raw search, inspect nearest neighbors, and open a sampled PCA vector map
+- **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation
 - **Connection URL** — paste `postgresql://`, `mysql://`, `redis://`, etc. to auto-fill connection fields
 
 ## Quick Start
@@ -169,7 +170,7 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Tigerbeetle
 - [x] MariaDB
 
-### In Progress
+### Features
 
 - [x] Query history with favorites
 - [x] Data visualization / charts
@@ -178,9 +179,13 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Pin / favorites connections
 - [x] Workspace tabs memory
 - [x] Production safety mode — prevent accidental writes to production
-- [x] Schema change timeline — track column additions, removals, index changes for debugging
-- [x] Migration assistant
+- [x] PostgreSQL backup & restore
 - [x] PostgreSQL embedded PSQL tool
+
+### In Progress
+
+- [ ] Schema change timeline — capture on-demand snapshots, see what changed, and auto-generate DDL to migrate between states
+- [ ] Migration assistant
 
 ### Future Ideas
 

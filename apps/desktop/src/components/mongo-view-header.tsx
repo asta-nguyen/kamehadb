@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Search,
   Table2,
+  Terminal,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ interface MongoViewHeaderProps {
   onRefresh: () => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
+  onOpenShell?: () => void;
 }
 
 export function MongoViewHeader({
@@ -50,6 +52,7 @@ export function MongoViewHeader({
   onRefresh,
   onExportJSON,
   onExportCSV,
+  onOpenShell,
 }: MongoViewHeaderProps) {
   return (
     <div className="px-4 py-2 border-b border-border">
@@ -118,6 +121,11 @@ export function MongoViewHeader({
           <Button variant="outline" size="icon" onClick={onRefresh} disabled={isFetching} title="Refresh">
             <RefreshCw className={`!size-3.5 ${isFetching ? 'animate-spin' : ''}`} />
           </Button>
+          {onOpenShell && (
+            <Button variant="outline" size="icon" onClick={onOpenShell} title="Open Mongo Shell">
+              <Terminal className="!size-3.5" />
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-muted hover:text-foreground size-8">
               <Download className="size-3.5" />
