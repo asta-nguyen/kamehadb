@@ -796,6 +796,7 @@ export type WorkspaceTab =
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string }
   | { id: string; type: 'schema-timeline'; title: string; connectionId: string }
   | { id: string; type: 'migration'; title: string; connectionId: string }
+  | { id: string; type: 'postgres-psql'; title: string; connectionId: string }
   // TigerBeetle account/transfer explorer
   | { id: string; type: 'tigerbeetle'; title: string; connectionId: string }
   // PostgreSQL pgvector search

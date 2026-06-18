@@ -14,7 +14,7 @@
 - **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine. No hosted proxy, no telemetry
 - **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, Redis commands, and Qdrant searches. Streaming responses with stop/cancel
 - **Global search (Ctrl+K)** — fuzzy search across connections, tables, columns, open tabs, and quick actions across every connected engine
-- **Engine-native tooling** — PostgreSQL stats, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers
+- **Engine-native tooling** — PostgreSQL stats and embedded PSQL terminal, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers
 - **Query history with favorites** — normalized patterns, duration per group, per-connection
 - **Charts** — bar, line, area, pie views on any query result or Mongo collection (powered by recharts)
 - **Health monitoring** — live status badges with latency tracking; slow/reconnecting/offline states with tooltips
@@ -180,6 +180,7 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Workspace tabs memory
 - [x] Production safety mode — prevent accidental writes to production
 - [x] PostgreSQL backup & restore
+- [x] PostgreSQL embedded PSQL tool
 
 ### In Progress
 

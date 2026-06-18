@@ -18,6 +18,7 @@ import {
 import {
   appStore,
   navigateTo,
+  openPostgresPsqlTab,
   openRedisTab,
   setActiveConnection,
   setConnectionLatency,
@@ -134,13 +135,16 @@ function ConnectionItem({
             className="text-muted-foreground/60 hover:text-foreground"
           />
         </Button>
-
         <ConnectionDropdownMenu
           conn={conn}
           refreshConnection={refreshConnection}
           pinned={pinned}
           onEdit={() => setShowEdit(true)}
           onDelete={() => setShowDeleteConfirm(true)}
+          onOpenPsql={() => {
+            setActiveConnection(conn.id);
+            openPostgresPsqlTab(conn.id, conn.database);
+          }}
           onBackup={() => setShowBackup(true)}
           onRestore={() => setShowRestore(true)}
         />

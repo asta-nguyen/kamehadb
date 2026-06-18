@@ -4,8 +4,14 @@ use std::process::{Child, Command};
 use std::sync::Mutex;
 use tauri::Manager;
 
+mod postgres_psql;
 mod postgres_tools;
+mod terminal_sessions;
 
+use postgres_psql::start_postgres_psql_session;
+use terminal_sessions::{
+    resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
+};
 use postgres_tools::{
     cancel_postgres_job, start_postgres_backup, start_postgres_restore, PostgresJobState,
 };
@@ -103,6 +109,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
+        .manage(TerminalSessionState::default())
         .manage(PostgresJobState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_data_dir,
@@ -111,6 +118,10 @@ pub fn run() {
             store_credential,
             get_credential,
             delete_credential,
+            start_postgres_psql_session,
+            write_terminal_session,
+            resize_terminal_session,
+            stop_terminal_session,
             start_postgres_backup,
             start_postgres_restore,
             cancel_postgres_job,

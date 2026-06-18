@@ -120,6 +120,17 @@ export function openMigrationTab(connectionId: string) {
   });
 }
 
+export function openPostgresPsqlTab(connectionId: string, database?: string) {
+  const tabCount = appStore.state.openedTabs.filter((t) => t.type === 'postgres-psql').length;
+  const tab: WorkspaceTab = {
+    id: `postgres-psql-${nanoid()}`,
+    type: 'postgres-psql',
+    title: database ? `PSQL ${database}` : `PSQL ${tabCount + 1}`,
+    connectionId,
+  };
+  openTab(tab);
+}
+
 export function openRedisTab(connectionId: string) {
   openTab({
     id: `${connectionId}:redis`,

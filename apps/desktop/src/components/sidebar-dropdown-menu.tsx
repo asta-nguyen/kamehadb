@@ -50,6 +50,7 @@ export function ConnectionDropdownMenu({
   pinned,
   onEdit,
   onDelete,
+  onOpenPsql,
   onBackup,
   onRestore,
 }: {
@@ -58,6 +59,7 @@ export function ConnectionDropdownMenu({
   pinned: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onOpenPsql: () => void;
   onBackup: () => void;
   onRestore: () => void;
 }) {
@@ -87,6 +89,15 @@ export function ConnectionDropdownMenu({
 
         {conn.kind === 'postgres' && isTauriRuntime() && (
           <>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                onOpenPsql();
+              }}
+            >
+              <Terminal className="mr-2 size-3.5" />
+              Open PSQL
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 setActiveConnection(conn.id);

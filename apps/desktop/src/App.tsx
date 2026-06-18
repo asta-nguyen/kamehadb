@@ -15,6 +15,7 @@ import { SchemaGraph } from '@/components/schema-graph';
 import { SchemaTimeline } from '@/components/schema-timeline';
 import { GlobalSearch } from '@/components/global-search';
 import { MigrationAssistant } from '@/components/migration-assistant';
+import { PostgresPsqlTabs } from '@/components/postgres-psql-tabs';
 import { Sidebar } from '@/components/sidebar';
 import { SqlEditor } from '@/components/sql-editor';
 import { TableStats } from '@/components/table-stats';
@@ -34,6 +35,7 @@ import {
   openGraphTab,
   openMongoQueryTab,
   openNewQueryTab,
+  openPostgresPsqlTab,
   openRedisQueryTab,
   setTheme,
 } from '@/store';
@@ -160,6 +162,8 @@ function TabBar() {
               <History className="size-3" />
             ) : tab.type === 'migration' ? (
               <Terminal className="size-3" />
+            ) : tab.type === 'postgres-psql' ? (
+              <Terminal className="size-3" />
             ) : tab.type === 'postgres-vector-search' ? (
               <Search className="size-3" />
             ) : tab.type === 'postgres-vector-map' ? (
@@ -224,6 +228,16 @@ function TabBar() {
               >
                 <Share2 className="size-3.5" />
               </button>
+              {activeConnection.kind === 'postgres' ? (
+                <button
+                  type="button"
+                  className="flex items-center justify-center h-full px-2 hover:bg-muted/50 text-muted-foreground hover:text-foreground shrink-0"
+                  onClick={() => openPostgresPsqlTab(activeConnectionId, activeConnection.database)}
+                  title="Open PSQL"
+                >
+                  <Terminal className="size-3.5" />
+                </button>
+              ) : null}
             </>
           ) : null}
         </>
@@ -376,6 +390,12 @@ function Workspace() {
 
   return (
     <div className="h-full flex flex-col">
+      <PostgresPsqlTabs
+        activeTabId={activeTab.id}
+        tabs={openedTabs.filter(
+          (tab): tab is Extract<typeof tab, { type: 'postgres-psql' }> => tab.type === 'postgres-psql',
+        )}
+      />
       {activeTab.type === 'query' && (
         <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
       )}

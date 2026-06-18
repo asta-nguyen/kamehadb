@@ -4,9 +4,11 @@ mod jobs;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
+// Re-exported for use by jobs.rs and external consumers (tests, future modules).
+#[allow(unused_imports)]
+pub use config::{build_backup_command, build_restore_command, load_postgres_profile, PostgresProfile, PostgresToolError};
 pub use jobs::PostgresJobState;
 
-use crate::postgres_tools::config::{load_postgres_profile, PostgresToolError};
 use crate::postgres_tools::jobs::{cancel_job, start_backup_job, start_restore_job};
 
 pub const POSTGRES_TOOL_EVENT: &str = "postgres-tool-event";

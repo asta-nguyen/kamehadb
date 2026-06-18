@@ -26,6 +26,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - PostgreSQL backup and restore dialogs in the desktop connection menu, with local `pg_dump`, `pg_restore`, and `psql` execution, live command output, and cancel support.
 
+### Added
+
+- PostgreSQL connections now expose an embedded `Open PSQL` terminal tab in the desktop app, with connection-aware launch and session teardown on tab close.
+
 ### Changed
 
 - AI chat for PostgreSQL connections now includes pgvector-aware context and operator guidance when vector columns are present.
