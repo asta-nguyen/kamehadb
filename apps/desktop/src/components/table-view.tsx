@@ -10,9 +10,9 @@ import { Input } from '@/components/ui/input';
 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { DataTable, type ColumnDef } from '@/components/data-table';
+import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import {
-  Loader2,
   Key,
   Hash,
   Table2,
@@ -145,7 +145,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   if (isLoading && !result) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Spinner size="lg" />
       </div>
     );
   }

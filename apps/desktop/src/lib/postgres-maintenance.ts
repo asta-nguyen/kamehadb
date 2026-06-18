@@ -114,7 +114,7 @@ export async function pickRestoreInput(): Promise<string | null> {
   const selected = await open({
     directory: false,
     multiple: false,
-    filters: [{ name: 'Supported PostgreSQL dumps', extensions: ['sql', 'dump', 'backup', 'tar'] }],
+    filters: [{ name: 'Supported PostgreSQL dumps', extensions: ['sql', 'dump', 'backup', 'tar', 'psql'] }],
   });
   return typeof selected === 'string' ? selected : null;
 }

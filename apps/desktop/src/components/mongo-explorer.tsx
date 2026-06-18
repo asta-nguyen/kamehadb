@@ -5,7 +5,8 @@ import { fuzzyMatch } from '@/lib/utils';
 import { appStore, openAiChatPanel, setActiveMongoDatabase } from '@/store';
 import { useStore } from '@tanstack/react-store';
 import type { CollectionInfo } from '@kamehadb/shared';
-import { ChevronDown, ChevronRight, Clock, Database, Eye, Loader2, Search, Sparkles, Table2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, Database, Eye, Search, Sparkles, Table2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -60,7 +61,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
     <div className="space-y-0.5">
       {loadingDatabases ? (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="text-muted-foreground animate-spin size-4" />
+          <Spinner size="md" />
         </div>
       ) : (
         databases?.map((db: { name: string }) => (
@@ -203,7 +204,7 @@ function DatabaseNode({
 
           {loadingCollections ? (
             <div className="flex justify-center py-2">
-              <Loader2 className="text-muted-foreground/60 animate-spin size-3" />
+              <Spinner size="sm" className="text-muted-foreground/60 size-3" />
             </div>
           ) : filteredCollections.length === 0 ? (
             <p className="pl-2 py-1 text-muted-foreground/60 text-xs italic">

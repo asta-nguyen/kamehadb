@@ -41,6 +41,7 @@ export function usePostgresToolJob() {
   const jobIdRef = useRef<string | null>(null);
   const pendingEventsRef = useRef<PostgresToolEvent[]>([]);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const busyRef = useRef(false);
 
   const stopListening = useCallback(() => {
     unlistenRef.current?.();
@@ -76,6 +77,7 @@ export function usePostgresToolJob() {
       }
 
       if (event.type === 'finished') {
+        busyRef.current = false;
         setState((current) => ({
           ...current,
           status: 'finished',
@@ -87,6 +89,7 @@ export function usePostgresToolJob() {
       }
 
       if (event.type === 'cancelled') {
+        busyRef.current = false;
         setState((current) => ({
           ...current,
           status: 'cancelled',
@@ -102,6 +105,7 @@ export function usePostgresToolJob() {
         exitCode: event.exitCode,
         message: event.message,
       }));
+      busyRef.current = false;
       stopListening();
     },
     [stopListening],
@@ -114,10 +118,26 @@ export function usePostgresToolJob() {
         readonly jobId: string;
       }>,
     ) => {
+      // Guard against concurrent invocations — only one tracked job at a time
+      if (busyRef.current) return;
+      busyRef.current = true;
       stopListening();
       jobIdRef.current = null;
       pendingEventsRef.current = [];
-      const unlisten = await listenTauri<PostgresToolEvent>(POSTGRES_TOOL_EVENT, handleEvent);
+      let unlisten: () => void;
+      try {
+        unlisten = await listenTauri<PostgresToolEvent>(POSTGRES_TOOL_EVENT, handleEvent);
+      } catch (error) {
+        busyRef.current = false;
+        setState({
+          ...INITIAL_STATE,
+          kind,
+          status: 'failed',
+          message: error instanceof Error ? error.message : `Failed to listen for ${kind} events`,
+          exitCode: null,
+        });
+        return;
+      }
       unlistenRef.current = unlisten;
       setState({ ...INITIAL_STATE, kind, status: 'running', message: `Starting ${kind}...` });
       try {
@@ -129,6 +149,7 @@ export function usePostgresToolJob() {
         }
         pendingEventsRef.current = [];
       } catch (error) {
+        busyRef.current = false;
         stopListening();
         jobIdRef.current = null;
         pendingEventsRef.current = [];
@@ -160,6 +181,7 @@ export function usePostgresToolJob() {
   }, [state.status]);
 
   const reset = useCallback(() => {
+    busyRef.current = false;
     jobIdRef.current = null;
     pendingEventsRef.current = [];
     stopListening();

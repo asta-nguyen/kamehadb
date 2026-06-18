@@ -1,4 +1,5 @@
-import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +47,7 @@ export function DataFooter({
       <span className="ml-auto">{durationMs}ms</span>
       {isFetching && (
         <span className="flex items-center gap-1 text-muted-foreground">
-          <Loader2 className="size-3 animate-spin" />
+          <Spinner size="sm" />
           Loading...
         </span>
       )}

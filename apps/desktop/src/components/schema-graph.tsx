@@ -18,9 +18,11 @@ import {
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import { useQuery } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import { api } from '@/lib/api';
 import { openTab } from '@/store';
-import { Loader2, Table2, LayoutGrid } from 'lucide-react';
+import { Table2, LayoutGrid } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 type CompletionsData = {
   tables: Array<{
@@ -37,7 +39,7 @@ type CompletionsData = {
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
-    queryKey: ['autocomplete', connectionId],
+    queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
     queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
@@ -228,7 +230,7 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="text-muted-foreground animate-spin size-5" />
+        <Spinner size="lg" />
       </div>
     );
   }

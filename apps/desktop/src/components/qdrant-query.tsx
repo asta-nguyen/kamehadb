@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
 import { simpleEmbed } from '@/lib/simple-embed';
-import { Loader2, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface QdrantQueryProps {
   tab: Extract<WorkspaceTab, { type: 'qdrant-search' }>;
@@ -283,11 +284,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
             />
           </Label>
           <Button size="sm" onClick={run} disabled={state.running} className="ml-auto">
-            {state.running ? (
-              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Play className="size-3.5 mr-1.5" />
-            )}
+            {state.running ? <Spinner size="sm" className="size-3.5 mr-1.5" /> : <Play className="size-3.5 mr-1.5" />}
             Search
           </Button>
         </div>

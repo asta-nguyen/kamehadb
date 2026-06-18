@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { PostgresToolLog } from '@/components/postgres-tool-log';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useEffect } from 'react';
 
 type PostgresRestoreDialogProps = {
@@ -152,7 +152,7 @@ export function PostgresRestoreDialog({ connection, open, onOpenChange }: Postgr
               </Button>
             ) : null}
             <Button onClick={() => void submit()} disabled={running}>
-              {running ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {running ? <Spinner size="md" className="mr-2" /> : null}
               Start restore
             </Button>
           </div>

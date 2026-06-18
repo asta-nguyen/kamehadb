@@ -1,27 +1,11 @@
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useConnections,
   useDeleteConnection,
   useRefreshConnection,
   useConnectionHealth,
 } from '@/hooks/use-connections';
-import { usePostgresVectorCapabilities } from '@/hooks/use-postgres-vector';
 import { getApiBase } from '@/lib/api';
 import { isTauriRuntime } from '@/lib/tauri';
 import {
@@ -34,58 +18,28 @@ import {
 import {
   appStore,
   navigateTo,
-  openAiChatPanel,
-  openDatabaseStatsTab,
-  openGraphTab,
-  openMongoQueryTab,
-  openNewQueryTab,
-  openPostgresVectorSearchTab,
-  openQdrantSearchTab,
-  openRedisQueryTab,
   openRedisTab,
-  openMigrationTab,
-  openSchemaTimelineTab,
   setActiveConnection,
   setConnectionLatency,
   setConnectionStatus,
   toggleExpandedConnection,
-  togglePinnedConnection,
 } from '@/store';
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
+import type { ConnectionStatus } from './sidebar.helpers';
 import { useStore } from '@tanstack/react-store';
-import {
-  BarChart3,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  History,
-  Loader2,
-  MoreVertical,
-  Pin,
-  PinOff,
-  RefreshCw,
-  Search,
-  Settings2,
-  Share2,
-  Sparkles,
-  Terminal,
-  Trash2,
-} from 'lucide-react';
-
+import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
+import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
+import { ConnectionExpansion } from './sidebar-expansion';
+import { ConnectionStatusDot } from './sidebar-status-dot';
+import { ConnectionTooltip } from './sidebar-tooltip';
 import { DbIcon } from './db-icon';
-import { MongoExplorer } from './mongo-explorer';
+import { DeleteConfirmDialog } from './sidebar-delete-dialog';
 import { PostgresBackupDialog } from './postgres-backup-dialog';
-import { PostgresMaintenanceMenu } from './postgres-maintenance-menu';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
-import { QdrantExplorer } from './qdrant-explorer';
-import { TigerBeetleExplorer } from './tigerbeetle-explorer';
-import { SchemaTree } from './schema-tree';
-
-function SpinningRefresh({ spinning, className = '' }: { spinning: boolean; className?: string }) {
-  return <RefreshCw className={`size-3.5 ${className} ${spinning ? 'animate-spin' : ''}`} />;
-}
+import { SpinningRefresh } from './sidebar.helpers';
 
 function ConnectionItem({
   conn,
@@ -96,66 +50,47 @@ function ConnectionItem({
   isActive: boolean;
   onSelect: () => void;
 }) {
-  const expandedConnections = useStore(appStore, (state) => state.expandedConnections);
-  const connectionStatus = useStore(appStore, (state) => state.connectionStatus);
-  const connectionLatency = useStore(appStore, (state) => state.connectionLatency);
-  const pinnedConnections = useStore(appStore, (state) => state.pinnedConnections);
-  const activeTabId = useStore(appStore, (state) => state.activeTabId);
+  const expandedConnections = useStore(appStore, (s) => s.expandedConnections);
+  const connectionStatus = useStore(appStore, (s) => s.connectionStatus);
+  const connectionLatency = useStore(appStore, (s) => s.connectionLatency);
+  const pinnedConnections = useStore(appStore, (s) => s.pinnedConnections);
+  const activeTabId = useStore(appStore, (s) => s.activeTabId);
+
   const expanded = expandedConnections.includes(conn.id);
   const pinned = pinnedConnections.includes(conn.id);
+
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
+
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
   const healthCheck = useConnectionHealth(conn.id);
-  const { data: pgVectorCapabilities } = usePostgresVectorCapabilities(conn.kind === 'postgres' ? conn.id : null);
-  const canOpenVectorSearch = !!pgVectorCapabilities?.available && pgVectorCapabilities.columns.length > 0;
 
-  // SSE is the primary health source (has latency + reconnecting states).
-  // Fall back to healthCheck on first render before SSE arrives.
-  const status = conn.id in connectionStatus ? connectionStatus[conn.id] : (healthCheck.data ?? 'disconnected');
+  const status: ConnectionStatus =
+    conn.id in connectionStatus ? connectionStatus[conn.id] : (healthCheck.data ?? 'disconnected');
   const latency = connectionLatency[conn.id];
-  const indicatorColor =
-    status === 'connected'
-      ? conn.color || '#22c55e'
-      : status === 'slow'
-        ? '#eab308'
-        : status === 'reconnecting'
-          ? '#f97316'
-          : '#ef4444';
-  const statusLabel =
-    status === 'connected' && latency !== undefined
-      ? `Connected • ${latency}ms`
-      : status === 'slow'
-        ? `Slow • ${latency}ms`
-        : status === 'reconnecting'
-          ? 'Reconnecting…'
-          : 'Offline';
+
+  function handleRowActivate() {
+    onSelect();
+    if (conn.kind === 'redis') {
+      openRedisTab(conn.id);
+    } else {
+      toggleExpandedConnection(conn.id);
+    }
+  }
 
   return (
     <div className="relative grow">
       <div
-        onClick={() => {
-          onSelect();
-          if (conn.kind === 'redis') {
-            openRedisTab(conn.id);
-          } else {
-            toggleExpandedConnection(conn.id);
-          }
-        }}
         role="button"
         tabIndex={0}
+        onClick={handleRowActivate}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            onSelect();
-            if (conn.kind === 'redis') {
-              openRedisTab(conn.id);
-            } else {
-              toggleExpandedConnection(conn.id);
-            }
+            handleRowActivate();
           }
         }}
         className={`group w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm transition-all cursor-pointer ${
@@ -171,39 +106,17 @@ function ConnectionItem({
         ) : (
           <span className="shrink-0 size-4" />
         )}
+
         <DbIcon kind={conn.kind} className="shrink-0 size-4" />
+
         <Tooltip>
           <TooltipTrigger className="flex min-w-0 flex-1 items-center justify-start gap-1.5 text-foreground/90 font-medium cursor-default text-left">
             <span className="min-w-0 flex-1 truncate">{conn.name}</span>
             {pinned && <Pin className="size-3 shrink-0 text-muted-foreground/50" />}
           </TooltipTrigger>
-          <TooltipContent side="right" align="start" sideOffset={12} className="rounded-lg shadow-sm px-4 py-3">
-            <div className="text-xs leading-relaxed min-w-45">
-              <p className="font-semibold mb-2">{conn.name}</p>
-              <div className="space-y-1.5 text-popover-foreground/65">
-                <div className="flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: indicatorColor }} />
-                  <span>{statusLabel}</span>
-                </div>
-                <p className="capitalize">
-                  {conn.kind}
-                  {conn.host ? ` · ${conn.host}:${conn.port}` : ''}
-                </p>
-                {conn.database && <p>db: {conn.database}</p>}
-                {conn.updatedAt && (
-                  <p className="text-popover-foreground/40 text-[10px]">
-                    {new Date(conn.updatedAt).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                )}
-              </div>
-            </div>
-          </TooltipContent>
+          <ConnectionTooltip conn={conn} status={status} latency={latency} />
         </Tooltip>
+
         <Button
           variant="ghost"
           size="icon"
@@ -221,242 +134,40 @@ function ConnectionItem({
             className="text-muted-foreground/60 hover:text-foreground"
           />
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center justify-center rounded-md opacity-0 size-6 transition-colors hover:bg-muted/50 group-hover:opacity-100"
-          >
-            <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={4}>
-            <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
-              <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
-              Reload
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => togglePinnedConnection(conn.id)}>
-              {pinned ? <PinOff className="mr-2 size-3.5" /> : <Pin className="mr-2 size-3.5" />}
-              {pinned ? 'Unpin' : 'Pin to top'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
-              <Sparkles className="mr-2 size-3.5" />
-              AI Chat
-            </DropdownMenuItem>
-            {conn.kind === 'postgres' ? (
-              <PostgresMaintenanceMenu
-                onOpenBackup={() => {
-                  setActiveConnection(conn.id);
-                  setShowBackup(true);
-                }}
-                onOpenRestore={() => {
-                  setActiveConnection(conn.id);
-                  setShowRestore(true);
-                }}
-              />
-            ) : null}
-            {conn.kind !== 'mongodb' &&
-              conn.kind !== 'redis' &&
-              conn.kind !== 'qdrant' &&
-              conn.kind !== 'tigerbeetle' && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openNewQueryTab(conn.id);
-                    }}
-                  >
-                    <FileText className="mr-2 size-3.5" />
-                    New Query
-                  </DropdownMenuItem>
-                  {conn.kind === 'postgres' && canOpenVectorSearch && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setActiveConnection(conn.id);
-                        openPostgresVectorSearchTab(conn.id);
-                      }}
-                    >
-                      <Search className="mr-2 size-3.5" />
-                      Vector Search
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openGraphTab(conn.id);
-                    }}
-                  >
-                    <Share2 className="mr-2 size-3.5" />
-                    Graph
-                  </DropdownMenuItem>
-                </>
-              )}
-            {conn.kind === 'qdrant' && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveConnection(conn.id);
-                  openQdrantSearchTab(conn.id);
-                }}
-              >
-                <Search className="mr-2 size-3.5" />
-                Vector Search
-              </DropdownMenuItem>
-            )}
-            {conn.kind === 'mongodb' && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveConnection(conn.id);
-                  openMongoQueryTab(conn.id, appStore.state.activeMongoDatabase ?? 'admin', '');
-                }}
-              >
-                <Terminal className="mr-2 size-3.5" />
-                Aggregation
-              </DropdownMenuItem>
-            )}
-            {conn.kind === 'redis' && (
-              <>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openRedisQueryTab(conn.id);
-                  }}
-                >
-                  <Terminal className="mr-2 size-3.5" />
-                  Query
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setActiveConnection(conn.id);
-                    openRedisTab(conn.id);
-                  }}
-                >
-                  <BarChart3 className="mr-2 size-3.5" />
-                  Stats
-                </DropdownMenuItem>
-              </>
-            )}
-            {conn.kind !== 'mongodb' &&
-              conn.kind !== 'redis' &&
-              conn.kind !== 'qdrant' &&
-              conn.kind !== 'tigerbeetle' && (
-                <>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openDatabaseStatsTab(conn.id);
-                    }}
-                  >
-                    <BarChart3 className="mr-2 size-3.5" />
-                    Stats
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openSchemaTimelineTab(conn.id);
-                    }}
-                  >
-                    <History className="mr-2 size-3.5" />
-                    Schema Timeline
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveConnection(conn.id);
-                      openMigrationTab(conn.id);
-                    }}
-                  >
-                    <Terminal className="mr-2 size-3.5" />
-                    Migration Assistant
-                  </DropdownMenuItem>
-                </>
-              )}
-            <DropdownMenuItem onClick={() => setShowEdit(true)}>
-              <Settings2 className="mr-2 size-3.5" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
-              <Trash2 className="mr-2 size-3.5" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <span
-          className={`h-2.5 w-2.5 rounded-full ring-2 ring-background shrink-0 ${status === 'reconnecting' ? 'animate-pulse' : ''}`}
-          style={{
-            backgroundColor: indicatorColor,
-            boxShadow: status === 'connected' || status === 'slow' ? `0 0 8px ${indicatorColor}` : 'none',
-          }}
-          title={statusLabel}
+
+        <ConnectionDropdownMenu
+          conn={conn}
+          refreshConnection={refreshConnection}
+          pinned={pinned}
+          onEdit={() => setShowEdit(true)}
+          onDelete={() => setShowDeleteConfirm(true)}
+          onBackup={() => setShowBackup(true)}
+          onRestore={() => setShowRestore(true)}
         />
+
+        <ConnectionStatusDot conn={conn} status={status} latency={latency} />
       </div>
-      {showEdit && (
-        <ConnectionDialog open={showEdit} onOpenChange={(open) => setShowEdit(open)} editConnection={conn} />
-      )}
-      {conn.kind === 'postgres' && isTauriRuntime() ? (
+
+      {showEdit && <ConnectionDialog open onOpenChange={setShowEdit} editConnection={conn} />}
+      {conn.kind === 'postgres' && isTauriRuntime() && (
         <>
           <PostgresBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
           <PostgresRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
         </>
-      ) : null}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete "{conn.name}"? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                deleteConnection.mutate(conn.id);
-                setShowDeleteConfirm(false);
-              }}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      )}
+      <DeleteConfirmDialog
+        conn={conn}
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        onConfirm={() => {
+          deleteConnection.mutate(conn.id);
+          setShowDeleteConfirm(false);
+        }}
+      />
+
       {expanded && conn.kind !== 'redis' && (
         <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
-          {conn.kind === 'mongodb' ? (
-            <>
-              <MongoExplorer key={conn.id} connectionId={conn.id} />
-            </>
-          ) : conn.kind === 'qdrant' ? (
-            <>
-              <QdrantExplorer key={conn.id} connectionId={conn.id} />
-            </>
-          ) : conn.kind === 'tigerbeetle' ? (
-            <TigerBeetleExplorer key={conn.id} connectionId={conn.id} />
-          ) : (
-            <>
-              <SchemaTree
-                key={conn.id}
-                connectionId={conn.id}
-                activeTableId={activeTabId}
-                onSelectTable={(tableId) => {
-                  const newTab = {
-                    id: `${conn.id}:${tableId}`,
-                    type: 'table' as const,
-                    title: tableId,
-                    connectionId: conn.id,
-                  };
-                  const existingTab = appStore.state.openedTabs.find((t) => t.id === newTab.id);
-                  if (existingTab) {
-                    appStore.setState((s) => ({ ...s, view: 'workspace', activeTabId: newTab.id }));
-                  } else {
-                    appStore.setState((s) => ({
-                      ...s,
-                      view: 'workspace',
-                      openedTabs: [...s.openedTabs, newTab],
-                      activeTabId: newTab.id,
-                    }));
-                  }
-                }}
-              />
-            </>
-          )}
+          <ConnectionExpansion conn={conn} activeTabId={activeTabId} />
         </div>
       )}
     </div>
@@ -500,14 +211,15 @@ function ConnectionGroup({
 
 export function Sidebar() {
   const { data: connections, isLoading } = useConnections();
-  const activeConnectionId = useStore(appStore, (state) => state.activeConnectionId);
-  const view = useStore(appStore, (state) => state.view);
+  const activeConnectionId = useStore(appStore, (s) => s.activeConnectionId);
+  const view = useStore(appStore, (s) => s.view);
+  const pinnedConnections = useStore(appStore, (s) => s.pinnedConnections);
+
   const [showCreate, setShowCreate] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const pinnedConnections = useStore(appStore, (state) => state.pinnedConnections);
   const groups = useMemo(() => {
     if (!connections) return [];
     const pinned: ConnectionProfile[] = [];
@@ -517,8 +229,7 @@ export function Sidebar() {
         pinned.push(conn);
       } else {
         const key = conn.kind in GROUP_ORDER ? conn.kind : 'other';
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(conn);
+        (grouped[key] ??= []).push(conn);
       }
     }
     const entries: [string, ConnectionProfile[]][] = [];
@@ -534,30 +245,19 @@ export function Sidebar() {
 
   useEffect(() => {
     if (!isResizing) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
-      setSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
+    const onMove = (e: MouseEvent) => setSidebarWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX)));
+    const onUp = () => setIsResizing(false);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
     };
   }, [isResizing]);
 
-  // Single EventSource for health status — replaces per-item polling
+  // Single SSE stream for all connection health — replaces per-item polling
   useEffect(() => {
-    const url = `${getApiBase()}/connections/health`;
-    const es = new EventSource(url);
-    // Track reconnecting grace period per connection
+    const es = new EventSource(`${getApiBase()}/connections/health`);
     const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     es.onmessage = (event) => {
@@ -565,34 +265,22 @@ export function Sidebar() {
         const results: Record<string, { success: boolean; latencyMs?: number }> = JSON.parse(event.data);
         for (const [id, r] of Object.entries(results)) {
           if (r.success) {
-            // Clear any pending reconnect timer
-            const timer = reconnectTimers.get(id);
-            if (timer) {
-              clearTimeout(timer);
-              reconnectTimers.delete(id);
-            }
-            if (r.latencyMs !== undefined) {
-              setConnectionLatency(id, r.latencyMs);
-            } else {
-              setConnectionStatus(id, 'connected');
-            }
+            clearTimeout(reconnectTimers.get(id));
+            reconnectTimers.delete(id);
+            if (r.latencyMs !== undefined) setConnectionLatency(id, r.latencyMs);
+            else setConnectionStatus(id, 'connected');
           } else {
-            // Failed — show reconnecting briefly, then settle on disconnected.
-            // Don't call setConnectionLatency here — it derives status as
-            // 'connected'/'slow' from latencyMs, which would overwrite the
-            // disconnected/reconnecting status we just set.
-            const prevStatus = appStore.state.connectionStatus[id];
-            if (prevStatus === 'connected' || prevStatus === 'slow') {
+            const prev = appStore.state.connectionStatus[id];
+            if (prev === 'connected' || prev === 'slow') {
               setConnectionStatus(id, 'reconnecting');
               const timer = setTimeout(() => {
-                const s = appStore.state.connectionStatus[id];
-                if (s === 'reconnecting') {
+                if (appStore.state.connectionStatus[id] === 'reconnecting') {
                   setConnectionStatus(id, 'disconnected');
                 }
                 reconnectTimers.delete(id);
               }, 5000);
               reconnectTimers.set(id, timer);
-            } else if (prevStatus !== 'reconnecting') {
+            } else if (prev !== 'reconnecting') {
               setConnectionStatus(id, 'disconnected');
             }
           }
@@ -601,9 +289,7 @@ export function Sidebar() {
         // Malformed SSE payload — skip
       }
     };
-    es.onerror = () => {
-      // Connection lost — the browser will auto-reconnect
-    };
+
     return () => {
       es.close();
       for (const timer of reconnectTimers.values()) clearTimeout(timer);
@@ -621,21 +307,21 @@ export function Sidebar() {
           <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />
         </div>
-        <div className="flex-1">
-          <div className="p-2 space-y-2">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="text-muted-foreground animate-spin size-4" />
-              </div>
-            ) : connections?.length === 0 ? (
-              <p className="px-2 py-4 text-center text-xs">No connections yet</p>
-            ) : (
-              groups.map(([kind, conns]) => (
-                <ConnectionGroup key={kind} kind={kind} conns={conns} activeConnectionId={activeConnectionId} />
-              ))
-            )}
-          </div>
+
+        <div className="flex-1 p-2 space-y-2">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Spinner size="md" />
+            </div>
+          ) : connections?.length === 0 ? (
+            <p className="px-2 py-4 text-center text-xs">No connections yet</p>
+          ) : (
+            groups.map(([kind, conns]) => (
+              <ConnectionGroup key={kind} kind={kind} conns={conns} activeConnectionId={activeConnectionId} />
+            ))
+          )}
         </div>
+
         <div className="p-1.5 border-border border-t shrink-0">
           <Button
             variant="ghost"
@@ -648,7 +334,7 @@ export function Sidebar() {
           </Button>
         </div>
       </div>
-      {/* Resize handle */}
+
       <div
         onMouseDown={handleMouseDown}
         role="separator"

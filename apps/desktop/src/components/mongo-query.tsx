@@ -8,17 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartView } from '@/components/chart-view';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
-import {
-  Play,
-  Loader2,
-  AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  Database,
-  Table2,
-  BarChart3,
-  Braces,
-} from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
+import { Play, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChart3, Braces } from 'lucide-react';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import JSON5 from 'json5';
 import type { WorkspaceTab, DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
@@ -119,7 +111,7 @@ function MongoQueryToolbar({
         <SelectTrigger className="h-7 w-44 text-xs gap-2 pl-2.5 pr-2">
           <span className="flex items-center gap-1.5 min-w-0">
             {databasesLoading ? (
-              <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+              <Spinner size="sm" className="size-3.5 shrink-0" />
             ) : (
               <Database className="size-3.5 shrink-0 text-muted-foreground" />
             )}
@@ -141,7 +133,7 @@ function MongoQueryToolbar({
         <SelectTrigger className="h-7 w-52 text-xs gap-2 pl-2.5 pr-2 data-[disabled]:border-dashed data-[disabled]:bg-muted/20 data-[disabled]:opacity-100 data-[disabled]:[&_[data-slot=select-value]]:text-muted-foreground/50">
           <span className="flex items-center gap-1.5 min-w-0">
             {collectionsLoading ? (
-              <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+              <Spinner size="sm" className="size-3.5 shrink-0" />
             ) : (
               <Table2 className="size-3.5 shrink-0 text-muted-foreground" />
             )}
@@ -167,7 +159,7 @@ function MongoQueryToolbar({
           disabled={!collection || running}
           className="h-7 text-xs gap-1.5 px-3"
         >
-          {running ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5 fill-current" />}
+          {running ? <Spinner size="sm" className="size-3.5" /> : <Play className="size-3.5 fill-current" />}
           {running ? 'Running' : 'Run'}
         </Button>
         {resultTotal != null && !running && (
@@ -228,7 +220,7 @@ function AggregationResult({
   if (running) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -433,13 +425,13 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
   });
 
   const { data: collections, isLoading: collectionsLoading } = useQuery({
-    queryKey: ['mongo-collections', connectionId, state.db],
+    queryKey: QUERY_KEYS.MONGO_COLLECTIONS(connectionId, state.db),
     queryFn: () => get<CollectionInfo[]>(`/mongo/${connectionId}/collections?database=${encodeURIComponent(state.db)}`),
     enabled: !!connectionId && !!state.db,
   });
 
   const { data: completionsData } = useQuery({
-    queryKey: ['mongo-completions', connectionId],
+    queryKey: QUERY_KEYS.MONGO_COMPLETIONS(connectionId),
     queryFn: () => api.getMongoCompletions(connectionId),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
@@ -571,7 +563,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-full">
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                <Spinner size="md" />
               </div>
             }
           >
@@ -634,7 +626,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
               />
             ) : state.running ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <Spinner size="lg" />
               </div>
             ) : state.error ? (
               <div className="flex items-start gap-2 text-sm text-destructive">

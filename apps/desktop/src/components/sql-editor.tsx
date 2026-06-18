@@ -22,6 +22,7 @@ import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
+import { Spinner } from '@/components/ui/spinner';
 import {
   AlertCircle,
   BarChart3,
@@ -31,16 +32,16 @@ import {
   Download,
   FileJson,
   History,
-  Loader2,
   Play,
   Table2,
 } from 'lucide-react';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import { ChartView } from '@/components/chart-view';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
-    queryKey: ['autocomplete', connectionId],
+    queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
     queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
@@ -339,7 +340,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
         <Button size="sm" onClick={handleRun} disabled={runQuery.isPending} className="gap-1.5">
-          {runQuery.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+          {runQuery.isPending ? <Spinner size="sm" className="size-3.5" /> : <Play className="size-3.5" />}
           Run
         </Button>
         <span className="text-xs text-muted-foreground">{runQuery.isPending ? 'Running...' : 'Ctrl+Enter to run'}</span>
@@ -396,7 +397,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           <div className="overflow-auto" style={{ flex: 1 - splitRatio, minHeight: 0 }}>
             {runQuery.isPending && (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <Spinner size="lg" />
               </div>
             )}
 

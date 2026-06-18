@@ -20,7 +20,7 @@ import {
   type PostgresBackupFormat,
   type PostgresBackupScope,
 } from '@/lib/postgres-maintenance';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useEffect, useMemo, useState } from 'react';
 
 type BackupScopeKind = 'database' | 'schema' | 'table';
@@ -241,7 +241,7 @@ export function PostgresBackupDialog({ connection, open, onOpenChange }: Postgre
               </Button>
             ) : null}
             <Button onClick={() => void submit()} disabled={running}>
-              {running ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {running ? <Spinner size="md" className="mr-2" /> : null}
               Start backup
             </Button>
           </div>
