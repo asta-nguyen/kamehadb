@@ -169,7 +169,7 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
   }, [connectionString, connectionId, tab.id, handleData, handleResize]);
 
   return (
-    <div className="h-full w-full overflow-hidden bg-black">
+    <div className="h-full w-full bg-black overflow-hidden">
       <div ref={terminalRef} className="h-full w-full" />
     </div>
   );

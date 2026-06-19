@@ -185,8 +185,8 @@ export function PostgresVectorMap({ tab, connectionId }: PostgresVectorMapProps)
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="size-5 text-muted-foreground animate-spin" />
       </div>
     );
   }
@@ -201,7 +201,7 @@ export function PostgresVectorMap({ tab, connectionId }: PostgresVectorMapProps)
 
   if (!positions || points.length < 2) {
     return (
-      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
         Need at least 2 vectors to visualize
       </div>
     );
@@ -209,25 +209,25 @@ export function PostgresVectorMap({ tab, connectionId }: PostgresVectorMapProps)
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-3 text-xs">
+      <div className="flex items-center px-3 py-2 text-xs border-b border-border gap-3">
         <span className="font-mono">
           {tab.schema}.{tab.table}
         </span>
         <span className="text-muted-foreground">{tab.column}</span>
-        <span className="text-muted-foreground ml-auto">{points.length} vectors (PCA → 3D)</span>
+        <span className="ml-auto text-muted-foreground">{points.length} vectors (PCA → 3D)</span>
       </div>
-      <div className="flex-1 min-h-0 relative">
+      <div className="relative flex-1 min-h-0">
         <div ref={mountRef} className="absolute inset-0" />
         {hover && pointsRef.current[hover.i] && (
           <div
-            className="absolute pointer-events-none bg-popover border border-border rounded-md shadow-md p-2 text-xs max-w-64 z-10"
+            className="absolute z-10 p-2 max-w-64 text-xs bg-popover border-border rounded-md shadow-md pointer-events-none border"
             style={{ left: hover.x + 12, top: hover.y + 12 }}
           >
-            <div className="font-mono text-muted-foreground mb-1">id: {String(pointsRef.current[hover.i].id)}</div>
+            <div className="mb-1 text-muted-foreground font-mono">id: {String(pointsRef.current[hover.i].id)}</div>
             <pre className="font-mono whitespace-pre-wrap break-all">
               {JSON.stringify(pointsRef.current[hover.i].payload, null, 2)}
             </pre>
-            <div className="text-muted-foreground/60 mt-1">click → search from this vector</div>
+            <div className="mt-1 text-muted-foreground/60">click → search from this vector</div>
           </div>
         )}
         <div className="absolute bottom-2 left-3 text-xs text-muted-foreground/70 pointer-events-none">

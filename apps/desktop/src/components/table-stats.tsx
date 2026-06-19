@@ -18,7 +18,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="text-muted-foreground animate-spin size-5" />
+        <RefreshCw className="size-5 text-muted-foreground animate-spin" />
       </div>
     );
   }
@@ -39,7 +39,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Total Size</CardTitle>
-            <Database className="text-muted-foreground size-4" />
+            <Database className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.totalBytes)}</div>
@@ -50,7 +50,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Indexes</CardTitle>
-            <BarChart3 className="text-muted-foreground size-4" />
+            <BarChart3 className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.indexesBytes)}</div>
@@ -61,7 +61,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Live Rows</CardTitle>
-            <Activity className="text-muted-foreground size-4" />
+            <Activity className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(stats.nLiveTup)}</div>
@@ -74,7 +74,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Bloat</CardTitle>
-            <Trash2 className="text-muted-foreground size-4" />
+            <Trash2 className="size-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.bloatBytes)}</div>
@@ -87,7 +87,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
       {stats.bloatPercent > 10 && (
         <Card className="bg-destructive/5 border-destructive/50">
           <CardContent className="flex items-center py-3 gap-3">
-            <AlertTriangle className="text-destructive shrink-0 size-5" />
+            <AlertTriangle className="size-5 text-destructive shrink-0" />
             <div className="text-sm">
               <strong>Bloat detected:</strong> This table has {stats.bloatPercent.toFixed(1)}% bloat (
               {formatBytes(stats.bloatBytes)}). Consider running{' '}

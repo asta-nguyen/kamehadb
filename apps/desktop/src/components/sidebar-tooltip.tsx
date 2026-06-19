@@ -16,10 +16,10 @@ export function ConnectionTooltip({
   const color = getIndicatorColor(conn, status);
   const label = getStatusLabel(status, latency);
   return (
-    <TooltipContent side="right" align="start" sideOffset={12} className="rounded-lg shadow-sm px-4 py-3">
-      <div className="text-xs leading-relaxed min-w-45">
-        <p className="font-semibold mb-2">{conn.name}</p>
-        <div className="space-y-1.5 text-popover-foreground/65">
+    <TooltipContent side="right" align="start" sideOffset={12} className="px-4 py-3 rounded-lg shadow-xs">
+      <div className="min-w-45 text-xs leading-relaxed">
+        <p className="mb-2 font-semibold">{conn.name}</p>
+        <div className="text-popover-foreground/65 space-y-1.5">
           <div className="flex items-center gap-1.5">
             <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
             <span>{label}</span>
@@ -30,7 +30,7 @@ export function ConnectionTooltip({
           </p>
           {conn.database && <p>db: {conn.database}</p>}
           {conn.updatedAt && (
-            <p className="text-popover-foreground/40 text-[10px]">{formatShortDateTime(conn.updatedAt)}</p>
+            <p className="text-popover-foreground/40 text-xs">{formatShortDateTime(conn.updatedAt)}</p>
           )}
         </div>
       </div>

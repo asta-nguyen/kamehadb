@@ -49,9 +49,9 @@ function useCompletionsSchema(connectionId: string | null) {
 function TableNode({ data }: NodeProps) {
   return (
     <div className="min-w-48 bg-popover border-border rounded-lg shadow-xs border">
-      <Handle type="target" position={Position.Top} className="!bg-border" />
+      <Handle type="target" position={Position.Top} className="bg-border!" />
       <div className="flex items-center px-3 py-1.5 bg-muted/30 border-b border-border rounded-t-lg gap-1.5">
-        <Table2 className="text-muted-foreground size-3" />
+        <Table2 className="size-3 text-muted-foreground" />
         <span className="text-xs font-semibold">{data.label as string}</span>
       </div>
       <div className="px-0 py-0">
@@ -68,11 +68,11 @@ function TableNode({ data }: NodeProps) {
             className="flex items-center px-3 py-1 text-xs border-b border-border/40 gap-2 last:border-b-0"
           >
             {col.primaryKey ? (
-              <span className="bg-primary rounded-full shrink-0 size-1.5" title="PK" />
+              <span className="size-1.5 bg-primary rounded-full shrink-0" title="PK" />
             ) : col.foreignKey ? (
-              <span className="bg-muted-foreground rounded-full shrink-0 size-1.5" title="FK" />
+              <span className="size-1.5 bg-muted-foreground rounded-full shrink-0" title="FK" />
             ) : (
-              <span className="bg-transparent rounded-full shrink-0 size-1.5" />
+              <span className="size-1.5 bg-transparent rounded-full shrink-0" />
             )}
             <span className="text-foreground/90 font-mono truncate" title={col.name}>
               {col.name}
@@ -81,7 +81,7 @@ function TableNode({ data }: NodeProps) {
           </div>
         ))}
       </div>
-      <Handle type="source" position={Position.Bottom} className="!bg-border" />
+      <Handle type="source" position={Position.Bottom} className="bg-border!" />
     </div>
   );
 }
@@ -256,7 +256,7 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
         <Background gap={20} size={1} color="var(--border)" />
         <Controls
           showInteractive={true}
-          className="!bg-popover !border !border-border [&>button>svg]:!fill-foreground [&>button]:!bg-popover [&>button]:!border [&>button]:!border-border [&>svg]:!fill-foreground [&>button]:hover:!bg-muted"
+          className="bg-popover! border-border! border! [&>button]:bg-popover! [&>button]:border-border! [&>button>svg]:fill-foreground! [&>button]:border! [&>svg]:fill-foreground! [&>button]:hover:bg-muted!"
           style={{ '--xy-controls-button-color': 'var(--foreground)' } as React.CSSProperties}
         >
           <button onClick={handleAutoArrange} className="react-flow__controls-button" title="Auto Arrange">
@@ -270,7 +270,7 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
           }}
           maskColor="rgba(0,0,0,0.4)"
           maskStrokeColor="var(--border)"
-          className="!border !border-border !rounded-lg [&>svg]:!rounded-lg [&_.react-flow__minimap-node]:!fill-primary/20 [&_.react-flow__minimap-node]:!stroke-primary/40"
+          className="border-border! rounded-lg! border! [&>svg]:rounded-lg! [&_.react-flow__minimap-node]:fill-primary/20! [&_.react-flow__minimap-node]:stroke-primary/40!"
           style={{ backgroundColor: 'var(--popover)' }}
         />
       </ReactFlow>

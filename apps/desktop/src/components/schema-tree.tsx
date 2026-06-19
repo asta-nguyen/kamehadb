@@ -37,11 +37,11 @@ function SchemaItem({
     <div className="select-none">
       <Button variant="ghost" size="sm" onClick={onToggle} className="justify-start px-2 w-full font-normal">
         {expanded ? (
-          <ChevronDown className="text-muted-foreground/60 shrink-0 size-3" />
+          <ChevronDown className="size-3 text-muted-foreground/60 shrink-0" />
         ) : (
-          <ChevronRight className="text-muted-foreground/60 shrink-0 size-3" />
+          <ChevronRight className="size-3 text-muted-foreground/60 shrink-0" />
         )}
-        <Database className="text-muted-foreground/60 shrink-0 size-3.5" />
+        <Database className="size-3.5 text-muted-foreground/60 shrink-0" />
         <span className="text-foreground/80 font-medium">{schema}</span>
         {expanded && tables && (
           <span className="ml-auto text-muted-foreground/50 text-xs tabular-nums">{tables.length}</span>
@@ -51,7 +51,7 @@ function SchemaItem({
         <div className="pl-2 ml-3 mt-0.5 border-border/60 border-l">
           <div className="px-2 py-1">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+              <Search className="absolute left-2 top-1/2 size-3 text-muted-foreground -translate-y-1/2 pointer-events-none" />
               <Input
                 type="text"
                 value={searchQuery}
@@ -121,7 +121,7 @@ function TableItem({
         <div className="pl-2 ml-4 mt-0.5 space-y-0">
           {isLoading ? (
             <div className="flex justify-center py-1.5">
-              <Spinner size="sm" className="text-muted-foreground/50 size-2.5" />
+              <Spinner size="sm" className="size-2.5 text-muted-foreground/50" />
             </div>
           ) : (
             columns?.map((col) => (
@@ -129,15 +129,15 @@ function TableItem({
                 key={col.name}
                 className="flex items-center px-1.5 py-0.5 rounded-xs gap-1.5 transition-colors hover:bg-muted/30"
               >
-                <Columns3 className="text-muted-foreground/50 shrink-0 size-2.5" />
+                <Columns3 className="size-2.5 text-muted-foreground/50 shrink-0" />
                 <span className="text-foreground/70 text-xs truncate" title={col.name}>
                   {col.name}
                 </span>
-                {col.primaryKey && <span className="bg-primary rounded-full shrink-0 size-1.5" title="Primary Key" />}
+                {col.primaryKey && <span className="size-1.5 bg-primary rounded-full shrink-0" title="Primary Key" />}
                 {col.isVector && (
                   <Badge
                     variant="secondary"
-                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-[10px] bg-muted/30 border-muted shrink-0"
+                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-xs bg-muted/30 border-muted shrink-0"
                   >
                     vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
                   </Badge>
@@ -206,7 +206,7 @@ export function SchemaTree({
   return (
     <div className="flex-1 p-1.5 min-h-0 overflow-y-auto space-y-0.5">
       <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+        <Search className="absolute left-2 top-1/2 size-3 text-muted-foreground -translate-y-1/2 pointer-events-none" />
         <Input
           type="text"
           value={searchQuery}

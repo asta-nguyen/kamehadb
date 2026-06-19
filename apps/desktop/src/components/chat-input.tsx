@@ -57,7 +57,7 @@ export function ChatInput({
             <TooltipContent>Stop generation</TooltipContent>
           </Tooltip>
         ) : (
-          <Button size="icon" className="shrink-0 size-8" onClick={handleSend} disabled={!input.trim()}>
+          <Button size="icon" className="size-8 shrink-0" onClick={handleSend} disabled={!input.trim()}>
             <Send className="size-3.5" />
           </Button>
         )}

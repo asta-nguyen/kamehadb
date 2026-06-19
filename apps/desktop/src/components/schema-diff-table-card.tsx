@@ -12,7 +12,7 @@ function DiffFieldPills({ changes }: { readonly changes: readonly SchemaValueCha
   return (
     <div className="flex flex-wrap gap-1.5">
       {changes.map((change) => (
-        <Badge key={change.field} variant="secondary" className="gap-1 text-[10px]">
+        <Badge key={change.field} variant="secondary" className="text-xs gap-1">
           <span className="font-medium">{change.field}</span>
           <span className="text-muted-foreground">{formatValue(change.from)}</span>
           <span>→</span>
@@ -26,9 +26,9 @@ function DiffFieldPills({ changes }: { readonly changes: readonly SchemaValueCha
 function ColumnRow({ diff }: { readonly diff: SchemaColumnDiff }) {
   if (diff.type === 'added' || diff.type === 'removed') {
     return (
-      <div className="rounded-md border border-border/70 px-3 py-2 text-sm">
+      <div className="px-3 py-2 text-sm rounded-md border-border/70 border">
         <div className="flex items-center justify-between gap-3">
-          <div className="font-mono text-xs">{diff.column.name}</div>
+          <div className="text-xs font-mono">{diff.column.name}</div>
           <Badge variant={diff.type === 'added' ? 'default' : 'destructive'}>{diff.type}</Badge>
         </div>
         <div className="mt-1 text-xs text-muted-foreground">{diff.column.type}</div>
@@ -37,9 +37,9 @@ function ColumnRow({ diff }: { readonly diff: SchemaColumnDiff }) {
   }
 
   return (
-    <div className="rounded-md border border-border/70 px-3 py-2 text-sm">
+    <div className="px-3 py-2 text-sm rounded-md border-border/70 border">
       <div className="flex items-center justify-between gap-3">
-        <div className="font-mono text-xs">{diff.columnName}</div>
+        <div className="text-xs font-mono">{diff.columnName}</div>
         <Badge variant="secondary">changed</Badge>
       </div>
       <div className="mt-2">
@@ -52,9 +52,9 @@ function ColumnRow({ diff }: { readonly diff: SchemaColumnDiff }) {
 function IndexRow({ diff }: { readonly diff: SchemaIndexDiff }) {
   if (diff.type === 'added' || diff.type === 'removed') {
     return (
-      <div className="rounded-md border border-border/70 px-3 py-2 text-sm">
+      <div className="px-3 py-2 text-sm rounded-md border-border/70 border">
         <div className="flex items-center justify-between gap-3">
-          <div className="font-mono text-xs">{diff.index.name}</div>
+          <div className="text-xs font-mono">{diff.index.name}</div>
           <Badge variant={diff.type === 'added' ? 'default' : 'destructive'}>{diff.type}</Badge>
         </div>
         <div className="mt-1 text-xs text-muted-foreground">{diff.index.columns.join(', ')}</div>
@@ -63,9 +63,9 @@ function IndexRow({ diff }: { readonly diff: SchemaIndexDiff }) {
   }
 
   return (
-    <div className="rounded-md border border-border/70 px-3 py-2 text-sm">
+    <div className="px-3 py-2 text-sm rounded-md border-border/70 border">
       <div className="flex items-center justify-between gap-3">
-        <div className="font-mono text-xs">{diff.indexName}</div>
+        <div className="text-xs font-mono">{diff.indexName}</div>
         <Badge variant="secondary">changed</Badge>
       </div>
       <div className="mt-2">
@@ -80,7 +80,7 @@ export function SchemaDiffTableCard({ tableDiff }: { readonly tableDiff: SchemaT
     return (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between gap-3 text-sm">
+          <CardTitle className="flex items-center justify-between text-sm gap-3">
             <span className="font-mono">{tableDiff.tableId}</span>
             <Badge variant={tableDiff.type === 'added' ? 'default' : 'destructive'}>{tableDiff.type}</Badge>
           </CardTitle>
@@ -95,7 +95,7 @@ export function SchemaDiffTableCard({ tableDiff }: { readonly tableDiff: SchemaT
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between gap-3 text-sm">
+        <CardTitle className="flex items-center justify-between text-sm gap-3">
           <span className="font-mono">{tableDiff.tableId}</span>
           <Badge variant="secondary">{tableDiff.changeCount} changes</Badge>
         </CardTitle>
@@ -104,8 +104,8 @@ export function SchemaDiffTableCard({ tableDiff }: { readonly tableDiff: SchemaT
         {tableDiff.columnDiffs.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <div className="text-xs font-medium text-muted-foreground">Columns</div>
-              <Badge variant="outline" className="text-[10px]">
+              <div className="text-xs text-muted-foreground font-medium">Columns</div>
+              <Badge variant="outline" className="text-xs">
                 {tableDiff.columnDiffs.length}
               </Badge>
             </div>
@@ -122,8 +122,8 @@ export function SchemaDiffTableCard({ tableDiff }: { readonly tableDiff: SchemaT
         {tableDiff.indexDiffs.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <div className="text-xs font-medium text-muted-foreground">Indexes</div>
-              <Badge variant="outline" className="text-[10px]">
+              <div className="text-xs text-muted-foreground font-medium">Indexes</div>
+              <Badge variant="outline" className="text-xs">
                 {tableDiff.indexDiffs.length}
               </Badge>
             </div>

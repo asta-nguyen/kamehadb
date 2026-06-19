@@ -150,7 +150,7 @@ export function TerminalPane({ active, dark, onInput, onReady, onResize }: Termi
 
   return (
     <div className={`relative min-h-0 flex-1 ${dark ? 'bg-zinc-950' : 'bg-zinc-50'}`}>
-      <div ref={containerRef} className="h-full w-full px-3 py-2" />
+      <div ref={containerRef} className="px-3 py-2 h-full w-full" />
       {booting ? (
         <div
           className={`absolute inset-0 flex items-center justify-center text-sm ${

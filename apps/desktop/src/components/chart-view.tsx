@@ -71,13 +71,13 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border bg-popover px-3 py-2 shadow-md text-xs space-y-1">
-      <p className="font-medium text-foreground/90 border-b border-border pb-1 mb-1">{String(label ?? '')}</p>
+    <div className="px-3 py-2 text-xs bg-popover rounded-lg shadow-md border space-y-1">
+      <p className="pb-1 mb-1 text-foreground/90 font-medium border-b border-border">{String(label ?? '')}</p>
       {payload.map((entry) => (
         <div key={entry.name} className="flex items-center gap-2">
-          <span className="shrink-0 size-2.5 rounded-sm" style={{ backgroundColor: entry.color }} />
+          <span className="size-2.5 rounded-xs shrink-0" style={{ backgroundColor: entry.color }} />
           <span className="text-muted-foreground">{entry.name}:</span>
-          <span className="font-medium tabular-nums text-foreground/90">{formatValue(entry.value)}</span>
+          <span className="text-foreground/90 font-medium tabular-nums">{formatValue(entry.value)}</span>
         </div>
       ))}
     </div>
@@ -113,8 +113,8 @@ export function ChartView({ result }: { result: QueryResult }) {
   }
 
   return (
-    <div className="p-4 flex flex-col gap-4">
-      <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex flex-col p-4 gap-4">
+      <div className="flex items-center flex-wrap gap-3">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground font-medium">Chart:</span>
           <Select value={chartKind} onValueChange={(v) => setChartKind(v as ChartKind)}>
@@ -285,7 +285,7 @@ export function ChartView({ result }: { result: QueryResult }) {
           )}
         </ResponsiveContainer>
         {chartKind === 'pie' && result.rows.length > 20 && (
-          <p className="text-[11px] text-muted-foreground text-center mt-1">
+          <p className="mt-1 text-xs text-muted-foreground text-center">
             Showing top 20 of {result.rows.length} categories; {result.rows.length - 20} grouped into "Other"
           </p>
         )}

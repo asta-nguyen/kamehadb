@@ -161,11 +161,11 @@ function DatabaseNode({
           className="flex-1 justify-start px-2 min-w-0 font-normal"
         >
           {expanded ? (
-            <ChevronDown className="text-muted-foreground/60 shrink-0 size-3" />
+            <ChevronDown className="size-3 text-muted-foreground/60 shrink-0" />
           ) : (
-            <ChevronRight className="text-muted-foreground/60 shrink-0 size-3" />
+            <ChevronRight className="size-3 text-muted-foreground/60 shrink-0" />
           )}
-          <Database className="text-muted-foreground/60 shrink-0 size-3.5" />
+          <Database className="size-3.5 text-muted-foreground/60 shrink-0" />
           <span className="text-foreground/80 font-medium truncate" title={dbName}>
             {dbName}
           </span>
@@ -181,17 +181,17 @@ function DatabaseNode({
             onSelect();
             openAiChatPanel(connectionId);
           }}
-          className="shrink-0 size-6"
+          className="size-6 shrink-0"
           title="AI Chat"
         >
-          <Sparkles className="text-muted-foreground/60 size-3" />
+          <Sparkles className="size-3 text-muted-foreground/60" />
         </Button>
       </div>
       {expanded && (
         <div className="pl-2 ml-3 mt-0.5 border-border/60 border-l">
           <div className="px-2 py-1">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+              <Search className="absolute left-2 top-1/2 size-3 text-muted-foreground -translate-y-1/2 pointer-events-none" />
               <Input
                 type="text"
                 value={searchQuery}
@@ -204,7 +204,7 @@ function DatabaseNode({
 
           {loadingCollections ? (
             <div className="flex justify-center py-2">
-              <Spinner size="sm" className="text-muted-foreground/60 size-3" />
+              <Spinner size="sm" className="size-3 text-muted-foreground/60" />
             </div>
           ) : filteredCollections.length === 0 ? (
             <p className="pl-2 py-1 text-muted-foreground/60 text-xs italic">

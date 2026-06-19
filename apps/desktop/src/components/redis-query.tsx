@@ -278,7 +278,7 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
 
         {error && (
           <div className="flex items-start p-4 text-destructive text-sm gap-2">
-            <AlertCircle className="mt-0.5 shrink-0 size-4" />
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}

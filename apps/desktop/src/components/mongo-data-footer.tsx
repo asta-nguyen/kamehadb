@@ -46,13 +46,13 @@ export function DataFooter({
       <span>{rowCount} rows</span>
       <span className="ml-auto">{durationMs}ms</span>
       {isFetching && (
-        <span className="flex items-center gap-1 text-muted-foreground">
+        <span className="flex items-center text-muted-foreground gap-1">
           <Spinner size="sm" />
           Loading...
         </span>
       )}
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex items-center text-xs text-muted-foreground gap-1">
           <span>Page</span>
           <Input
             type="number"
@@ -80,7 +80,7 @@ export function DataFooter({
         </div>
       </div>
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
+        <DropdownMenuTrigger className="inline-flex items-center justify-center px-2.5 h-7 text-xs font-medium bg-clip-padding rounded-lg border-transparent outline-hidden transition-all whitespace-nowrap select-none border gap-1 shrink-0 hover:text-foreground hover:bg-muted aria-expanded:text-foreground aria-expanded:bg-muted dark:hover:bg-muted/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:pointer-events-none [&_svg]:shrink-0">
           <Download className="size-3" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

@@ -69,7 +69,7 @@ export function MigrationAssistant({
   return (
     <div className="p-4 h-full overflow-y-auto space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
+        <h2 className="flex items-center text-lg font-semibold gap-2">
           <Terminal className="size-4" />
           Migration Assistant
         </h2>
@@ -77,27 +77,27 @@ export function MigrationAssistant({
 
       {loading ? (
         <Card>
-          <CardContent className="py-8 flex justify-center">
+          <CardContent className="flex justify-center py-8">
             <Spinner size="lg" />
           </CardContent>
         </Card>
       ) : snapshots.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            No snapshots yet. Go to <span className="font-medium text-foreground">Schema Timeline</span> from the
+            No snapshots yet. Go to <span className="text-foreground font-medium">Schema Timeline</span> from the
             connection menu to capture one first.
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
+            <CardTitle className="flex items-center text-sm gap-2">
               <ArrowRight className="size-3.5" />
               Select snapshots
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 items-end">
+            <div className="grid items-end gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">From (before)</Label>
                 <Select value={fromId} onValueChange={(value) => value !== null && setFromId(value)}>
@@ -146,7 +146,7 @@ export function MigrationAssistant({
       {result && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground flex items-center justify-between">
+            <CardTitle className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 Migration: {new Date(result.fromSnapshot).toLocaleString()} →{' '}
                 {new Date(result.toSnapshot).toLocaleString()} ({result.statements.length} statements)
@@ -158,7 +158,7 @@ export function MigrationAssistant({
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <pre className="text-xs font-mono bg-muted p-3 rounded-lg overflow-x-auto whitespace-pre-wrap max-h-[60vh] overflow-y-auto">
+            <pre className="p-3 max-h-[60vh] text-xs font-mono bg-muted rounded-lg overflow-x-auto whitespace-pre-wrap overflow-y-auto">
               {result.statements.join('\n')}
             </pre>
           </CardContent>

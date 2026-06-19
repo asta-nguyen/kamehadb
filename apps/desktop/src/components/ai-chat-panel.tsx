@@ -99,9 +99,9 @@ function QueryBlock(props: QueryBlockProps) {
   }, [props.code]);
 
   return (
-    <div className="my-2 overflow-hidden rounded-md border border-border/70 bg-card shadow-sm">
-      <div className="flex items-center justify-between border-b border-border/70 bg-muted/45 px-2 py-1">
-        <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">{languageLabel}</span>
+    <div className="my-2 bg-card rounded-md border-border/70 shadow-xs overflow-hidden border">
+      <div className="flex items-center justify-between px-2 py-1 bg-muted/45 border-b border-border/70">
+        <span className="text-xs text-muted-foreground font-mono tracking-wide uppercase">{languageLabel}</span>
         <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger
@@ -151,7 +151,7 @@ function QueryBlock(props: QueryBlockProps) {
           )}
         </div>
       </div>
-      <pre className="overflow-x-auto p-2.5 font-mono text-xs leading-relaxed text-foreground bg-muted/30 [&_.hljs-keyword]:[color:var(--syntax-keyword)] [&_.hljs-string]:[color:var(--syntax-string)] [&_.hljs-number]:[color:var(--syntax-number)] [&_.hljs-comment]:[color:var(--syntax-comment)] [&_.hljs-built_in]:[color:var(--syntax-function)] [&_.hljs-title]:[color:var(--syntax-function)] [&_.hljs-attr]:[color:var(--syntax-function)]">
+      <pre className="p-2.5 text-xs text-foreground font-mono leading-relaxed bg-muted/30 overflow-x-auto [&_.hljs-keyword]:text-(--syntax-keyword) [&_.hljs-string]:text-(--syntax-string) [&_.hljs-number]:text-(--syntax-number) [&_.hljs-comment]:text-(--syntax-comment) [&_.hljs-built_in]:text-(--syntax-function) [&_.hljs-title]:text-(--syntax-function) [&_.hljs-attr]:text-(--syntax-function)">
         {renderHighlightNodes(buildHighlightedCodeTree(props.code, props.language))}
       </pre>
     </div>
@@ -201,12 +201,12 @@ type UserMessageProps = {
 
 function UserMessage({ msg }: UserMessageProps) {
   return (
-    <div className="mb-3 flex justify-end">
-      <div className="group max-w-[88%]">
+    <div className="flex justify-end mb-3">
+      <div className="max-w-[88%] group">
         {msg.createdAt && (
-          <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatChatTime(msg.createdAt)}</div>
+          <div className="px-1 mb-0.5 text-right text-xs text-muted-foreground/45">{formatChatTime(msg.createdAt)}</div>
         )}
-        <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
+        <div className="px-3 py-2 text-sm text-foreground/90 leading-relaxed bg-primary/10 rounded-br-md border-primary/15 whitespace-pre-wrap border">
           {getChatTextContent(msg)}
         </div>
       </div>
@@ -220,12 +220,12 @@ type StreamingAssistantMessageProps = {
 
 function StreamingAssistantMessage({ msg: _msg }: StreamingAssistantMessageProps) {
   return (
-    <div className="group mb-3 flex gap-2">
-      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
+    <div className="flex mb-3 group gap-2">
+      <div className="flex items-center justify-center size-6 bg-primary/10 rounded-md shrink-0 ring-1 ring-primary/10">
         <Bot className="size-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
+        <div className="flex items-center h-7 text-sm text-muted-foreground gap-1.5">
           <Spinner size="sm" />
           Thinking...
         </div>
@@ -244,8 +244,8 @@ function AssistantMessageHeader({
   isCopied: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 mb-1">
-      <span className="text-xs font-medium text-muted-foreground/70">Assistant</span>
+    <div className="flex items-center mb-1 gap-2">
+      <span className="text-xs text-muted-foreground/70 font-medium">Assistant</span>
       {msg.createdAt && <span className="text-xs text-muted-foreground/40">{formatChatTime(msg.createdAt)}</span>}
       <Tooltip>
         <TooltipTrigger
@@ -287,8 +287,8 @@ function AssistantMessage({ msg, connectionId }: AssistantMessageProps) {
   };
 
   return (
-    <div className="group mb-3 flex gap-2">
-      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
+    <div className="flex mb-3 group gap-2">
+      <div className="flex items-center justify-center size-6 bg-primary/10 rounded-md shrink-0 ring-1 ring-primary/10">
         <Bot className="size-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
@@ -312,7 +312,7 @@ function AssistantMessage({ msg, connectionId }: AssistantMessageProps) {
             block.value && (
               <div
                 key={block.value.slice(0, 50)}
-                className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
+                className="text-sm text-foreground/90 leading-relaxed [&_code]:px-1 [&_ol]:pl-5 [&_pre]:p-2 [&_ul]:pl-5 [&_p]:mb-1.5 [&_code]:bg-muted [&_pre]:bg-muted [&_code]:rounded-sm [&_pre]:rounded-md [&_ol]:list-decimal [&_pre]:overflow-x-auto [&_ul]:list-disc"
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
               </div>
@@ -478,7 +478,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   }, [isResizing]);
 
   return (
-    <aside className="border-l border-border bg-background flex shrink-0 h-full" style={{ width: panelWidth }}>
+    <aside className="flex h-full bg-background border-l border-border shrink-0" style={{ width: panelWidth }}>
       <div
         onMouseDown={handleMouseDown}
         role="separator"
@@ -495,19 +495,19 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border/60'
         }`}
       />
-      <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-        <div className="shrink-0 border-b border-border bg-muted/10 px-3 py-2.5">
+      <div className="flex flex-1 flex-col h-full min-w-0 overflow-y-auto overflow-x-hidden">
+        <div className="px-3 py-2.5 bg-muted/10 border-b border-border shrink-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className={`flex size-6 items-center justify-center rounded-md ring-1 ${chatMode.iconClass}`}>
                   <Sparkles className="size-3.5" />
                 </span>
-                <span className="truncate text-sm font-medium">AI Assistant</span>
+                <span className="text-sm font-medium truncate">AI Assistant</span>
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex items-center shrink-0 gap-1">
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="AI assistant menu"
@@ -559,15 +559,15 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
           <p className="mt-1 text-xs text-muted-foreground/60">Enter to send, Shift+Enter for new line</p>
 
           {currentConnection && (
-            <div className="mt-2 flex h-6 max-w-full items-center gap-1.5 rounded-md bg-muted/45 px-2 text-xs text-muted-foreground ring-1 ring-border/40">
+            <div className="flex items-center px-2 mt-2 h-6 max-w-full text-xs text-muted-foreground bg-muted/45 rounded-md gap-1.5 ring-1 ring-border/40">
               <Database className="size-3 shrink-0" />
               {currentConnection.color && (
-                <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: currentConnection.color }} />
+                <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: currentConnection.color }} />
               )}
               <span className="truncate">{currentConnection.name}</span>
               {mongoDatabase && (
                 <>
-                  <span className="shrink-0 text-muted-foreground/40">/</span>
+                  <span className="text-muted-foreground/40 shrink-0">/</span>
                   <span className="text-muted-foreground/70 truncate">{mongoDatabase}</span>
                 </>
               )}
@@ -576,7 +576,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="p-3 pb-4">
+          <div className="pb-4">
             {chat.messages.length === 0 && !chat.isLoading && (
               <div className="py-5 text-muted-foreground">
                 <div
@@ -584,8 +584,8 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 >
                   <Bot className="size-5" />
                 </div>
-                <p className="mb-1 text-center text-sm font-medium text-foreground/80">{chatMode.title}</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                <p className="mb-1 text-center text-sm text-foreground/80 font-medium">{chatMode.title}</p>
+                <div className="flex flex-wrap justify-center mt-4 gap-1.5">
                   {chatMode.suggestions.map((prompt) => (
                     <Button
                       key={prompt}

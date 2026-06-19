@@ -67,9 +67,9 @@ export function ConnectionDropdownMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center justify-center rounded-md opacity-0 size-6 transition-colors hover:bg-muted/50 group-hover:opacity-100"
+        className="inline-flex items-center justify-center size-6 rounded-md opacity-0 transition-colors group-hover:opacity-100 hover:bg-muted/50"
       >
-        <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
+        <MoreVertical className="size-3.5 text-muted-foreground/60 hover:text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={4}>
         <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>

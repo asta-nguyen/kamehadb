@@ -29,7 +29,7 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
       </div>
       <div className="px-2 py-1">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+          <Search className="absolute left-2 top-1/2 size-3 text-muted-foreground -translate-y-1/2 pointer-events-none" />
           <Input
             type="text"
             value={searchQuery}
@@ -45,7 +45,7 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
         </div>
       ) : isError ? (
         <div className="flex items-start px-2 py-1 text-destructive text-xs gap-1.5">
-          <AlertCircle className="mt-0.5 shrink-0 size-3" />
+          <AlertCircle className="mt-0.5 size-3 shrink-0" />
           <span className="break-all">{error instanceof Error ? error.message : 'Failed to load collections'}</span>
         </div>
       ) : filtered.length === 0 ? (
@@ -65,7 +65,7 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
               className="flex flex-1 items-center min-w-0 text-left font-normal gap-1.5"
               title={`${col.name} · ${col.pointsCount} points`}
             >
-              <Search className="text-muted-foreground shrink-0 size-3" />
+              <Search className="size-3 text-muted-foreground shrink-0" />
               <span className="truncate">{col.name}</span>
               <span className="ml-auto text-muted-foreground/70 text-xs">{col.pointsCount}</span>
             </Button>

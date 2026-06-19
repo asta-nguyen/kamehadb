@@ -91,20 +91,20 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
 
   if (!connection) {
     return (
-      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
         The PostgreSQL connection for this tab was not found.
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Terminal className="size-4 shrink-0 text-muted-foreground" />
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border gap-3">
+        <div className="flex items-center min-w-0 gap-2">
+          <Terminal className="size-4 text-muted-foreground shrink-0" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{connection.name}</p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="text-sm font-medium truncate">{connection.name}</p>
+            <p className="text-xs text-muted-foreground truncate">
               {connection.database || 'postgres'} · {connection.host || 'localhost'}
             </p>
           </div>
@@ -123,7 +123,7 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
         </div>
       </div>
       {session.state.message && session.state.status !== 'running' ? (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-b border-border gap-2">
           {session.state.status === 'error' ? <AlertTriangle className="size-3.5 text-destructive" /> : null}
           <span>{session.state.message}</span>
         </div>
@@ -141,7 +141,7 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
           }}
         />
       ) : (
-        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+        <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
           Activate this tab to start the psql session.
         </div>
       )}

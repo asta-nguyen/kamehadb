@@ -92,7 +92,7 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose }: Quer
   });
 
   return (
-    <div className="w-80 border-l border-border flex flex-col bg-background">
+    <div className="flex flex-col w-80 bg-background border-l border-border">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <div className="flex items-center gap-1.5">
@@ -118,7 +118,7 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose }: Quer
       {/* Search */}
       <div className="px-3 py-2 border-b border-border shrink-0">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+          <Search className="absolute left-2 top-1/2 size-3.5 text-muted-foreground -translate-y-1/2" />
           <Input
             placeholder="Search queries..."
             value={searchQuery}
@@ -129,7 +129,7 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose }: Quer
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading && (
           <div className="flex items-center justify-center py-8">
             <Spinner size="md" />
@@ -146,35 +146,35 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose }: Quer
           filtered.map((group) => {
             const { lastEntry, count } = group;
             return (
-              <div key={group.pattern} className="group border-b border-border/50">
+              <div key={group.pattern} className="border-b border-border/50 group">
                 {/* Query preview — click to load */}
                 <div
-                  className="px-3 pt-2.5 pb-1 cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="px-3 pt-2.5 pb-1 cursor-pointer transition-colors hover:bg-muted/30"
                   onClick={() => onSelectQuery(lastEntry.query)}
                 >
-                  <div className="text-xs font-mono leading-relaxed text-foreground/90 line-clamp-2 break-all">
+                  <div className="text-xs text-foreground/90 font-mono leading-relaxed line-clamp-2 break-all">
                     {truncateQuery(lastEntry.query)}
                   </div>
                 </div>
 
                 {/* Stats row */}
-                <div className="px-3 pb-2.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center px-3 pb-2.5 text-xs text-muted-foreground gap-2">
                   <span className="flex items-center gap-1 shrink-0">
                     <Clock className="size-3" />
                     {formatTime(lastEntry.executedAt)}
                   </span>
 
                   {lastEntry.durationMs !== undefined && (
-                    <span className="shrink-0 font-medium tabular-nums">{lastEntry.durationMs}ms</span>
+                    <span className="font-medium shrink-0 tabular-nums">{lastEntry.durationMs}ms</span>
                   )}
 
-                  <span className="ml-auto flex items-center gap-1">
+                  <span className="flex items-center ml-auto gap-1">
                     <span className="text-muted-foreground/50">{count}x</span>
 
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="size-5 opacity-0 transition-opacity group-hover:opacity-100"
                       onClick={(e) => {
                         e.stopPropagation();
                         updateHistory.mutate({ id: lastEntry.id, input: { favorite: !lastEntry.favorite } });
@@ -187,7 +187,7 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose }: Quer
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      className="size-5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteHistory.mutate(lastEntry.id);

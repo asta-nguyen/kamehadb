@@ -58,7 +58,7 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     return (
       <Suspense
         fallback={
-          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading map…</div>
+          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">Loading map…</div>
         }
       >
         <QdrantVectorMap tab={activeTab} connectionId={activeTab.connectionId} collection={activeTab.collection} />
@@ -98,11 +98,11 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   }
   if (activeTab.type === 'tigerbeetle') {
     return (
-      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">TigerBeetle explorer</div>
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">TigerBeetle explorer</div>
     );
   }
   return (
-    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+    <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
       Unsupported tab: {activeTab.type}
     </div>
   );

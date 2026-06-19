@@ -163,7 +163,7 @@ function selectKind(form: UseFormReturn<CreateConnectionProfileInput>, dbKind: D
 function DatabaseTypeGrid({ form, kind }: { form: UseFormReturn<CreateConnectionProfileInput>; kind: DbKind }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Database Type</Label>
+      <Label className="text-xs text-muted-foreground font-medium tracking-wide uppercase">Database Type</Label>
       <div className="grid grid-cols-3 gap-2">
         {KINDS.map((dbKind) => {
           const selected = kind === dbKind;
@@ -185,7 +185,7 @@ function DatabaseTypeGrid({ form, kind }: { form: UseFormReturn<CreateConnection
               `}
             >
               {selected && (
-                <div className="absolute -top-1 -right-1 size-4 rounded-full bg-background border flex items-center justify-center">
+                <div className="absolute flex items-center justify-center size-4 bg-background rounded-full -top-1 -right-1 border">
                   <Check className={`size-2.5 ${accent.icon}`} strokeWidth={3} />
                 </div>
               )}
@@ -215,8 +215,8 @@ function BadgeColorPicker({
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Badge Color</Label>
-      <div className="flex items-center gap-2 flex-wrap">
+      <Label className="text-xs text-muted-foreground font-medium tracking-wide uppercase">Badge Color</Label>
+      <div className="flex items-center flex-wrap gap-2">
         {PRESET_COLORS.map(({ hex, name }) => {
           const isSelected = selectedColor === hex;
           return (
@@ -233,7 +233,7 @@ function BadgeColorPicker({
               }}
               title={name}
             >
-              {isSelected && <Check className="absolute inset-0 m-auto size-3.5 text-white" strokeWidth={3} />}
+              {isSelected && <Check className="absolute m-auto size-3.5 text-white inset-0" strokeWidth={3} />}
             </Button>
           );
         })}
@@ -250,12 +250,12 @@ function BadgeColorPicker({
             type="color"
             value={selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? selectedColor : '#3b82f6'}
             onChange={(e) => form.setValue('color', e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="absolute w-full h-full opacity-0 inset-0 cursor-pointer"
           />
           {selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? (
-            <span className="absolute inset-0 rounded-full" style={{ backgroundColor: selectedColor }} />
+            <span className="absolute rounded-full inset-0" style={{ backgroundColor: selectedColor }} />
           ) : (
-            <Plus className="absolute inset-0 m-auto size-3.5 text-muted-foreground" strokeWidth={2} />
+            <Plus className="absolute m-auto size-3.5 text-muted-foreground inset-0" strokeWidth={2} />
           )}
         </label>
         {selectedColor && (
@@ -274,8 +274,8 @@ function ReadonlyToggle({ form }: { form: UseFormReturn<CreateConnectionProfileI
       control={form.control}
       name="readonly"
       render={({ field }) => (
-        <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 p-3">
-          <div className="space-y-0.5 pr-4">
+        <div className="flex items-center justify-between p-3 bg-card/50 rounded-lg border-border/50 border">
+          <div className="pr-4 space-y-0.5">
             <Label htmlFor="readonly" className="text-sm font-medium">
               Read-only
             </Label>
@@ -309,13 +309,13 @@ function ConnectionDetailsSection({
 
       {kind !== 'sqlite' && kind !== 'mongodb' && (
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <Label className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
             Connection URL <span className="font-normal normal-case">(auto-fill fields)</span>
           </Label>
           <Input
             placeholder={`${kind}://user:pass@host:${DEFAULT_PORTS[kind] ?? 3306}/database`}
             onChange={(e) => onUrlChange(e.target.value)}
-            className="h-9 font-mono text-xs"
+            className="h-9 text-xs font-mono"
           />
         </div>
       )}
@@ -324,7 +324,7 @@ function ConnectionDetailsSection({
         <div className="space-y-1.5">
           <Label
             htmlFor="connectionString"
-            className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+            className="text-xs text-muted-foreground font-medium tracking-wide uppercase"
           >
             Connection String <span className="text-destructive">*</span>
           </Label>
@@ -332,12 +332,12 @@ function ConnectionDetailsSection({
             id="connectionString"
             {...form.register('connectionString')}
             placeholder="mongodb://localhost:27017"
-            className="h-9 font-mono text-xs"
+            className="h-9 text-xs font-mono"
           />
         </div>
       ) : kind === 'sqlite' || kind === 'duckdb' ? (
         <div className="space-y-1.5">
-          <Label htmlFor="filePath" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <Label htmlFor="filePath" className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
             Database File
           </Label>
           <div className="flex gap-2">
@@ -345,7 +345,7 @@ function ConnectionDetailsSection({
               id="filePath"
               {...form.register('filePath')}
               placeholder="/path/to/database.sqlite"
-              className="h-9 font-mono text-xs"
+              className="h-9 text-xs font-mono"
             />
             <Button
               type="button"
@@ -378,13 +378,13 @@ function ConnectionDetailsSection({
         <>
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor="host" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <Label htmlFor="host" className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
                 Host
               </Label>
               <Input id="host" {...form.register('host')} placeholder="localhost" className="h-9" />
             </div>
-            <div className="space-y-1.5 w-24">
-              <Label htmlFor="port" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            <div className="w-24 space-y-1.5">
+              <Label htmlFor="port" className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
                 Port
               </Label>
               <Input id="port" type="number" {...form.register('port', { valueAsNumber: true })} className="h-9" />
@@ -393,7 +393,7 @@ function ConnectionDetailsSection({
           {kind !== 'qdrant' && kind !== 'tigerbeetle' && (
             <>
               <div className="space-y-1.5">
-                <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <Label htmlFor="database" className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
                   Database
                 </Label>
                 <Input id="database" {...form.register('database')} placeholder="mydb" className="h-9" />
@@ -402,7 +402,7 @@ function ConnectionDetailsSection({
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="username"
-                    className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                    className="text-xs text-muted-foreground font-medium tracking-wide uppercase"
                   >
                     Username
                   </Label>
@@ -416,7 +416,7 @@ function ConnectionDetailsSection({
                 <div className="space-y-1.5">
                   <Label
                     htmlFor="password"
-                    className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                    className="text-xs text-muted-foreground font-medium tracking-wide uppercase"
                   >
                     Password {kind === 'postgres' && <span className="text-destructive">*</span>}
                   </Label>
@@ -433,7 +433,7 @@ function ConnectionDetailsSection({
           )}
           {kind === 'tigerbeetle' && (
             <div className="space-y-1.5">
-              <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <Label htmlFor="database" className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
                 Cluster ID
               </Label>
               <Input id="database" {...form.register('database')} placeholder="0" className="h-9" />
@@ -466,7 +466,7 @@ function DialogActions({
   onTest: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 pt-2 pb-1">
+    <div className="flex items-center pt-2 pb-1 gap-3">
       <Button type="button" variant="outline" size="sm" onClick={onTest} disabled={isTesting} className="gap-1.5">
         {isTesting ? <Spinner size="sm" className="size-3.5" /> : <Plug className="size-3.5" />}
         Test
@@ -619,18 +619,18 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         <Plus className="size-3.5" />
         New
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
-        <div className="shrink-0 pr-6">
+      <DialogContent className="flex flex-col max-h-[85vh] overflow-hidden sm:max-w-lg">
+        <div className="pr-6 shrink-0">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">{isEditing ? 'Edit' : 'New Connection'}</DialogTitle>
           </DialogHeader>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 px-1 pr-4 -mr-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        <div className="flex-1 pr-4 min-h-0 overflow-y-auto -mr-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
             {/* Name Field */}
             <div className="space-y-1.5">
-              <Label htmlFor="name" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <Label htmlFor="name" className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
                 Connection Name
               </Label>
               <Input id="name" {...form.register('name')} placeholder="My Database" className="h-9" />

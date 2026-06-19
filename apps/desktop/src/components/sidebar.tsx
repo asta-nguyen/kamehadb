@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useConnections,
@@ -28,24 +29,7 @@ import {
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
 import type { ConnectionStatus } from './sidebar.helpers';
 import { useStore } from '@tanstack/react-store';
-import {
-  BarChart3,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  History,
-  Loader2,
-  MoreVertical,
-  Pin,
-  PinOff,
-  RefreshCw,
-  Search,
-  Settings2,
-  Share2,
-  Sparkles,
-  Terminal,
-  Trash2,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
@@ -89,7 +73,7 @@ const ConnectionItem = memo(function ConnectionItem({
   const latency = connectionLatency[conn.id];
 
   function handleRowActivate() {
-    onSelect();
+    setActiveConnection(conn.id);
     if (conn.kind === 'redis') {
       openRedisTab(conn.id);
     } else {

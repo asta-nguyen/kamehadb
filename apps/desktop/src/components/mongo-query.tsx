@@ -107,14 +107,14 @@ function MongoQueryToolbar({
   onFormat: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
+    <div className="flex items-center px-4 py-2 border-b border-border gap-2 shrink-0">
       <Select value={db} onValueChange={onDbChange}>
-        <SelectTrigger className="h-7 w-44 text-xs gap-2 pl-2.5 pr-2">
-          <span className="flex items-center gap-1.5 min-w-0">
+        <SelectTrigger className="pl-2.5 pr-2 h-7 w-44 text-xs gap-2">
+          <span className="flex items-center min-w-0 gap-1.5">
             {databasesLoading ? (
               <Spinner size="sm" className="size-3.5 shrink-0" />
             ) : (
-              <Database className="size-3.5 shrink-0 text-muted-foreground" />
+              <Database className="size-3.5 text-muted-foreground shrink-0" />
             )}
             <SelectValue placeholder="Database" />
           </span>
@@ -128,15 +128,15 @@ function MongoQueryToolbar({
         </SelectContent>
       </Select>
 
-      <ChevronRight className="size-3 shrink-0 text-muted-foreground/30" />
+      <ChevronRight className="size-3 text-muted-foreground/30 shrink-0" />
 
       <Select value={collection} onValueChange={(v) => v && onCollectionChange(v)} disabled={!db}>
-        <SelectTrigger className="h-7 w-52 text-xs gap-2 pl-2.5 pr-2 data-[disabled]:border-dashed data-[disabled]:bg-muted/20 data-[disabled]:opacity-100 data-[disabled]:[&_[data-slot=select-value]]:text-muted-foreground/50">
-          <span className="flex items-center gap-1.5 min-w-0">
+        <SelectTrigger className="pl-2.5 pr-2 h-7 w-52 text-xs gap-2 data-[disabled]:bg-muted/20 data-[disabled]:border-dashed data-[disabled]:opacity-100 data-[disabled]:[&_[data-slot=select-value]]:text-muted-foreground/50">
+          <span className="flex items-center min-w-0 gap-1.5">
             {collectionsLoading ? (
               <Spinner size="sm" className="size-3.5 shrink-0" />
             ) : (
-              <Table2 className="size-3.5 shrink-0 text-muted-foreground" />
+              <Table2 className="size-3.5 text-muted-foreground shrink-0" />
             )}
             <SelectValue placeholder={db ? 'Collection' : 'Select database first'} />
           </span>
@@ -150,7 +150,7 @@ function MongoQueryToolbar({
         </SelectContent>
       </Select>
 
-      <div className="w-px h-4 bg-border mx-0.5" />
+      <div className="mx-0.5 w-px h-4 bg-border" />
 
       <div className="flex items-center gap-1.5">
         <Button
@@ -158,22 +158,22 @@ function MongoQueryToolbar({
           size="sm"
           onClick={onRun}
           disabled={!collection || running}
-          className="h-7 text-xs gap-1.5 px-3"
+          className="px-3 h-7 text-xs gap-1.5"
         >
           {running ? <Spinner size="sm" className="size-3.5" /> : <Play className="size-3.5 fill-current" />}
           {running ? 'Running' : 'Run'}
         </Button>
         {resultTotal != null && !running && (
-          <span className="text-[11px] text-muted-foreground tabular-nums">{resultTotal.toLocaleString()}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">{resultTotal.toLocaleString()}</span>
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="flex items-center ml-auto gap-1.5">
         <Button
           variant="ghost"
           size="sm"
           onClick={onFormat}
-          className="h-7 text-xs gap-1.5 px-2"
+          className="px-2 h-7 text-xs gap-1.5"
           title="Format pipeline"
         >
           <Braces className="size-3.5" />
@@ -183,19 +183,19 @@ function MongoQueryToolbar({
             variant="ghost"
             size="sm"
             onClick={onToggleChart}
-            className="h-7 text-xs gap-1.5 px-2"
+            className="px-2 h-7 text-xs gap-1.5"
             title={showChart ? 'Show table' : 'Show chart'}
           >
             {showChart ? <Table2 className="size-3.5" /> : <BarChart3 className="size-3.5" />}
           </Button>
         )}
         {running && (
-          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="size-1.5 rounded-full bg-primary animate-pulse" />
+          <span className="flex items-center text-xs text-muted-foreground gap-1.5">
+            <span className="size-1.5 bg-primary rounded-full animate-pulse" />
             Running
           </span>
         )}
-        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[10px] font-mono text-muted-foreground/50">
+        <kbd className="px-1.5 py-0.5 text-xs text-muted-foreground/50 font-mono bg-muted/30 rounded-sm border-border/60 border">
           {running ? 'Esc' : 'Ctrl+Enter'}
         </kbd>
       </div>
@@ -228,8 +228,8 @@ function AggregationResult({
 
   if (error) {
     return (
-      <div className="flex items-start gap-2 text-sm text-destructive">
-        <AlertCircle className="size-4 mt-0.5 shrink-0" />
+      <div className="flex items-start text-sm text-destructive gap-2">
+        <AlertCircle className="mt-0.5 size-4 shrink-0" />
         <span>{error}</span>
       </div>
     );
@@ -240,7 +240,7 @@ function AggregationResult({
   return (
     <>
       {columns.length > 0 && (
-        <div className="border rounded-md">
+        <div className="rounded-md border">
           <div
             className="grid text-xs bg-muted/50"
             style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(140px, 1fr))` }}
@@ -248,7 +248,7 @@ function AggregationResult({
             {columns.map((key) => (
               <div
                 key={key}
-                className="px-3 py-1.5 font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
+                className="px-3 py-1.5 text-muted-foreground font-medium border-r whitespace-nowrap last:border-r-0"
               >
                 {key}
               </div>
@@ -265,7 +265,7 @@ function AggregationResult({
                 return (
                   <div
                     key={key}
-                    className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
+                    className="px-3 py-1 max-w-60 border-r truncate last:border-r-0"
                     title={
                       val === null || val === undefined
                         ? ''
@@ -286,7 +286,7 @@ function AggregationResult({
           ))}
         </div>
       )}
-      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+      <div className="flex items-center mt-2 text-xs text-muted-foreground gap-3">
         <span>{result.totalCount} documents</span>
         {result.hasMore && (
           <Badge variant="outline" className="text-xs">
@@ -294,14 +294,14 @@ function AggregationResult({
           </Badge>
         )}
       </div>
-      <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
+      <div className="flex items-center justify-between pt-3 mt-3 border-t border-border">
         <div className="text-xs text-muted-foreground">
           {result.documents.length > 0
             ? `${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + result.documents.length} of ${result.totalCount}`
             : '0 results'}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="flex items-center text-xs text-muted-foreground gap-1">
             <span>Page</span>
             <Input
               type="number"
@@ -324,7 +324,7 @@ function AggregationResult({
               onClick={() => onPageChange(page - 1)}
               className="h-7 text-xs"
             >
-              <ChevronLeft className="size-3 mr-1" />
+              <ChevronLeft className="mr-1 size-3" />
               Prev
             </Button>
             <Button
@@ -335,7 +335,7 @@ function AggregationResult({
               className="h-7 text-xs"
             >
               Next
-              <ChevronRight className="size-3 ml-1" />
+              <ChevronRight className="ml-1 size-3" />
             </Button>
           </div>
         </div>
@@ -559,7 +559,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         }}
       />
 
-      <div className="flex flex-col min-h-0 flex-1">
+      <div className="flex flex-col flex-1 min-h-0">
         <div className="min-h-0 border-b border-border" style={{ flex: editorRatio }}>
           <Suspense
             fallback={
@@ -591,7 +591,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         <div
           role="separator"
           tabIndex={0}
-          className="h-1.5 cursor-row-resize shrink-0 relative group hover:bg-accent/50"
+          className="relative h-1.5 cursor-row-resize shrink-0 group hover:bg-accent/50"
           onMouseDown={handleMouseDown}
           onKeyDown={(e) => {
             if (e.key === 'ArrowUp') setEditorRatio((r) => Math.max(0.15, r - 0.05));
@@ -599,7 +599,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           }}
           aria-label="Resize editor panel"
         >
-          <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-0.5 rounded-full bg-border transition-colors group-hover:bg-foreground/20" />
+          <div className="absolute top-1/2 h-0.5 bg-border rounded-full inset-x-2 -translate-y-1/2 transition-colors group-hover:bg-foreground/20" />
         </div>
 
         <div className="min-h-0 overflow-y-auto" style={{ flex: 1 - editorRatio }}>
@@ -630,8 +630,8 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
                 <Spinner size="lg" />
               </div>
             ) : state.error ? (
-              <div className="flex items-start gap-2 text-sm text-destructive">
-                <AlertCircle className="size-4 mt-0.5 shrink-0" />
+              <div className="flex items-start text-sm text-destructive gap-2">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 <span>{state.error}</span>
               </div>
             ) : null}

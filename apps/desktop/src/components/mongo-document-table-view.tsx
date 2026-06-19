@@ -138,13 +138,13 @@ export function DocumentTableView({
           const isEditing = editCell?.row === rowIndex && editCell?.key === col;
           if (isEditing) {
             return (
-              <div className="flex min-w-0 items-end gap-0.5">
+              <div className="flex items-end min-w-0 gap-0.5">
                 <Input
                   type="text"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="h-6 min-w-0 flex-1 shrink-0 rounded border bg-background px-1 font-mono text-xs focus:ring-1 focus:ring-primary"
+                  className="flex-1 px-1 h-6 min-w-0 text-xs font-mono bg-background rounded-sm shrink-0 border focus:ring-1 focus:ring-primary"
                   autoFocus
                 />
                 <Button variant="ghost" size="icon" onClick={saveEdit} disabled={saving} title="Save (Enter)">
@@ -161,7 +161,7 @@ export function DocumentTableView({
               variant="ghost"
               size="sm"
               onClick={() => startEdit(rowIndex, col, value)}
-              className="block w-full truncate justify-start font-normal text-left"
+              className="block justify-start w-full text-left font-normal truncate"
               title={formatCellValue(value)}
             >
               {value === null ? (
@@ -199,16 +199,16 @@ export function DocumentTableView({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem onClick={() => setSelectedRow(doc)}>
-                  <Eye className="size-3.5 mr-2" />
+                  <Eye className="mr-2 size-3.5" />
                   View details
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleCopyRow(doc)}>
-                  <Copy className="size-3.5 mr-2" />
+                  <Copy className="mr-2 size-3.5" />
                   Copy JSON
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onDelete(doc)}>
-                  <Trash2 className="size-3.5 mr-2" />
+                  <Trash2 className="mr-2 size-3.5" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>

@@ -148,7 +148,7 @@ export function PostgresVectorQuery({ tab, connectionId }: PostgresVectorQueryPr
         onRun={run}
       />
 
-      <div className="flex-1 overflow-auto min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
         {state.result ? (
           <PostgresVectorResults
             result={state.result}

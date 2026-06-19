@@ -21,7 +21,7 @@ const initialState: AppStoreState = {
   activeTableId: null,
   activeMongoDatabase: null,
   aiPanelConnectionId: null,
-  openedTabs: restoreTabs(),
+  openedTabs: restoreTabs() as WorkspaceTab[],
   activeTabId: restoreActiveTab(),
   sidebarCollapsed: false,
   density: 'compact',

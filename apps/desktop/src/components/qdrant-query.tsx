@@ -240,7 +240,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border space-y-2">
         {/* Mode tabs */}
-        <div className="flex items-center gap-1 bg-muted/40 rounded-md p-0.5 w-fit">
+        <div className="flex items-center p-0.5 w-fit bg-muted/40 rounded-md gap-1">
           {MODES.map((m) => (
             <Button
               key={m.value}
@@ -270,7 +270,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               ))}
             </SelectContent>
           </Select>
-          <Label className="text-xs text-muted-foreground flex items-center gap-1">
+          <Label className="flex items-center text-xs text-muted-foreground gap-1">
             Limit
             <Input
               type="number"
@@ -280,11 +280,11 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               onChange={(e) =>
                 dispatch({ type: 'setLimit', value: Math.max(1, Math.min(500, Number(e.target.value) || 1)) })
               }
-              className="h-7 w-16 px-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="px-2 h-7 w-16 text-xs bg-background rounded-sm border focus:outline-hidden focus:ring-1 focus:ring-primary/50"
             />
           </Label>
           <Button size="sm" onClick={run} disabled={state.running} className="ml-auto">
-            {state.running ? <Spinner size="sm" className="size-3.5 mr-1.5" /> : <Play className="size-3.5 mr-1.5" />}
+            {state.running ? <Spinner size="sm" className="mr-1.5 size-3.5" /> : <Play className="mr-1.5 size-3.5" />}
             Search
           </Button>
         </div>
@@ -296,7 +296,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               value={state.text}
               onChange={(e) => dispatch({ type: 'setText', value: e.target.value })}
               placeholder="Describe what you're looking for…"
-              className="w-full h-9 px-2 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="px-2 w-full h-9 text-sm bg-background rounded-sm border focus:outline-hidden focus:ring-1 focus:ring-primary/50"
             />
             <p className="text-xs text-muted-foreground">
               Text is converted to a vector locally using hash-based embedding — no AI provider needed. Works at
@@ -311,7 +311,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               value={state.pointId}
               onChange={(e) => dispatch({ type: 'setPointId', value: e.target.value })}
               placeholder="Point ID to find neighbors of"
-              className="w-full h-9 px-2 text-sm font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="px-2 w-full h-9 text-sm font-mono bg-background rounded-sm border focus:outline-hidden focus:ring-1 focus:ring-primary/50"
             />
             <p className="text-xs text-muted-foreground">
               Finds points most similar to an existing point — no model needed.
@@ -325,7 +325,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
             onChange={(e) => dispatch({ type: 'setVectorText', value: e.target.value })}
             placeholder="[0.1, 0.2, 0.3, ...]"
             spellCheck={false}
-            className="w-full min-h-20 px-2 py-1 text-xs font-mono bg-background border rounded resize-y focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="px-2 py-1 w-full min-h-20 text-xs font-mono bg-background rounded-sm border resize-y focus:outline-hidden focus:ring-1 focus:ring-primary/50"
           />
         )}
 
@@ -335,7 +335,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
         {state.info && !state.error && <div className="text-xs text-muted-foreground">{state.info}</div>}
       </div>
 
-      <div className="flex-1 overflow-auto min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
         {state.result ? (
           <DataTable
             rows={state.result.hits}
@@ -358,7 +358,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
       </div>
 
       {state.result && (
-        <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground">
+        <div className="px-3 py-1.5 text-xs text-muted-foreground border-t border-border">
           {state.result.hits.length} results in {state.result.durationMs}ms
         </div>
       )}

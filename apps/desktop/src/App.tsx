@@ -1,15 +1,61 @@
 import { ApiSettingsPage } from '@/components/api-settings-page';
+import { DatabaseStats } from '@/components/database-stats';
+import { DbIcon } from '@/components/db-icon';
 import { GlobalSearch } from '@/components/global-search';
-import { MainLayout } from '@/components/workspace-screen';
+import { MigrationAssistant } from '@/components/migration-assistant';
+import { MongoQuery } from '@/components/mongo-query';
+import { MongoView } from '@/components/mongo-view';
+import { QdrantQuery } from '@/components/qdrant-query';
+import { QdrantStatsPanel } from '@/components/qdrant-stats';
+import { QdrantVectorMap } from '@/components/qdrant-vector-map';
+import { QdrantView } from '@/components/qdrant-view';
+import { RedisQuery } from '@/components/redis-query';
+import { RedisView } from '@/components/redis-view';
+import { SchemaGraph } from '@/components/schema-graph';
+import { SchemaTimeline } from '@/components/schema-timeline';
 import { Sidebar } from '@/components/sidebar';
+import { SqlEditor } from '@/components/sql-editor';
+import { TableStats } from '@/components/table-stats';
+import { TableView } from '@/components/table-view';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { applyTheme, appStore, closeAllTabs, closeTab, setTheme } from '@/store';
+import { AIChatPanel } from '@/components/ai-chat-panel';
+import { isSqlKind, KIND_LABELS, KINDS } from '@/lib/constants';
+import { useConnections } from '@/hooks/use-connections';
+import {
+  applyTheme,
+  appStore,
+  closeAllTabs,
+  closeAiChatPanel,
+  closeTab,
+  openDatabaseStatsTab,
+  openGraphTab,
+  openMongoQueryTab,
+  openNewQueryTab,
+  openRedisQueryTab,
+  setTheme,
+} from '@/store';
 import { api } from '@/lib/api';
 import { useStore } from '@tanstack/react-store';
-import { Monitor, Moon, Search, Sun } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import {
+  Activity,
+  BarChart3,
+  Box,
+  Database,
+  Monitor,
+  Moon,
+  Plus,
+  Search,
+  Share2,
+  Sun,
+  Table2,
+  Terminal,
+  X,
+  History as HistoryIcon,
+} from 'lucide-react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { getGreeting } from '@/components/workspace-screen';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -81,7 +127,7 @@ function TabBar() {
             ) : tab.type === 'table-stats' ? (
               <Activity className="size-3" />
             ) : tab.type === 'schema-timeline' ? (
-              <History className="size-3" />
+              <HistoryIcon className="size-3" />
             ) : tab.type === 'migration' ? (
               <Terminal className="size-3" />
             ) : (
@@ -126,7 +172,7 @@ function TabBar() {
             >
               <Database className="size-3.5" />
             </button>
-          ) : activeConnection && isSql(activeConnection.kind) ? (
+          ) : activeConnection && isSqlKind(activeConnection.kind) ? (
             <>
               <button
                 type="button"
@@ -256,7 +302,7 @@ function Workspace() {
         <div className="text-center space-y-3">
           <p className="text-sm text-muted-foreground">Select a table or open a tab</p>
           <div className="flex items-center justify-center gap-2">
-            {isSql(activeConnection.kind) && (
+            {isSqlKind(activeConnection.kind) && (
               <>
                 <Button size="sm" variant="outline" onClick={() => openNewQueryTab(activeConnectionId)}>
                   <Terminal className="size-3.5 mr-1.5" />

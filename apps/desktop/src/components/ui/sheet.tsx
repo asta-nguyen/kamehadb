@@ -124,10 +124,10 @@ function SheetContent({
       >
         {side === 'right' && (
           <div
-            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 active:bg-primary/50 z-50 group"
+            className="absolute left-0 top-0 bottom-0 z-50 w-1.5 cursor-col-resize group hover:bg-primary/30 active:bg-primary/50"
             onMouseDown={handleResizeMouseDown}
           >
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-0.5 rounded-full bg-border opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute left-1/2 top-1/2 h-8 w-0.5 bg-border rounded-full opacity-0 -translate-x-1/2 -translate-y-1/2 transition-opacity group-hover:opacity-100" />
           </div>
         )}
         {children}

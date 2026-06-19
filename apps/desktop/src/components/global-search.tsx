@@ -133,7 +133,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
       <CommandList>
         {searching && (
           <div className="flex items-center justify-center py-4">
-            <div className="size-4 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60" />
+            <div className="size-4 rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60 animate-spin" />
           </div>
         )}
         {!searching && query && query.length >= 2 && !hasResults && <CommandEmpty>No results found</CommandEmpty>}
@@ -255,7 +255,7 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
             {Array.from(unsupportedConns).map((connId) => {
               const conn = connections?.find((c) => c.id === connId);
               return (
-                <div key={connId} className="px-2 py-1.5 text-xs text-muted-foreground flex items-center gap-2">
+                <div key={connId} className="flex items-center px-2 py-1.5 text-xs text-muted-foreground gap-2">
                   <DbIcon kind={conn?.kind ?? 'postgres'} className="size-3.5" />
                   <span>
                     <span className="font-medium">{conn?.name ?? connId}</span> — schema search not available for this

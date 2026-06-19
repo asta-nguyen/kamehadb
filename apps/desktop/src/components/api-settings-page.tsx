@@ -219,14 +219,14 @@ function ApiSettingsHeader({ draft }: { draft: AISettings }) {
   const activeStatus = getProviderAvailabilityStatus(draft.activeProvider, activeConfig, true);
   return (
     <div className="border-b border-border">
-      <div className="flex flex-wrap items-start gap-3 px-5 py-4">
+      <div className="flex flex-wrap items-start px-5 py-4 gap-3">
         <Button variant="ghost" size="icon-sm" onClick={() => navigateTo('workspace')} title="Back to workspace">
           <ArrowLeft className="size-4" />
         </Button>
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-semibold tracking-tight">API Settings</h1>
-            <Badge variant="outline" className="bg-background/70 text-xs">
+            <Badge variant="outline" className="text-xs bg-background/70">
               Local user profile
             </Badge>
           </div>
@@ -235,9 +235,9 @@ function ApiSettingsHeader({ draft }: { draft: AISettings }) {
             the active one without losing drafts.
           </p>
         </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/80 px-4 py-2">
+        <div className="flex items-center px-4 py-2 bg-background/80 rounded-xl border-border/50 gap-3 border">
           <div className="flex items-center gap-2">
-            <div className="size-2 rounded-full bg-primary" />
+            <div className="size-2 bg-primary rounded-full" />
             <span className="text-sm font-medium">{PROVIDER_META[draft.activeProvider].label}</span>
           </div>
           <Badge variant="outline" className="text-xs">
@@ -260,8 +260,8 @@ function ProviderSidebar({
   onSelect: (p: AIProvider) => void;
 }) {
   return (
-    <aside className="w-full shrink-0 border-b border-border bg-muted/5 lg:w-55 lg:border-r lg:border-b-0">
-      <div className="space-y-1 p-3">
+    <aside className="w-full bg-muted/5 border-b border-border shrink-0 lg:w-55 lg:border-r lg:border-b-0">
+      <div className="p-3 space-y-1">
         {PROVIDER_ORDER.map((provider) => {
           const meta = PROVIDER_META[provider];
           const isActive = provider === draft.activeProvider;
@@ -287,18 +287,18 @@ function ProviderSidebar({
               >
                 <Icon className="size-4" />
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium" title={meta.label}>
+                  <span className="text-sm font-medium truncate" title={meta.label}>
                     {meta.label}
                   </span>
                   {isActive ? (
-                    <Badge variant="default" className="h-5 px-1.5 text-[10px]">
+                    <Badge variant="default" className="px-1.5 h-5 text-xs">
                       Active
                     </Badge>
                   ) : null}
                 </div>
-                <div className="truncate text-xs text-muted-foreground" title={status}>
+                <div className="text-xs text-muted-foreground truncate" title={status}>
                   {status}
                 </div>
               </div>
@@ -324,9 +324,9 @@ function ProviderHeader({
   const SelectedIcon = PROVIDER_META[selectedProvider].icon;
   const status = getProviderAvailabilityStatus(selectedProvider, config, isActive);
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
+    <div className="flex items-center justify-between px-4 py-3 bg-card rounded-xl border-border/50 border">
       <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="flex items-center justify-center size-9 text-primary bg-primary/10 rounded-lg">
           <SelectedIcon className="size-4" />
         </div>
         <div>
@@ -367,7 +367,7 @@ function ProviderForm({
   canFetchModels: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
+    <div className="p-4 bg-card rounded-xl border-border/50 border space-y-4">
       <Field
         label="Model"
         description="The default model for AI chat. Select from available models or type a custom name."
@@ -380,7 +380,7 @@ function ProviderForm({
                 if (v && v !== '__custom') onModelChange(v);
               }}
             >
-              <SelectTrigger className="h-9 flex-1">
+              <SelectTrigger className="flex-1 h-9">
                 <SelectValue placeholder="Select a model..." />
               </SelectTrigger>
               <SelectContent>
@@ -397,13 +397,13 @@ function ProviderForm({
               value={config.model}
               onChange={(e) => onUpdateField({ model: e.target.value })}
               placeholder={PROVIDER_META[selectedProvider].modelPlaceholder}
-              className="h-9 flex-1"
+              className="flex-1 h-9"
             />
           )}
           <Button
             variant="outline"
             size="icon"
-            className="shrink-0 size-9"
+            className="size-9 shrink-0"
             onClick={onFetchModels}
             disabled={modelsLoading || !canFetchModels}
             title="Fetch available models"
@@ -462,7 +462,7 @@ function SettingsFooter({
   onSave: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
+    <div className="flex items-center justify-between px-4 py-3 bg-card rounded-xl border-border/50 border">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={onReset}>
           Reset
@@ -565,7 +565,7 @@ export function ApiSettingsPage() {
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col bg-background overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-border/80">
+    <div className="flex flex-1 flex-col h-full min-w-0 bg-background overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-border/80">
       <ApiSettingsHeader draft={state.draft} />
 
       {isLoading ? (
@@ -573,14 +573,14 @@ export function ApiSettingsPage() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        <div className="flex flex-1 flex-col min-h-0 lg:flex-row">
           <ProviderSidebar
             draft={state.draft}
             selectedProvider={state.selectedProvider}
             onSelect={(p) => dispatch({ type: 'selectProvider', provider: p })}
           />
 
-          <section className="flex min-h-0 flex-1 flex-col">
+          <section className="flex flex-1 flex-col min-h-0">
             <div className="flex-1 px-5 py-5">
               <div className="space-y-4">
                 <ProviderHeader

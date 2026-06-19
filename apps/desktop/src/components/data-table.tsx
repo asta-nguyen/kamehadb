@@ -140,9 +140,9 @@ export function DataTable<T>({
                         </span>
                         {isSorted &&
                           (sortDirection === 'asc' ? (
-                            <ArrowUp className="shrink-0 size-3" />
+                            <ArrowUp className="size-3 shrink-0" />
                           ) : (
-                            <ArrowDown className="shrink-0 size-3" />
+                            <ArrowDown className="size-3 shrink-0" />
                           ))}
                       </div>
                       {useResize && (
@@ -161,9 +161,9 @@ export function DataTable<T>({
                               onColResize(i, e as unknown as React.MouseEvent);
                             }
                           }}
-                          className="group absolute bottom-0 right-0 top-0 z-10 w-2.5 cursor-col-resize flex items-center justify-center active:bg-primary/[0.08]"
+                          className="absolute bottom-0 right-0 top-0 z-10 flex items-center justify-center w-2.5 group cursor-col-resize active:bg-primary/[0.08]"
                         >
-                          <div className="w-px h-full bg-border/60 group-hover:bg-primary/50 group-active:bg-primary transition-colors rounded-full" />
+                          <div className="w-px h-full bg-border/60 rounded-full transition-colors group-hover:bg-primary/50 group-active:bg-primary" />
                         </div>
                       )}
                     </TableHead>

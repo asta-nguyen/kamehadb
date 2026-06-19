@@ -30,7 +30,7 @@ export function WorkspaceTabBar() {
   const activeTab = openedTabs.find((tab) => tab.id === activeTabId);
 
   return (
-    <div className="flex h-8 shrink-0 items-center overflow-x-auto border-b border-border bg-muted/20">
+    <div className="flex items-center h-8 bg-muted/20 border-b border-border shrink-0 overflow-x-auto">
       {openedTabs.map((tab) => {
         const status = connectionStatus[tab.connectionId];
         const signalColor =
@@ -60,12 +60,12 @@ export function WorkspaceTabBar() {
               }
             }}
           >
-            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
+            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: signalColor }} />
             {tabIcon(tab.type)}
             <span className="max-w-30 truncate">{tab.title}</span>
             <button
               type="button"
-              className="ml-1 rounded-sm p-0.5 hover:bg-muted"
+              className="p-0.5 ml-1 rounded-xs hover:bg-muted"
               onClick={(event) => {
                 event.stopPropagation();
                 closeTab(tab.id);
@@ -82,7 +82,7 @@ export function WorkspaceTabBar() {
           {activeTab && (activeTab.type === 'redis-query' || activeTab.type === 'redis') ? (
             <button
               type="button"
-              className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex items-center justify-center px-2 h-full text-muted-foreground shrink-0 hover:text-foreground hover:bg-muted/50"
               onClick={() => openRedisQueryTab(activeTab.connectionId)}
               title="Redis Query"
             >
@@ -91,7 +91,7 @@ export function WorkspaceTabBar() {
           ) : activeTab && (activeTab.type === 'mongo-query' || activeTab.type === 'mongo') ? (
             <button
               type="button"
-              className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex items-center justify-center px-2 h-full text-muted-foreground shrink-0 hover:text-foreground hover:bg-muted/50"
               onClick={() => {
                 const mongoDatabase = appStore.state.activeMongoDatabase;
                 const database = 'database' in activeTab ? activeTab.database : (mongoDatabase ?? 'admin');
@@ -106,7 +106,7 @@ export function WorkspaceTabBar() {
             <>
               <button
                 type="button"
-                className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                className="flex items-center justify-center px-2 h-full text-muted-foreground shrink-0 hover:text-foreground hover:bg-muted/50"
                 onClick={() => openNewQueryTab(activeTab.connectionId)}
                 title="New Query"
               >
@@ -114,7 +114,7 @@ export function WorkspaceTabBar() {
               </button>
               <button
                 type="button"
-                className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                className="flex items-center justify-center px-2 h-full text-muted-foreground shrink-0 hover:text-foreground hover:bg-muted/50"
                 onClick={() => openGraphTab(activeTab.connectionId)}
                 title="Schema Graph"
               >

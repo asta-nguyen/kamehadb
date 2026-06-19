@@ -26,7 +26,7 @@ function formatValue(value: unknown, type: string): ReactNode {
 
   switch (type) {
     case 'string':
-      return <span className="font-mono text-xs bg-muted px-2 py-1 rounded">{String(value)}</span>;
+      return <span className="px-2 py-1 text-xs font-mono bg-muted rounded-sm">{String(value)}</span>;
     case 'list':
     case 'set':
     case 'zset':
@@ -35,12 +35,12 @@ function formatValue(value: unknown, type: string): ReactNode {
           <div className="space-y-0.5">
             {value.slice(0, 20).map((item, i) => (
               <div key={`${item}-${i}`} className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-6 text-right">{i}</span>
-                <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(item)}</code>
+                <span className="w-6 text-xs text-muted-foreground text-right">{i}</span>
+                <code className="px-2 py-0.5 text-xs bg-muted rounded-sm">{String(item)}</code>
               </div>
             ))}
             {value.length > 20 && (
-              <div className="text-xs text-muted-foreground pl-8">... and {value.length - 20} more</div>
+              <div className="pl-8 text-xs text-muted-foreground">... and {value.length - 20} more</div>
             )}
           </div>
         );
@@ -52,9 +52,9 @@ function formatValue(value: unknown, type: string): ReactNode {
           <div className="space-y-0.5">
             {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
               <div key={k} className="flex items-center gap-2">
-                <code className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">{k}</code>
+                <code className="px-2 py-0.5 text-xs text-primary bg-primary/10 rounded-sm">{k}</code>
                 <span className="text-muted-foreground">:</span>
-                <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(v)}</code>
+                <code className="px-2 py-0.5 text-xs bg-muted rounded-sm">{String(v)}</code>
               </div>
             ))}
           </div>
@@ -62,7 +62,7 @@ function formatValue(value: unknown, type: string): ReactNode {
       }
       break;
   }
-  return <code className="text-xs bg-muted px-2 py-1 rounded">{JSON.stringify(value)}</code>;
+  return <code className="px-2 py-1 text-xs bg-muted rounded-sm">{JSON.stringify(value)}</code>;
 }
 
 interface RedisExplorerProps {
@@ -93,19 +93,19 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
   return (
     <div className="flex h-full">
       {/* Key list */}
-      <div className="w-48 border-r border-border flex flex-col">
+      <div className="flex flex-col w-48 border-r border-border">
         <div className="px-2 py-1.5 border-b border-border">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+            <Search className="absolute left-2 top-1/2 size-3 text-muted-foreground -translate-y-1/2" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter keys..."
-              className="h-6 pl-6 pr-2 text-xs"
+              className="pl-6 pr-2 h-6 text-xs"
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
+        <div className="flex-1 p-1.5 min-h-0 overflow-y-auto space-y-0.5">
           {loadingKeys ? (
             <div className="flex items-center justify-center py-4">
               <Spinner size="md" />
@@ -128,14 +128,14 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
                   title={`${entry.key} (${entry.type})`}
                 >
                   <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
-                  <span className="truncate flex-1 text-left">{entry.key}</span>
-                  <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
+                  <span className="flex-1 text-left truncate">{entry.key}</span>
+                  <span className="ml-auto text-xs text-muted-foreground/70 uppercase">{entry.type}</span>
                 </Button>
               );
             })
           )}
         </div>
-        <div className="px-2 py-1 border-t border-border flex items-center justify-between">
+        <div className="flex items-center justify-between px-2 py-1 border-t border-border">
           <span className="text-xs text-muted-foreground">{filteredKeys.length} keys</span>
           <Button
             variant="ghost"
@@ -148,7 +148,7 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
           </Button>
         </div>
         {showStats && (
-          <div className="px-3 py-2 border-t border-border bg-muted/30">
+          <div className="px-3 py-2 bg-muted/30 border-t border-border">
             {loadingStats ? (
               <Spinner size="md" className="mx-auto" />
             ) : statsError ? (
@@ -156,24 +156,24 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
                 Error: {statsError instanceof Error ? statsError.message : 'Failed to load stats'}
               </div>
             ) : stats ? (
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="text-xs space-y-1.5">
+                <div className="flex items-center text-muted-foreground gap-2">
                   <Cpu className="size-3" />
                   <span>{stats.version}</span>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex items-center text-muted-foreground gap-2">
                   <HardDrive className="size-3" />
                   <span>{stats.totalKeys} keys</span>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex items-center text-muted-foreground gap-2">
                   <Users className="size-3" />
                   <span>{stats.connectedClients} clients</span>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex items-center text-muted-foreground gap-2">
                   <span>Memory:</span>
                   <span>{Math.round(stats.usedMemory / 1024 / 1024)} MB</span>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex items-center text-muted-foreground gap-2">
                   <span>Uptime:</span>
                   <span>{Math.round(stats.uptimeSeconds / 3600)}h</span>
                 </div>
@@ -186,25 +186,25 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
       </div>
 
       {/* Key details panel */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0">
         {selectedKey && keyDetails ? (
           <>
-            <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+              <div className="flex items-center min-w-0 gap-2">
                 {(() => {
                   const Icon = typeIcons[keyDetails.type] || Box;
                   return <Icon className={`size-4 shrink-0 ${typeColors[keyDetails.type] || ''}`} />;
                 })()}
-                <span className="font-mono text-sm truncate" title={keyDetails.key}>
+                <span className="text-sm font-mono truncate" title={keyDetails.key}>
                   {keyDetails.key}
                 </span>
-                <span className="text-xs uppercase bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                <span className="px-1.5 py-0.5 text-xs text-muted-foreground bg-muted rounded-sm uppercase">
                   {keyDetails.type}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 {keyDetails.ttl > 0 && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="flex items-center text-xs text-muted-foreground gap-1">
                     <Clock className="size-3" />
                     TTL: {keyDetails.ttl}s
                   </span>
@@ -214,14 +214,14 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto min-h-0 p-3">
-              <div className="font-mono text-sm whitespace-pre-wrap break-all">
+            <div className="flex-1 p-3 min-h-0 overflow-y-auto">
+              <div className="text-sm font-mono whitespace-pre-wrap break-all">
                 {formatValue(keyDetails.value, keyDetails.type)}
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+          <div className="flex flex-1 items-center justify-center text-muted-foreground text-sm">
             Select a key to view details
           </div>
         )}

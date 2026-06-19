@@ -153,12 +153,12 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="opacity-0 shrink-0 size-5 focus-visible:opacity-100 group-hover:opacity-100"
+              className="size-5 opacity-0 shrink-0 group-hover:opacity-100 focus-visible:opacity-100"
               onClick={() => handleCopyQuery(row.pid, row.query!)}
               title="Copy query"
               aria-label="Copy query"
             >
-              {copiedPid === row.pid ? <Check className="text-primary size-3" /> : <Copy className="size-3" />}
+              {copiedPid === row.pid ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
             </Button>
           )}
         </div>
@@ -280,15 +280,15 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
             <CardContent className="pt-0">
               <div className="grid grid-cols-3 gap-4">
                 <div className="flex items-center p-3 bg-muted/50 rounded-lg gap-2">
-                  <Radio className="text-primary size-4" />
+                  <Radio className="size-4 text-primary" />
                   <span className="text-sm">{connections?.filter((c) => c.state === 'active').length || 0} active</span>
                 </div>
                 <div className="flex items-center p-3 bg-muted/50 rounded-lg gap-2">
-                  <Clock className="text-muted-foreground size-4" />
+                  <Clock className="size-4 text-muted-foreground" />
                   <span className="text-sm">{connections?.filter((c) => c.state === 'idle').length || 0} idle</span>
                 </div>
                 <div className="flex items-center p-3 bg-muted/50 rounded-lg gap-2">
-                  <AlertTriangle className="text-destructive size-4" />
+                  <AlertTriangle className="size-4 text-destructive" />
                   <span className="text-sm">
                     {connections?.filter((c) => c.state === 'idle in transaction').length || 0} in transaction
                   </span>

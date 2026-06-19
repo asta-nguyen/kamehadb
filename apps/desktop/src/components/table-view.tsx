@@ -258,7 +258,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               type={inputType}
               defaultValue={formatDefault(value)}
               autoFocus
-              className="h-7 text-xs min-w-0"
+              className="h-7 min-w-0 text-xs"
               onClick={(e) => e.stopPropagation()}
               onBlur={(e) => setTimeout(() => saveCellEdit(rowIndex, col.name, e.target.value, col.type), 150)}
               onKeyDown={(e) => {
@@ -302,9 +302,9 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   return (
     <>
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center mb-3 gap-2">
         <div className="relative flex-1 max-w-64">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Search className="absolute left-2 top-1/2 size-3.5 text-muted-foreground -translate-y-1/2 pointer-events-none" />
           <Input
             value={state.searchText}
             onChange={(e) => {
@@ -312,7 +312,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               debouncedSearchFn(e.target.value);
             }}
             placeholder="Search all fields..."
-            className="h-7 pl-7 text-xs"
+            className="pl-7 h-7 text-xs"
           />
         </div>
         <div className="flex items-center gap-1">
@@ -323,7 +323,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               dispatch({ type: 'cycleSort', column: v });
             }}
           >
-            <SelectTrigger className="h-7 w-28 text-xs gap-1.5 px-2">
+            <SelectTrigger className="px-2 h-7 w-28 text-xs gap-1.5">
               <ArrowUpDown className="size-3.5 text-muted-foreground" />
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -365,11 +365,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         </div>
       </div>
       {pkColumns.length === 0 && (
-        <div className="mb-2 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-md">
+        <div className="px-3 py-1.5 mb-2 text-xs text-amber-600 bg-amber-50 border-amber-200 rounded-md border dark:text-amber-400 dark:bg-amber-950/30 dark:border-amber-800/40">
           No primary key — in-cell editing disabled to prevent ambiguous row updates.
         </div>
       )}
-      <div className="border rounded-md">
+      <div className="rounded-md border">
         <DataTable
           rows={result.rows}
           columns={tableColumns}
@@ -391,15 +391,15 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
-                  <Eye className="size-3.5 mr-2" />
+                  <Eye className="mr-2 size-3.5" />
                   View details
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
-                  <Copy className="size-3.5 mr-2" />
+                  <Copy className="mr-2 size-3.5" />
                   Copy row
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
-                  <Trash2 className="size-3.5 mr-2" />
+                  <Trash2 className="mr-2 size-3.5" />
                   Delete row
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -408,7 +408,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           className="text-xs"
         />
         {result && (
-          <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2">
+          <div className="flex items-center px-3 py-1.5 text-xs text-muted-foreground bg-muted/30 border-t gap-2">
             <div className="flex items-center gap-1">
               <Select
                 value={String(state.pageSize)}
@@ -416,7 +416,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   dispatch({ type: 'setPageSize', value: Number(v) });
                 }}
               >
-                <SelectTrigger className="h-7 w-16 text-xs gap-1 px-2">
+                <SelectTrigger className="px-2 h-7 w-16 text-xs gap-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -431,7 +431,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
             <span>{result.rowCount} rows</span>
             <span className="ml-auto">{result.durationMs}ms</span>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex items-center text-xs text-muted-foreground gap-1">
                 <span>Page</span>
                 <Input
                   type="number"
@@ -483,7 +483,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           if (!open) dispatch({ type: 'selectRow', row: null });
         }}
       >
-        <SheetContent className="sm:max-w-lg flex flex-col">
+        <SheetContent className="flex flex-col sm:max-w-lg">
           <SheetHeader className="shrink-0">
             <SheetTitle className="flex items-center gap-2">
               <FileJson className="size-4" />
@@ -546,7 +546,7 @@ function formatJsonSyntax(json: string): React.ReactNode[] {
 
     return (
       <div key={`${i}-${line.slice(0, 50)}`} className="flex">
-        <span className="w-8 shrink-0 text-right text-xs text-muted-foreground/40 select-none mr-3">{i + 1}</span>
+        <span className="mr-3 w-8 text-right text-xs text-muted-foreground/40 shrink-0 select-none">{i + 1}</span>
         <span className="flex-1">{parts}</span>
       </div>
     );
@@ -574,8 +574,8 @@ export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, 
   if (!selectedRow) return null;
 
   return (
-    <Tabs defaultValue="view" className="flex-1 flex flex-col min-h-0">
-      <div className="shrink-0 px-4">
+    <Tabs defaultValue="view" className="flex flex-1 flex-col min-h-0">
+      <div className="px-4 shrink-0">
         <TabsList>
           <TabsTrigger value="view" className="text-xs">
             View
@@ -586,22 +586,22 @@ export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, 
         </TabsList>
       </div>
 
-      <TabsContent value="view" className="flex-1 min-h-0 p-0">
+      <TabsContent value="view" className="flex-1 p-0 min-h-0">
         <div className="h-full overflow-y-auto">
           <div className="pb-2">
             {Object.entries(selectedRow).map(([key, value], i) => {
               const typeLabel = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
               return (
                 <div key={key} className={`flex items-start gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-muted/20' : ''}`}>
-                  <div className="w-2/5 shrink-0 min-w-0">
+                  <div className="w-2/5 min-w-0 shrink-0">
                     <div className="text-xs font-medium truncate">{key}</div>
-                    <span className="text-xs uppercase text-muted-foreground/50 tracking-wider">{typeLabel}</span>
+                    <span className="text-xs text-muted-foreground/50 tracking-wider uppercase">{typeLabel}</span>
                   </div>
-                  <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug group/field">
+                  <div className="flex-1 min-w-0 text-sm font-mono leading-snug break-all group/field">
                     {value === null ? (
                       <span className="text-muted-foreground italic">null</span>
                     ) : typeof value === 'object' ? (
-                      <pre className="text-xs whitespace-pre-wrap bg-muted/50 rounded p-2 mt-0.5 max-h-32 overflow-auto">
+                      <pre className="p-2 mt-0.5 max-h-32 text-xs bg-muted/50 rounded-sm whitespace-pre-wrap overflow-auto">
                         {JSON.stringify(value, null, 2)}
                       </pre>
                     ) : (
@@ -612,7 +612,7 @@ export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, 
                       variant="ghost"
                       size="icon"
                       onClick={() => handleCopyField(key, value)}
-                      className="size-5 rounded opacity-0 group-hover/field:opacity-100 transition-opacity ml-1 align-middle hover:bg-muted-foreground/20"
+                      className="ml-1 size-5 rounded-sm opacity-0 transition-opacity align-middle group-hover/field:opacity-100 hover:bg-muted-foreground/20"
                       title="Copy value"
                     >
                       {copiedField === key ? (
@@ -629,13 +629,13 @@ export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, 
         </div>
       </TabsContent>
 
-      <TabsContent value="json" className="flex-1 min-h-0 p-0">
+      <TabsContent value="json" className="flex-1 p-0 min-h-0">
         <div className="relative h-full">
           <Button variant="outline" size="icon-sm" className="absolute top-2 right-2 z-10" onClick={handleCopy}>
             {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
           </Button>
           <div className="h-full overflow-y-auto">
-            <div className="p-3 font-mono text-xs leading-relaxed bg-card text-muted-foreground rounded-sm m-2">
+            <div className="p-3 m-2 text-xs text-muted-foreground font-mono leading-relaxed bg-card rounded-xs">
               {formatJsonSyntax(JSON.stringify(selectedRow, null, 2))}
             </div>
           </div>
@@ -658,7 +658,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
         </div>
       </div>
 
-      <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
+      <Tabs defaultValue="data" className="flex flex-1 flex-col min-h-0">
         <div className="px-4 pt-2 shrink-0">
           <TabsList>
             <TabsTrigger value="data" className="text-xs">
@@ -671,18 +671,18 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
               Indexes
             </TabsTrigger>
             <TabsTrigger value="stats" className="text-xs">
-              <Activity className="size-3 mr-1" />
+              <Activity className="mr-1 size-3" />
               Stats
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="data" className="flex-1 p-4 pt-2 overflow-auto">
+        <TabsContent value="data" className="flex-1 pt-2 overflow-auto">
           <DataGrid connectionId={connectionId} tableId={tableId} />
         </TabsContent>
 
-        <TabsContent value="columns" className="flex-1 p-4 pt-2 overflow-auto">
-          <div className="border rounded-md">
+        <TabsContent value="columns" className="flex-1 pt-2 overflow-auto">
+          <div className="rounded-md border">
             <Table className="text-xs">
               <TableHeader>
                 <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
@@ -701,14 +701,14 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                       <div className="flex items-center gap-1.5">
                         <span>{col.type}</span>
                         {col.isVector && (
-                          <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px]">
+                          <Badge variant="secondary" className="px-1 py-0 h-4 text-xs">
                             vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
                           </Badge>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
+                    <TableCell className="px-3 py-1.5 text-muted-foreground text-xs font-mono">
                       {col.default ?? <span className="italic">null</span>}
                     </TableCell>
                     <TableCell className="px-3 py-1.5">
@@ -728,8 +728,8 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="indexes" className="flex-1 p-4 pt-2 overflow-auto">
-          <div className="border rounded-md">
+        <TabsContent value="indexes" className="flex-1 pt-2 overflow-auto">
+          <div className="rounded-md border">
             <Table className="text-xs">
               <TableHeader>
                 <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>

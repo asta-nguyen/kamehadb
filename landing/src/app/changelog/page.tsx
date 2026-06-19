@@ -180,7 +180,7 @@ function MarkdownText({ text }: { text: string }) {
     }
     if (match[1]) {
       nodes.push(
-        <strong key={key++} className="font-semibold text-ink">
+        <strong key={key++} className="text-ink font-semibold">
           {match[1].slice(2, -2)}
         </strong>,
       );
@@ -237,20 +237,20 @@ export default function ChangelogPage() {
   const releases = parseChangelog(content);
 
   return (
-    <div className="min-h-screen bg-canvas font-sans antialiased">
+    <div className="min-h-screen font-sans bg-canvas antialiased">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-canvas/70 border-b border-border/60">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-canvas/70 border-b border-border/60 backdrop-blur-md">
+        <div className="flex items-center justify-between px-6 py-4 mx-auto max-w-6xl">
           <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-            <div className="w-9 h-9 relative">
+            <div className="relative w-9 h-9">
               <Image src="/logo.png" alt="KamehaDB" fill className="object-contain" />
             </div>
-            <span className="font-bold text-ink text-lg">KamehaDB</span>
+            <span className="text-ink text-lg font-bold">KamehaDB</span>
           </Link>
           <div className="flex items-center gap-6">
             <Link
               href="/"
-              className="text-body hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-sm font-medium"
+              className="text-body text-sm font-medium transition-colors hover:text-amber-600 dark:hover:text-amber-400"
             >
               Home
             </Link>
@@ -258,7 +258,7 @@ export default function ChangelogPage() {
               href="https://github.com/asta-nguyen/kamehadb"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/25"
+              className="flex items-center px-4 py-2 text-white text-sm font-medium bg-amber-500 rounded-xl gap-2 transition-all hover:bg-amber-600 hover:shadow-lg hover:shadow-amber-500/25"
             >
               GitHub
             </a>
@@ -269,9 +269,9 @@ export default function ChangelogPage() {
 
       {/* Content */}
       <main className="pt-32 pb-24 px-6">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-4xl font-extrabold text-ink tracking-tight mb-2">Changelog</h1>
-          <p className="text-lg text-body mb-12">What&apos;s new in KamehaDB</p>
+        <div className="mx-auto max-w-3xl">
+          <h1 className="mb-2 text-4xl text-ink font-extrabold tracking-tight">Changelog</h1>
+          <p className="mb-12 text-lg text-body">What&apos;s new in KamehaDB</p>
 
           <div className="space-y-12">
             {releases.map((release) => (
@@ -281,15 +281,15 @@ export default function ChangelogPage() {
 
                 <div className="flex items-start gap-4">
                   {/* Timeline dot */}
-                  <div className="relative z-10 w-6 h-6 rounded-full bg-amber-500 border-4 border-canvas shadow-sm flex-shrink-0 mt-1" />
+                  <div className="relative z-10 mt-1 w-6 h-6 bg-amber-500 rounded-full border-4 border-canvas shadow-xs shrink-0" />
 
                   <div className="flex-1 pb-4">
-                    <div className="flex items-baseline gap-3 mb-4">
-                      <h2 className="text-2xl font-bold text-ink">{release.version}</h2>
+                    <div className="flex items-baseline mb-4 gap-3">
+                      <h2 className="text-2xl text-ink font-bold">{release.version}</h2>
                       {release.date && <span className="text-sm text-muted font-medium">{release.date}</span>}
                     </div>
 
-                    {release.description && <p className="text-body leading-relaxed mb-5">{release.description}</p>}
+                    {release.description && <p className="mb-5 text-body leading-relaxed">{release.description}</p>}
 
                     <div className="space-y-8">
                       {release.sections.map((section) => (
@@ -303,14 +303,14 @@ export default function ChangelogPage() {
                             {section.groups.map((group, groupIndex) => (
                               <div key={group.title ?? `group-${groupIndex}`} className="space-y-2">
                                 {group.title && (
-                                  <h3 className="text-sm font-semibold uppercase tracking-[0.08em] text-muted">
+                                  <h3 className="text-sm text-muted font-semibold tracking-[0.08em] uppercase">
                                     {group.title}
                                   </h3>
                                 )}
                                 <ul className="space-y-2">
                                   {group.items.map((item, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-body leading-relaxed">
-                                      <span className="text-muted mt-1.5 shrink-0">•</span>
+                                    <li key={i} className="flex items-start text-body leading-relaxed gap-2">
+                                      <span className="mt-1.5 text-muted shrink-0">•</span>
                                       <span className="flex-1">
                                         <MarkdownText text={item} />
                                       </span>
@@ -332,13 +332,13 @@ export default function ChangelogPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border py-12 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+      <footer className="py-12 px-6 border-t border-border">
+        <div className="flex flex-col items-center justify-between mx-auto max-w-6xl gap-6 md:flex-row">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 relative">
+            <div className="relative w-9 h-9">
               <Image src="/logo.png" alt="KamehaDB" fill className="object-contain" />
             </div>
-            <span className="font-bold text-ink">KamehaDB</span>
+            <span className="text-ink font-bold">KamehaDB</span>
           </Link>
         </div>
       </footer>

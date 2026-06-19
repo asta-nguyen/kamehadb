@@ -25,32 +25,34 @@ export function MongoStatsPanel({ connectionId, database, collection }: MongoSta
   }
   return (
     <div className="space-y-4">
-      <div className="border rounded-md">
-        <div className="px-3 py-2 bg-muted/50 border-b font-medium text-sm">Overview</div>
+      <div className="rounded-md border">
+        <div className="px-3 py-2 text-sm font-medium bg-muted/50 border-b">Overview</div>
         <div className="p-3">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 text-sm gap-4">
             <div>
               <div className="text-muted-foreground text-xs">Document Count</div>
-              <div className="font-mono text-lg">{statsData.documentCount.toLocaleString()}</div>
+              <div className="text-lg font-mono">{statsData.documentCount.toLocaleString()}</div>
             </div>
             <div>
               <div className="text-muted-foreground text-xs">Indexes</div>
-              <div className="font-mono text-lg">{indexes.length}</div>
+              <div className="text-lg font-mono">{indexes.length}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="border rounded-md">
-        <div className="px-3 py-2 bg-muted/50 border-b font-medium text-sm">Indexes</div>
+      <div className="rounded-md border">
+        <div className="px-3 py-2 text-sm font-medium bg-muted/50 border-b">Indexes</div>
         <div className="divide-y">
           {indexes.map((idx) => (
             <div key={idx.name} className="px-3 py-2">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm">{idx.name}</span>
-                {idx.unique && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">Unique</span>}
+                <span className="text-sm font-mono">{idx.name}</span>
+                {idx.unique && (
+                  <span className="px-1.5 py-0.5 text-xs text-primary bg-primary/10 rounded-sm">Unique</span>
+                )}
               </div>
-              <div className="text-xs text-muted-foreground font-mono mt-1">{JSON.stringify(idx.key)}</div>
+              <div className="mt-1 text-xs text-muted-foreground font-mono">{JSON.stringify(idx.key)}</div>
             </div>
           ))}
         </div>

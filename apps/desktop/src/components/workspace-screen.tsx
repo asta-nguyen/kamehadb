@@ -18,7 +18,7 @@ function pick<T>(items: readonly T[], last?: T): T {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function getGreeting(): [string, string] {
+export function getGreeting(): [string, string] {
   const hour = new Date().getHours();
   const bucket = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
   const lastGreeting = localStorage.getItem('lastGreeting') ?? undefined;

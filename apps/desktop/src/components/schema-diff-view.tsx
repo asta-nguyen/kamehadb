@@ -65,13 +65,13 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
   };
 
   return (
-    <div className="h-full overflow-y-auto p-4 space-y-4">
+    <div className="p-4 h-full overflow-y-auto space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <h2 className="flex items-center text-lg font-semibold gap-2">
           <GitCompare className="size-4" />
           Schema Diff
         </h2>
-        <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={handleCapture} disabled={isCapturing}>
+        <Button size="sm" className="h-8 text-xs gap-1.5" onClick={handleCapture} disabled={isCapturing}>
           {isCapturing ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
           {isCapturing ? 'Capturing...' : 'Capture Current Snapshot'}
         </Button>
@@ -86,7 +86,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
       {isLoading ? (
         <Card>
           <CardContent className="flex justify-center py-10">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <Loader2 className="size-5 text-muted-foreground animate-spin" />
           </CardContent>
         </Card>
       ) : snapshots.length < 2 ? (
@@ -99,7 +99,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
         <>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm">
+              <CardTitle className="flex items-center text-sm gap-2">
                 <ArrowLeftRight className="size-3.5" />
                 Compare snapshots
               </CardTitle>
@@ -143,7 +143,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                     key={value}
                     size="sm"
                     variant={filter === value ? 'default' : 'outline'}
-                    className="h-7 px-2.5 text-xs"
+                    className="px-2.5 h-7 text-xs"
                     onClick={() => setFilter(value)}
                   >
                     {value}
@@ -156,7 +156,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
           {diffQuery.isLoading ? (
             <Card>
               <CardContent className="flex justify-center py-10">
-                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <Loader2 className="size-5 text-muted-foreground animate-spin" />
               </CardContent>
             </Card>
           ) : diffQuery.error ? (
@@ -204,14 +204,14 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                 </Card>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center text-xs text-muted-foreground gap-2">
                   <Badge variant="outline">{new Date(diffQuery.data.fromSnapshot.capturedAt).toLocaleString()}</Badge>
                   <span>→</span>
                   <Badge variant="outline">{new Date(diffQuery.data.toSnapshot.capturedAt).toLocaleString()}</Badge>
                 </div>
                 <Button
                   size="sm"
-                  className="h-7 gap-1.5 text-xs"
+                  className="h-7 text-xs gap-1.5"
                   onClick={() => openMigrationTab(connectionId, fromSnapshotId, toSnapshotId)}
                 >
                   <Terminal className="size-3.5" />

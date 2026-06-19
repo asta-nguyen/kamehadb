@@ -64,7 +64,7 @@ export function PostgresVectorQueryControls({
 }: PostgresVectorQueryControlsProps) {
   return (
     <div className="p-3 border-b border-border space-y-2">
-      <div className="flex items-center gap-1 bg-muted/40 rounded-md p-0.5 w-fit">
+      <div className="flex items-center p-0.5 w-fit bg-muted/40 rounded-md gap-1">
         <Button
           variant="ghost"
           size="sm"
@@ -89,9 +89,9 @@ export function PostgresVectorQueryControls({
         </Button>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center flex-wrap gap-2">
         <Select value={schema || ''} onValueChange={(value) => onSchemaChange(value ?? '')}>
-          <SelectTrigger size="sm" className="h-7 text-xs w-28">
+          <SelectTrigger size="sm" className="h-7 w-28 text-xs">
             <SelectValue placeholder="Schema…" />
           </SelectTrigger>
           <SelectContent>
@@ -104,7 +104,7 @@ export function PostgresVectorQueryControls({
         </Select>
 
         <Select value={table || ''} onValueChange={(value) => onTableChange(value ?? '')}>
-          <SelectTrigger size="sm" className="h-7 text-xs w-40">
+          <SelectTrigger size="sm" className="h-7 w-40 text-xs">
             <SelectValue placeholder="Table…" />
           </SelectTrigger>
           <SelectContent>
@@ -117,7 +117,7 @@ export function PostgresVectorQueryControls({
         </Select>
 
         <Select value={column || ''} onValueChange={(value) => onColumnChange(value ?? '')}>
-          <SelectTrigger size="sm" className="h-7 text-xs w-40">
+          <SelectTrigger size="sm" className="h-7 w-40 text-xs">
             <SelectValue placeholder="Vector column…" />
           </SelectTrigger>
           <SelectContent>
@@ -130,7 +130,7 @@ export function PostgresVectorQueryControls({
         </Select>
 
         <Select value={metric} onValueChange={(value) => onMetricChange(value as 'l2' | 'cosine' | 'inner_product')}>
-          <SelectTrigger size="sm" className="h-7 text-xs w-28">
+          <SelectTrigger size="sm" className="h-7 w-28 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -140,7 +140,7 @@ export function PostgresVectorQueryControls({
           </SelectContent>
         </Select>
 
-        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+        <Label className="flex items-center text-xs text-muted-foreground gap-1">
           Limit
           <Input
             type="number"
@@ -148,12 +148,12 @@ export function PostgresVectorQueryControls({
             max={500}
             value={limit}
             onChange={(event) => onLimitChange(Math.max(1, Math.min(500, Number(event.target.value) || 1)))}
-            className="h-7 w-16 px-2 text-xs bg-background border rounded"
+            className="px-2 h-7 w-16 text-xs bg-background rounded-sm border"
           />
         </Label>
 
         <Button size="sm" onClick={onRun} disabled={running} className="ml-auto">
-          {running ? <Loader2 className="size-3.5 mr-1.5 animate-spin" /> : <Play className="size-3.5 mr-1.5" />}
+          {running ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Play className="mr-1.5 size-3.5" />}
           Search
         </Button>
       </div>
@@ -163,14 +163,14 @@ export function PostgresVectorQueryControls({
         onChange={(event) => onVectorTextChange(event.target.value)}
         placeholder="[0.1, 0.2, 0.3, ...]"
         spellCheck={false}
-        className="w-full min-h-20 px-2 py-1 text-xs font-mono bg-background border rounded resize-y"
+        className="px-2 py-1 w-full min-h-20 text-xs font-mono bg-background rounded-sm border resize-y"
       />
 
       <Input
         value={filterText}
         onChange={(event) => onFilterTextChange(event.target.value)}
         placeholder={"Optional filter, e.g. category = 'docs' AND id > 10"}
-        className="w-full h-9 px-2 text-sm bg-background border rounded"
+        className="px-2 w-full h-9 text-sm bg-background rounded-sm border"
       />
 
       {error && <div className="text-xs text-destructive">{error}</div>}

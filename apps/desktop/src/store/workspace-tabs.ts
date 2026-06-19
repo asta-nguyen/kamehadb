@@ -190,6 +190,56 @@ export function openPostgresPsqlTab(connectionId: string): void {
   });
 }
 
+export function openPostgresVectorSearchTab(
+  connectionId: string,
+  options?: {
+    readonly schema?: string;
+    readonly table?: string;
+    readonly column?: string;
+    readonly mode?: 'similar' | 'raw';
+    readonly vectorText?: string;
+  },
+): void {
+  openTab({
+    id: `postgres-vector-search-${nanoid()}`,
+    type: 'postgres-vector-search',
+    title: options?.table ? `Vector: ${options.table}` : 'Vector Search',
+    connectionId,
+    schema: options?.schema,
+    table: options?.table,
+    column: options?.column,
+    mode: options?.mode,
+    vectorText: options?.vectorText,
+  });
+}
+
+export function openPostgresVectorMapTab(
+  connectionId: string,
+  options: { readonly schema: string; readonly table: string; readonly column: string },
+): void {
+  openTab({
+    id: `postgres-vector-map-${nanoid()}`,
+    type: 'postgres-vector-map',
+    title: `Map: ${options.table}`,
+    connectionId,
+    table: options.table,
+    schema: options.schema,
+    column: options.column,
+  });
+}
+
+export function updateTabPostgresVectorMapState(
+  tabId: string,
+  updates: { readonly camera?: { position: [number, number, number]; target: [number, number, number] } },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'postgres-vector-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
 export function updateTabShellSessionId(tabId: string, sessionId: string): void {
   appStore.setState((state) => ({
     ...state,

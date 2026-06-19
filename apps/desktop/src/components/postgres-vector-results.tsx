@@ -64,7 +64,7 @@ function formatJsonSyntax(json: string): React.ReactNode[] {
     parts.push(line.slice(lastIdx));
     return (
       <div key={`${i}-${line.slice(0, 50)}`} className="flex">
-        <span className="w-8 shrink-0 text-right text-xs text-muted-foreground/40 select-none mr-3">{i + 1}</span>
+        <span className="mr-3 w-8 text-right text-xs text-muted-foreground/40 shrink-0 select-none">{i + 1}</span>
         <span className="flex-1">{parts}</span>
       </div>
     );
@@ -84,36 +84,36 @@ function RecordDetailTabs({ selectedRow }: { readonly selectedRow: Record<string
   const json = useMemo(() => JSON.stringify(selectedRow ?? {}, null, 2), [selectedRow]);
 
   return (
-    <Tabs defaultValue="view" className="flex-1 flex flex-col min-h-0">
-      <div className="shrink-0 px-4 pb-2">
+    <Tabs defaultValue="view" className="flex flex-1 flex-col min-h-0">
+      <div className="px-4 pb-2 shrink-0">
         <TabsList>
           <TabsTrigger value="view" className="text-xs">
-            <Eye className="size-3 mr-1" />
+            <Eye className="mr-1 size-3" />
             View
           </TabsTrigger>
           <TabsTrigger value="json" className="text-xs">
-            <FileJson className="size-3 mr-1" />
+            <FileJson className="mr-1 size-3" />
             JSON
           </TabsTrigger>
         </TabsList>
       </div>
-      <TabsContent value="view" className="flex-1 min-h-0 p-0">
+      <TabsContent value="view" className="flex-1 p-0 min-h-0">
         <div className="h-full overflow-y-auto">
           {selectedRow ? (
-            <div className="space-y-1.5 p-2">
+            <div className="p-2 space-y-1.5">
               {Object.entries(selectedRow).map(([key, value], i) => {
                 const typeLabel = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
                 return (
                   <div key={key} className={`flex items-start gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-muted/20' : ''}`}>
-                    <div className="w-2/5 shrink-0 min-w-0">
+                    <div className="w-2/5 min-w-0 shrink-0">
                       <div className="text-xs font-medium truncate">{key}</div>
-                      <span className="text-xs uppercase text-muted-foreground/50 tracking-wider">{typeLabel}</span>
+                      <span className="text-xs text-muted-foreground/50 tracking-wider uppercase">{typeLabel}</span>
                     </div>
-                    <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug group/field">
+                    <div className="flex-1 min-w-0 text-sm font-mono leading-snug break-all group/field">
                       {value === null ? (
                         <span className="text-muted-foreground italic">null</span>
                       ) : typeof value === 'object' ? (
-                        <pre className="text-xs whitespace-pre-wrap bg-muted/50 rounded p-2 mt-0.5 max-h-32 overflow-auto">
+                        <pre className="p-2 mt-0.5 max-h-32 text-xs bg-muted/50 rounded-sm whitespace-pre-wrap overflow-auto">
                           {JSON.stringify(value, null, 2)}
                         </pre>
                       ) : (
@@ -125,18 +125,18 @@ function RecordDetailTabs({ selectedRow }: { readonly selectedRow: Record<string
               })}
             </div>
           ) : (
-            <div className="p-3 font-mono text-xs leading-relaxed bg-card text-muted-foreground rounded-sm m-2">
+            <div className="p-3 m-2 text-xs text-muted-foreground font-mono leading-relaxed bg-card rounded-xs">
               No row selected.
             </div>
           )}
         </div>
       </TabsContent>
-      <TabsContent value="json" className="flex-1 min-h-0 p-0">
+      <TabsContent value="json" className="flex-1 p-0 min-h-0">
         <div className="relative h-full overflow-y-auto">
           <Button variant="outline" size="icon-sm" className="absolute top-2 right-2 z-10" onClick={handleCopy}>
             {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
           </Button>
-          <pre className="p-3 font-mono text-xs leading-relaxed bg-card text-muted-foreground rounded-sm m-2 overflow-auto">
+          <pre className="p-3 m-2 text-xs text-muted-foreground font-mono leading-relaxed bg-card rounded-xs overflow-auto">
             {formatJsonSyntax(json)}
           </pre>
         </div>
@@ -222,11 +222,11 @@ export function PostgresVectorResults({ result, onViewMap }: PostgresVectorResul
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
               <DropdownMenuItem onClick={() => openRow(row)}>
-                <Eye className="size-3.5 mr-2" />
+                <Eye className="mr-2 size-3.5" />
                 View details
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row.row, null, 2))}>
-                <Copy className="size-3.5 mr-2" />
+                <Copy className="mr-2 size-3.5" />
                 Copy row
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -234,10 +234,10 @@ export function PostgresVectorResults({ result, onViewMap }: PostgresVectorResul
           </DropdownMenu>
         )}
       />
-      <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
+      <div className="flex items-center px-3 py-1.5 text-xs text-muted-foreground border-t border-border gap-2">
         {onViewMap && (
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onViewMap}>
-            <Network className="size-3.5 mr-1.5" />
+          <Button variant="ghost" size="sm" className="px-2 h-7 text-xs" onClick={onViewMap}>
+            <Network className="mr-1.5 size-3.5" />
             View map
           </Button>
         )}
@@ -251,7 +251,7 @@ export function PostgresVectorResults({ result, onViewMap }: PostgresVectorResul
           if (!open) setSelectedRow(null);
         }}
       >
-        <SheetContent className="sm:max-w-lg flex flex-col">
+        <SheetContent className="flex flex-col sm:max-w-lg">
           <SheetHeader className="shrink-0">
             <SheetTitle className="flex items-center gap-2">
               <FileJson className="size-4" />

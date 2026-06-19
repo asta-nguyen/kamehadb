@@ -37,54 +37,54 @@ function DescribeChange({ change }: { change: SchemaChangeDescriptor }) {
     case 'table_added':
       return (
         <span>
-          Table <code className="font-mono text-xs bg-muted px-1 rounded">{change.table}</code> added
+          Table <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.table}</code> added
         </span>
       );
     case 'table_removed':
       return (
         <span>
-          Table <code className="font-mono text-xs bg-muted px-1 rounded">{change.table}</code> removed
+          Table <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.table}</code> removed
         </span>
       );
     case 'column_added':
       return (
         <span>
-          Column <code className="font-mono text-xs bg-muted px-1 rounded">{change.column}</code>
-          <span className="text-muted-foreground ml-1">({change.dataType})</span> added in{' '}
-          <code className="font-mono text-xs bg-muted px-1 rounded">{change.table}</code>
+          Column <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.column}</code>
+          <span className="ml-1 text-muted-foreground">({change.dataType})</span> added in{' '}
+          <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.table}</code>
         </span>
       );
     case 'column_removed':
       return (
         <span>
-          Column <code className="font-mono text-xs bg-muted px-1 rounded">{change.column}</code>
-          <span className="text-muted-foreground ml-1">({change.dataType})</span> removed from{' '}
-          <code className="font-mono text-xs bg-muted px-1 rounded">{change.table}</code>
+          Column <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.column}</code>
+          <span className="ml-1 text-muted-foreground">({change.dataType})</span> removed from{' '}
+          <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.table}</code>
         </span>
       );
     case 'column_changed':
       return (
         <span>
-          Column <code className="font-mono text-xs bg-muted px-1 rounded">{change.column}</code> in{' '}
-          <code className="font-mono text-xs bg-muted px-1 rounded">{change.table}</code> changed type{' '}
-          <code className="font-mono text-xs bg-muted px-1">{change.from}</code> →{' '}
-          <code className="font-mono text-xs bg-muted px-1">{change.to}</code>
+          Column <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.column}</code> in{' '}
+          <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.table}</code> changed type{' '}
+          <code className="px-1 text-xs font-mono bg-muted">{change.from}</code> →{' '}
+          <code className="px-1 text-xs font-mono bg-muted">{change.to}</code>
         </span>
       );
     case 'index_added':
       return (
         <span>
-          Index <code className="font-mono text-xs bg-muted px-1 rounded">{change.index}</code>
-          <span className="text-muted-foreground ml-1">([{change.columns.join(', ')}])</span> added on{' '}
-          <code className="font-mono text-xs bg-muted px-1 rounded">{change.table}</code>
+          Index <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.index}</code>
+          <span className="ml-1 text-muted-foreground">([{change.columns.join(', ')}])</span> added on{' '}
+          <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.table}</code>
         </span>
       );
     case 'index_removed':
       return (
         <span>
-          Index <code className="font-mono text-xs bg-muted px-1 rounded">{change.index}</code>
-          <span className="text-muted-foreground ml-1">([{change.columns.join(', ')}])</span> removed from{' '}
-          <code className="font-mono text-xs bg-muted px-1 rounded">{change.table}</code>
+          Index <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.index}</code>
+          <span className="ml-1 text-muted-foreground">([{change.columns.join(', ')}])</span> removed from{' '}
+          <code className="px-1 text-xs font-mono bg-muted rounded-sm">{change.table}</code>
         </span>
       );
   }
@@ -99,7 +99,7 @@ function ChangeBadge({ type }: { type: SchemaChangeDescriptor['type'] }) {
   const label = type.replace(/_/g, ' ');
   const variant = type.includes('added') ? 'default' : type.includes('removed') ? 'destructive' : 'secondary';
   return (
-    <Badge variant={variant} className="text-[10px] px-1.5 py-0 h-4">
+    <Badge variant={variant} className="px-1.5 py-0 h-4 text-xs">
       {label}
     </Badge>
   );
@@ -131,7 +131,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
   return (
     <div className="p-4 h-full overflow-y-auto space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
+        <h2 className="flex items-center text-lg font-semibold gap-2">
           <History className="size-4" />
           Schema Change Timeline
         </h2>
@@ -173,9 +173,9 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
       ) : entries.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            <Camera className="size-8 mx-auto mb-2 opacity-40" />
+            <Camera className="mx-auto mb-2 size-8 opacity-40" />
             <p>No snapshots yet</p>
-            <p className="text-xs mt-1">Click "Capture Snapshot" to save the current schema</p>
+            <p className="mt-1 text-xs">Click "Capture Snapshot" to save the current schema</p>
           </CardContent>
         </Card>
       ) : (
@@ -186,16 +186,16 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
             return (
               <Card key={entry.snapshotId} className={isLatest ? 'ring-1 ring-primary/20' : ''}>
                 <CardHeader>
-                  <CardTitle className="text-xs text-muted-foreground flex items-center gap-2">
+                  <CardTitle className="flex items-center text-xs text-muted-foreground gap-2">
                     <History className="size-3" />
                     {new Date(entry.capturedAt).toLocaleString()}
                     {isLatest && (
-                      <Badge variant="default" className="text-[10px] h-4 px-1.5">
+                      <Badge variant="default" className="px-1.5 h-4 text-xs">
                         latest
                       </Badge>
                     )}
                     {isFirst && entry.changes.length === 0 && (
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                      <Badge variant="outline" className="px-1.5 h-4 text-xs">
                         initial
                       </Badge>
                     )}
@@ -208,9 +208,9 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
                   <CardContent className="pt-0">
                     <div className="space-y-1">
                       {entry.changes.map((change: import('@kamehadb/shared').SchemaChangeDescriptor, ci: number) => (
-                        <div key={ci} className="flex items-start gap-2 text-sm py-0.5">
+                        <div key={ci} className="flex items-start py-0.5 text-sm gap-2">
                           <ChangeIcon type={change.type} />
-                          <span className="min-w-0 flex-1">
+                          <span className="flex-1 min-w-0">
                             <DescribeChange change={change} />
                           </span>
                           <ChangeBadge type={change.type} />

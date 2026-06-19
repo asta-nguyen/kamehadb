@@ -115,7 +115,7 @@ export function PostgresRestoreDialog({ connection, open, onOpenChange }: Postgr
             />
           </div>
 
-          <div className="rounded-md border bg-muted/20 p-3 space-y-3">
+          <div className="p-3 bg-muted/20 rounded-md border space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <Label>Clean existing objects first</Label>

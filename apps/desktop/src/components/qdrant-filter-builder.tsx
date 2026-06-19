@@ -136,7 +136,7 @@ export function QdrantFilterBuilder({ value: _value, onChange, fields = [] }: Qd
               onChange={(e) => handleJson(e.target.value)}
               placeholder='{ "must": [{ "key": "kind", "match": { "value": "fruit" } }] }'
               spellCheck={false}
-              className="w-full min-h-16 px-2 py-1 text-xs font-mono bg-background border rounded resize-y focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="px-2 py-1 w-full min-h-16 text-xs font-mono bg-background rounded-sm border resize-y focus:outline-hidden focus:ring-1 focus:ring-primary/50"
             />
             {state.json && !state.jsonError && (
               <Button
@@ -164,7 +164,7 @@ export function QdrantFilterBuilder({ value: _value, onChange, fields = [] }: Qd
                 onChange={(e) => dispatch({ type: 'updateRow', index: i, patch: { key: e.target.value } })}
                 placeholder="field"
                 list={fields.length ? listId : undefined}
-                className="flex-1 h-7 px-2 text-xs font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="flex-1 px-2 h-7 text-xs font-mono bg-background rounded-sm border focus:outline-hidden focus:ring-1 focus:ring-primary/50"
               />
               <Select
                 value={row.op}
@@ -185,7 +185,7 @@ export function QdrantFilterBuilder({ value: _value, onChange, fields = [] }: Qd
                 value={row.value}
                 onChange={(e) => dispatch({ type: 'updateRow', index: i, patch: { value: e.target.value } })}
                 placeholder="value"
-                className="flex-1 h-7 px-2 text-xs font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="flex-1 px-2 h-7 text-xs font-mono bg-background rounded-sm border focus:outline-hidden focus:ring-1 focus:ring-primary/50"
               />
               <Button
                 variant="ghost"

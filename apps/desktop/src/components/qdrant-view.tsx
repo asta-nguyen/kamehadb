@@ -181,27 +181,27 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-mono text-sm truncate" title={collection}>
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border gap-2">
+        <div className="flex items-center min-w-0 gap-2">
+          <span className="text-sm font-mono truncate" title={collection}>
             {collection}
           </span>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => dispatch({ type: 'toggleStats' })}
-            className="text-xs px-1.5 py-0.5"
+            className="px-1.5 py-0.5 text-xs"
           >
             {state.showStats ? 'Hide stats' : 'Stats'}
           </Button>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => openQdrantGraphTab(connectionId, collection)}>
-            <Network className="size-3.5 mr-1.5" />
+            <Network className="mr-1.5 size-3.5" />
             Visualize
           </Button>
           <Button variant="ghost" size="sm" onClick={() => openQdrantSearchTab(connectionId, collection)}>
-            <Search className="size-3.5 mr-1.5" />
+            <Search className="mr-1.5 size-3.5" />
             Vector Search
           </Button>
         </div>
@@ -212,7 +212,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
       >
         <div className="overflow-hidden">
           {stats && (
-            <div className="px-3 py-2 border-b border-border text-xs">
+            <div className="px-3 py-2 text-xs border-b border-border">
               <div className="flex flex-wrap gap-x-6 gap-y-1">
                 {[
                   ['Points', stats.pointsCount],
@@ -225,7 +225,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
                 ].map(([label, value]) => (
                   <div key={String(label)} className="flex items-center gap-1.5">
                     <span className="text-muted-foreground">{label}:</span>
-                    <span className="font-mono text-foreground/80">{value ?? '—'}</span>
+                    <span className="text-foreground/80 font-mono">{value ?? '—'}</span>
                   </div>
                 ))}
               </div>
@@ -252,7 +252,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Spinner size="lg" />
@@ -292,7 +292,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
         )}
       </div>
 
-      <div className="px-3 py-1.5 border-t border-border flex items-center justify-between gap-3 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground border-t border-border gap-3">
         <div className="flex items-center gap-3">
           <Input
             type="number"
@@ -300,7 +300,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             max={500}
             value={state.pageSize}
             onChange={(e) => changePageSize(Number(e.target.value) || 1)}
-            className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="px-1.5 h-6 w-16 bg-background rounded-sm border focus:outline-hidden focus:ring-1 focus:ring-primary/50"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
               placeholder={String(state.offsetStack.length)}
               onChange={(e) => dispatch({ type: 'setPageInput', value: e.target.value })}
               onKeyDown={(e) => e.key === 'Enter' && jumpToPage()}
-              className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="px-1.5 h-6 w-16 bg-background rounded-sm border focus:outline-hidden focus:ring-1 focus:ring-primary/50"
             />
           </Label>
           <Button variant="outline" size="sm" onClick={jumpToPage} disabled={state.jumping}>

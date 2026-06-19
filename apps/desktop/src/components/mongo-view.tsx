@@ -282,7 +282,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
   );
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="flex flex-col h-full bg-background">
       <MongoViewHeader
         searchText={state.searchText}
         onSearchChange={handleSearchChange}
@@ -303,7 +303,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
       <Tabs
         value={state.activeTab}
         onValueChange={(v) => dispatch({ type: 'activeTab', value: v as 'data' | 'stats' })}
-        className="flex-1 flex flex-col min-h-0"
+        className="flex flex-1 flex-col min-h-0"
       >
         <div className="px-4 pt-2">
           <TabsList>
@@ -311,13 +311,13 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
               Data
             </TabsTrigger>
             <TabsTrigger value="stats" className="text-xs">
-              <Activity className="size-3 mr-1" />
+              <Activity className="mr-1 size-3" />
               Stats
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="data" className="flex-1 flex flex-col min-h-0">
+        <TabsContent value="data" className="flex flex-1 flex-col min-h-0">
           <DocumentsPanel
             isLoading={isLoading}
             error={error}
@@ -344,7 +344,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
           />
         </TabsContent>
 
-        <TabsContent value="stats" className="flex-1 overflow-auto p-4">
+        <TabsContent value="stats" className="flex-1 p-4 overflow-auto">
           <MongoStatsPanel connectionId={connectionId} database={database} collection={collection} />
         </TabsContent>
       </Tabs>
@@ -426,7 +426,7 @@ function DocumentsPanel({
     return (
       <div className="p-4">
         <div className="flex items-center justify-center h-32 text-destructive">
-          <AlertCircle className="size-5 mr-2" />
+          <AlertCircle className="mr-2 size-5" />
           {error instanceof Error ? error.message : 'Failed to load documents'}
         </div>
       </div>
@@ -459,7 +459,7 @@ function DocumentsPanel({
   if (viewMode === 'table') {
     return (
       <div className="p-4">
-        <div className="overflow-auto border rounded-md">
+        <div className="rounded-md overflow-auto border">
           <DocumentTableView
             documents={documents}
             connectionId={connectionId}
@@ -478,13 +478,13 @@ function DocumentsPanel({
 
   return (
     <div className="p-4">
-      <div className="text-xs text-muted-foreground mb-2 flex items-center justify-between">
+      <div className="flex items-center justify-between mb-2 text-xs text-muted-foreground">
         <span>
           {documents.length} document{documents.length !== 1 ? 's' : ''} returned
-          {hasMore && <span className="text-muted-foreground ml-1">(has more)</span>}
+          {hasMore && <span className="ml-1 text-muted-foreground">(has more)</span>}
         </span>
         {isFetching && (
-          <span className="flex items-center gap-1 text-muted-foreground">
+          <span className="flex items-center text-muted-foreground gap-1">
             <Spinner size="sm" />
             Loading...
           </span>
