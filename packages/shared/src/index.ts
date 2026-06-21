@@ -147,6 +147,9 @@ export type ColumnInfo = {
     table: string;
     column: string;
   };
+  // pgvector: set when column type is vector(n)
+  isVector?: boolean;
+  vectorDimensions?: number;
 };
 
 export type TableCompletions = {
@@ -160,6 +163,8 @@ export type IndexInfo = {
   columns: string[];
   unique: boolean;
   primary: boolean;
+  // pgvector: index method (ivfflat, hnsw) when applicable
+  method?: string;
 };
 
 // API input types
@@ -226,6 +231,7 @@ export type IndexStats = {
   columns: string[];
   unique: boolean;
   primary: boolean;
+  method?: string;
   sizeBytes: number;
   scans: number;
   reads: number;
@@ -252,68 +258,6 @@ export type TableStats = {
   nDeadTup: number;
 };
 
-// Schema snapshot for change timeline
-export type SchemaColumnSnapshot = {
-  name: string;
-  type: string;
-  nullable: boolean;
-  default: string | null;
-  primaryKey: boolean;
-};
-
-export type SchemaIndexSnapshot = {
-  name: string;
-  columns: string[];
-  unique: boolean;
-  primary: boolean;
-};
-
-export type SchemaTableSnapshot = {
-  id: string;
-  name: string;
-  schema?: string;
-  columns: SchemaColumnSnapshot[];
-  indexes: SchemaIndexSnapshot[];
-};
-
-export type SchemaSnapshotRecord = {
-  id: string;
-  connectionId: string;
-  capturedAt: string;
-  tables: SchemaTableSnapshot[];
-};
-
-export type SchemaChangeDescriptor =
-  | { type: 'table_added'; table: string }
-  | { type: 'table_removed'; table: string }
-  | { type: 'column_added'; table: string; column: string; dataType: string }
-  | { type: 'column_removed'; table: string; column: string; dataType: string }
-  | { type: 'column_changed'; table: string; column: string; from: string; to: string }
-  | { type: 'index_added'; table: string; index: string; columns: string[] }
-  | { type: 'index_removed'; table: string; index: string; columns: string[] };
-
-export type SchemaChangelogEntry = {
-  snapshotId: string;
-  capturedAt: string;
-  changes: SchemaChangeDescriptor[];
-};
-
-export type SchemaChangelog = {
-  entries: SchemaChangelogEntry[];
-};
-
-export type MigrationInput = {
-  fromSnapshotId: string;
-  toSnapshotId: string;
-};
-
-export type MigrationResult = {
-  statements: string[];
-  dialect: string;
-  fromSnapshot: string;
-  toSnapshot: string;
-};
-
 export type DatabaseSize = {
   schema: string;
   table: string;
@@ -336,6 +280,8 @@ export type ConnectionInfo = {
   waitEvent: string | null;
   durationSeconds: number;
 };
+export * from './schema-tools';
+export * from './workspace-tabs';
 
 // Redis types
 export type RedisKeyType = 'string' | 'hash' | 'list' | 'set' | 'zset' | 'stream';
@@ -549,6 +495,70 @@ export interface QdrantAdapter {
   close(): Promise<void>;
 }
 
+// PostgreSQL pgvector types
+export type PostgresVectorColumn = {
+  tableSchema: string;
+  tableName: string;
+  columnName: string;
+  dimensions: number;
+};
+
+export type PostgresVectorIndex = {
+  name: string;
+  tableSchema: string;
+  tableName: string;
+  columnName: string;
+  method: 'ivfflat' | 'hnsw';
+  operator: 'l2' | 'cosine' | 'inner_product';
+};
+
+export type PostgresVectorCapability = {
+  available: boolean;
+  version: string | null;
+  columns: PostgresVectorColumn[];
+  indexes: PostgresVectorIndex[];
+};
+
+export type PostgresVectorSearchInput = {
+  table: string;
+  schema?: string;
+  column: string;
+  vector: number[];
+  filter?: string;
+  metric?: 'l2' | 'cosine' | 'inner_product';
+  limit?: number;
+};
+
+export type PostgresVectorSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type PostgresVectorSearchResult = {
+  hits: PostgresVectorSearchHit[];
+  durationMs: number;
+};
+
+export type PostgresVectorSampleInput = {
+  table: string;
+  schema?: string;
+  column: string;
+  limit?: number;
+};
+
+export type PostgresVectorSamplePoint = {
+  id: string | number;
+  vector: number[];
+  // Row payload for hover tooltips, excluding the vector column itself to keep payloads small
+  payload: Record<string, unknown>;
+};
+
+export type PostgresVectorSampleResult = {
+  points: PostgresVectorSamplePoint[];
+  dimensions: number;
+};
+
 // TigerBeetle types
 export type TigerBeetleAccount = {
   id: string;
@@ -726,8 +736,34 @@ export type WorkspaceTab =
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string }
   | { id: string; type: 'schema-timeline'; title: string; connectionId: string }
   | { id: string; type: 'migration'; title: string; connectionId: string }
+  | { id: string; type: 'postgres-psql'; title: string; connectionId: string }
   // TigerBeetle account/transfer explorer
-  | { id: string; type: 'tigerbeetle'; title: string; connectionId: string };
+  | { id: string; type: 'tigerbeetle'; title: string; connectionId: string }
+  // PostgreSQL pgvector search
+  | {
+      id: string;
+      type: 'postgres-vector-search';
+      title: string;
+      connectionId: string;
+      table?: string;
+      schema?: string;
+      column?: string;
+      vectorText?: string;
+      mode?: 'similar' | 'raw';
+    }
+  | {
+      id: string;
+      type: 'postgres-vector-map';
+      title: string;
+      connectionId: string;
+      table: string;
+      schema: string;
+      column: string;
+      // Saved camera state for Three.js persistence across tab switches
+      camera?: { position: [number, number, number]; target: [number, number, number] };
+    }
+  // Interactive Mongo shell (mongosh) via desktop PTY
+  | { id: string; type: 'mongo-shell'; title: string; connectionId: string; sessionId?: string };
 
 export type AppView = 'workspace' | 'api-settings';
 

@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useMemo, useCallback, type ReactNode } from 'react';
 import * as React from 'react';
-import { ArrowLeft, Bot, Cloud, Loader2, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
+import { ArrowLeft, Bot, Cloud, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -407,7 +408,7 @@ function ProviderForm({
             disabled={modelsLoading || !canFetchModels}
             title="Fetch available models"
           >
-            {modelsLoading ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+            {modelsLoading ? <Spinner size="sm" className="size-3.5" /> : <RefreshCw className="size-3.5" />}
           </Button>
         </div>
       </Field>
@@ -475,7 +476,7 @@ function SettingsFooter({
           Discard
         </Button>
         <Button size="sm" onClick={onSave} disabled={!hasUnsavedChanges || isSaving}>
-          {isSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+          {isSaving ? <Spinner size="sm" className="size-3.5" /> : <Save className="size-3.5" />}
           Save
         </Button>
       </div>
@@ -569,7 +570,7 @@ export function ApiSettingsPage() {
 
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <Spinner size="lg" />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">

@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { useTbAccounts, useTbTransfers, useTbBalances } from '@/hooks/use-tigerbeetle';
 import type { TigerBeetleAccount, TigerBeetleTransfer, TigerBeetleAccountBalance } from '@kamehadb/shared';
-import { ChevronDown, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useState } from 'react';
 
 interface TigerBeetleExplorerProps {
@@ -17,7 +18,7 @@ export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-4">
-        <Loader2 className="text-muted-foreground animate-spin size-4" />
+        <Spinner size="md" />
       </div>
     );
   }
@@ -106,7 +107,7 @@ function AccountNode({
           <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Transfers</div>
           {loadingTransfers ? (
             <div className="flex justify-center py-1">
-              <Loader2 className="animate-spin size-3 text-muted-foreground" />
+              <Spinner size="sm" className="text-muted-foreground" />
             </div>
           ) : transfers.length === 0 ? (
             <p className="text-[10px] text-muted-foreground text-center py-1">No transfers</p>

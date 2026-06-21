@@ -2,6 +2,16 @@ import { api } from '@/lib/api';
 import type { QueryResult } from '@kamehadb/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+// Commands that definitely don't modify data — skip metadata invalidation for these.
+// WITH and EXPLAIN are excluded because they can precede write CTEs / DML.
+const READONLY_COMMANDS = new Set(['SELECT', 'SHOW', 'DESCRIBE']);
+
+function isReadOnlyQuery(sql: string): boolean {
+  const trimmed = sql.trimStart();
+  const firstWord = trimmed.length > 0 ? trimmed.split(/[\s(]/)[0].toUpperCase() : '';
+  return READONLY_COMMANDS.has(firstWord);
+}
+
 export function useRunQuery(connectionId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -9,7 +19,10 @@ export function useRunQuery(connectionId: string | null) {
       if (!connectionId) throw new Error('No active connection');
       return api.request<QueryResult>('POST', `/sql/${connectionId}/query`, { query, params });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      // Read-only queries (SELECT, WITH, etc.) don't change schema — skip invalidating metadata
+      if (isReadOnlyQuery(variables.query)) return;
+
       queryClient.invalidateQueries({
         predicate: (query) => {
           const key = query.queryKey;
@@ -23,7 +36,7 @@ export function useRunQuery(connectionId: string | null) {
               key[0] === 'preview' ||
               key[0] === 'databases' ||
               key[0] === 'schemas' ||
-              key[0] === 'completions')
+              key[0] === 'autocomplete')
           );
         },
       });

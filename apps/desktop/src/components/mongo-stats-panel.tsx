@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useMongoCollectionStats } from '@/hooks/use-mongo';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface MongoStatsPanelProps {
   connectionId: string;
@@ -16,7 +16,7 @@ export function MongoStatsPanel({ connectionId, database, collection }: MongoSta
   if (statsLoading) {
     return (
       <div className="flex items-center justify-center h-32">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Spinner size="lg" />
       </div>
     );
   }

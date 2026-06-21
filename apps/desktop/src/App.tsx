@@ -1,87 +1,15 @@
-import { AIChatPanel } from '@/components/ai-chat-panel';
 import { ApiSettingsPage } from '@/components/api-settings-page';
-import { DatabaseStats } from '@/components/database-stats';
-import { DbIcon } from '@/components/db-icon';
-import { MongoQuery } from '@/components/mongo-query';
-import { MongoView } from '@/components/mongo-view';
-import { QdrantQuery } from '@/components/qdrant-query';
-import { QdrantView } from '@/components/qdrant-view';
-import { RedisQuery } from '@/components/redis-query';
-import { RedisView } from '@/components/redis-view';
-import { SchemaGraph } from '@/components/schema-graph';
-import { SchemaTimeline } from '@/components/schema-timeline';
 import { GlobalSearch } from '@/components/global-search';
-import { MigrationAssistant } from '@/components/migration-assistant';
+import { MainLayout } from '@/components/workspace-screen';
 import { Sidebar } from '@/components/sidebar';
-import { SqlEditor } from '@/components/sql-editor';
-import { TableStats } from '@/components/table-stats';
-import { TableView } from '@/components/table-view';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useConnections } from '@/hooks/use-connections';
-import {
-  applyTheme,
-  appStore,
-  closeAiChatPanel,
-  closeAllTabs,
-  closeTab,
-  openDatabaseStatsTab,
-  openGraphTab,
-  openMongoQueryTab,
-  openNewQueryTab,
-  openRedisQueryTab,
-  setTheme,
-} from '@/store';
+import { applyTheme, appStore, closeAllTabs, closeTab, setTheme } from '@/store';
+import { api } from '@/lib/api';
 import { useStore } from '@tanstack/react-store';
-import {
-  Activity,
-  BarChart3,
-  Box,
-  Database,
-  History,
-  Monitor,
-  Moon,
-  Plus,
-  Search,
-  Share2,
-  Sun,
-  Table2,
-  Terminal,
-  X,
-} from 'lucide-react';
-import type { DbKind } from '@kamehadb/shared';
-import { GREETINGS, PROMPTS, KIND_LABELS, KINDS } from '@/lib/constants';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-
-function pick<T>(arr: readonly T[], last?: T): T {
-  if (arr.length === 0) {
-    throw new Error('pick: arr must not be empty');
-  }
-  const filtered = last !== undefined ? arr.filter((item) => item !== last) : [...arr];
-  const pool = filtered.length > 0 ? filtered : arr;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
-function getGreeting(): [string, string] {
-  const hour = new Date().getHours();
-  const bucket = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
-  const lastGreeting = localStorage.getItem('lastGreeting') ?? undefined;
-  const line1 = pick(GREETINGS[bucket], lastGreeting);
-  localStorage.setItem('lastGreeting', line1);
-  const returning = localStorage.getItem('kamehadb_visits');
-  const line2 = returning ? pick(PROMPTS) : 'Create or select a connection to get started';
-  if (!returning) localStorage.setItem('kamehadb_visits', '1');
-  return [line1, line2];
-}
-
-const SQL_KINDS: DbKind[] = ['postgres', 'mysql', 'sqlite', 'sqlserver', 'oracle', 'clickhouse', 'mariadb', 'duckdb'];
-const isSql = (k: string | undefined) => k && SQL_KINDS.includes(k as DbKind);
-
-const QdrantVectorMap = lazy(() =>
-  import('@/components/qdrant-vector-map').then((m) => ({ default: m.QdrantVectorMap })),
-);
-const QdrantStatsPanel = lazy(() => import('@/components/qdrant-stats').then((m) => ({ default: m.QdrantStatsPanel })));
+import { Monitor, Moon, Search, Sun } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -366,43 +294,68 @@ function Workspace() {
     );
   }
 
+  // Render all opened tabs but hide inactive ones (except qdrant-graph which
+  // has a Three.js render loop that wastes GPU when invisible).
+  // Use invisible+absolute instead of display:none (hidden) because
+  // Monaco editor crashes with "Cannot read properties of null (reading 'finalW')"
+  // when it cannot measure layout in a zero-size container.
   return (
-    <div className="h-full flex flex-col">
-      {activeTab.type === 'query' && (
-        <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
-      )}
-      {activeTab.type === 'table' && <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />}
-      {activeTab.type === 'graph' && <SchemaGraph connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'mongo' && <MongoView tab={activeTab} connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'mongo-query' && <MongoQuery tab={activeTab} connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'redis' && <RedisView connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'redis-query' && <RedisQuery tab={activeTab} connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'qdrant' && (
-        <QdrantView connectionId={activeTab.connectionId} collection={activeTab.collection} />
-      )}
-      {activeTab.type === 'qdrant-search' && (
-        <QdrantQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />
-      )}
-      {activeTab.type === 'qdrant-graph' && (
-        <Suspense
-          fallback={
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading map…</div>
+    <div className="relative h-full flex flex-col">
+      {openedTabs.map((tab) => (
+        <div
+          key={tab.id}
+          className={
+            tab.type === 'qdrant-graph'
+              ? tab.id !== activeTab.id
+                ? 'hidden'
+                : 'flex-1 flex flex-col min-h-0'
+              : tab.id !== activeTab.id
+                ? 'invisible absolute inset-0 overflow-hidden'
+                : 'flex-1 flex flex-col min-h-0'
           }
         >
-          <QdrantVectorMap tab={activeTab} connectionId={activeTab.connectionId} collection={activeTab.collection} />
-        </Suspense>
-      )}
-      {activeTab.type === 'qdrant-stats' && (
-        <Suspense>
-          <QdrantStatsPanel connectionId={activeTab.connectionId} collection={activeTab.collection} />
-        </Suspense>
-      )}
-      {activeTab.type === 'database-stats' && <DatabaseStats connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'schema-timeline' && <SchemaTimeline connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'migration' && <MigrationAssistant connectionId={activeTab.connectionId} />}
-      {activeTab.type === 'table-stats' && 'tableId' in activeTab && (
-        <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />
-      )}
+          {tab.type === 'query' && <SqlEditor tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'table' && <TableView connectionId={tab.connectionId} tableId={tab.title} />}
+          {tab.type === 'graph' && <SchemaGraph connectionId={tab.connectionId} />}
+          {tab.type === 'mongo' && <MongoView tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'mongo-query' && <MongoQuery tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'redis' && <RedisView connectionId={tab.connectionId} />}
+          {tab.type === 'redis-query' && <RedisQuery tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'qdrant' && (
+            <QdrantView connectionId={tab.connectionId} collection={'collection' in tab ? tab.collection : ''} />
+          )}
+          {tab.type === 'qdrant-search' && <QdrantQuery tab={tab} connectionId={tab.connectionId} />}
+          {tab.type === 'qdrant-graph' && tab.id === activeTab.id && (
+            <Suspense
+              fallback={
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  Loading map…
+                </div>
+              }
+            >
+              <QdrantVectorMap
+                tab={tab}
+                connectionId={tab.connectionId}
+                collection={'collection' in tab ? tab.collection : ''}
+              />
+            </Suspense>
+          )}
+          {tab.type === 'qdrant-stats' && (
+            <Suspense>
+              <QdrantStatsPanel
+                connectionId={tab.connectionId}
+                collection={'collection' in tab ? tab.collection : ''}
+              />
+            </Suspense>
+          )}
+          {tab.type === 'database-stats' && <DatabaseStats connectionId={tab.connectionId} />}
+          {tab.type === 'schema-timeline' && <SchemaTimeline connectionId={tab.connectionId} />}
+          {tab.type === 'migration' && <MigrationAssistant connectionId={tab.connectionId} />}
+          {tab.type === 'table-stats' && 'tableId' in tab && (
+            <TableStats connectionId={tab.connectionId} tableId={tab.tableId} />
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -434,9 +387,7 @@ function ThemeToggle() {
     <div className="relative grid grid-cols-[repeat(3,1.75rem)] items-center gap-0.5 rounded-md bg-muted/40 p-0.5 shadow-sm">
       <div
         className="pointer-events-none absolute left-0.5 top-0.5 h-7 w-7 rounded bg-background shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] transition-transform duration-200 ease-out will-change-transform"
-        style={{
-          transform: `translateX(${activeIndex * 1.875}rem)`,
-        }}
+        style={{ transform: `translateX(${activeIndex * 1.875}rem)` }}
       />
       {THEME_OPTIONS.map(({ value, label, Icon }) => (
         <button
@@ -457,22 +408,22 @@ function ThemeToggle() {
   );
 }
 
-function Header({ onSearchOpen }: { onSearchOpen: () => void }) {
+function Header({ onSearchOpen }: { readonly onSearchOpen: () => void }) {
   return (
-    <header className="h-10 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background">
+    <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-3">
-        <img alt="kamehadb" className="h-5 w-5 object-contain rounded" src="/logo.png" />
+        <img alt="kamehadb" className="h-5 w-5 rounded object-contain" src="/logo.png" />
         <div className="flex items-baseline">
           <span className="font-mono text-sm font-bold tracking-widest text-foreground/90">KAME</span>
           <span className="font-mono text-sm font-black tracking-widest text-foreground">HA</span>
-          <span className="font-mono text-sm font-bold tracking-widest text-primary ml-0.5">DB</span>
+          <span className="ml-0.5 font-mono text-sm font-bold tracking-widest text-primary">DB</span>
         </div>
       </div>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onSearchOpen} className="gap-1.5 text-xs text-muted-foreground/60">
           <Search className="size-3.5" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="hidden sm:inline-flex ml-1 items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50">
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>K
           </kbd>
         </Button>
@@ -485,21 +436,40 @@ function Header({ onSearchOpen }: { onSearchOpen: () => void }) {
 function App() {
   const view = useStore(appStore, (state) => state.view);
   const theme = useStore(appStore, (state) => state.theme);
+  const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const closeAllChordUntilRef = useRef(0);
+
+  // Kill orphaned mongo-shell PTY sessions when their tabs are closed.
+  // Lives in App() (always mounted) rather than Workspace() (unmounted when
+  // ApiSettingsPage is active) so cleanup still fires after cross-view tab close.
+  const prevShellTabsRef = useRef<Map<string, string>>(new Map());
+  useEffect(() => {
+    const prev = prevShellTabsRef.current;
+    const current = new Map<string, string>();
+    for (const t of openedTabs) {
+      if (t.type === 'mongo-shell' && t.sessionId) {
+        current.set(t.id, t.sessionId);
+      }
+    }
+    for (const [tabId, sessionId] of prev) {
+      if (!current.has(tabId)) {
+        api.stopMongoShell(sessionId).catch(() => {});
+      }
+    }
+    prevShellTabsRef.current = current;
+  }, [openedTabs]);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
-
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => {
-      const currentTheme = appStore.state.theme;
-      if (currentTheme === 'system') {
-        document.documentElement.classList.toggle('dark', e.matches);
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (appStore.state.theme === 'system') {
+        document.documentElement.classList.toggle('dark', event.matches);
       }
     };
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme]);
 
   useEffect(() => {
@@ -509,7 +479,6 @@ function App() {
       const key = event.key.toLowerCase();
       const hasCommandModifier = event.ctrlKey || event.metaKey;
       const hasOpenTabs = appStore.state.openedTabs.length > 0;
-
       if (!hasOpenTabs) {
         closeAllChordUntilRef.current = 0;
         return;
@@ -545,9 +514,7 @@ function App() {
         return;
       }
 
-      if (key !== 'shift') {
-        closeAllChordUntilRef.current = 0;
-      }
+      if (key !== 'shift') closeAllChordUntilRef.current = 0;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -558,9 +525,9 @@ function App() {
     <TooltipProvider>
       <Toaster />
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
-      <div className="h-screen w-screen flex flex-col">
+      <div className="flex h-screen w-screen flex-col">
         <Header onSearchOpen={() => setSearchOpen(true)} />
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           {view === 'api-settings' ? <ApiSettingsPage /> : <MainLayout />}
         </div>

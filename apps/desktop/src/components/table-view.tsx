@@ -1,6 +1,8 @@
-import { useCallback, useReducer, useRef, useState } from 'react';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
+import { useRunQuery } from '@/hooks/use-query';
 import { useFieldVisibility } from '@/hooks/use-field-visibility';
 import { TableStats } from '@/components/table-stats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,8 +12,9 @@ import { Input } from '@/components/ui/input';
 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { DataTable, type ColumnDef } from '@/components/data-table';
+import { Spinner } from '@/components/ui/spinner';
+import { Badge } from '@/components/ui/badge';
 import {
-  Loader2,
   Key,
   Hash,
   Table2,
@@ -36,7 +39,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -116,6 +118,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   }
   const debouncedSearchFn = debouncedSetSearch.current;
 
+  const queryClient = useQueryClient();
+  const runQuery = useRunQuery(connectionId);
   const { data: columns } = useTableColumns(connectionId, tableId);
   const { data: result, isLoading } = usePreviewRows(connectionId, {
     tableId,
@@ -126,12 +130,98 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     sortDirection: state.sortColumn ? state.sortDirection : undefined,
   });
 
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; column: string } | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Find primary key columns for constructing UPDATE WHERE clause
+  const pkColumns = useMemo(
+    () => (columns && columns.length > 0 ? columns.filter((c) => c.primaryKey).map((c) => c.name) : []),
+    [columns],
+  );
+
+  // Escape a raw input value for SQL (strings get single-quoted with doubled quotes).
+  const escapeVal = (v: unknown): string => {
+    if (v === null || v === undefined) return 'NULL';
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+    return `'${String(v).replace(/'/g, "''")}'`;
+  };
+
   const page = Math.floor(state.offset / state.pageSize) + 1;
   // Prefer schema metadata because several adapters cannot infer columns from
   // an empty page; result metadata remains the fallback while schema loads.
   const displayColumns = columns && columns.length > 0 ? columns : (result?.columns ?? []);
   const displayColumnNames = displayColumns.map((column) => column.name);
   const { visibleFields: visibleColumns } = useFieldVisibility(displayColumnNames, `${connectionId}:${tableId}`);
+
+  // Detect date/timestamp columns so the editing cell uses date/datetime-local
+  // input type and serialises with a SQL cast instead of plain string quoting.
+  const dateColumns = useMemo(
+    () =>
+      new Set(
+        displayColumns
+          .filter((c) => {
+            const t = c.type.toLowerCase();
+            return (
+              t === 'date' || t === 'timestamp' || t === 'timestamptz' || t === 'datetime' || t.startsWith('timestamp')
+            );
+          })
+          .map((c) => c.name),
+      ),
+    [displayColumns],
+  );
+
+  const saveCellEdit = useCallback(
+    (rowIndex: number, column: string, newValue: string, colType?: string) => {
+      setEditingCell(null);
+      if (!result) return;
+      const row = result.rows[rowIndex];
+      if (!row) return;
+      const oldValue = row[column];
+      if (String(oldValue ?? '') === newValue) return;
+
+      // When editing a PK column, WHERE must use the OLD value (before edit).
+      // When no PK columns exist, use ALL columns to identify the row so
+      // the WHERE clause uniquely matches (or at worst matches true duplicates).
+      const whereCols = pkColumns.length > 0 ? pkColumns : displayColumnNames;
+      const whereClause = whereCols
+        .map((pk) => {
+          const val = pk === column ? oldValue : row[pk];
+          const escaped = val === null || val === undefined ? 'NULL' : escapeVal(val);
+          return `"${pk}" IS NOT DISTINCT FROM ${escaped}`;
+        })
+        .join(' AND ');
+
+      let setClause: string;
+      if (newValue === '') {
+        setClause = `"${column}" = NULL`;
+      } else if (colType && dateColumns.has(column)) {
+        // For date/timestamp columns, use an explicit cast so the value is
+        // interpreted correctly regardless of the session date format.
+        const castTo = colType.includes('timestamp') || colType === 'timestamptz' ? 'timestamp' : 'date';
+        setClause = `"${column}" = '${newValue.replace(/'/g, "''")}'::${castTo}`;
+      } else {
+        setClause = `"${column}" = ${escapeVal(newValue)}`;
+      }
+      // If tableId already has a schema prefix (e.g. "public.users"), use as-is
+      const qualifiedTable = tableId.includes('.') ? tableId : `"${tableId}"`;
+      const sql = `UPDATE ${qualifiedTable} SET ${setClause} WHERE ${whereClause}`;
+
+      runQuery.mutate(
+        { query: sql },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
+          },
+          onError: (err) => {
+            console.error('Failed to update row:', err);
+            queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
+          },
+        },
+      );
+    },
+    [result, pkColumns, dateColumns, runQuery, queryClient, connectionId, tableId],
+  );
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns
     .filter((col) => visibleColumns.includes(col.name))
@@ -140,12 +230,70 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
       header: col.name,
       accessor: (row) => row[col.name],
       sortable: true,
+      render: (value, _row, rowIndex) => {
+        const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.column === col.name;
+        const isDate = dateColumns.has(col.name);
+        if (isEditing) {
+          const inputType =
+            isDate && typeof value === 'string'
+              ? col.type.toLowerCase() === 'date'
+                ? 'date'
+                : 'datetime-local'
+              : 'text';
+          // Convert ISO timestamps to the format expected by datetime-local/date inputs
+          const formatDefault = (v: unknown): string => {
+            if (v === null || v === undefined) return '';
+            const s = String(v);
+            if (isDate && s.includes('T')) {
+              // "2024-01-15T10:30:00.000Z" → "2024-01-15T10:30" (datetime-local)
+              // or "2024-01-15" (date)
+              if (inputType === 'date') return s.slice(0, 10);
+              return s.slice(0, 16);
+            }
+            return s;
+          };
+          return (
+            <Input
+              ref={editInputRef}
+              type={inputType}
+              defaultValue={formatDefault(value)}
+              autoFocus
+              className="h-7 text-xs min-w-0"
+              onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => setTimeout(() => saveCellEdit(rowIndex, col.name, e.target.value, col.type), 150)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  setEditingCell(null);
+                }
+              }}
+            />
+          );
+        }
+        return (
+          <span
+            onDoubleClick={pkColumns.length > 0 ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
+            className={pkColumns.length > 0 ? 'cursor-pointer block w-full' : 'block w-full'}
+          >
+            {value === null ? (
+              <span className="text-muted-foreground italic">null</span>
+            ) : value === undefined ? (
+              <span className="text-muted-foreground">-</span>
+            ) : typeof value === 'object' ? (
+              <span className="text-primary">{JSON.stringify(value)}</span>
+            ) : (
+              <span>{String(value)}</span>
+            )}
+          </span>
+        );
+      },
     }));
 
   if (isLoading && !result) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -216,20 +364,25 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           )}
         </div>
       </div>
+      {pkColumns.length === 0 && (
+        <div className="mb-2 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-md">
+          No primary key — in-cell editing disabled to prevent ambiguous row updates.
+        </div>
+      )}
       <div className="border rounded-md">
         <DataTable
           rows={result.rows}
           columns={tableColumns}
           rowKey={(_, i) => String(i)}
-          prefixHeader="Actions"
-          prefixWidth="64px"
-          prefixCellClassName="bg-background"
+          suffixHeader="Actions"
+          suffixWidth="64px"
+          suffixCellClassName="bg-background"
           showIndex
           indexOffset={state.offset}
           onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
           sortColumn={state.sortColumn}
           sortDirection={state.sortDirection}
-          prefix={(row) => (
+          suffix={(row) => (
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
@@ -245,7 +398,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   <Copy className="size-3.5 mr-2" />
                   Copy row
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
                   <Trash2 className="size-3.5 mr-2" />
                   Delete row
@@ -545,7 +697,16 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                 {columns?.map((col) => (
                   <TableRow key={col.name} style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
                     <TableCell className="px-3 py-1.5 font-medium">{col.name}</TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground">{col.type}</TableCell>
+                    <TableCell className="px-3 py-1.5 text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <span>{col.type}</span>
+                        {col.isVector && (
+                          <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px]">
+                            vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
                     <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
                       {col.default ?? <span className="italic">null</span>}
@@ -575,11 +736,12 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                   <TableHead className="px-3 py-1.5">Name</TableHead>
                   <TableHead className="px-3 py-1.5">Columns</TableHead>
                   <TableHead className="px-3 py-1.5">Unique</TableHead>
+                  <TableHead className="px-3 py-1.5">Method</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {indexes?.map((idx) => (
-                  <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                  <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
                     <TableCell className="px-3 py-1.5 font-medium">
                       <div className="flex items-center gap-1">
                         {idx.primary && <Hash className="size-3 text-muted-foreground" />}
@@ -588,6 +750,15 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                     </TableCell>
                     <TableCell className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</TableCell>
                     <TableCell className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</TableCell>
+                    <TableCell className="px-3 py-1.5">
+                      {idx.method ? (
+                        <Badge variant={idx.method === 'hnsw' || idx.method === 'ivfflat' ? 'secondary' : 'outline'}>
+                          {idx.method}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -6,23 +6,25 @@
   </a>
 </p>
 
-**KamehaDB** is a local-first, cross-platform database GUI with built-in AI that connects to PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, and TigerBeetle — letting you browse schemas, run queries, and generate SQL through conversation.
+**KamehaDB** is a local-first, cross-platform desktop database workspace that connects to PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle — browse schemas, run queries, chat with AI, capture schema history, and generate migrations, all in one Tauri app with a local Node sidecar.
 
 ## Features
 
-- **AI-SQL Generation** — Chat with AI to generate, explain, and debug SQL queries. Supports OpenAI, Ollama (local & cloud), and 9Router. AI has access to your schema context for accurate query generation.
-- **Schema-Aware Context** — AI automatically knows your table structure, columns, types, and foreign key relationships when generating queries.
-- **Multi-engine support** — PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, TigerBeetle, and MariaDB
-- **Schema browser** — Browse databases, schemas, tables, columns, and indexes
-- **SQL editor** — Monaco-based editor with syntax highlighting, autocomplete, and FK-aware JOIN/ON suggestions
-- **ER diagram** — Auto-generated graph of tables and foreign key relationships (powered by ReactFlow + dagre)
-- **Global search (Ctrl+K)** — Fuzzy-search across connections, tables, columns, open tabs, and quick actions
-- **Charts** — Built-in bar, line, area, and pie chart views for query results (powered by recharts)
-- **Connection health monitoring** — Live status badges with latency tracking, slow/reconnecting/offline states, and tooltips
-- **Pin & favorites** — Pin connections to the top of the sidebar for quick access, persisted across sessions
-- **Workspace tabs memory** — Open tabs survive page refresh via localStorage persistence
-- **Connection URL** — paste `postgresql://`, `mysql://`, or `redis://` URIs to auto-fill connection fields
-- **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine
+- **12+ engines, one app** — SQL, document, cache, vector, and ledger systems side by side: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, TigerBeetle
+- **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine. No hosted proxy, no telemetry
+- **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, Redis commands, and Qdrant searches. Streaming responses with stop/cancel
+- **Schema timeline + diff + migration assistant** — capture on-demand snapshots, compare schemas side by side with per-table change cards (columns, indexes), and auto-generate DDL to migrate from one state to the next
+- **Global search (Ctrl+K)** — fuzzy search across connections, tables, columns, open tabs, and quick actions across every connected engine
+- **Engine-native tooling** — PostgreSQL stats and embedded PSQL terminal, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers
+- **Query history with favorites** — normalized patterns, duration per group, per-connection
+- **Charts** — bar, line, area, pie views on any query result or Mongo collection (powered by recharts)
+- **Health monitoring** — live status badges with latency tracking; slow/reconnecting/offline states with tooltips
+- **Schema browser & ER diagram** — auto-generated ER graphs via ReactFlow + dagre
+- **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
+- **Schema-aware SQL editor** — Monaco with FK-aware JOIN/ON suggestions and autocomplete across tables, columns, functions, keywords
+- **PostgreSQL pgvector workflows** — detect vector columns and indexes, run guided vector/raw search, inspect nearest neighbors, and open a sampled PCA vector map
+- **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation
+- **Connection URL** — paste `postgresql://`, `mysql://`, `redis://`, etc. to auto-fill connection fields
 
 ## Quick Start
 
@@ -54,8 +56,6 @@ Configure AI providers in the app settings (API Settings page):
 
 | Engine      | Port | User    | Password | Database |
 | ----------- | ---- | ------- | -------- | -------- |
-| Engine      | Port | User    | Password | Database |
-| ----------  | ---- | ------  | -------- | -------- |
 | PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
 | MySQL       | 3306 | kameha  | kameha   | kamehadb |
 | MariaDB     | 3307 | kameha  | kameha   | kamehadb |
@@ -65,6 +65,7 @@ Configure AI providers in the app settings (API Settings page):
 | ClickHouse  | 8123 | default | default  | kamehadb |
 | DuckDB      | 5432 | —       | —        | —        |
 | TigerBeetle | 3000 | —       | —        | —        |
+| Qdrant      | 6333 | —       | —        | —        |
 
 ## Project Structure
 
@@ -170,7 +171,7 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Tigerbeetle
 - [x] MariaDB
 
-### In Progress
+### Features
 
 - [x] Query history with favorites
 - [x] Data visualization / charts
@@ -179,8 +180,13 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Pin / favorites connections
 - [x] Workspace tabs memory
 - [x] Production safety mode — prevent accidental writes to production
-- [x] Schema change timeline — track column additions, removals, index changes for debugging
-- [x] Migration assistant
+- [x] PostgreSQL backup & restore
+- [x] PostgreSQL embedded PSQL tool
+
+### In Progress
+
+- [ ] Schema change timeline — capture on-demand snapshots, see what changed, and auto-generate DDL to migrate between states
+- [ ] Migration assistant
 
 ### Future Ideas
 

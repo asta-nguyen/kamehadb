@@ -30,3 +30,14 @@ export function formatNumber(num: number): string {
   if (num < 1000000000) return `${(num / 1000000).toFixed(1)}M`;
   return `${(num / 1000000000).toFixed(1)}B`;
 }
+
+export function formatShortDateTime(date: Date | string | undefined | null): string {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
