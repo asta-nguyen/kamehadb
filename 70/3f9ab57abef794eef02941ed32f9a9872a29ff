@@ -1,0 +1,19 @@
+apps/desktop/src/components/table-view.tsx
+  s_d62a2ce15c019f::t_11bb6b156a2177 123,142-146,372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "703f9ab57abef794eef02941ed32f9a9872a29ff",
+  "prompts": {},
+  "sessions": {
+    "s_d62a2ce15c019f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee811-c6bd-7fe1-af45-79329a66b9b7",
+        "model": "gpt-5.4"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
