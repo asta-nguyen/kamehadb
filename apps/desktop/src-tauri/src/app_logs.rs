@@ -107,8 +107,9 @@ fn append_log_entry(app: &AppHandle, file_name: &str, entry: &AppLogEntry) -> Re
         .create(true)
         .append(true)
         .open(log_dir.join(file_name))?;
-    serde_json::to_writer(&mut file, entry).map_err(std::io::Error::other)?;
-    file.write_all(b"\n")?;
+    let mut record = serde_json::to_vec(entry).map_err(std::io::Error::other)?;
+    record.push(b'\n');
+    file.write_all(&record)?;
     Ok(())
 }
 
