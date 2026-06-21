@@ -46,7 +46,7 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     return <MongoShell key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'postgres-psql') {
-    return <PostgresPsqlTab active tab={activeTab} />;
+    return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
   }
   if (activeTab.type === 'postgres-vector-search') {
     return <PostgresVectorQuery tab={activeTab} connectionId={activeTab.connectionId} />;
