@@ -49,7 +49,7 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
   }
   if (activeTab.type === 'postgres-vector-search') {
-    return <PostgresVectorQuery tab={activeTab} connectionId={activeTab.connectionId} />;
+    return <PostgresVectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'postgres-vector-map') {
     return <PostgresVectorMap tab={activeTab} connectionId={activeTab.connectionId} />;
