@@ -1,15 +1,21 @@
+import { zValidator } from '@hono/zod-validator';
+import {
+  isQuerySafe,
+  type AIChatMessage,
+  type AIProvider,
+  type ConnectionProfile,
+  type DbKind,
+} from '@kamehadb/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { zValidator } from '@hono/zod-validator';
-import * as metadataStore from '../db/metadata-store.js';
-import { validateProviderConfig, createProvider, createEmbedding } from '../ai/provider.js';
-import { buildSchemaContext } from '../ai/schema-context.js';
-import { searchRelevantSchema } from '../ai/qdrant-store.js';
-import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
-import { getSqlAdapter } from './sql.js';
+import { createMongoDbAdapter } from '../adapters/factory.js';
 import { detectPgVectorCapability } from '../adapters/postgres.js';
-import { getCached, setCache, CACHE_TTL, clearSchemaCache } from '../lib/cache.js';
-import type { AIProvider, ConnectionProfile, DbKind, AIChatMessage } from '@kamehadb/shared';
+import { createEmbedding, createProvider, validateProviderConfig } from '../ai/provider.js';
+import { searchRelevantSchema } from '../ai/qdrant-store.js';
+import { buildSchemaContext } from '../ai/schema-context.js';
+import * as metadataStore from '../db/metadata-store.js';
+import { CACHE_TTL, clearSchemaCache, getCached, setCache } from '../lib/cache.js';
+import { getSqlAdapter } from './sql.js';
 
 export const aiRouter = new Hono();
 const providerConfigSchema = z.object({
@@ -363,6 +369,13 @@ aiRouter.post(
             let errorMessage: string | null = null;
 
             for (const query of sqlQueries) {
+              if (profile.readonly !== false) {
+                const safety = isQuerySafe(query);
+                if (!safety.safe) {
+                  errorMessage = safety.reason ?? 'Query is not allowed in read-only mode';
+                  continue;
+                }
+              }
               try {
                 const result = await sqlAdapter.runQuery({ query });
                 allResults.push(...(result.rows ?? []));
