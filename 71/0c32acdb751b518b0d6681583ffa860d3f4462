@@ -1,0 +1,92 @@
+packages/shared/src/index.ts
+  s_d62a2ce15c019f::t_305079570272b7 776
+  s_d62a2ce15c019f::t_e12288c2a904c6 738-746
+apps/desktop/src/components/sidebar.tsx
+  s_d62a2ce15c019f::t_abbd4771030ec4 31-32,36-39,76
+  s_d62a2ce15c019f::t_ca4ab89ac5bdc1 2
+packages/shared/src/workspace-tabs.ts
+  s_d62a2ce15c019f::t_e4c7cf0ceb6a32 86
+apps/desktop/src-tauri/src/postgres_tools/mod.rs
+  s_d62a2ce15c019f::t_fb2433e36fc327 12
+  s_d62a2ce15c019f::t_7167307f4cdf25 7-8,119-129,141-151
+  s_d62a2ce15c019f::t_04105f5623079e 116,138
+apps/desktop/src/components/sql-editor.tsx
+  s_d62a2ce15c019f::t_949b14b721fea0 285
+apps/desktop/src/components/workspace-content.tsx
+  s_d62a2ce15c019f::t_6426c397920761 8,48-49
+  s_d62a2ce15c019f::t_7575a22c4e0cd9 9-10,50-55
+apps/desktop/src/components/workspace-screen.tsx
+  s_d62a2ce15c019f::t_831154bb643c71 89-98
+apps/desktop/src-tauri/src/postgres_psql/mod.rs
+  s_d62a2ce15c019f::t_d02020de0c16e2 4,26-36,47-57
+  s_d62a2ce15c019f::t_154771e60b400c 121-126
+  s_d62a2ce15c019f::t_fa5f82e2ab3173 5,89
+  s_d62a2ce15c019f::t_76eed382f39e00 38
+apps/sidecar/src/index.ts
+  s_d62a2ce15c019f::t_57e034c891e487 7-8,21-29,31-35,73
+apps/desktop/src-tauri/src/postgres_tools/jobs.rs
+  s_d62a2ce15c019f::t_56b301ccd0a94e 80-81,89,111
+apps/sidecar/src/routes/mongo.ts
+  s_d62a2ce15c019f::t_a436baa0986c43 10,362,369-371,378
+apps/desktop/src/components/logs-page.tsx
+  s_d62a2ce15c019f::t_f2312557c8e41b 1-129,131,133,135-247
+CHANGELOG.md
+  s_d62a2ce15c019f::t_2f89cd24a7955b 18,21-22
+  s_5d16a4fe607716::t_201d8147c141f6 16-17,25-26,30-34
+  s_5d16a4fe607716::t_60272de0885227 19-20,23,27-28,35
+apps/desktop/src/lib/app-logs.ts
+  s_d62a2ce15c019f::t_93de87b0295fe9 1-79
+apps/desktop/src/App.tsx
+  s_d62a2ce15c019f::t_e23ca94a8d4413 3,7,11,13,54-56,58-80,100-102,149-187,246
+  s_d62a2ce15c019f::t_e3c1abb9068431 5,103,188
+apps/sidecar/src/lib/mongosh.ts
+  s_d62a2ce15c019f::t_e7efa0447d044b 3
+  s_d62a2ce15c019f::t_915196ceb829c4 11-22,26-29,38,44,55-56,59,61,66-71,73-75,77,81,98-99,102
+  s_d62a2ce15c019f::t_7cf598f86f0e2b 1-2,123-125,172
+  s_d62a2ce15c019f::t_2e267efd62ed8b 4-10,25,32,36-37,39-43,45-54,57-58,60,62-65,72,76,78-80,82-85,95,97,100-101,103-122,126-129,168-171,173-186
+  s_5d16a4fe607716::t_2a8051e267759c 23-24,30-31,33-35
+  s_d62a2ce15c019f::t_b4e3dec75d2cdf 86-94,96,130-154,156-167
+AGENTS.md
+  s_d62a2ce15c019f::t_3e2d9c3b8589b5 7,111,118,121-122,130,135,140,144,146-150,159-160,171,185,188-189,228,233-238
+apps/desktop/src-tauri/src/postgres_tools/config.rs
+  s_d62a2ce15c019f::t_5c5d013bd02589 1,22,95,137,144-167,208-257
+  s_d62a2ce15c019f::t_3da4928b42879d 352-358,385,414,441
+apps/desktop/src-tauri/src/lib.rs
+  s_d62a2ce15c019f::t_3ffacf5978b165 7,12,58-62,70-77,142-143
+apps/desktop/src/store/workspace-tabs.ts
+  s_d62a2ce15c019f::t_be057b71e908e2 133-189
+apps/sidecar/src/routes/ai.ts
+  s_d62a2ce15c019f::t_ecf3a1908df800 286
+apps/desktop/src/lib/tauri.ts
+  s_5d16a4fe607716::t_61953f420cc081 15-19
+apps/desktop/src-tauri/src/app_logs.rs
+  s_d62a2ce15c019f::t_804ef831395bc6 8
+  s_d62a2ce15c019f::t_34ddb69f464d62 110
+  s_d62a2ce15c019f::t_95cfdf6971cf1c 1-7,9-109,111-204
+apps/desktop/src/store/state.ts
+  s_d62a2ce15c019f::t_b1bf9b9e31da98 4,7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "710c32acdb751b518b0d6681583ffa860d3f4462",
+  "prompts": {},
+  "sessions": {
+    "s_5d16a4fe607716": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "5142da6d-2b80-476a-afea-0287b92b4349",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_d62a2ce15c019f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee811-c6bd-7fe1-af45-79329a66b9b7",
+        "model": "gpt-5.4"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
