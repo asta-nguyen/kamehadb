@@ -120,7 +120,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const queryClient = useQueryClient();
   const runQuery = useRunQuery(connectionId);
-  const { data: columns } = useTableColumns(connectionId, tableId);
+  const { data: columns, isLoading: isLoadingColumns } = useTableColumns(connectionId, tableId);
   const { data: result, isLoading } = usePreviewRows(connectionId, {
     tableId,
     offset: state.offset,
@@ -138,6 +138,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     () => (columns && columns.length > 0 ? columns.filter((c) => c.primaryKey).map((c) => c.name) : []),
     [columns],
   );
+
+  // Only show the missing-PK warning after schema metadata has loaded,
+  // because preview rows often arrive before columns and otherwise the UI
+  // flashes a false "No primary key" state during the first render.
+  const showNoPrimaryKeyWarning = !isLoadingColumns && !!columns && pkColumns.length === 0;
 
   // Escape a raw input value for SQL (strings get single-quoted with doubled quotes).
   const escapeVal = (v: unknown): string => {
@@ -364,7 +369,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           )}
         </div>
       </div>
-      {pkColumns.length === 0 && (
+      {showNoPrimaryKeyWarning && (
         <div className="mb-2 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-md">
           No primary key — in-cell editing disabled to prevent ambiguous row updates.
         </div>
