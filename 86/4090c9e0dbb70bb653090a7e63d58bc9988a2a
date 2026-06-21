@@ -1,0 +1,27 @@
+apps/sidecar/src/routes/ai.ts
+  s_5d16a4fe607716::t_758de546983955 110-127,309,319
+apps/sidecar/src/routes/sql-schema.ts
+  s_5d16a4fe607716::t_3c2595167b943b 57-66,68-69,71-83,85-87
+apps/desktop/src/App.tsx
+  s_5d16a4fe607716::t_d20e73b3756e6d 150,155,159,166,171,178
+apps/desktop/src/components/logs-page.tsx
+  s_5d16a4fe607716::t_4dbc2d8fdef791 78-82
+apps/sidecar/src/lib/mongosh.ts
+  s_5d16a4fe607716::t_59297d8fb847a2 3,42,149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "864090c9e0dbb70bb653090a7e63d58bc9988a2a",
+  "prompts": {},
+  "sessions": {
+    "s_5d16a4fe607716": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "5142da6d-2b80-476a-afea-0287b92b4349",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
