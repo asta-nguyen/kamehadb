@@ -7,11 +7,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- v1.3 Adding MCP server
+- v1.4 Adding MCP server
+
+---
+
+## [v1.3.0] — 2026-06-21
+
+### Added
+
+- **Schema timeline + diff + migration assistant** — capture schema snapshots on demand, compare two states with per-table change cards, and generate migration SQL from the selected snapshots.
+- **PostgreSQL pgvector workflows** — detect vector columns and indexes, run guided vector search, inspect nearest-neighbor results, and open a PCA-based vector map with camera state persistence.
+- **Embedded mongosh terminal** — open an interactive MongoDB shell inside the desktop app with PTY support, ANSI colors, resize handling, and session persistence across tab switches. Auto-installs `mongosh` into the app data dir when missing locally.
+- **Embedded PostgreSQL PSQL terminal** — open a local `psql` session for any PostgreSQL connection directly inside the desktop app.
+- **PostgreSQL backup & restore** — run local `pg_dump`, `pg_restore`, and `psql` workflows from the app with streamed job output.
+- **In-app Logs viewer** — unified view for frontend, Tauri, and sidecar logs with source/level filtering, search, and copy support. Frontend errors are forwarded to the Tauri log store; sidecar logs are persisted to `${KAMEHADB_DATA_DIR}/logs/sidecar.log` via pino multistream.
 
 ### Changed
 
+- **App.tsx refactor** — extracted `TabBar`, `Workspace`, `WelcomePage`, and `MainLayout` into dedicated modules; added `LogsPage` view and frontend error forwarding.
+- **Sidecar logger** — replaced `pino-pretty` with `pino.multistream` for dual stdout + file output.
 - Table action columns in the row browser, Mongo document table, and Qdrant points table now pin to the left edge and stay visible during horizontal scroll.
+
+### Fixed
+
+- **Duplicate `MainLayout` declaration** — Vite pre-transform error caused by both importing and declaring `MainLayout` in `App.tsx`; local copy removed.
+- **Mongosh `posix_spawnp` failure** — when `mongosh` is not on PATH, the sidecar now falls back to running the bundled `mongosh.js` via `node` instead of trying to spawn a non-existent binary.
+- **PSQL binary resolution** — `psql` now resolved via `resolve_postgres_program` instead of hardcoded `"psql"`, matching the backup/restore tool pattern.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
 
 ---
 

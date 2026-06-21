@@ -3,7 +3,9 @@ import { debounce } from '@tanstack/pacer';
 import { useMongoDocuments } from '@/hooks/use-mongo';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, AlertCircle, Activity } from 'lucide-react';
+import { QUERY_KEYS } from '@/lib/query-keys';
+import { AlertCircle, Activity } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartView } from '@/components/chart-view';
 import type { WorkspaceTab, QueryResult } from '@kamehadb/shared';
@@ -13,6 +15,7 @@ import { MongoViewHeader } from '@/components/mongo-view-header';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
+import { openMongoShellTab } from '@/store';
 
 const PAGE_LIMIT = 20;
 
@@ -234,7 +237,9 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
       if (!confirmed) return;
       try {
         await api.deleteMongoDocument(connectionId, { collection, database, filter: { _id: doc._id } });
-        queryClient.invalidateQueries({ queryKey: ['mongo-documents', connectionId, database, collection] });
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
+        });
       } catch (err) {
         alert(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
@@ -269,7 +274,10 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
   }, [refetch]);
 
   const invalidateDocuments = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ['mongo-documents', connectionId, database, collection] }),
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
+      }),
     [connectionId, database, collection, queryClient],
   );
 
@@ -289,6 +297,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         onRefresh={onRefresh}
         onExportJSON={handleExportJSON}
         onExportCSV={handleExportCSV}
+        onOpenShell={() => openMongoShellTab(connectionId)}
       />
 
       <Tabs
@@ -407,7 +416,7 @@ function DocumentsPanel({
     return (
       <div className="p-4">
         <div className="flex items-center justify-center h-32">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <Spinner size="lg" />
         </div>
       </div>
     );
@@ -476,7 +485,7 @@ function DocumentsPanel({
         </span>
         {isFetching && (
           <span className="flex items-center gap-1 text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
+            <Spinner size="sm" />
             Loading...
           </span>
         )}

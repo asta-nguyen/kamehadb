@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQdrantCollections } from '@/hooks/use-qdrant';
 import { Button } from '@/components/ui/button';
 import { openQdrantTab } from '@/store';
-import { AlertCircle, Loader2, Search } from 'lucide-react';
+import { AlertCircle, Search } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { Input } from '@/components/ui/input';
 
 interface QdrantExplorerProps {
@@ -40,7 +41,7 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
       </div>
       {isLoading ? (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="text-muted-foreground animate-spin size-4" />
+          <Spinner size="md" />
         </div>
       ) : isError ? (
         <div className="flex items-start px-2 py-1 text-destructive text-xs gap-1.5">

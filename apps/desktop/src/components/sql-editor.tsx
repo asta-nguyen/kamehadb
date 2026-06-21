@@ -5,9 +5,259 @@ import { useSaveQueryHistory } from '@/hooks/use-query-history';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
 import { api } from '@/lib/api';
 import type { OnMount } from '@monaco-editor/react';
+import type { editor as monacoEditor } from 'monaco-editor';
 import { useQuery } from '@tanstack/react-query';
 import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 const Editor = lazy(() => import('@monaco-editor/react'));
+
+// SQL keywords that can begin a new statement. Used to detect blank-line-separated
+// multi-statement SQL (e.g. "SELECT 1\n\nSELECT 2") where no semicolons exist.
+const STATEMENT_STARTS = new Set([
+  'SELECT',
+  'WITH',
+  'VALUES',
+  'TABLE',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'MERGE',
+  'CREATE',
+  'ALTER',
+  'DROP',
+  'TRUNCATE',
+  'RENAME',
+  'COMMENT',
+  'CALL',
+  'DO',
+  'GRANT',
+  'REVOKE',
+  'BEGIN',
+  'COMMIT',
+  'ROLLBACK',
+  'SAVEPOINT',
+  'EXPLAIN',
+  'SHOW',
+  'DESCRIBE',
+  'COPY',
+  'PREPARE',
+  'EXECUTE',
+  'DEALLOCATE',
+  'VACUUM',
+  'ANALYZE',
+  'REINDEX',
+  'LISTEN',
+  'NOTIFY',
+  'UNLISTEN',
+  'DECLARE',
+  'OPEN',
+  'FETCH',
+  'CLOSE',
+  'MOVE',
+  'DISCARD',
+  'LOAD',
+  'SET',
+]);
+
+/** Split SQL into individual statements by semicolons, respecting string
+ *  literals, dollar-quoting, identifiers, and comments so semicolons inside
+ *  those constructs don't trigger false splits. Also supports blank-line-
+ *  separated keyword groups (no semicolons needed).
+ *
+ *  Handles:
+ *    - "SELECT 1; SELECT 2"                  (semicolons)
+ *    - "SELECT ';' FROM t"                   (string literal — no split)
+ *    - "SELECT $$a;b$$"                      (dollar-quoting — no split)
+ *    - "SELECT * -- comment; more comment"   (line comment — no split)
+ *    - "SELECT 1\n\n\nSELECT 2"              (blank lines, no semicolons)
+ *    - Mixed: "SELECT 1;\n\nSELECT 2"
+ */
+function splitSqlStatements(sql: string): string[] {
+  const trimmed = sql.trim();
+  if (!trimmed) return [];
+
+  // Single-pass split that tracks quoting / comment context.
+  const parts: string[] = [];
+  let current = '';
+  let i = 0;
+  outer: while (i < trimmed.length) {
+    const ch = trimmed[i];
+
+    // Line comment --  (also --)
+    if (ch === '-' && trimmed[i + 1] === '-') {
+      current += '--';
+      i += 2;
+      while (i < trimmed.length && trimmed[i] !== '\n') {
+        current += trimmed[i];
+        i++;
+      }
+      continue;
+    }
+
+    // Block comment /* */
+    if (ch === '/' && trimmed[i + 1] === '*') {
+      current += '/*';
+      i += 2;
+      while (i < trimmed.length) {
+        current += trimmed[i];
+        if (trimmed[i] === '*' && trimmed[i + 1] === '/') {
+          current += '/';
+          i += 2;
+          continue outer;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Single-quoted string '...' ('' escapes)
+    if (ch === "'") {
+      current += "'";
+      i++;
+      while (i < trimmed.length) {
+        current += trimmed[i];
+        if (trimmed[i] === "'") {
+          if (trimmed[i + 1] === "'") {
+            // Escaped quote ''
+            current += "'";
+            i += 2;
+            continue;
+          }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Double-quoted identifier "..." ("" escapes)
+    if (ch === '"') {
+      current += '"';
+      i++;
+      while (i < trimmed.length) {
+        current += trimmed[i];
+        if (trimmed[i] === '"') {
+          if (trimmed[i + 1] === '"') {
+            current += '"';
+            i += 2;
+            continue;
+          }
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Dollar-quoting $$ or $tag$
+    if (ch === '$') {
+      // Peek ahead for the closing tag
+      const start = i;
+      i++;
+      while (i < trimmed.length && trimmed[i] !== '$') i++;
+      if (i < trimmed.length && trimmed[i] === '$') {
+        const tag = trimmed.slice(start, i + 1); // e.g. $$ or $func$
+        current += tag;
+        i++;
+        // Scan for the closing tag
+        while (i <= trimmed.length - tag.length) {
+          current += trimmed[i];
+          if (trimmed.slice(i, i + tag.length) === tag) {
+            current += tag.slice(1); // the tag minus first $
+            i += tag.length;
+            break;
+          }
+          current += trimmed[i];
+          i++;
+        }
+        continue;
+      }
+      // Lone $ — not a dollar-quote, just emit as-is
+      current += '$';
+      i++;
+      continue;
+    }
+
+    // Semicolon — split point (we are outside any string/comment/identifier)
+    if (ch === ';') {
+      const trimmedPart = current.trim();
+      if (trimmedPart.length > 0) parts.push(trimmedPart);
+      current = '';
+      i++;
+      continue;
+    }
+
+    current += ch;
+    i++;
+  }
+
+  // Last part
+  const finalPart = current.trim();
+  if (finalPart.length > 0) parts.push(finalPart);
+
+  if (parts.length === 0) return [];
+
+  // Step 2: for each semicolon-delimited part, check for blank-line-separated
+  // keyword groups and split those too.
+  const result: string[] = [];
+  for (const part of parts) {
+    const groups = splitBlankLineGroups(part);
+    result.push(...groups);
+  }
+  return result;
+}
+
+/** Group lines by blank-line separators. Only returns multiple groups (i.e. splits)
+ *  when every group starts with a SQL statement keyword, to avoid breaking
+ *  statements that happen to contain blank lines (e.g. SELECT with a blank before WHERE). */
+function splitBlankLineGroups(sql: string): string[] {
+  const lines = sql.split('\n');
+  const groups: string[][] = [];
+  let current: string[] = [];
+
+  for (const line of lines) {
+    if (line.trim().length === 0) {
+      if (current.length > 0) {
+        groups.push(current);
+        current = [];
+      }
+    } else {
+      current.push(line);
+    }
+  }
+  if (current.length > 0) groups.push(current);
+
+  if (groups.length <= 1) return groups.length === 1 ? [groups[0].join('\n')] : [sql];
+
+  // Only split when EVERY group starts with a SQL keyword — avoids false positives
+  // on blank lines within a single statement.
+  const allStartWithKeyword = groups.every((g) => {
+    const firstWord = g[0].trimStart().split(/\s+/)[0].toUpperCase();
+    return STATEMENT_STARTS.has(firstWord);
+  });
+
+  if (allStartWithKeyword) {
+    return groups.map((g) => g.join('\n'));
+  }
+  return [sql];
+}
+
+/** Returns true when sql contains 2+ statements (by semicolons or blank-line keyword groups). */
+function containsMultipleStatements(sql: string): boolean {
+  const trimmed = sql.trim();
+  if (!trimmed) return false;
+
+  // Check semicolons between non-empty parts
+  const semiParts = trimmed
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (semiParts.length > 1) return true;
+
+  // Check blank-line-separated SQL keyword groups
+  return splitBlankLineGroups(trimmed).length > 1;
+}
 
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { RecordDetailTabs } from '@/components/table-view';
@@ -22,6 +272,7 @@ import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
+import { Spinner } from '@/components/ui/spinner';
 import {
   AlertCircle,
   BarChart3,
@@ -35,13 +286,14 @@ import {
   Play,
   Table2,
 } from 'lucide-react';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import { ChartView } from '@/components/chart-view';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
-    queryKey: ['completions', connectionId],
-    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/completions`),
+    queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
+    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
   });
@@ -159,6 +411,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const [sql, setSql] = useState('sql' in tab ? (tab.sql ?? 'SELECT * FROM ') : 'SELECT * FROM ');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<QueryResult[]>([]);
+  const [activeResultIndex, setActiveResultIndex] = useState(0);
+  const [isExecutingBatch, setIsExecutingBatch] = useState(false);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showChart, setShowChart] = useState(false);
@@ -170,6 +425,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   // The SQL as last-executed, without any auto-appended LIMIT/OFFSET clause,
   // so we can paginate by varying the offset while keeping the query intact.
   const baseSqlRef = useRef(sql);
+
+  // Monaco editor ref for selection-aware execution and error markers
+  const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+
   const { data: completions } = useCompletionsSchema(connectionId);
   const completionsRef = useRef(completions);
   completionsRef.current = completions;
@@ -177,46 +437,154 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const runQuery = useRunQuery(connectionId);
   const saveHistory = useSaveQueryHistory(connectionId);
 
+  // Only append LIMIT for queries that support it (SELECT / WITH / VALUES / TABLE).
+  // Otherwise many engines error with "syntax error at or near 'LIMIT'".
+  function queryWithLimit(sql: string, limit: number, offsetVal?: number): string {
+    if (limit <= 0) return sql;
+    // Multi-statement SQL: each statement is executed individually after
+    // splitting. A global LIMIT at the end would become a standalone statement
+    // after the split, causing a syntax error on every engine.
+    if (containsMultipleStatements(sql)) return sql;
+    const upper = sql.trimStart().toUpperCase();
+    const supportsLimit =
+      upper.startsWith('SELECT') || upper.startsWith('WITH') || upper.startsWith('VALUES') || upper.startsWith('TABLE');
+    if (!supportsLimit) return sql;
+    // Don't double-append if the query already has a LIMIT clause
+    if (/\bLIMIT\b/i.test(sql)) return sql;
+    return offsetVal !== undefined ? `${sql} LIMIT ${limit} OFFSET ${offsetVal}` : `${sql} LIMIT ${limit}`;
+  }
+
   // Build the full SQL with LIMIT / OFFSET and execute it.
+  // When the SQL contains multiple statements (separated by semicolons or
+  // blank-line keyword groups), each is executed individually and all results
+  // are shown in tabs. LIMIT is applied per individual statement so it never
+  // becomes a standalone "LIMIT N" query after splitting.
   const executeQuery = useCallback(
     async (querySql: string) => {
       if (!querySql.trim()) return;
       setError(null);
       setResult(null);
-      try {
-        const res = await runQuery.mutateAsync({ query: querySql });
-        resultKeyRef.current++;
-        setResult(res);
-        saveHistory.mutate({ query: querySql, durationMs: res.durationMs, rowCount: res.rowCount });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Query failed');
+      setResults([]);
+      setActiveResultIndex(0);
+      setIsExecutingBatch(true);
+      // Clear previous error markers before a new execution
+      const model = editorRef.current?.getModel();
+      const monaco = monacoRef.current;
+      if (model && monaco) {
+        monaco.editor.setModelMarkers(model, 'sql-error', []);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+
+      const statements = splitSqlStatements(querySql);
+      if (statements.length === 0) {
+        setIsExecutingBatch(false);
+        return;
+      }
+
+      try {
+        const allResults: QueryResult[] = [];
+        for (let i = 0; i < statements.length; i++) {
+          // Apply LIMIT per individual statement so multi-statement SQL never
+          // produces a standalone "LIMIT N" after the split.
+          const stmt = queryWithLimit(statements[i], queryLimit);
+          const res = await runQuery.mutateAsync({ query: stmt });
+          saveHistory.mutate({ query: stmt, durationMs: res.durationMs, rowCount: res.rowCount });
+          allResults.push(res);
+        }
+        resultKeyRef.current++;
+        if (allResults.length === 1) {
+          setResult(allResults[0]);
+        } else {
+          setResults(allResults);
+          setActiveResultIndex(0);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Query failed';
+        setError(message);
+        // Parse the error message for line number and add marker in Monaco
+        const editor = editorRef.current;
+        const m = monacoRef.current;
+        if (editor && m) {
+          const errModel = editor.getModel();
+          if (errModel) {
+            // Extract line/position from SQL error messages:
+            //   PostgreSQL "LINE N:", MySQL "at line N", Postgres "at character N"
+            const lineCount = errModel.getLineCount();
+            let errorLine = 1;
+            const lineMatch = message.match(/LINE\s+(\d+)/i);
+            if (lineMatch) {
+              errorLine = parseInt(lineMatch[1], 10);
+            } else {
+              const atLineMatch = message.match(/at line (\d+)/i);
+              if (atLineMatch) {
+                errorLine = parseInt(atLineMatch[1], 10);
+              } else {
+                const charMatch = message.match(/at character (\d+)/i);
+                if (charMatch) {
+                  // Convert 1-based character offset to line number by walking lines
+                  const charOffset = parseInt(charMatch[1], 10);
+                  let currentChar = 0;
+                  for (let ln = 1; ln <= lineCount; ln++) {
+                    currentChar += errModel.getLineLength(ln) + 1; // +1 for newline
+                    if (currentChar >= charOffset) {
+                      errorLine = ln;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            // Clamp line number to valid range
+            errorLine = Math.min(errorLine, lineCount);
+            m.editor.setModelMarkers(errModel, 'sql-error', [
+              {
+                severity: m.MarkerSeverity.Error,
+                message,
+                startLineNumber: errorLine,
+                startColumn: 1,
+                endLineNumber: errorLine,
+                endColumn: errModel.getLineMaxColumn(errorLine),
+              },
+            ]);
+          }
+        }
+      } finally {
+        setIsExecutingBatch(false);
+      }
     },
-    [runQuery, saveHistory],
+    [runQuery, saveHistory, queryLimit],
   );
 
   const handleRun = useCallback(() => {
     if (!sql.trim()) return;
     setOffset(0);
-    baseSqlRef.current = sql.trim();
-    const fullQuery = queryLimit > 0 ? `${baseSqlRef.current} LIMIT ${queryLimit}` : baseSqlRef.current;
+    // If text is selected in the editor, execute only the selected text
+    let sqlToExecute = sql.trim();
+    const editor = editorRef.current;
+    if (editor) {
+      const selection = editor.getSelection();
+      if (selection && !selection.isEmpty()) {
+        const selectedText = editor.getModel()?.getValueInRange(selection);
+        if (selectedText?.trim()) {
+          sqlToExecute = selectedText.trim();
+        }
+      }
+    }
+    baseSqlRef.current = sqlToExecute;
+    const fullQuery = queryWithLimit(sqlToExecute, queryLimit);
     void executeQuery(fullQuery);
   }, [sql, executeQuery, queryLimit]);
 
   const goNextPage = useCallback(() => {
     const newOffset = offset + queryLimit;
     setOffset(newOffset);
-    const fullQuery =
-      queryLimit > 0 ? `${baseSqlRef.current} LIMIT ${queryLimit} OFFSET ${newOffset}` : baseSqlRef.current;
+    const fullQuery = queryWithLimit(baseSqlRef.current, queryLimit, newOffset);
     void executeQuery(fullQuery);
   }, [offset, queryLimit, executeQuery]);
 
   const goPrevPage = useCallback(() => {
     const newOffset = Math.max(0, offset - queryLimit);
     setOffset(newOffset);
-    const fullQuery =
-      queryLimit > 0 ? `${baseSqlRef.current} LIMIT ${queryLimit} OFFSET ${newOffset}` : baseSqlRef.current;
+    const fullQuery = queryWithLimit(baseSqlRef.current, queryLimit, newOffset);
     void executeQuery(fullQuery);
   }, [offset, queryLimit, executeQuery]);
 
@@ -243,6 +611,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
 
   const handleEditorDidMount: OnMount = useCallback(
     (editor, monaco) => {
+      editorRef.current = editor;
+      monacoRef.current = monaco as unknown as typeof import('monaco-editor');
       editor.focus();
 
       editor.addAction({
@@ -338,11 +708,17 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
-        <Button size="sm" onClick={handleRun} disabled={runQuery.isPending} className="gap-1.5">
-          {runQuery.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+        <Button size="sm" onClick={handleRun} disabled={runQuery.isPending || isExecutingBatch} className="gap-1.5">
+          {runQuery.isPending || isExecutingBatch ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Play className="size-3.5" />
+          )}
           Run
         </Button>
-        <span className="text-xs text-muted-foreground">{runQuery.isPending ? 'Running...' : 'Ctrl+Enter to run'}</span>
+        <span className="text-xs text-muted-foreground">
+          {runQuery.isPending || isExecutingBatch ? 'Running...' : 'Ctrl+Enter to run'}
+        </span>
         <div className="flex-1" />
         {result && (
           <Button
@@ -394,9 +770,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           />
 
           <div className="overflow-auto" style={{ flex: 1 - splitRatio, minHeight: 0 }}>
-            {runQuery.isPending && (
+            {(runQuery.isPending || isExecutingBatch) && (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <Spinner size="lg" />
               </div>
             )}
 
@@ -407,7 +783,56 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
               </div>
             )}
 
+            {/* Multi-statement result tabs */}
+            {results.length > 0 && results[activeResultIndex] && (
+              <>
+                <div className="flex items-center gap-0.5 px-4 pt-2 pb-1 border-b border-border shrink-0">
+                  {results.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveResultIndex(i)}
+                      className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
+                        i === activeResultIndex
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      Result {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex-1 overflow-auto">
+                  {showChart ? (
+                    <ChartView
+                      key={`chart-${resultKeyRef.current}-${activeResultIndex}`}
+                      result={results[activeResultIndex]}
+                    />
+                  ) : (
+                    <QueryResultTable
+                      key={`${resultKeyRef.current}-${activeResultIndex}`}
+                      result={results[activeResultIndex]}
+                      onSelectRow={setSelectedRow}
+                      queryLimit={queryLimit}
+                      offset={offset}
+                      onPrevPage={goPrevPage}
+                      onNextPage={goNextPage}
+                      onLimitChange={(newLimit) => {
+                        setQueryLimit(newLimit);
+                        setOffset(0);
+                        const currentSql = sql.trim();
+                        if (currentSql) {
+                          const fullQuery = queryWithLimit(currentSql, newLimit);
+                          void executeQuery(fullQuery);
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+
             {result &&
+              results.length === 0 &&
               (showChart ? (
                 <ChartView key={`chart-${resultKeyRef.current}`} result={result} />
               ) : (
@@ -424,7 +849,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                     setOffset(0);
                     const currentSql = sql.trim();
                     if (currentSql) {
-                      const fullQuery = newLimit > 0 ? `${currentSql} LIMIT ${newLimit}` : currentSql;
+                      const fullQuery = queryWithLimit(currentSql, newLimit);
                       void executeQuery(fullQuery);
                     }
                   }}

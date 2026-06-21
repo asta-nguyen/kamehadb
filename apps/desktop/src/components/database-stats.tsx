@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Server,
   Users,
@@ -13,7 +14,6 @@ import {
   AlertTriangle,
   Clock,
   Radio,
-  Loader2,
   Copy,
   Check,
   Database,
@@ -55,7 +55,7 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
   if (connectionsLoading && !currentConnection) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="text-muted-foreground animate-spin size-5" />
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -213,7 +213,7 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
           {/* Tables List */}
           {sizesLoading ? (
             <Card className="flex items-center justify-center h-48">
-              <Loader2 className="text-muted-foreground animate-spin size-5" />
+              <Spinner size="lg" />
             </Card>
           ) : sizesError ? (
             <Card className="flex items-center justify-center h-48 text-muted-foreground">
@@ -300,7 +300,7 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
           {/* Connections Table */}
           {connsLoading ? (
             <Card className="flex items-center justify-center h-64">
-              <Loader2 className="text-muted-foreground animate-spin size-5" />
+              <Spinner size="lg" />
             </Card>
           ) : connsError ? (
             <Card className="flex items-center justify-center h-64 text-muted-foreground">
@@ -338,7 +338,7 @@ function RedisDatabaseStats({ connectionId }: DatabaseStatsProps) {
 
       {isLoading ? (
         <Card className="flex items-center justify-center h-64">
-          <Loader2 className="text-muted-foreground animate-spin size-5" />
+          <Spinner size="lg" />
         </Card>
       ) : error ? (
         <Card className="flex items-center justify-center h-64 text-muted-foreground">

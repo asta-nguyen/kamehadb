@@ -1,5 +1,4 @@
 import { ChatInput } from '@/components/chat-input';
-import { buildHighlightedCodeTree, type SafeHighlightNode } from '@/lib/ai-chat-highlight';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/variants';
 import {
@@ -12,15 +11,21 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useChat } from '@/hooks/use-chat';
 import { useConnections } from '@/hooks/use-connections';
-import type { ChatMessage } from '@/lib/ai-chat-helpers';
-import { getChatTextContent, normalizeCodeLanguage, toUIMessage, type CodeLanguage } from '@/lib/ai-chat-helpers';
+import {
+  buildHighlightedCodeTree,
+  getChatTextContent,
+  normalizeCodeLanguage,
+  toUIMessage,
+  type ChatMessage,
+  type CodeLanguage,
+  type SafeHighlightNode,
+} from '@/lib/ai-chat-helpers';
 import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
 import {
   Bot,
   Check,
   Copy,
   Database,
-  Loader2,
   MoreHorizontal,
   Play,
   RefreshCw,
@@ -30,6 +35,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { useCallback, useEffect, useRef, useState, Fragment } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -220,7 +226,7 @@ function StreamingAssistantMessage({ msg: _msg }: StreamingAssistantMessageProps
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
-          <Loader2 className="size-3 animate-spin" />
+          <Spinner size="sm" />
           Thinking...
         </div>
       </div>

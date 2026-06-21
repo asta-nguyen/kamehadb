@@ -4,6 +4,20 @@ use std::process::{Child, Command};
 use std::sync::Mutex;
 use tauri::Manager;
 
+mod app_logs;
+mod postgres_psql;
+mod postgres_tools;
+mod terminal_sessions;
+
+use app_logs::{append_frontend_log, append_tauri_log, read_app_logs};
+use postgres_psql::start_postgres_psql_session;
+use terminal_sessions::{
+    resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
+};
+use postgres_tools::{
+    cancel_postgres_job, start_postgres_backup, start_postgres_restore, PostgresJobState,
+};
+
 struct SidecarState(Mutex<Option<Child>>);
 
 #[derive(Serialize)]
@@ -14,10 +28,7 @@ struct SidecarInfo {
 
 #[tauri::command]
 fn get_app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
-    let path = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let path = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
@@ -27,10 +38,7 @@ async fn start_sidecar(
     app: tauri::AppHandle,
     state: tauri::State<'_, SidecarState>,
 ) -> Result<SidecarInfo, String> {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
 
     let sidecar_path = app
@@ -47,13 +55,25 @@ async fn start_sidecar(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to start sidecar: {}", e))?;
+        .map_err(|e| {
+            let message = format!("Failed to start sidecar: {}", e);
+            append_tauri_log(&app, "error", "sidecar", &message, None);
+            message
+        })?;
 
     let pid = child.id();
     let port = 3170; // Placeholder - will be read from sidecar output
 
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     *guard = Some(child);
+
+    append_tauri_log(
+        &app,
+        "info",
+        "sidecar",
+        "Started bundled sidecar process",
+        Some(format!("pid={pid} port={port}")),
+    );
 
     Ok(SidecarInfo { port, pid })
 }
@@ -62,7 +82,9 @@ async fn start_sidecar(
 fn stop_sidecar(state: tauri::State<'_, SidecarState>) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(mut child) = guard.take() {
-        child.kill().map_err(|e| format!("Failed to stop sidecar: {}", e))?;
+        child
+            .kill()
+            .map_err(|e| format!("Failed to stop sidecar: {}", e))?;
         child.wait().ok();
     }
     Ok(())
@@ -70,7 +92,11 @@ fn stop_sidecar(state: tauri::State<'_, SidecarState>) -> Result<(), String> {
 
 // Keychain operations using keyring crate
 #[tauri::command]
-async fn store_credential(service: String, account: String, password: String) -> Result<(), String> {
+async fn store_credential(
+    service: String,
+    account: String,
+    password: String,
+) -> Result<(), String> {
     let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
     entry.set_password(&password).map_err(|e| e.to_string())?;
     Ok(())
@@ -93,9 +119,12 @@ async fn delete_credential(service: String, account: String) -> Result<(), Strin
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
+        .manage(TerminalSessionState::default())
+        .manage(PostgresJobState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_data_dir,
             start_sidecar,
@@ -103,6 +132,15 @@ pub fn run() {
             store_credential,
             get_credential,
             delete_credential,
+            start_postgres_psql_session,
+            write_terminal_session,
+            resize_terminal_session,
+            stop_terminal_session,
+            start_postgres_backup,
+            start_postgres_restore,
+            cancel_postgres_job,
+            append_frontend_log,
+            read_app_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,7 +4,7 @@ This file provides guidance for coding agents working in this repository.
 
 ## Project Overview
 
-KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB, and TigerBeetle. It includes schema browsing, a Monaco SQL editor, PostgreSQL stats views, Redis and Mongo explorers, and an AI chat panel with schema-aware context.
+KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, Redis, Qdrant, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB, and TigerBeetle. It includes schema browsing, a Monaco SQL editor, query history, PostgreSQL stats views, schema timeline/diff workflows, Redis/Mongo/Qdrant/TigerBeetle explorers, embedded PostgreSQL and Mongo shells, PostgreSQL backup/restore flows, pgvector exploration tools, an in-app logs viewer, and an AI chat panel with schema-aware context.
 
 There is also a separate marketing/docs site in `landing/`, but it is not part of the pnpm workspace used by the desktop app and sidecar.
 
@@ -108,14 +108,18 @@ Key details:
 - Metadata is stored in a local SQLite database via `better-sqlite3`
 - Default metadata DB path is `./kamehadb.db`
 - If `KAMEHADB_DATA_DIR` is set, the DB path becomes `${KAMEHADB_DATA_DIR}/kamehadb.db`
+- Runtime logs are also written under `${KAMEHADB_DATA_DIR}/logs/` when the app data dir is available
 - The sidecar prints `KAMEHADB_SIDECAR_PORT=<port>` on startup
 
 Current route groups:
 
 - `/connections` for saved connection profiles and connection health checks
 - `/sql` for SQL metadata, query execution, preview rows, autocomplete, and PostgreSQL stats
+- `/query-history` for saved SQL history and favorites
 - `/mongo` for MongoDB databases, collections, documents, stats, update/delete
 - `/redis` for key scanning, value lookup, TTL lookup, and connection testing
+- `/qdrant` for vector collections, point browsing, search, recommend, and stats
+- `/tigerbeetle` for accounts, balances, and transfers
 - `/ai` for provider settings, chat, schema cache, and chat history
 
 Important sidecar internals:
@@ -123,20 +127,27 @@ Important sidecar internals:
 - `apps/sidecar/src/db/metadata-store.ts` persists connections, AI settings, and chat history
 - `apps/sidecar/src/lib/cache.ts` caches schema and metadata results
 - `apps/sidecar/src/lib/sql-safety.ts` contains SQL safety helpers used by the backend
+- `apps/sidecar/src/lib/mongosh.ts` resolves a local `mongosh` binary or installs an app-managed copy under the app data directory
 - `apps/sidecar/src/ai/` contains provider abstraction and schema-context generation
 
 ### Desktop app
 
-`apps/desktop/src/App.tsx` drives a tabbed workspace with connection-specific views.
+`apps/desktop/src/App.tsx` drives the top-level app views (`workspace`, `api-settings`, `logs`) and the tabbed workspace.
 
 Main areas:
 
 - `components/sidebar.tsx` for connection and schema navigation
+- `components/workspace-screen.tsx`, `components/workspace-tab-bar.tsx`, and `components/workspace-content.tsx` for tab orchestration
 - `components/sql-editor.tsx` for Monaco query editing and execution
 - `components/table-view.tsx` for SQL table browsing
 - `components/schema-graph.tsx` for ER diagrams
+- `components/schema-timeline.tsx`, `components/schema-diff-view.tsx`, and `components/migration-assistant.tsx` for schema change workflows
 - `components/database-stats.tsx` and `components/table-stats.tsx` for PostgreSQL metrics
-- `components/mongo-view.tsx` and `components/redis-view.tsx` for non-SQL engines
+- `components/postgres-psql-tab.tsx`, `components/postgres-backup-dialog.tsx`, and `components/postgres-restore-dialog.tsx` for PostgreSQL maintenance workflows
+- `components/postgres-vector-query.tsx` and `components/postgres-vector-map.tsx` for pgvector search and map views
+- `components/mongo-view.tsx`, `components/mongo-shell.tsx`, `components/redis-view.tsx`, `components/qdrant-view.tsx`, `components/qdrant-query.tsx`, `components/qdrant-vector-map.tsx`, `components/qdrant-stats.tsx`, and `components/tigerbeetle-explorer.tsx` for non-SQL engines
+- `components/query-history-panel.tsx` for saved SQL history/favorites
+- `components/logs-page.tsx` for viewing frontend, Tauri, and sidecar logs inside the app
 - `components/ai-chat-panel.tsx` and `components/api-settings-page.tsx` for AI
 
 State and data flow:
@@ -145,6 +156,8 @@ State and data flow:
 - `apps/desktop/src/hooks/` contains TanStack Query-based data hooks
 - `apps/desktop/src/lib/api.ts` talks to the sidecar at `http://127.0.0.1:3170` by default
 - `apps/desktop/src/lib/sql-autocomplete.ts` contains client-side SQL completion logic
+- `apps/desktop/src/lib/app-logs.ts` sends frontend errors to Tauri and reads the combined log snapshot for the Logs page
+- `apps/desktop/src-tauri/src/` contains native commands for app logs, PostgreSQL `psql`, and PostgreSQL backup/restore jobs
 
 ## Database Support
 
@@ -155,6 +168,7 @@ Supported now:
 - SQLite
 - MongoDB
 - Redis
+- Qdrant
 - SQL Server
 - Oracle
 - ClickHouse
@@ -168,8 +182,11 @@ Notes:
 - PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, and DuckDB use the SQL adapter path.
 - MongoDB uses a dedicated route and adapter flow.
 - Redis uses a dedicated route and adapter flow, not the SQL route.
+- Qdrant uses a dedicated route and adapter flow for collections, points, similarity search, recommend, and stats.
 - DuckDB connects to local .duckdb files (file-based).
 - TigerBeetle uses a dedicated adapter and connects to a local or remote TigerBeetle cluster.
+- PostgreSQL also has app-managed `psql`, backup, restore, schema diff/timeline, and pgvector workflows on the desktop side.
+- MongoDB can open an embedded `mongosh` session; if `mongosh` is missing locally, the sidecar can install an app-managed copy without modifying the user's global installation.
 
 ## Connection Defaults For Docker
 
@@ -208,9 +225,17 @@ Override connection with env vars: `TB_HOST`, `TB_PORT`, `TB_CLUSTER_ID`.
 
 - `pnpm test` currently depends mainly on workspace packages that expose a `test` script
 - The desktop package uses `vitest run`
+- Native desktop changes should also be verified with `cargo test --quiet` in `apps/desktop/src-tauri` when they touch Tauri commands or Rust-side process management
 - CI currently runs `pnpm typecheck`, `pnpm --filter @kamehadb/desktop test`, `pnpm build`, and a full `tauri build`
 - When changing sidecar contracts, verify both `packages/shared` types and desktop usage
 - When changing desktop UI behavior, prefer running the desktop tests and a targeted app build
+
+## Logs And Diagnostics
+
+- The desktop app exposes a built-in Logs page that reads frontend, Tauri, and sidecar logs from one place.
+- Frontend runtime errors are forwarded through `apps/desktop/src/lib/app-logs.ts` into the Tauri log store.
+- Sidecar logs are persisted to the app data directory so packaged builds still have inspectable logs after startup failures or shell-launch errors.
+- If a bundled workflow fails only in the built app, check the in-app Logs page first, then inspect `${KAMEHADB_DATA_DIR}/logs/` if you need the raw files.
 
 ## Release Workflow
 

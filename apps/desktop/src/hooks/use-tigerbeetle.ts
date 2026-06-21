@@ -1,10 +1,11 @@
 import { api } from '@/lib/api';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import type { CreateTigerBeetleAccountInput, CreateTigerBeetleTransferInput } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function useTbAccounts(connectionId: string | null, limit?: number) {
   return useQuery({
-    queryKey: ['tigerbeetle', connectionId, 'accounts', limit],
+    queryKey: QUERY_KEYS.TB_ACCOUNTS(connectionId, limit),
     queryFn: () => api.tbListAccounts(connectionId!, limit),
     enabled: !!connectionId,
   });
@@ -12,7 +13,7 @@ export function useTbAccounts(connectionId: string | null, limit?: number) {
 
 export function useTbAccount(connectionId: string | null, id: string | null) {
   return useQuery({
-    queryKey: ['tigerbeetle', connectionId, 'account', id],
+    queryKey: QUERY_KEYS.TB_ACCOUNT(connectionId, id),
     queryFn: () => api.tbLookupAccount(connectionId!, id!),
     enabled: !!connectionId && !!id,
   });
@@ -20,7 +21,7 @@ export function useTbAccount(connectionId: string | null, id: string | null) {
 
 export function useTbTransfers(connectionId: string | null, accountId: string | null) {
   return useQuery({
-    queryKey: ['tigerbeetle', connectionId, 'transfers', accountId],
+    queryKey: QUERY_KEYS.TB_TRANSFERS(connectionId, accountId),
     queryFn: () => api.tbGetTransfers(connectionId!, accountId!),
     enabled: !!connectionId && !!accountId,
   });
@@ -28,7 +29,7 @@ export function useTbTransfers(connectionId: string | null, accountId: string | 
 
 export function useTbBalances(connectionId: string | null, accountId: string | null) {
   return useQuery({
-    queryKey: ['tigerbeetle', connectionId, 'balances', accountId],
+    queryKey: QUERY_KEYS.TB_BALANCES(connectionId, accountId),
     queryFn: () => api.tbGetBalances(connectionId!, accountId!),
     enabled: !!connectionId && !!accountId,
   });

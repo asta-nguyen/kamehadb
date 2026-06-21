@@ -7,7 +7,8 @@ import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DataTable, type ColumnDef } from '@/components/data-table';
-import { ChevronLeft, ChevronRight, Loader2, Network, Search, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Network, Search, Sparkles } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface QdrantViewProps {
   connectionId: string;
@@ -254,7 +255,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
       <div className="flex-1 overflow-auto min-h-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <Spinner size="lg" />
           </div>
         ) : error ? (
           <div className="p-4 text-sm text-destructive">
@@ -316,7 +317,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             />
           </Label>
           <Button variant="outline" size="sm" onClick={jumpToPage} disabled={state.jumping}>
-            {state.jumping ? <Loader2 className="size-3 animate-spin" /> : 'Go'}
+            {state.jumping ? <Spinner size="sm" /> : 'Go'}
           </Button>
           <span className="tabular-nums">page {state.offsetStack.length}</span>
           <div className="flex items-center gap-1">

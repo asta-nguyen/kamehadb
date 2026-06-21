@@ -4,11 +4,12 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import pino from 'pino';
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
+import { mkdirSync } from 'fs';
 import { initMetadataStore, closeMetadataStore } from './db/metadata-store.js';
 import { connectionsRouter } from './routes/connections.js';
 import { sqlRouter } from './routes/sql.js';
-import { mongoRouter } from './routes/mongo.js';
+import { mongoRouter, killAllMongoShells } from './routes/mongo.js';
 import { redisRouter } from './routes/redis.js';
 import { qdrantRouter } from './routes/qdrant.js';
 import { tigerbeetleRouter } from './routes/tigerbeetle.js';
@@ -17,15 +18,21 @@ import { queryHistoryRouter } from './routes/query-history.js';
 import { indexAllConnections } from './ai/indexer.js';
 
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
+const sidecarDir = dirname(fileURLToPath(import.meta.url));
+const defaultDataDir = resolve(sidecarDir, '..');
+const logsDir = join(process.env.KAMEHADB_DATA_DIR || defaultDataDir, 'logs');
+mkdirSync(logsDir, { recursive: true });
 
-const log = pino({
-  transport: {
-    target: 'pino-pretty',
-    options: { colorize: true },
+const log = pino(
+  {
+    level: process.env.LOG_LEVEL || 'info',
+    redact: ['password', 'secret', 'token'],
   },
-  level: process.env.LOG_LEVEL || 'info',
-  redact: ['password', 'secret', 'token'],
-});
+  pino.multistream([
+    { stream: process.stdout },
+    { stream: pino.destination({ dest: join(logsDir, 'sidecar.log'), mkdir: true, sync: false }) },
+  ]),
+);
 
 const app = new Hono();
 
@@ -59,12 +66,11 @@ app.route('/query-history', queryHistoryRouter);
 
 // Start server
 async function start() {
-  const sidecarDir = dirname(fileURLToPath(import.meta.url));
   const defaultDbPath = resolve(sidecarDir, '../kamehadb.db');
   const dbPath = process.env.KAMEHADB_DATA_DIR ? `${process.env.KAMEHADB_DATA_DIR}/kamehadb.db` : defaultDbPath;
 
   initMetadataStore(dbPath);
-  log.info({ dbPath }, 'Metadata store initialized');
+  log.info({ dbPath, logsDir }, 'Metadata store initialized');
 
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3170;
   const server = serve({
@@ -86,11 +92,13 @@ async function start() {
 // Graceful shutdown
 process.on('SIGINT', () => {
   log.info('Shutting down...');
+  killAllMongoShells();
   closeMetadataStore();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
+  killAllMongoShells();
   closeMetadataStore();
   process.exit(0);
 });
