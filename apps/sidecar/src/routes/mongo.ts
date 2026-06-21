@@ -367,7 +367,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
     // connected to an actual terminal — colors, box-drawing, and
     // interactive input all work out of the box.
     const args = [...mongoshCommand.argsPrefix, connStr];
-    console.debug('[mongosh] spawning pty:', { program: mongoshCommand.program, args, cols, rows });
+    console.debug('[mongosh] spawning pty:', { program: mongoshCommand.program, cols, rows });
     ptyProcess = pty.spawn(mongoshCommand.program, args, {
       name: 'xterm-256color',
       cols,

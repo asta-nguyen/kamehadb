@@ -35,6 +35,8 @@ export async function resolveMongoshCommand(): Promise<MongoshCommand> {
   return installed;
 }
 
+import { delimiter } from 'path';
+
 function findMongoshOnPath(): MongoshCommand | null {
   const pathValue = process.env.PATH;
   if (!pathValue) return null;
@@ -47,7 +49,6 @@ function findMongoshOnPath(): MongoshCommand | null {
   const candidates = [
     '/opt/homebrew/bin/mongosh',
     '/usr/local/bin/mongosh',
-    '/Applications/Postgres.app/Contents/Versions/latest/bin/mongosh',
     ...versionedMongoBinCandidates('/opt/homebrew/opt'),
     ...versionedMongoBinCandidates('/usr/local/opt'),
   ];
