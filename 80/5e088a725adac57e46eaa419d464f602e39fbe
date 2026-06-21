@@ -1,0 +1,21 @@
+apps/sidecar/src/lib/mongosh.ts
+  s_5d16a4fe607716::t_0136027ce3885a 10-11,44-47,152-155
+apps/desktop/src-tauri/src/postgres_tools/config.rs
+  s_5d16a4fe607716::t_ca9253fb2e69b2 228,236-248,250-251,260,262-274,276-277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "805e088a725adac57e46eaa419d464f602e39fbe",
+  "prompts": {},
+  "sessions": {
+    "s_5d16a4fe607716": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "5142da6d-2b80-476a-afea-0287b92b4349",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
