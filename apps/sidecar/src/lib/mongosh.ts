@@ -34,9 +34,6 @@ export async function resolveMongoshCommand(): Promise<MongoshCommand> {
   console.debug('[mongosh] auto-install resolved to:', installed);
   return installed;
 }
-
-import { delimiter } from 'path';
-
 function findMongoshOnPath(): MongoshCommand | null {
   const pathValue = process.env.PATH;
   if (!pathValue) return null;
