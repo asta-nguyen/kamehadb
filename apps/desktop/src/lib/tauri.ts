@@ -12,7 +12,11 @@ class DesktopOnlyError extends Error {
 }
 
 export function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && window.__TAURI_INTERNALS__ !== undefined;
+  const hasInternals = typeof window !== 'undefined' && window.__TAURI_INTERNALS__ !== undefined;
+  // Debug: log whether __TAURI_INTERNALS__ is present so we can see why the
+  // PSQL / backup / restore menu items are hidden in non-Tauri contexts.
+  console.debug('[isTauriRuntime]', { hasInternals, hasWindow: typeof window !== 'undefined' });
+  return hasInternals;
 }
 
 export async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T> {

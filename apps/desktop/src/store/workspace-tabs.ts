@@ -130,6 +130,63 @@ export function openQdrantGraphTab(connectionId: string, collection: string): vo
   });
 }
 
+export function openPostgresVectorSearchTab(
+  connectionId: string,
+  options?: {
+    readonly schema?: string;
+    readonly table?: string;
+    readonly column?: string;
+    readonly vectorText?: string;
+    readonly mode?: 'similar' | 'raw';
+  },
+): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'postgres-vector-search').length;
+  openTab({
+    id: `postgres-vector-search-${nanoid()}`,
+    type: 'postgres-vector-search',
+    title: options?.table ? `Vector Search ${options.table}` : `Vector Search ${tabCount + 1}`,
+    connectionId,
+    schema: options?.schema,
+    table: options?.table,
+    column: options?.column,
+    vectorText: options?.vectorText,
+    mode: options?.mode,
+  });
+}
+
+export function openPostgresVectorMapTab(
+  connectionId: string,
+  options: {
+    readonly schema: string;
+    readonly table: string;
+    readonly column: string;
+  },
+): void {
+  openTab({
+    id: `${connectionId}:postgres-vector-map:${options.schema}.${options.table}.${options.column}`,
+    type: 'postgres-vector-map',
+    title: `Vector Map ${options.table}`,
+    connectionId,
+    schema: options.schema,
+    table: options.table,
+    column: options.column,
+  });
+}
+
+export function updateTabPostgresVectorMapState(
+  tabId: string,
+  updates: {
+    readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+  },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'postgres-vector-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
 export function updateTabSql(tabId: string, sql: string): void {
   appStore.setState((state) => ({
     ...state,

@@ -1,20 +1,21 @@
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
 import {
+  useConnectionHealth,
   useConnections,
   useDeleteConnection,
   useRefreshConnection,
-  useConnectionHealth,
 } from '@/hooks/use-connections';
 import { getApiBase } from '@/lib/api-client';
-import { isTauriRuntime } from '@/lib/tauri';
 import {
+  SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
   GROUP_LABELS,
   GROUP_ORDER,
-  SIDEBAR_MIN_WIDTH as MIN_WIDTH,
   SIDEBAR_MAX_WIDTH as MAX_WIDTH,
-  SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
+  SIDEBAR_MIN_WIDTH as MIN_WIDTH,
 } from '@/lib/constants';
+import { isTauriRuntime } from '@/lib/tauri';
 import {
   appStore,
   navigateTo,
@@ -26,37 +27,20 @@ import {
   toggleExpandedConnection,
 } from '@/store';
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
-import type { ConnectionStatus } from './sidebar.helpers';
 import { useStore } from '@tanstack/react-store';
-import {
-  BarChart3,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  History,
-  Loader2,
-  MoreVertical,
-  Pin,
-  PinOff,
-  RefreshCw,
-  Search,
-  Settings2,
-  Share2,
-  Sparkles,
-  Terminal,
-  Trash2,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
+import type { ConnectionStatus } from './sidebar.helpers';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
+import { DbIcon } from './db-icon';
+import { PostgresBackupDialog } from './postgres-backup-dialog';
+import { PostgresRestoreDialog } from './postgres-restore-dialog';
+import { DeleteConfirmDialog } from './sidebar-delete-dialog';
 import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
 import { ConnectionExpansion } from './sidebar-expansion';
 import { ConnectionStatusDot } from './sidebar-status-dot';
 import { ConnectionTooltip } from './sidebar-tooltip';
-import { DbIcon } from './db-icon';
-import { DeleteConfirmDialog } from './sidebar-delete-dialog';
-import { PostgresBackupDialog } from './postgres-backup-dialog';
-import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { SpinningRefresh } from './sidebar.helpers';
 
 const ConnectionItem = memo(function ConnectionItem({
@@ -89,7 +73,7 @@ const ConnectionItem = memo(function ConnectionItem({
   const latency = connectionLatency[conn.id];
 
   function handleRowActivate() {
-    onSelect();
+    setActiveConnection(conn.id);
     if (conn.kind === 'redis') {
       openRedisTab(conn.id);
     } else {

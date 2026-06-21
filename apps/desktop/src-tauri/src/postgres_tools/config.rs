@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use rusqlite::{params, Connection};
@@ -18,7 +19,7 @@ pub struct PostgresProfile {
 
 #[derive(Clone, Debug)]
 pub struct CommandSpec {
-    pub program: &'static str,
+    pub program: String,
     pub args: Vec<String>,
     pub env: Vec<(String, String)>,
     pub started_message: String,
@@ -91,7 +92,7 @@ pub fn build_backup_command(
     };
 
     CommandSpec {
-        program: "pg_dump",
+        program: resolve_postgres_program("pg_dump"),
         args,
         env: connection_env(profile),
         started_message,
@@ -133,11 +134,35 @@ pub fn build_restore_command(
     }
 
     Ok(CommandSpec {
-        program,
+        program: resolve_postgres_program(program),
         args,
         env: connection_env(profile),
         started_message: format!("Restoring into database {}", request.target_database.trim()),
     })
+}
+
+pub fn resolve_postgres_program(program: &str) -> String {
+    let direct = PathBuf::from(program);
+    if direct.is_absolute() || program.contains(std::path::MAIN_SEPARATOR) {
+        return program.into();
+    }
+
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            let candidate = dir.join(program);
+            if candidate.is_file() {
+                return candidate.to_string_lossy().into_owned();
+            }
+        }
+    }
+
+    for candidate in postgres_program_candidates(program) {
+        if candidate.is_file() {
+            return candidate.to_string_lossy().into_owned();
+        }
+    }
+
+    program.into()
 }
 
 fn connection_args(profile: &PostgresProfile, database: &str) -> Vec<String> {
@@ -178,6 +203,58 @@ fn restore_program(path: &Path) -> &'static str {
         Some("sql") | Some("psql") => "psql",
         _ => "pg_restore",
     }
+}
+
+fn postgres_program_candidates(program: &str) -> Vec<PathBuf> {
+    let mut candidates = vec![
+        PathBuf::from(format!("/opt/homebrew/bin/{program}")),
+        PathBuf::from(format!("/usr/local/bin/{program}")),
+        PathBuf::from(format!(
+            "/Applications/Postgres.app/Contents/Versions/latest/bin/{program}"
+        )),
+    ];
+
+    candidates.extend(versioned_postgres_bin_dirs("/opt/homebrew/opt").into_iter().map(|dir| dir.join(program)));
+    candidates.extend(versioned_postgres_bin_dirs("/usr/local/opt").into_iter().map(|dir| dir.join(program)));
+    candidates.extend(postgres_app_bin_dirs().into_iter().map(|dir| dir.join(program)));
+    candidates
+}
+
+fn versioned_postgres_bin_dirs(root: &str) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(root) else {
+        return Vec::new();
+    };
+
+    let mut dirs = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|value| value.to_str())
+                .is_some_and(|name| name.starts_with("postgresql"))
+        })
+        .map(|path| path.join("bin"))
+        .collect::<Vec<_>>();
+
+    dirs.sort();
+    dirs.reverse();
+    dirs
+}
+
+fn postgres_app_bin_dirs() -> Vec<PathBuf> {
+    let versions_dir = PathBuf::from("/Applications/Postgres.app/Contents/Versions");
+    let Ok(entries) = fs::read_dir(&versions_dir) else {
+        return Vec::new();
+    };
+
+    let mut dirs = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path().join("bin"))
+        .collect::<Vec<_>>();
+
+    dirs.sort();
+    dirs.reverse();
+    dirs
 }
 
 fn qualified_identifier_pattern(schema: &str, table: &str) -> String {
@@ -272,6 +349,13 @@ mod tests {
         BackupFormat, BackupScope, StartBackupRequest, StartRestoreRequest,
     };
 
+    fn command_name(program: &str) -> &str {
+        Path::new(program)
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or(program)
+    }
+
     fn profile() -> PostgresProfile {
         PostgresProfile {
             host: "localhost".into(),
@@ -298,7 +382,7 @@ mod tests {
             },
         );
 
-        assert_eq!(command.program, "pg_dump");
+        assert_eq!(command_name(&command.program), "pg_dump");
         assert!(command
             .args
             .iter()
@@ -327,7 +411,7 @@ mod tests {
         )
         .expect("restore command should build");
 
-        assert_eq!(command.program, "psql");
+        assert_eq!(command_name(&command.program), "psql");
         assert!(command
             .args
             .iter()
@@ -354,7 +438,7 @@ mod tests {
         )
         .expect("restore command should build");
 
-        assert_eq!(command.program, "pg_restore");
+        assert_eq!(command_name(&command.program), "pg_restore");
         assert!(command.args.iter().any(|value| value == "--clean"));
         assert!(command.args.iter().any(|value| value == "--if-exists"));
     }

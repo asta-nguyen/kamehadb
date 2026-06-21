@@ -7,6 +7,7 @@ import { createMongoDbAdapter } from '../adapters/factory.js';
 import * as pty from 'node-pty';
 import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
+import { resolveMongoshCommand } from '../lib/mongosh.js';
 
 export const mongoRouter = new Hono();
 
@@ -358,26 +359,24 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
   } catch {}
   const connStr = profile.connectionString || '';
   const sessionId = nanoid();
+  const mongoshCommand = await resolveMongoshCommand();
 
   let ptyProcess: pty.IPty;
   try {
     // node-pty spawns a real pseudo-terminal so mongosh thinks it's
     // connected to an actual terminal — colors, box-drawing, and
     // interactive input all work out of the box.
-    ptyProcess = pty.spawn('mongosh', [connStr], {
+    const args = [...mongoshCommand.argsPrefix, connStr];
+    console.debug('[mongosh] spawning pty:', { program: mongoshCommand.program, args, cols, rows });
+    ptyProcess = pty.spawn(mongoshCommand.program, args, {
       name: 'xterm-256color',
       cols,
       rows,
       env: { ...process.env } as Record<string, string | undefined>,
     });
   } catch (err) {
-    return c.json(
-      {
-        error: 'MONGOSH_NOT_FOUND',
-        message: `mongosh is not installed or not in PATH: ${err instanceof Error ? err.message : String(err)}`,
-      },
-      500,
-    );
+    console.error('[mongosh] pty.spawn failed:', { mongoshCommand, error: err });
+    throw new Error(`mongosh failed to start: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   shellSessions.set(sessionId, { pty: ptyProcess, createdAt: Date.now(), buffer: '' });

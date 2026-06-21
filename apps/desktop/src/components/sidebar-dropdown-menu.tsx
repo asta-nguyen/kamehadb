@@ -71,7 +71,7 @@ export function ConnectionDropdownMenu({
       >
         <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={4}>
+      <DropdownMenuContent align="end" sideOffset={4} className="min-w-32">
         <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
           <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
           Reload

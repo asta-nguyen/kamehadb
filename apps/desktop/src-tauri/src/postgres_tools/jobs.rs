@@ -77,7 +77,8 @@ async fn start_job(
     spec: CommandSpec,
 ) -> Result<String, PostgresToolError> {
     let job_id = Uuid::new_v4().to_string();
-    let mut command = Command::new(spec.program);
+    let program = spec.program.clone();
+    let mut command = Command::new(&program);
     command.args(&spec.args);
     command.envs(spec.env.iter().map(|(key, value)| (key, value)));
     command.stdout(Stdio::piped());
@@ -85,7 +86,7 @@ async fn start_job(
 
     let mut child = command
         .spawn()
-        .map_err(|error| PostgresToolError::Spawn(spawn_message(spec.program, &error)))?;
+        .map_err(|error| PostgresToolError::Spawn(spawn_message(&program, &error)))?;
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
     let child = Arc::new(AsyncMutex::new(child));
@@ -107,7 +108,7 @@ async fn start_job(
 
     let state_ref = Arc::clone(&state.0);
     let started_message = spec.started_message.clone();
-    let tool_name = spec.program.to_string();
+    let tool_name = program;
     let task_job_id = job_id.clone();
     tauri::async_runtime::spawn(async move {
         emit(

@@ -282,6 +282,7 @@ import {
   Download,
   FileJson,
   History,
+  Loader2,
   Play,
   Table2,
 } from 'lucide-react';

@@ -4,9 +4,12 @@ mod jobs;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
+use crate::app_logs::append_tauri_log;
+
 // Re-exported for use by jobs.rs and external consumers (tests, future modules).
 #[allow(unused_imports)]
 pub use config::{build_backup_command, build_restore_command, load_postgres_profile, PostgresProfile, PostgresToolError};
+pub use config::resolve_postgres_program;
 pub use jobs::PostgresJobState;
 
 use crate::postgres_tools::jobs::{cancel_job, start_backup_job, start_restore_job};
@@ -110,10 +113,20 @@ pub async fn start_postgres_backup(
     state: tauri::State<'_, PostgresJobState>,
     request: StartBackupRequest,
 ) -> Result<PostgresJobStarted, String> {
-    run_backup(app, state.inner(), request)
+    run_backup(app.clone(), state.inner(), request)
         .await
         .map(|job_id| PostgresJobStarted { job_id })
-        .map_err(|error| error.to_string())
+        .map_err(|error| {
+            let message = error.to_string();
+            append_tauri_log(
+                &app,
+                "error",
+                "postgres-backup",
+                "Failed to start PostgreSQL backup job",
+                Some(message.clone()),
+            );
+            message
+        })
 }
 
 #[tauri::command]
@@ -122,10 +135,20 @@ pub async fn start_postgres_restore(
     state: tauri::State<'_, PostgresJobState>,
     request: StartRestoreRequest,
 ) -> Result<PostgresJobStarted, String> {
-    run_restore(app, state.inner(), request)
+    run_restore(app.clone(), state.inner(), request)
         .await
         .map(|job_id| PostgresJobStarted { job_id })
-        .map_err(|error| error.to_string())
+        .map_err(|error| {
+            let message = error.to_string();
+            append_tauri_log(
+                &app,
+                "error",
+                "postgres-restore",
+                "Failed to start PostgreSQL restore job",
+                Some(message.clone()),
+            );
+            message
+        })
 }
 
 #[tauri::command]

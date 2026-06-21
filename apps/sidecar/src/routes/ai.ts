@@ -283,6 +283,7 @@ aiRouter.post(
 
                 // Also detect pgvector capability for postgres connections
                 if (profile.kind === 'postgres') {
+                  const password = metadataStore.getProfilePassword(connectionId);
                   const vectorCacheKey = `ai-pgvector:${connectionId}`;
                   postgresVectorPrompt = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA) ?? null;
                   if (!postgresVectorPrompt) {

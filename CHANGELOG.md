@@ -7,96 +7,188 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Added
+- v1.4 Adding MCP server
 
-- PostgreSQL schema diff workflow for comparing captured schema snapshots in a dedicated diff view, with grouped table/column/index changes and direct snapshot capture from the compare screen.
-- MCP server support.
-- **PostgreSQL pgvector guided search** — PostgreSQL connections with pgvector now expose a dedicated `Vector Search` flow with capability detection, text/raw/similar query modes, filter support, distance metrics, row details, and row-level `Find similar` actions.
-- **PostgreSQL pgvector map** — pgvector search results can open a sampled PCA map tab to inspect vector neighborhoods visually.
-- **PostgreSQL vector metadata in the UI** — schema browsing and PostgreSQL stats now mark vector columns and surface pgvector index methods/operators.
+---
+
+## [v1.3.0] — 2026-06-21
 
 ### Added
 
-- Embedded mongosh terminal — open an interactive mongosh session directly inside the Mongo explorer tab. Supports full PTY (node-pty), ANSI colors, terminal resize, and session persistence across tab navigation. ([@JoeJoeflyn])
-- Add base OpenCode agent instructions (`.opencode/AGENTS.md`) and repository AGENTS.md.
-- **PostgreSQL psql tool** — open an interactive psql session for any PostgreSQL connection (Tauri only). Supports full PTY via node-pty, ANSI colors, resize, and session persistence across tab navigation.
-- **PostgreSQL backup & restore** — `pg_dump`/`pg_restore`/`psql`-based backup/restore flow with scope (database, schema, table), format (plain, custom, tar), and clean restore support (Tauri only). Spawned jobs stream stdout/stderr to a log panel with start/finish/fail/cancel events.
-- `@kamehadb/shared` packages is now the single source of truth for Zod schemas, app state types, adapter contracts.
-- Add `zod` to shared package and derive types from schemas with `z.infer`.
-- `packages/ui` has been dismantled; shared UI utilities now live directly in `apps/desktop/src/lib/utils.ts`.
-- **PostgreSQL pgvector guided search** — PostgreSQL connections with pgvector now expose a dedicated `Vector Search` flow with capability detection, text/raw/similar query modes, filter support, distance metrics, row details, and row-level `Find similar` actions.
-- **PostgreSQL pgvector map** — pgvector search results can open a sampled PCA map tab to inspect vector neighborhoods visually.
-- **PostgreSQL vector metadata in the UI** — schema browsing and PostgreSQL stats now surface vector column and index information.
+- **Schema timeline + diff + migration assistant** — capture schema snapshots on demand, compare two states with per-table change cards, and generate migration SQL from the selected snapshots.
+- **PostgreSQL pgvector workflows** — detect vector columns and indexes, run guided vector search, inspect nearest-neighbor results, and open a PCA-based vector map with camera state persistence.
+- **Embedded mongosh terminal** — open an interactive MongoDB shell inside the desktop app with PTY support, ANSI colors, resize handling, and session persistence across tab switches. Auto-installs `mongosh` into the app data dir when missing locally.
+- **Embedded PostgreSQL PSQL terminal** — open a local `psql` session for any PostgreSQL connection directly inside the desktop app.
+- **PostgreSQL backup & restore** — run local `pg_dump`, `pg_restore`, and `psql` workflows from the app with streamed job output.
+- **In-app Logs viewer** — unified view for frontend, Tauri, and sidecar logs with source/level filtering, search, and copy support. Frontend errors are forwarded to the Tauri log store; sidecar logs are persisted to `${KAMEHADB_DATA_DIR}/logs/sidecar.log` via pino multistream.
 
 ### Changed
 
-- Desktop dependencies upgraded: React 19, Tailwind CSS v4, Vite 7, Vitest 4, TypeScript ~5.8.3, shadcn/ui v4. Config files updated accordingly.
-- `apps/desktop/tsconfig.json`, `vite.config.ts`, and `postcss.config.js` updated for React 19 + Tailwind v4.
-- The `apps/desktop/src/copilot/` directory has been removed and the AI chat panel now works exclusively via the sidecar `/ai` routes.
-- CSS migrated from `tailwind.config.ts` + PostCSS to `@tailwindcss/vite` plugin with `@import "tailwindcss"` in `index.css`.
-- `global.css` → merged into `index.css` and updated for Tailwind v4 theme variables.
-- Monaco editor worker (ts.worker) now loaded from the Vite-built bundle instead of `node_modules`.
-- `base-button.tsx` removed — all callers migrated to shadcn `Button`.
-- Landing page GitHub stars badge is now server-rendered with static revalidation.
-- `CHANGELOG.md` formatting aligned with Keep a Changelog conventions.
-- Landing page images updated to reflect new AI Compare panel design.
-- All `Loader2` + `animate-spin` replaced with the project's `<Spinner>` component.
-- Sidebar context menu extracted into `ConnectionDropdownMenu`, `DeleteConfirmDialog` components.
-- PostgreSQL connections moved from inline dropdown to modular `ConnectionToolMenuItems` / `postgres-maintenance-menu`.
-- `SchemaGraph` component migrated to lazy import in App.tsx for faster initial load.
-- Connection health polling replaced with SSE stream from `/connections/health`.
-- `@kamehadb/shared` now exports shared store types (`WorkspaceTab`, `AppView`, `AppStoreState`) used by the new modular store. (`[#schema-diff]`)
-- Store refactored into a modular file layout under `apps/desktop/src/store/`: `state.ts`, `ui-preferences.ts`, `workspace-tabs.ts`.
+- **App.tsx refactor** — extracted `TabBar`, `Workspace`, `WelcomePage`, and `MainLayout` into dedicated modules; added `LogsPage` view and frontend error forwarding.
+- **Sidecar logger** — replaced `pino-pretty` with `pino.multistream` for dual stdout + file output.
+- Table action columns in the row browser, Mongo document table, and Qdrant points table now pin to the left edge and stay visible during horizontal scroll.
 
 ### Fixed
 
-- `apps/desktop/package.json` — pnpm workspace protocol for `@kamehadb/shared`.
+- **Duplicate `MainLayout` declaration** — Vite pre-transform error caused by both importing and declaring `MainLayout` in `App.tsx`; local copy removed.
+- **Mongosh `posix_spawnp` failure** — when `mongosh` is not on PATH, the sidecar now falls back to running the bundled `mongosh.js` via `node` instead of trying to spawn a non-existent binary.
+- **PSQL binary resolution** — `psql` now resolved via `resolve_postgres_program` instead of hardcoded `"psql"`, matching the backup/restore tool pattern.
 
-### Removed
+### Contributors
 
-- `packages/ui` has been dismantled; shared UI utilities now live directly in `apps/desktop/src/lib/utils.ts`.
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
+
+---
+
+## [v1.2.0] — 2026-06-12
 
 ### Added
 
-- **Query history performance panel** — history is now grouped by normalized query pattern (literals stripped) with duration per group, favorites filter, and text search. ([@opencode])
-- **Copy result table as snapshot** — "Copy table" button in the result toolbar copies the result grid as tab-separated text to clipboard for quick sharing. ([@opencode])
-- **Global search palette (`Ctrl+K`)** — fuzzy-search across connections, schema tables/columns, open tabs, and quick actions (New Query, Graph, DB Stats, AI Chat). Uses cmdk with keyboard navigation. Search button visible in the header for non-keyboard users. ([@opencode])
-- **Connection health badges** — status dot now shows:
-  - connected/green
-  - slow/yellow (≥500ms latency)
-  - reconnecting/pulsing
-  - offline/red  
-    Tooltip displays latency in ms. Reconnecting state has a 5-second grace period before marking disconnected.
-- **Time-aware welcome screen** — greetings change by time of day (morning/afternoon/evening/night) with curated messages, last-shown tracking, and returning-visitor prompt rotation.
-- **Connection hover tooltip** — shows connection details:
-  - kind
-  - host:port
-  - database
-  - status + latency
-  - last-updated timestamp
-- **Pin connections to top** — "Pin to top"/"Unpin" in connection dropdown. Pinned connections appear in a dedicated "Pinned" section in sidebar. Stored in localStorage.
-- **Workspace tabs memory** — open tabs and active tab are saved and restored on reload.
-- **Sidebar database icons** — engine-specific icons added:
-  - PostgreSQL
-  - MySQL
-  - MongoDB
-  - Redis
-  - SQL Server
-  - Oracle
-  - ClickHouse
-  - MariaDB  
-    Plus local SVGs for DuckDB, SQLite, TigerBeetle, Qdrant.
-- TigerBeetle seed script (`seed:tigerbeetle`) added to sidecar package.json. ([@opencode])
-- **DuckDB adapter** — connect to local `.duckdb` files for embedded analytical queries. ([@JoeJoeflyn])
-- **TigerBeetle adapter** — connect to TigerBeetle distributed ledger clusters with built-in connection pooling. ([@JoeJoeflyn])
-- **Docker compose services for DuckDB and TigerBeetle** — add `docker-compose.yml` entries for DuckDB (CLI + HTTP) and TigerBeetle. Start with `docker compose up -d duckdb tigerbeetle`.
-- Landing page GitHub stars badge is now server-rendered with static revalidation, so the initial HTML includes the count when available.
-- **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation.
-- **SQL Server adapter** — connect to Microsoft SQL Server databases via existing SQL adapter path. ([@JoeJoeflyn])
-- **Oracle adapter** — schema browsing, query execution, metadata support. ([@JoeJoeflyn])
-- **ClickHouse adapter** — columnar analytics support, schema inspection, query execution. ([@JoeJoeflyn])
-- **PostgreSQL adapter** — schema browsing, query execution, metadata support. Enhanced with connection health checks, table/index statistics, and database size tracking. ([@JoeJoeflyn] + [@opencode])
-- **PostgreSQL pgvector guided search** — PostgreSQL connections with pgvector now expose a dedicated `Vector Search` flow with capability detection, text/raw/similar query modes, filter support, distance metrics, row details, and row-level `Find similar` actions.
-- **PostgreSQL pgvector map** — pgvector search results can open a sampled PCA map tab to inspect vector neighborhoods visually.
-- **PostgreSQL vector metadata in the UI** — schema browsing and PostgreSQL stats now mark vector columns and surface pgvector index methods/operators.
-- **Slack connector MCP server** — integrated MCP server to search Slack channels and messages via `#search` from the AI panel. ([@JoeJoeflyn])
+- **Query history performance panel** — history grouped by normalized query pattern with duration, favorites filter, and text search.
+- **Copy result table as snapshot** — "Copy table" button copies result grid as tab-separated text to clipboard.
+- **Global search palette (`Ctrl+K`)** — fuzzy-search across connections, schema tables/columns, open tabs, and quick actions.
+- **Connection health badges** — status dot shows connected/slow/reconnecting/offline with latency tooltip.
+- **Time-aware welcome screen** — greetings by time of day with returning-visitor rotation.
+- **Pin connections to top** — "Pin to top"/"Unpin" in connection dropdown, stored in localStorage.
+- **Workspace tabs memory** — open tabs and active tab saved and restored on reload.
+- **Sidebar database icons** — engine-specific icons for all supported databases.
+- **New adapters** — DuckDB, TigerBeetle, SQL Server, Oracle, ClickHouse.
+- **Qdrant v1.13.6 integration** — vector DB added to docker-compose, persistent volume.
+- AI schema context uses Qdrant vector search instead of full schema injection.
+- AI chat streaming via `@tanstack/ai` — SSE streaming with stop/cancel support.
+- Server-side schema search for PostgreSQL, MySQL, SQLite using LIKE queries.
+- UI overhaul with shadcn components and table grid system.
+- v1.2 MCP server added.
+
+### Changed
+
+- SQL Server, Oracle, ClickHouse adapters refined and standardized.
+- Data tables: horizontal scrolling, field visibility, resizable columns, row actions.
+- AI provider settings switched to single active-provider model.
+- Project license changed from MIT → Apache-2.0.
+
+### Fixed
+
+- Fixed field visibility so newly discovered SQL and Mongo fields remain visible unless explicitly hidden.
+- Fixed JSON record rendering, AI chat code-language highlighting, and concurrent streams.
+- Fixed stale Redis key lists and TigerBeetle views after mutations.
+- Fixed SQL editor incorrectly blocking writes after read-only mode was disabled.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
+
+---
+
+## [v1.1.0] — 2026-06-04
+
+### Added
+
+- **Qdrant v1.13.6** integration with Docker compose, persistent volume, and `QdrantSchemaStore` for semantic schema retrieval.
+- **AI chat streaming** via `@tanstack/ai` with SSE events and stop/cancel support.
+- **Smart term expansion** — canonical expansions for countries, states, currencies, languages.
+- **Configurable row limit** dropdown (10–500 rows).
+- **Read-only toggle** and **custom color picker** in connection dialog.
+
+### Fixed
+
+- SQL editor ignored read-only setting — redundant client-side check removed.
+- Multiple Qdrant stability fixes (stale filters, collection load errors, named vectors, page jumps, connection refresh).
+- MySQL `getActiveConnections` contract violations and Qdrant serialization issues.
+- AI streaming and schema search edge cases.
+
+### Changed
+
+- `useSchemaSearch` explicit return type, `Switch` component prop interface cleanup.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
+
+---
+
+## [v1.0.0] — 2026-06-01
+
+First stable release of KamehaDB — a local-first database GUI for PostgreSQL, MySQL, SQLite, MongoDB, and Redis.
+
+### Highlights
+
+- **AI Chat** — schema-aware assistant with persistent history, multi-provider support, markdown rendering, token tracking, and a Run button to execute SQL from the editor.
+- **Landing page v2** — demo video, dark mode, motion animations, SEO, and a dedicated documentation site.
+- **SQLite & MySQL parity** — table search, file picker, Browse button, and full database stats matching Postgres.
+- **MongoDB & Redis UX** — collection filtering, debounced queries, copy actions, and improved navigation.
+
+### Added
+
+- **Qdrant** — vector DB browsing, three search modes, payload filtering, visual filter builder, 3D vector map with PCA projection.
+- **AI Chat** — persistent history, markdown rendering, token tracking, schema caching, Run button for SQL execution.
+- **Database Support** — SQLite file selection, MySQL database stats, search filtering.
+- **UI & Site** — landing page v2, changelog page, SEO metadata, sidebar quick actions, theme toggle, SQL autocomplete, schema graph visualization.
+- Test infrastructure with Vitest and code quality tooling (Husky, Prettier, Commitlint).
+
+### Fixed
+
+- Dark/light mode toggle, landing page responsive layout, SQLite connection test, duplicate auto-run effect, existing table tab switching, chat message timestamp migration.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
+
+---
+
+## [0.1.4-beta] — 2026-05-28
+
+### Added
+
+- Database stats quick action to sidebar connection items.
+
+---
+
+## [0.1.3-beta] — 2026-05-28
+
+### Changed
+
+- Updated desktop app branding with new logo and title capitalization.
+
+### Fixed
+
+- Release workflow to handle nested artifact directories.
+
+---
+
+## [0.1.0-beta.1] — 2026-05-28
+
+### Added
+
+- Graph and database stats quick actions to sidebar.
+- MongoDB improvements, sidebar state persistence, and code cleanup.
+- UI component improvements and bug fixes.
+- Static documentation site with landing page, getting started guide, features, and FAQ.
+
+### Fixed
+
+- Release workflow refactored to use artifact upload strategy.
+
+---
+
+## [0.1.0-rc.1] — 2026-05-26
+
+### Added
+
+- AI chat assistant with multi-provider support and API settings management.
+- SQL autocomplete with context-aware suggestions for tables, columns, functions, and keywords.
+- Interactive schema graph visualization with dagre layout and ReactFlow.
+- Connection URL parsing, pagination, and row detail viewer with JSON export.
+- Connection editing, deletion, and improved error handling.
+- Database and table analytics: size explorer, connection monitoring.
+- Theme toggle with light / dark / system modes.
+- MongoDB: collection filtering, debounced queries, and enhanced UX with copy functionality.
+- Custom color badges for connection profiles.
+- Test infrastructure with Vitest and comprehensive test coverage.
+- Code quality tooling: Husky, Prettier, Commitlint.
+- GitHub Actions CI/CD workflows.
+- MIT license and comprehensive README.

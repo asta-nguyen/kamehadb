@@ -1,7 +1,8 @@
 use serde::Deserialize;
 use tauri::AppHandle;
 
-use crate::postgres_tools::{load_postgres_profile, PostgresProfile};
+use crate::app_logs::append_tauri_log;
+use crate::postgres_tools::{load_postgres_profile, resolve_postgres_program, PostgresProfile};
 use crate::terminal_sessions::{
     start_terminal_session, PtyCommandSpec, TerminalSessionKind, TerminalSessionStarted,
     TerminalSessionState, TerminalSize,
@@ -22,9 +23,19 @@ pub async fn start_postgres_psql_session(
     request: StartPostgresPsqlRequest,
 ) -> Result<TerminalSessionStarted, String> {
     let profile =
-        load_postgres_profile(&app, &request.connection_id).map_err(|error| error.to_string())?;
+        load_postgres_profile(&app, &request.connection_id).map_err(|error| {
+            let message = error.to_string();
+            append_tauri_log(
+                &app,
+                "error",
+                "postgres-psql",
+                "Failed to load saved PostgreSQL profile for PSQL session",
+                Some(message.clone()),
+            );
+            message
+        })?;
     start_terminal_session(
-        app,
+        app.clone(),
         state.inner(),
         TerminalSessionKind::PostgresPsql,
         TerminalSize {
@@ -33,7 +44,17 @@ pub async fn start_postgres_psql_session(
         },
         build_psql_spec(&profile),
     )
-    .map_err(|error| error.to_string())
+    .map_err(|error| {
+        let message = error.to_string();
+        append_tauri_log(
+            &app,
+            "error",
+            "postgres-psql",
+            "Failed to start PostgreSQL PSQL terminal session",
+            Some(message.clone()),
+        );
+        message
+    })
 }
 
 fn build_psql_spec(profile: &PostgresProfile) -> PtyCommandSpec {
@@ -65,7 +86,7 @@ fn build_psql_spec(profile: &PostgresProfile) -> PtyCommandSpec {
     PtyCommandSpec {
         args,
         env,
-        program: "psql".into(),
+        program: resolve_postgres_program("psql"),
         started_message: format!("Connected to {}", profile.database),
     }
 }
@@ -97,7 +118,12 @@ mod tests {
     fn psql_command_uses_saved_connection_context() {
         let spec = build_psql_spec(&profile());
 
-        assert_eq!(spec.program, "psql");
+        assert_eq!(
+            std::path::Path::new(&spec.program)
+                .file_name()
+                .and_then(|value| value.to_str()),
+            Some("psql")
+        );
         assert!(spec
             .args
             .windows(2)

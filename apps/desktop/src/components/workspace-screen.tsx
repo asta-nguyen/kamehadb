@@ -86,6 +86,16 @@ function Workspace() {
   const { data: connections } = useConnections();
   const activeConnection = connections?.find((connection) => connection.id === activeConnectionId);
   const greeting = useMemo(() => getGreeting(), []);
+  const activeTab = openedTabs.find((tab) => tab.id === activeTabId) ?? openedTabs[0];
+
+  // Keep hook order stable by validating the active tab before any early return.
+  // The guard prevents a mid-render store mutation when tabs are restored asynchronously.
+  useEffect(() => {
+    if (!activeTab || openedTabs.length === 0) return;
+    if (!openedTabs.find((tab) => tab.id === activeTabId)) {
+      appStore.setState((state) => ({ ...state, activeTabId: activeTab.id }));
+    }
+  }, [activeTab, activeTabId, openedTabs]);
 
   if (!activeConnectionId || !activeConnection) return <WelcomePage greeting={greeting[0]} prompt={greeting[1]} />;
   if (openedTabs.length === 0) {
@@ -121,18 +131,8 @@ function Workspace() {
       </div>
     );
   }
-
-  const activeTab = openedTabs.find((tab) => tab.id === activeTabId) ?? openedTabs[0];
   if (!activeTab)
     return <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading...</div>;
-
-  // Correct an invalid activeTabId in an effect rather than during render
-  // so React doesn't have to reconcile a mid-render store mutation.
-  useEffect(() => {
-    if (!openedTabs.find((tab) => tab.id === activeTabId) && activeTab) {
-      appStore.setState((state) => ({ ...state, activeTabId: activeTab.id }));
-    }
-  }, [activeTab, activeTabId, openedTabs]);
 
   return <WorkspaceContent activeTab={activeTab} />;
 }

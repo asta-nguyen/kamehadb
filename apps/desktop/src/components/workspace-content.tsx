@@ -5,6 +5,9 @@ import { MigrationAssistant } from '@/components/migration-assistant';
 import { MongoQuery } from '@/components/mongo-query';
 import { MongoShell } from '@/components/mongo-shell';
 import { MongoView } from '@/components/mongo-view';
+import { PostgresPsqlTab } from '@/components/postgres-psql-tab';
+import { PostgresVectorMap } from '@/components/postgres-vector-map';
+import { PostgresVectorQuery } from '@/components/postgres-vector-query';
 import { QdrantQuery } from '@/components/qdrant-query';
 import { QdrantView } from '@/components/qdrant-view';
 import { RedisQuery } from '@/components/redis-query';
@@ -41,6 +44,15 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   }
   if (activeTab.type === 'mongo-shell') {
     return <MongoShell key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'postgres-psql') {
+    return <PostgresPsqlTab active tab={activeTab} />;
+  }
+  if (activeTab.type === 'postgres-vector-search') {
+    return <PostgresVectorQuery tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'postgres-vector-map') {
+    return <PostgresVectorMap tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis') {
     return <RedisView connectionId={activeTab.connectionId} />;

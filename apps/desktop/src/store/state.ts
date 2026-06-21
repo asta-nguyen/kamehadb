@@ -1,10 +1,10 @@
 import { Store } from '@tanstack/store';
 import type { AppStoreState, WorkspaceTab } from '@kamehadb/shared';
 
-function restoreTabs(): readonly WorkspaceTab[] {
+function restoreTabs(): WorkspaceTab[] {
   try {
     const raw = localStorage.getItem('kamehadb_tabs');
-    return raw ? (JSON.parse(raw) as WorkspaceTab[]) : [];
+    return raw ? [...(JSON.parse(raw) as WorkspaceTab[])] : [];
   } catch {
     return [];
   }

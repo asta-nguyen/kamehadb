@@ -4,10 +4,12 @@ use std::process::{Child, Command};
 use std::sync::Mutex;
 use tauri::Manager;
 
+mod app_logs;
 mod postgres_psql;
 mod postgres_tools;
 mod terminal_sessions;
 
+use app_logs::{append_frontend_log, append_tauri_log, read_app_logs};
 use postgres_psql::start_postgres_psql_session;
 use terminal_sessions::{
     resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
@@ -53,13 +55,25 @@ async fn start_sidecar(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to start sidecar: {}", e))?;
+        .map_err(|e| {
+            let message = format!("Failed to start sidecar: {}", e);
+            append_tauri_log(&app, "error", "sidecar", &message, None);
+            message
+        })?;
 
     let pid = child.id();
     let port = 3170; // Placeholder - will be read from sidecar output
 
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     *guard = Some(child);
+
+    append_tauri_log(
+        &app,
+        "info",
+        "sidecar",
+        "Started bundled sidecar process",
+        Some(format!("pid={pid} port={port}")),
+    );
 
     Ok(SidecarInfo { port, pid })
 }
@@ -125,6 +139,8 @@ pub fn run() {
             start_postgres_backup,
             start_postgres_restore,
             cancel_postgres_job,
+            append_frontend_log,
+            read_app_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -83,7 +83,7 @@ export type WorkspaceTab =
       readonly sessionId?: string;
     };
 
-export type AppView = 'workspace' | 'api-settings';
+export type AppView = 'workspace' | 'api-settings' | 'logs';
 
 export type AppStoreState = {
   readonly activeConnectionId: string | null;

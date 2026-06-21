@@ -735,7 +735,15 @@ export type WorkspaceTab =
   | { id: string; type: 'qdrant-stats'; title: string; connectionId: string; collection: string }
   | { id: string; type: 'table-stats'; title: string; connectionId: string; tableId: string }
   | { id: string; type: 'schema-timeline'; title: string; connectionId: string }
-  | { id: string; type: 'migration'; title: string; connectionId: string }
+  | { id: string; type: 'schema-diff'; title: string; connectionId: string }
+  | {
+      id: string;
+      type: 'migration';
+      title: string;
+      connectionId: string;
+      fromSnapshotId?: string;
+      toSnapshotId?: string;
+    }
   | { id: string; type: 'postgres-psql'; title: string; connectionId: string }
   // TigerBeetle account/transfer explorer
   | { id: string; type: 'tigerbeetle'; title: string; connectionId: string }
@@ -765,7 +773,7 @@ export type WorkspaceTab =
   // Interactive Mongo shell (mongosh) via desktop PTY
   | { id: string; type: 'mongo-shell'; title: string; connectionId: string; sessionId?: string };
 
-export type AppView = 'workspace' | 'api-settings';
+export type AppView = 'workspace' | 'api-settings' | 'logs';
 
 export type AppStoreState = {
   activeConnectionId: string | null;
