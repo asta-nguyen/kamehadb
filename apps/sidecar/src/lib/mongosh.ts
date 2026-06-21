@@ -1,6 +1,6 @@
 import { accessSync, constants as fsConstants, readdirSync } from 'fs';
 import { access, mkdir } from 'fs/promises';
-import { dirname, join, resolve } from 'path';
+import { delimiter, dirname, join, resolve } from 'path';
 import { promisify } from 'util';
 import { execFile } from 'child_process';
 import os from 'os';
@@ -39,7 +39,7 @@ function findMongoshOnPath(): MongoshCommand | null {
   const pathValue = process.env.PATH;
   if (!pathValue) return null;
 
-  for (const dir of pathValue.split(':')) {
+  for (const dir of pathValue.split(delimiter)) {
     const candidate = join(dir, 'mongosh');
     if (exists(candidate)) return { program: candidate, argsPrefix: [] };
   }
@@ -146,7 +146,7 @@ function resolveNpmCommand(): { program: string; argsPrefix: string[] } {
 function findExecutable(name: string): string | null {
   const pathValue = process.env.PATH;
   if (pathValue) {
-    for (const dir of pathValue.split(':')) {
+    for (const dir of pathValue.split(delimiter)) {
       const candidate = join(dir, name);
       if (exists(candidate)) return candidate;
     }

@@ -75,8 +75,11 @@ export function LogsPage() {
         url: typeof window !== 'undefined' ? window.location.href : undefined,
       });
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (silent) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
   }, []);
 

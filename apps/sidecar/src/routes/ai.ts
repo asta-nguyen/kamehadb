@@ -107,6 +107,24 @@ async function buildMongoSchemaContext(
   }
 }
 
+async function resolvePostgresVectorPrompt(connectionId: string, profile: ConnectionProfile): Promise<string | null> {
+  const vectorCacheKey = `ai-pgvector:${connectionId}`;
+  const cached = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA);
+  if (cached) return cached;
+  const password = metadataStore.getProfilePassword(connectionId);
+  const capability = await detectPgVectorCapability({
+    host: profile.host,
+    port: profile.port,
+    database: profile.database,
+    username: profile.username,
+    password: password ?? '',
+    ssl: profile.ssl,
+  }).catch(() => null);
+  const prompt = capability ? buildPostgresVectorPrompt(connectionId, capability) : null;
+  if (prompt) setCache(vectorCacheKey, prompt);
+  return prompt;
+}
+
 function buildPostgresVectorPrompt(
   connectionId: string,
   capability: Awaited<ReturnType<typeof detectPgVectorCapability>>,
@@ -287,23 +305,8 @@ aiRouter.post(
                 }
                 setCache(cacheKey, ddl);
 
-                // Also detect pgvector capability for postgres connections
                 if (profile.kind === 'postgres') {
-                  const password = metadataStore.getProfilePassword(connectionId);
-                  const vectorCacheKey = `ai-pgvector:${connectionId}`;
-                  postgresVectorPrompt = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA) ?? null;
-                  if (!postgresVectorPrompt) {
-                    const capability = await detectPgVectorCapability({
-                      host: profile.host,
-                      port: profile.port,
-                      database: profile.database,
-                      username: profile.username,
-                      password: password ?? '',
-                      ssl: profile.ssl,
-                    }).catch(() => null);
-                    postgresVectorPrompt = capability ? buildPostgresVectorPrompt(connectionId, capability) : null;
-                    if (postgresVectorPrompt) setCache(vectorCacheKey, postgresVectorPrompt);
-                  }
+                  postgresVectorPrompt = await resolvePostgresVectorPrompt(connectionId, profile);
                 }
               }
             }
@@ -313,21 +316,7 @@ aiRouter.post(
         }
 
         if (profile?.kind === 'postgres' && !postgresVectorPrompt) {
-          const password = metadataStore.getProfilePassword(connectionId);
-          const vectorCacheKey = `ai-pgvector:${connectionId}`;
-          postgresVectorPrompt = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA) ?? null;
-          if (!postgresVectorPrompt) {
-            const capability = await detectPgVectorCapability({
-              host: profile.host,
-              port: profile.port,
-              database: profile.database,
-              username: profile.username,
-              password: password ?? '',
-              ssl: profile.ssl,
-            }).catch(() => null);
-            postgresVectorPrompt = capability ? buildPostgresVectorPrompt(connectionId, capability) : null;
-            if (postgresVectorPrompt) setCache(vectorCacheKey, postgresVectorPrompt);
-          }
+          postgresVectorPrompt = await resolvePostgresVectorPrompt(connectionId, profile);
         }
       }
 

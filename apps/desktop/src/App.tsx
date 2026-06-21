@@ -147,35 +147,35 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    void appendFrontendLog({
+    appendFrontendLog({
       level: 'info',
       scope: 'app',
       message: 'Desktop UI initialized',
       url: window.location.href,
-    });
+    }).catch(() => {});
 
     const handleError = (event: ErrorEvent) => {
       const error = event.error instanceof Error ? event.error : null;
-      void appendFrontendLog({
+      appendFrontendLog({
         level: 'error',
         scope: 'window.onerror',
         message: event.message || error?.message || 'Unhandled window error',
         details: event.filename && event.lineno ? `${event.filename}:${event.lineno}:${event.colno ?? 0}` : error?.name,
         stack: error?.stack,
         url: window.location.href,
-      });
+      }).catch(() => {});
     };
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const formatted = formatUnknownError(event.reason);
-      void appendFrontendLog({
+      appendFrontendLog({
         level: 'error',
         scope: 'window.unhandledrejection',
         message: formatted.message,
         details: formatted.details,
         stack: formatted.stack,
         url: window.location.href,
-      });
+      }).catch(() => {});
     };
 
     window.addEventListener('error', handleError);

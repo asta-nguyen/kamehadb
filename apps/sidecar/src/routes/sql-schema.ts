@@ -54,41 +54,37 @@ export function createSqlSchemaRouter(options: {
     try {
       const connectionId = requireConnectionId(context);
       const adapter = await options.getSqlAdapter(connectionId);
-      try {
-        // Capture tables from every schema, not just the default one.
-        // Multi-schema databases (e.g. PostgreSQL) otherwise produce
-        // incomplete snapshots and diffs.
-        const schemas = await adapter.listSchemas();
-        const schemaNames = schemas.map((s) => s.name);
-        const allTables = (
-          await Promise.all(
-            schemaNames.length > 0 ? schemaNames.map((schema) => adapter.listTables(schema)) : [adapter.listTables()],
-          )
-        ).flat();
+      // Capture tables from every schema, not just the default one.
+      // Multi-schema databases (e.g. PostgreSQL) otherwise produce
+      // incomplete snapshots and diffs.
+      const schemas = await adapter.listSchemas();
+      const schemaNames = schemas.map((s) => s.name);
+      const allTables = (
+        await Promise.all(
+          schemaNames.length > 0 ? schemaNames.map((schema) => adapter.listTables(schema)) : [adapter.listTables()],
+        )
+      ).flat();
 
-        if (allTables.length === 0)
-          return context.json({ error: 'EMPTY', message: 'No tables found in this database' }, 400);
+      if (allTables.length === 0)
+        return context.json({ error: 'EMPTY', message: 'No tables found in this database' }, 400);
 
-        const snapshot = {
-          connectionId,
-          capturedAt: new Date().toISOString(),
-          tables: await Promise.all(
-            allTables.map(async (table) => ({
-              id: table.id,
-              name: table.name,
-              schema: table.schema,
-              columns: await adapter.getTableColumns(table.id),
-              indexes: await adapter.getTableIndexes(table.id),
-            })),
-          ),
-        } satisfies Omit<SchemaSnapshotRecord, 'id'>;
+      const snapshot = {
+        connectionId,
+        capturedAt: new Date().toISOString(),
+        tables: await Promise.all(
+          allTables.map(async (table) => ({
+            id: table.id,
+            name: table.name,
+            schema: table.schema,
+            columns: await adapter.getTableColumns(table.id),
+            indexes: await adapter.getTableIndexes(table.id),
+          })),
+        ),
+      } satisfies Omit<SchemaSnapshotRecord, 'id'>;
 
-        const id = metadataStore.saveSchemaSnapshot(connectionId, JSON.stringify(snapshot));
-        metadataStore.deleteOldSchemaSnapshots(connectionId, 50);
-        return context.json({ id, capturedAt: snapshot.capturedAt, tableCount: snapshot.tables.length });
-      } finally {
-        await adapter.close();
-      }
+      const id = metadataStore.saveSchemaSnapshot(connectionId, JSON.stringify(snapshot));
+      metadataStore.deleteOldSchemaSnapshots(connectionId, 50);
+      return context.json({ id, capturedAt: snapshot.capturedAt, tableCount: snapshot.tables.length });
     } catch (error) {
       return options.handleError(context, error, 'captureSchema');
     }
