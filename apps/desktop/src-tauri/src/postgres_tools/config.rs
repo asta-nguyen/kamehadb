@@ -225,7 +225,7 @@ fn versioned_postgres_bin_dirs(root: &str) -> Vec<PathBuf> {
         return Vec::new();
     };
 
-    let mut dirs = entries
+    let mut dirs: Vec<(PathBuf, Vec<u32>)> = entries
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| {
@@ -233,12 +233,22 @@ fn versioned_postgres_bin_dirs(root: &str) -> Vec<PathBuf> {
                 .and_then(|value| value.to_str())
                 .is_some_and(|name| name.starts_with("postgresql"))
         })
-        .map(|path| path.join("bin"))
-        .collect::<Vec<_>>();
+        .map(|path| {
+            let version = path
+                .file_name()
+                .and_then(|v| v.to_str())
+                .and_then(|name| name.strip_prefix("postgresql@"))
+                .and_then(|v| {
+                    let nums: Vec<u32> = v.split('.').filter_map(|s| s.parse().ok()).collect();
+                    (!nums.is_empty()).then_some(nums)
+                })
+                .unwrap_or_default();
+            (path.join("bin"), version)
+        })
+        .collect();
 
-    dirs.sort();
-    dirs.reverse();
-    dirs
+    dirs.sort_by(|a, b| b.1.cmp(&a.1));
+    dirs.into_iter().map(|(path, _)| path).collect()
 }
 
 fn postgres_app_bin_dirs() -> Vec<PathBuf> {
@@ -247,14 +257,24 @@ fn postgres_app_bin_dirs() -> Vec<PathBuf> {
         return Vec::new();
     };
 
-    let mut dirs = entries
+    let mut dirs: Vec<(PathBuf, Vec<u32>)> = entries
         .filter_map(Result::ok)
-        .map(|entry| entry.path().join("bin"))
-        .collect::<Vec<_>>();
+        .map(|entry| {
+            let path = entry.path();
+            let version = path
+                .file_name()
+                .and_then(|v| v.to_str())
+                .and_then(|name| {
+                    let nums: Vec<u32> = name.split('.').filter_map(|s| s.parse().ok()).collect();
+                    (!nums.is_empty()).then_some(nums)
+                })
+                .unwrap_or_default();
+            (path.join("bin"), version)
+        })
+        .collect();
 
-    dirs.sort();
-    dirs.reverse();
-    dirs
+    dirs.sort_by(|a, b| b.1.cmp(&a.1));
+    dirs.into_iter().map(|(path, _)| path).collect()
 }
 
 fn qualified_identifier_pattern(schema: &str, table: &str) -> String {

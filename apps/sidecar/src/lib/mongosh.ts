@@ -7,6 +7,8 @@ import os from 'os';
 
 const execFileAsync = promisify(execFile);
 const MONGOSH_INSTALL_DIR = 'tools/mongosh';
+const isWindows = os.platform() === 'win32';
+const exeSuffixes = isWindows ? ['', '.exe', '.cmd'] : [''];
 
 export interface MongoshCommand {
   readonly program: string;
@@ -39,8 +41,10 @@ function findMongoshOnPath(): MongoshCommand | null {
   if (!pathValue) return null;
 
   for (const dir of pathValue.split(delimiter)) {
-    const candidate = join(dir, 'mongosh');
-    if (exists(candidate)) return { program: candidate, argsPrefix: [] };
+    for (const suffix of exeSuffixes) {
+      const candidate = join(dir, `mongosh${suffix}`);
+      if (exists(candidate)) return { program: candidate, argsPrefix: [] };
+    }
   }
 
   const candidates = [
@@ -145,8 +149,10 @@ function findExecutable(name: string): string | null {
   const pathValue = process.env.PATH;
   if (pathValue) {
     for (const dir of pathValue.split(delimiter)) {
-      const candidate = join(dir, name);
-      if (exists(candidate)) return candidate;
+      for (const suffix of exeSuffixes) {
+        const candidate = join(dir, `${name}${suffix}`);
+        if (exists(candidate)) return candidate;
+      }
     }
   }
 
