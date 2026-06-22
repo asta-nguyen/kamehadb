@@ -451,7 +451,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     if (!supportsLimit) return sql;
     // Don't double-append if the query already has a LIMIT clause
     if (/\bLIMIT\b/i.test(sql)) return sql;
-    return offsetVal !== undefined ? `${sql} LIMIT ${limit} OFFSET ${offsetVal}` : `${sql} LIMIT ${limit}`;
+    const trimmed = sql.trimEnd().replace(/;+$/, '');
+    return offsetVal !== undefined ? `${trimmed} LIMIT ${limit} OFFSET ${offsetVal}` : `${trimmed} LIMIT ${limit}`;
   }
 
   // Build the full SQL with LIMIT / OFFSET and execute it.
