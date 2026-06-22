@@ -8,6 +8,8 @@ type Options = {
   sampleValues?: string[][];
   maxAutoWidth?: number;
   minAutoWidth?: number;
+  columnIds?: string[];
+  headers?: string[];
 };
 
 type DragState = {
@@ -31,10 +33,14 @@ function measureText(text: string, font: string): number {
 // Each column gets a width based on its widest cell value.
 function computeMinWidths(
   sampleValues: string[][],
-  opts: { min: number; max: number; font: string; padding: number },
+  opts: { min: number; max: number; font: string; padding: number; headers?: string[] },
 ): number[] {
-  return sampleValues.map((cells) => {
+  return sampleValues.map((cells, i) => {
     let maxW = 0;
+    // Measure header text first to avoid truncating long headers.
+    if (opts.headers && opts.headers[i]) {
+      maxW = measureText(opts.headers[i], 'bold 11px system-ui, -apple-system, sans-serif');
+    }
     for (const cell of cells) {
       if (!cell) continue;
       const w = measureText(cell, opts.font);
@@ -45,10 +51,12 @@ function computeMinWidths(
 }
 
 export function useColumnResize(columnCount: number, options: Options = {}) {
-  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 120 } = options;
+  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 50, columnIds, headers } = options;
 
-  // null = unresized column, will use minmax(auto, 1fr) for content-based + fill
-  // number = user-resized width in px (fixed, no longer flexes)
+  const colIdsStr = columnIds ? columnIds.join(',') : '';
+  const lastColIdsRef = useRef(colIdsStr);
+  const userResizedRef = useRef<Set<number>>(new Set());
+
   const [widths, setWidths] = useState<(number | null)[]>(() => {
     if (sampleValues && sampleValues.length === columnCount) {
       return computeMinWidths(sampleValues, {
@@ -56,6 +64,7 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
         max: maxAutoWidth,
         font: '11px system-ui, -apple-system, sans-serif',
         padding: 20,
+        headers,
       });
     }
     return Array(columnCount).fill(null);
@@ -63,19 +72,35 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
 
   const measuredRef = useRef(!!sampleValues);
 
-  if (widths.length !== columnCount) {
-    if (sampleValues && sampleValues.length === columnCount && !measuredRef.current) {
-      setWidths(
-        computeMinWidths(sampleValues, {
+  // If column IDs or column count changed, reset state!
+  if (lastColIdsRef.current !== colIdsStr || widths.length !== columnCount) {
+    lastColIdsRef.current = colIdsStr;
+    userResizedRef.current.clear();
+    const hasSamples = !!(sampleValues && sampleValues.length === columnCount);
+    measuredRef.current = hasSamples;
+    const newWidths = hasSamples
+      ? computeMinWidths(sampleValues, {
           min: minAutoWidth,
           max: maxAutoWidth,
           font: '11px system-ui, -apple-system, sans-serif',
           padding: 20,
-        }),
-      );
-    } else {
-      setWidths(Array(columnCount).fill(null));
-    }
+          headers,
+        })
+      : Array(columnCount).fill(null);
+    setWidths(newWidths);
+  }
+
+  // If we haven't measured yet, but sampleValues are now available, measure!
+  if (sampleValues && sampleValues.length === columnCount && !measuredRef.current) {
+    measuredRef.current = true;
+    const measured = computeMinWidths(sampleValues, {
+      min: minAutoWidth,
+      max: maxAutoWidth,
+      font: '11px system-ui, -apple-system, sans-serif',
+      padding: 20,
+      headers,
+    });
+    setWidths(measured);
   }
 
   const dragRef = useRef<DragState | null>(null);
@@ -84,9 +109,17 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
   // Prefix/suffix column count for mapping data col index to full template index.
   const prefixCountRef = useRef(0);
 
-  // Resized columns get a fixed px width so they never flex beyond what
-  // the user dragged. Unresized columns share leftover space via minmax(0, 1fr).
-  const dataTemplate = useMemo(() => widths.map((w) => (w == null ? 'minmax(0, 1fr)' : `${w}px`)).join(' '), [widths]);
+  // Auto-measured columns use minmax(Wpx, 1fr) to stretch and fill the table container nicely,
+  // while manually resized columns use fixed px widths.
+  const dataTemplate = useMemo(
+    () =>
+      widths
+        .map((w, i) =>
+          w == null ? 'minmax(0, 1fr)' : userResizedRef.current.has(i) ? `${w}px` : `minmax(${w}px, 1fr)`,
+        )
+        .join(' '),
+    [widths],
+  );
 
   const fullTemplate = useMemo(() => {
     const parts = [prefix, dataTemplate, suffix].filter((s) => s && s.length > 0);
@@ -130,15 +163,21 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
         const baseWidths = widthsAtDragStartRef.current;
         const newWidths = [...baseWidths];
         newWidths[dragRef.current.idx] = w;
-        const dt = newWidths.map((cw) => (cw == null ? 'minmax(0, 1fr)' : `${cw}px`)).join(' ');
+        const dt = newWidths
+          .map((cw, ci) => {
+            if (cw == null) return 'minmax(0, 1fr)';
+            if (ci === dragRef.current!.idx || userResizedRef.current.has(ci)) return `${cw}px`;
+            return `minmax(${cw}px, 1fr)`;
+          })
+          .join(' ');
         const next = [prefix, dt, suffix].filter((s) => s && s.length > 0).join(' ');
         for (const r of dragRef.current.allRows) r.style.gridTemplateColumns = next;
 
         // Auto-scroll when the mouse nears the scroll container edges so the
         // user can keep dragging a column past the visible viewport.
         if (scrollContainer) {
-          const EDGE_THRESHOLD = 30;
-          const SCROLL_SPEED = 12;
+          const EDGE_THRESHOLD = 50;
+          const SCROLL_SPEED = 6;
           const rect = scrollContainer.getBoundingClientRect();
           if (me.clientX > rect.right - EDGE_THRESHOLD) {
             scrollContainer.scrollLeft += SCROLL_SPEED;
@@ -149,29 +188,37 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
       };
 
       const onUp = () => {
-        if (dragRef.current?.moved) {
-          // Capture values before calling setWidths — React processes the
-          // updater asynchronously (after dragRef.current is nulled below),
-          // so accessing dragRef.current inside the callback would crash.
-          const i = dragRef.current.idx;
-          const finalW = dragRef.current.finalW;
-          setWidths((prev) => {
-            const next = [...prev];
-            next[i] = Math.max(40, Math.round(finalW));
-            return next;
-          });
-          const suppress = (ce: MouseEvent) => {
-            ce.stopPropagation();
-            ce.preventDefault();
-            document.removeEventListener('click', suppress, true);
-          };
-          document.addEventListener('click', suppress, true);
+        try {
+          if (dragRef.current?.moved) {
+            // Capture values before calling setWidths — React processes the
+            // updater asynchronously (after dragRef.current is nulled below),
+            // so accessing dragRef.current inside the callback would crash.
+            const i = dragRef.current.idx;
+            const finalW = dragRef.current.finalW;
+            userResizedRef.current.add(i);
+            setWidths((prev) => {
+              const next = [...prev];
+              next[i] = Math.max(40, Math.round(finalW));
+              return next;
+            });
+            // Suppress the click that fires immediately after mouseup so a
+            // column resize never accidentally triggers a row/sort click.
+            const suppress = (ce: MouseEvent) => {
+              ce.stopPropagation();
+              ce.preventDefault();
+              document.removeEventListener('click', suppress, true);
+            };
+            document.addEventListener('click', suppress, true);
+          }
+          dragRef.current = null;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        } finally {
+          // Always restore body styles even if the component unmounts mid-drag,
+          // otherwise the page is left in an unselectable state.
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
         }
-        dragRef.current = null;
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
       };
 
       document.addEventListener('mousemove', onMove);

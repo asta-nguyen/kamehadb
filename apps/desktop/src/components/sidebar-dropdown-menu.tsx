@@ -17,8 +17,10 @@ import {
   openMigrationTab,
   openQdrantSearchTab,
   openMongoQueryTab,
+  openMongoShellTab,
   openRedisQueryTab,
   openRedisTab,
+  openSqliteVecSearchTab,
   appStore,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
@@ -71,7 +73,7 @@ export function ConnectionDropdownMenu({
       >
         <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={4} className="min-w-32">
+      <DropdownMenuContent align="end" sideOffset={4} className="min-w-max whitespace-nowrap">
         <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
           <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
           Reload
@@ -151,15 +153,28 @@ export function ConnectionDropdownMenu({
           </DropdownMenuItem>
         )}
 
-        {conn.kind === 'mongodb' && (
-          <DropdownMenuItem
-            onClick={() =>
-              activate(conn.id, (id) => openMongoQueryTab(id, appStore.state.activeMongoDatabase ?? 'admin', ''))
-            }
-          >
-            <Terminal className="mr-2 size-3.5" />
-            Aggregation
+        {conn.kind === 'sqlite' && (
+          <DropdownMenuItem onClick={() => activate(conn.id, openSqliteVecSearchTab)}>
+            <Search className="mr-2 size-3.5" />
+            Vector Search
           </DropdownMenuItem>
+        )}
+
+        {conn.kind === 'mongodb' && (
+          <>
+            <DropdownMenuItem onClick={() => activate(conn.id, openMongoShellTab)}>
+              <Terminal className="mr-2 size-3.5" />
+              Mongo Shell
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                activate(conn.id, (id) => openMongoQueryTab(id, appStore.state.activeMongoDatabase ?? 'admin', ''))
+              }
+            >
+              <Terminal className="mr-2 size-3.5" />
+              Aggregation
+            </DropdownMenuItem>
+          </>
         )}
 
         {conn.kind === 'redis' && (

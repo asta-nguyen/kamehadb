@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
   CreateConnectionProfileSchema,
+  EditConnectionProfileSchema,
   type CreateConnectionProfileInput,
   type ConnectionProfile,
   type DbKind,
@@ -283,7 +284,7 @@ function ReadonlyToggle({ form }: { form: UseFormReturn<CreateConnectionProfileI
               Block CREATE, INSERT, UPDATE, DELETE, DROP and other write statements.
             </p>
           </div>
-          <Switch id="readonly" checked={field.value ?? true} onCheckedChange={field.onChange} />
+          <Switch id="readonly" checked={field.value ?? false} onCheckedChange={field.onChange} />
         </div>
       )}
     />
@@ -338,7 +339,7 @@ function ConnectionDetailsSection({
       ) : kind === 'sqlite' || kind === 'duckdb' ? (
         <div className="space-y-1.5">
           <Label htmlFor="filePath" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Database File
+            Database File <span className="text-destructive">*</span>
           </Label>
           <div className="flex gap-2">
             <Input
@@ -488,6 +489,10 @@ function DialogActions({
   );
 }
 
+function normalizeUpdateValues(values: CreateConnectionProfileInput): CreateConnectionProfileInput {
+  return values.password === '' ? { ...values, password: undefined } : values;
+}
+
 export function ConnectionDialog({ open, onOpenChange, editConnection }: ConnectionDialogProps) {
   const isEditing = !!editConnection;
   const createConnection = useCreateConnection();
@@ -498,7 +503,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   resetRef.current = testConnection.reset;
 
   const form = useForm<CreateConnectionProfileInput>({
-    resolver: zodResolver(CreateConnectionProfileSchema) as any,
+    resolver: zodResolver(isEditing ? EditConnectionProfileSchema : CreateConnectionProfileSchema) as any,
     mode: 'onChange',
     defaultValues: {
       name: editConnection?.name ?? '',
@@ -510,9 +515,29 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       ssl: editConnection?.ssl ?? false,
       color: editConnection?.color ?? undefined,
       connectionString: editConnection?.connectionString ?? undefined,
-      readonly: editConnection?.readonly ?? true,
+      filePath: editConnection?.filePath ?? undefined,
+      readonly: editConnection?.readonly ?? false,
     },
   });
+
+  // Reset form when editConnection changes (e.g. opening edit dialog for a different connection)
+  useEffect(() => {
+    if (editConnection) {
+      form.reset({
+        name: editConnection.name,
+        kind: editConnection.kind,
+        host: editConnection.host ?? 'localhost',
+        port: editConnection.port ?? 5432,
+        database: editConnection.database ?? '',
+        username: editConnection.username ?? '',
+        ssl: editConnection.ssl ?? false,
+        color: editConnection.color ?? undefined,
+        connectionString: editConnection.connectionString ?? undefined,
+        filePath: editConnection.filePath ?? undefined,
+        readonly: editConnection.readonly ?? false,
+      });
+    }
+  }, [editConnection, form]);
 
   const kind = form.watch('kind');
   const selectedColor = form.watch('color');
@@ -596,9 +621,10 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   async function handleSubmit(values: CreateConnectionProfileInput) {
     try {
       if (isEditing) {
+        const normalizedValues = normalizeUpdateValues(values);
         await updateConnection.mutateAsync({
           id: editConnection.id,
-          input: values,
+          input: normalizedValues,
         });
         toast.success('Connection updated!');
       } else {
@@ -615,10 +641,12 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
-        <Plus className="size-3.5" />
-        New
-      </DialogTrigger>
+      {!isEditing && (
+        <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
+          <Plus className="size-3.5" />
+          New
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
         <div className="shrink-0 pr-6">
           <DialogHeader>

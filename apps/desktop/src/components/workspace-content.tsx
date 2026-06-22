@@ -16,6 +16,8 @@ import { SchemaDiffView } from '@/components/schema-diff-view';
 import { SchemaGraph } from '@/components/schema-graph';
 import { SchemaTimeline } from '@/components/schema-timeline';
 import { SqlEditor } from '@/components/sql-editor';
+import { SqliteVecMap } from '@/components/sqlite-vec-map';
+import { SqliteVecQuery } from '@/components/sqlite-vec-query';
 import { TableStats } from '@/components/table-stats';
 import { TableView } from '@/components/table-view';
 
@@ -31,16 +33,16 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     return <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'table') {
-    return <TableView connectionId={activeTab.connectionId} tableId={activeTab.title} />;
+    return <TableView key={activeTab.id} connectionId={activeTab.connectionId} tableId={activeTab.title} />;
   }
   if (activeTab.type === 'graph') {
-    return <SchemaGraph connectionId={activeTab.connectionId} />;
+    return <SchemaGraph key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'mongo') {
-    return <MongoView tab={activeTab} connectionId={activeTab.connectionId} />;
+    return <MongoView key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'mongo-query') {
-    return <MongoQuery tab={activeTab} connectionId={activeTab.connectionId} />;
+    return <MongoQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'mongo-shell') {
     return <MongoShell key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
@@ -52,16 +54,22 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     return <PostgresVectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'postgres-vector-map') {
-    return <PostgresVectorMap tab={activeTab} connectionId={activeTab.connectionId} />;
+    return <PostgresVectorMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'sqlite-vec-search') {
+    return <SqliteVecQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'sqlite-vec-map') {
+    return <SqliteVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis') {
-    return <RedisView connectionId={activeTab.connectionId} />;
+    return <RedisView key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis-query') {
-    return <RedisQuery tab={activeTab} connectionId={activeTab.connectionId} />;
+    return <RedisQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'qdrant') {
-    return <QdrantView connectionId={activeTab.connectionId} collection={activeTab.collection} />;
+    return <QdrantView key={activeTab.id} connectionId={activeTab.connectionId} collection={activeTab.collection} />;
   }
   if (activeTab.type === 'qdrant-search') {
     return <QdrantQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
@@ -85,17 +93,18 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     );
   }
   if (activeTab.type === 'database-stats') {
-    return <DatabaseStats connectionId={activeTab.connectionId} />;
+    return <DatabaseStats key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'schema-timeline') {
-    return <SchemaTimeline connectionId={activeTab.connectionId} />;
+    return <SchemaTimeline key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'schema-diff') {
-    return <SchemaDiffView connectionId={activeTab.connectionId} />;
+    return <SchemaDiffView key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'migration') {
     return (
       <MigrationAssistant
+        key={activeTab.id}
         connectionId={activeTab.connectionId}
         fromSnapshotId={activeTab.fromSnapshotId}
         toSnapshotId={activeTab.toSnapshotId}
@@ -103,10 +112,10 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     );
   }
   if (activeTab.type === 'table-stats') {
-    return <TableStats connectionId={activeTab.connectionId} tableId={activeTab.tableId} />;
+    return <TableStats key={activeTab.id} connectionId={activeTab.connectionId} tableId={activeTab.tableId} />;
   }
   if (activeTab.type === 'stats') {
-    return <DatabaseStats connectionId={activeTab.connectionId} />;
+    return <DatabaseStats key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'tigerbeetle') {
     return (

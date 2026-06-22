@@ -4,7 +4,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Play } from 'lucide-react';
-import type { PostgresVectorMode } from '@/components/postgres-vector-query-state';
 
 type VectorColumnOption = {
   readonly columnName: string;
@@ -12,7 +11,6 @@ type VectorColumnOption = {
 };
 
 type PostgresVectorQueryControlsProps = {
-  readonly mode: PostgresVectorMode;
   readonly schema: string;
   readonly table: string;
   readonly column: string;
@@ -26,7 +24,6 @@ type PostgresVectorQueryControlsProps = {
   readonly schemas: readonly string[];
   readonly vectorTables: readonly string[];
   readonly vectorColumns: readonly VectorColumnOption[];
-  readonly onModeChange: (value: PostgresVectorMode) => void;
   readonly onSchemaChange: (value: string) => void;
   readonly onTableChange: (value: string) => void;
   readonly onColumnChange: (value: string) => void;
@@ -38,7 +35,6 @@ type PostgresVectorQueryControlsProps = {
 };
 
 export function PostgresVectorQueryControls({
-  mode,
   schema,
   table,
   column,
@@ -52,7 +48,6 @@ export function PostgresVectorQueryControls({
   schemas,
   vectorTables,
   vectorColumns,
-  onModeChange,
   onSchemaChange,
   onTableChange,
   onColumnChange,
@@ -64,31 +59,6 @@ export function PostgresVectorQueryControls({
 }: PostgresVectorQueryControlsProps) {
   return (
     <div className="p-3 border-b border-border space-y-2">
-      <div className="flex items-center gap-1 bg-muted/40 rounded-md p-0.5 w-fit">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onModeChange('similar')}
-          className={
-            mode === 'similar'
-              ? 'bg-background shadow-sm text-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          }
-        >
-          Vector
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onModeChange('raw')}
-          className={
-            mode === 'raw' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }
-        >
-          Raw SQL
-        </Button>
-      </div>
-
       <div className="flex items-center gap-2 flex-wrap">
         <Select value={schema || ''} onValueChange={(value) => onSchemaChange(value ?? '')}>
           <SelectTrigger size="sm" className="h-7 text-xs w-28">

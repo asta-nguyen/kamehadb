@@ -20,12 +20,20 @@ import {
 import { getApiBase } from '@/lib/api-client';
 import { DbIcon } from '@/components/db-icon';
 import { useStore } from '@tanstack/react-store';
-import { BarChart3, Database, FileText, Share2, Sparkles, Table2, Terminal } from 'lucide-react';
+import { BarChart3, Database, FileText, Keyboard, Share2, Sparkles, Table2, Terminal } from 'lucide-react';
 import type { SchemaSearchMatch } from '@kamehadb/shared';
 
 import { isSqlKind } from '@/lib/constants';
 
-export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function GlobalSearch({
+  open,
+  onOpenChange,
+  onShortcutsOpen,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onShortcutsOpen?: () => void;
+}) {
   const [query, setQuery] = useState('');
   const [schemaResults, setSchemaResults] = useState<Map<string, SchemaSearchMatch[]>>(new Map());
   const [unsupportedConns, setUnsupportedConns] = useState<Set<string>>(new Set());
@@ -139,46 +147,59 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
         {!searching && query && query.length >= 2 && !hasResults && <CommandEmpty>No results found</CommandEmpty>}
 
         {/* Actions */}
-        {(activeConn && isSqlKind(activeConn.kind)) || activeConn ? (
-          <CommandGroup heading="Actions">
-            {activeConn && isSqlKind(activeConn.kind) && (
-              <>
-                <CommandItem
-                  value={`new-query-${activeConn.name}`}
-                  onSelect={() => select(() => openNewQueryTab(activeConnectionId!))}
-                >
-                  <FileText className="size-4" />
-                  <span>New Query</span>
-                  <CommandShortcut>in {activeConn.name}</CommandShortcut>
-                </CommandItem>
-                <CommandItem
-                  value={`graph-${activeConn.name}`}
-                  onSelect={() => select(() => openGraphTab(activeConnectionId!))}
-                >
-                  <Share2 className="size-4" />
-                  <span>Schema Graph</span>
-                  <CommandShortcut>in {activeConn.name}</CommandShortcut>
-                </CommandItem>
-                <CommandItem
-                  value={`stats-${activeConn.name}`}
-                  onSelect={() => select(() => openDatabaseStatsTab(activeConnectionId!))}
-                >
-                  <BarChart3 className="size-4" />
-                  <span>Database Stats</span>
-                  <CommandShortcut>in {activeConn.name}</CommandShortcut>
-                </CommandItem>
-              </>
-            )}
+        <CommandGroup heading="Actions">
+          {activeConn && isSqlKind(activeConn.kind) && (
+            <>
+              <CommandItem
+                value={`new-query-${activeConn.name}`}
+                onSelect={() => select(() => openNewQueryTab(activeConnectionId!))}
+              >
+                <FileText className="size-4" />
+                <span>New Query</span>
+                <CommandShortcut>in {activeConn.name}</CommandShortcut>
+              </CommandItem>
+              <CommandItem
+                value={`graph-${activeConn.name}`}
+                onSelect={() => select(() => openGraphTab(activeConnectionId!))}
+              >
+                <Share2 className="size-4" />
+                <span>Schema Graph</span>
+                <CommandShortcut>in {activeConn.name}</CommandShortcut>
+              </CommandItem>
+              <CommandItem
+                value={`stats-${activeConn.name}`}
+                onSelect={() => select(() => openDatabaseStatsTab(activeConnectionId!))}
+              >
+                <BarChart3 className="size-4" />
+                <span>Database Stats</span>
+                <CommandShortcut>in {activeConn.name}</CommandShortcut>
+              </CommandItem>
+            </>
+          )}
+          {activeConn && (
             <CommandItem
-              value={`ai-chat-${activeConn?.name ?? ''}`}
+              value={`ai-chat-${activeConn.name ?? ''}`}
               onSelect={() => select(() => openAiChatPanel(activeConnectionId!))}
             >
               <Sparkles className="size-4" />
               <span>AI Chat</span>
-              {activeConn && <CommandShortcut>with {activeConn.name}</CommandShortcut>}
+              <CommandShortcut>with {activeConn.name}</CommandShortcut>
             </CommandItem>
-          </CommandGroup>
-        ) : null}
+          )}
+          {onShortcutsOpen && (
+            <CommandItem
+              value="keyboard shortcuts help"
+              onSelect={() => {
+                onOpenChange(false);
+                onShortcutsOpen();
+              }}
+            >
+              <Keyboard className="size-4" />
+              <span>Keyboard Shortcuts</span>
+              <CommandShortcut>Ctrl+/</CommandShortcut>
+            </CommandItem>
+          )}
+        </CommandGroup>
 
         {/* Connections */}
         {connections && connections.length > 0 && (

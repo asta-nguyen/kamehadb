@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Copy, RefreshCw, ScrollText } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, ChevronRight, Copy, RefreshCw, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { appendFrontendLog, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
 import { navigateTo } from '@/store';
+import { cn } from '@/lib/utils';
 
 type SourceFilter = 'all' | 'frontend' | 'tauri' | 'sidecar';
 type LevelFilter = 'all' | 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
@@ -33,11 +31,74 @@ function formatLogLine(entry: AppLogEntry): string {
   return [parts.join(' '), entry.details, entry.stack].filter(Boolean).join('\n');
 }
 
-function levelVariant(level: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  if (level === 'fatal' || level === 'error') return 'destructive';
-  if (level === 'warn') return 'secondary';
-  if (level === 'info') return 'default';
-  return 'outline';
+const LEVEL_STYLES: Record<string, { border: string; text: string; bg: string }> = {
+  fatal: { border: 'border-l-red-500', text: 'text-red-500', bg: 'bg-red-500/5' },
+  error: { border: 'border-l-red-500', text: 'text-red-500', bg: 'bg-red-500/5' },
+  warn: { border: 'border-l-yellow-500', text: 'text-yellow-600', bg: 'bg-yellow-500/5' },
+  info: { border: 'border-l-blue-500', text: 'text-blue-500', bg: '' },
+  debug: { border: 'border-l-muted-foreground/30', text: 'text-muted-foreground', bg: '' },
+  trace: { border: 'border-l-muted-foreground/20', text: 'text-muted-foreground/60', bg: '' },
+};
+
+function levelStyle(level: string) {
+  return LEVEL_STYLES[level] ?? LEVEL_STYLES.debug;
+}
+
+function LogEntry({ entry, index }: { entry: AppLogEntry; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = !!entry.details || !!entry.stack;
+  const style = levelStyle(entry.level);
+
+  return (
+    <div
+      key={`${entry.source}-${entry.timestampMs}-${index}`}
+      className={cn(
+        'group border-l-2 px-3 py-1.5 font-mono text-xs leading-relaxed transition-colors hover:bg-muted/30',
+        style.border,
+        style.bg,
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span className="shrink-0 text-[10px] text-muted-foreground/50 tabular-nums pt-0.5">
+          {formatLogTimestamp(entry.timestampMs)}
+        </span>
+        <span className="shrink-0 text-[10px] uppercase text-muted-foreground/60 pt-0.5 w-16">{entry.source}</span>
+        <span className={cn('shrink-0 text-[10px] uppercase font-bold pt-0.5 w-12', style.text)}>{entry.level}</span>
+        <div className="min-w-0 flex-1">
+          <div
+            className={cn('break-words', hasDetails && 'cursor-pointer select-text')}
+            onClick={hasDetails ? () => setExpanded((v) => !v) : undefined}
+          >
+            {hasDetails && (
+              <ChevronRight
+                className={cn(
+                  'inline-block size-3 mr-1 transition-transform text-muted-foreground/40',
+                  expanded && 'rotate-90',
+                )}
+              />
+            )}
+            <span className="text-foreground/90">{entry.message}</span>
+            {entry.scope && <span className="ml-1.5 text-[10px] text-muted-foreground/40">[{entry.scope}]</span>}
+          </div>
+          {expanded && (
+            <div className="mt-1 space-y-1">
+              {entry.details && (
+                <pre className="overflow-x-auto rounded bg-muted/40 p-2 text-[11px] whitespace-pre-wrap break-words text-muted-foreground">
+                  {entry.details}
+                </pre>
+              )}
+              {entry.stack && (
+                <pre className="overflow-x-auto rounded bg-muted/20 p-2 text-[11px] whitespace-pre-wrap break-words text-muted-foreground/70">
+                  {entry.stack}
+                </pre>
+              )}
+              {entry.url && <div className="text-[10px] text-muted-foreground/40 truncate">{entry.url}</div>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function LogsPage() {
@@ -49,7 +110,6 @@ export function LogsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const loadLogs = useCallback(async (silent = false) => {
     if (!silent) {
@@ -102,149 +162,119 @@ export function LogsPage() {
 
   const handleCopy = useCallback(async () => {
     await navigator.clipboard.writeText(filteredEntries.map(formatLogLine).join('\n\n'));
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
   }, [filteredEntries]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background">
-      <div className="border-b border-border">
-        <div className="flex flex-wrap items-start gap-3 px-5 py-4">
+    <div className="flex w-full h-full flex-col overflow-hidden bg-background">
+      <div className="shrink-0 border-b border-border">
+        <div className="flex items-center gap-3 px-4 py-2.5">
           <Button variant="ghost" size="icon-sm" onClick={() => navigateTo('workspace')} title="Back to workspace">
             <ArrowLeft className="size-4" />
           </Button>
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-                <ScrollText className="size-4" />
-                Logs
-              </h1>
-              <Badge variant="outline" className="text-xs">
-                Auto refresh every 2s
-              </Badge>
-            </div>
-            <p className="max-w-3xl text-sm text-muted-foreground">
-              View frontend, Tauri, and sidecar errors without reopening the app from Terminal.
-            </p>
-            <p className="text-xs text-muted-foreground">Log directory: {logDir || 'Loading...'}</p>
-          </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => void loadLogs(true)} disabled={isRefreshing}>
-              {isRefreshing ? (
-                <Spinner size="sm" className="mr-1.5 size-3.5" />
-              ) : (
-                <RefreshCw className="mr-1.5 size-3.5" />
-              )}
-              Refresh
+            <ScrollText className="size-4 text-muted-foreground" />
+            <h1 className="text-sm font-semibold tracking-tight">Logs</h1>
+            <span className="text-[10px] text-muted-foreground/50">auto 2s</span>
+          </div>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => void loadLogs(true)}
+              disabled={isRefreshing}
+              className="size-7"
+              title="Refresh"
+            >
+              {isRefreshing ? <Spinner size="sm" className="size-3" /> : <RefreshCw className="size-3" />}
             </Button>
             <Button
               variant="outline"
-              size="sm"
+              size="icon-sm"
               onClick={() => void handleCopy()}
               disabled={filteredEntries.length === 0}
+              className="size-7"
+              title="Copy logs"
             >
-              <Copy className="mr-1.5 size-3.5" />
-              {copied ? 'Copied' : 'Copy'}
+              <Copy className="size-3" />
             </Button>
           </div>
         </div>
+
+        <div className="flex items-center gap-1.5 px-4 pb-2.5">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search logs..."
+            className="h-7 text-xs"
+          />
+          <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 shrink-0">
+            {SOURCE_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setSourceFilter(opt)}
+                className={cn(
+                  'rounded px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
+                  sourceFilter === opt
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                )}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 shrink-0">
+            {LEVEL_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                onClick={() => setLevelFilter(opt)}
+                className={cn(
+                  'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase transition-colors',
+                  levelFilter === opt
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                )}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted-foreground ml-auto tabular-nums w-20 text-right shrink-0">
+            {filteredEntries.length} entries
+          </span>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 border-b border-border px-5 py-3">
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search messages, scopes, stack traces..."
-          className="max-w-md"
-        />
-        <Select value={sourceFilter} onValueChange={(value) => setSourceFilter(value as SourceFilter)}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Source" />
-          </SelectTrigger>
-          <SelectContent>
-            {SOURCE_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={levelFilter} onValueChange={(value) => setLevelFilter(value as LevelFilter)}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Level" />
-          </SelectTrigger>
-          <SelectContent>
-            {LEVEL_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center text-xs text-muted-foreground">{filteredEntries.length} entries</div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 flex flex-col overflow-y-scroll overflow-x-hidden [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30">
         {isLoading ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <Spinner size="lg" />
           </div>
         ) : error ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm text-destructive">Failed to load logs</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">{error}</CardContent>
-          </Card>
+          <div className="flex flex-1 items-center justify-center p-4 text-sm text-destructive font-mono">
+            Failed to load logs: {error}
+          </div>
         ) : filteredEntries.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              No log entries match the current filters.
-            </CardContent>
-          </Card>
+          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            No log entries match the current filters.
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="flex-1 py-1">
             {filteredEntries.map((entry, index) => (
-              <Card key={`${entry.source}-${entry.timestampMs}-${index}`}>
-                <CardContent className="space-y-3 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="font-mono text-[11px]">
-                      {formatLogTimestamp(entry.timestampMs)}
-                    </Badge>
-                    <Badge variant="outline" className="uppercase text-[11px]">
-                      {entry.source}
-                    </Badge>
-                    <Badge variant={levelVariant(entry.level)} className="uppercase text-[11px]">
-                      {entry.level}
-                    </Badge>
-                    {entry.scope ? (
-                      <Badge variant="secondary" className="font-mono text-[11px]">
-                        {entry.scope}
-                      </Badge>
-                    ) : null}
-                  </div>
-
-                  <div className="text-sm font-medium leading-relaxed">{entry.message}</div>
-
-                  {entry.details ? (
-                    <pre className="overflow-x-auto rounded-md border border-border bg-muted/30 p-3 text-xs whitespace-pre-wrap">
-                      {entry.details}
-                    </pre>
-                  ) : null}
-
-                  {entry.stack ? (
-                    <pre className="overflow-x-auto rounded-md border border-border bg-muted/20 p-3 text-xs whitespace-pre-wrap text-muted-foreground">
-                      {entry.stack}
-                    </pre>
-                  ) : null}
-
-                  {entry.url ? <div className="text-xs text-muted-foreground">{entry.url}</div> : null}
-                </CardContent>
-              </Card>
+              <LogEntry key={`${entry.source}-${entry.timestampMs}-${index}`} entry={entry} index={index} />
             ))}
           </div>
         )}
       </div>
+
+      {logDir && (
+        <div
+          className="shrink-0 border-t border-border px-4 py-1 text-[10px] text-muted-foreground/40 truncate"
+          title={logDir}
+        >
+          {logDir}
+        </div>
+      )}
     </div>
   );
 }

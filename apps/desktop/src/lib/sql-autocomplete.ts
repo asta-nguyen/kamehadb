@@ -118,7 +118,7 @@ function detectContext(textUntil: string): CompletionContext {
 function buildKeywordSuggestions(): CompletionEntry[] {
   return KEYWORDS.map((label, index) => ({
     label,
-    insertText: label,
+    insertText: ` ${label}`,
     detail: 'keyword',
     kind: 'keyword',
     sortText: `1-${index.toString().padStart(3, '0')}`,

@@ -3,7 +3,7 @@ import type { WorkspaceTab } from '@kamehadb/shared';
 import { usePostgresVectorCapabilities, usePostgresVectorSearch } from '@/hooks/use-postgres-vector';
 import { parseVectorText } from '@/lib/postgres-vector';
 import { PostgresVectorResults } from '@/components/postgres-vector-results';
-import { pgVectorReducer, type PostgresVectorMode } from '@/components/postgres-vector-query-state';
+import { pgVectorReducer } from '@/components/postgres-vector-query-state';
 import { PostgresVectorQueryControls } from '@/components/postgres-vector-query-controls';
 import { openPostgresVectorMapTab } from '@/store';
 
@@ -20,7 +20,6 @@ export function PostgresVectorQuery({ tab, connectionId }: PostgresVectorQueryPr
     schema: tab.schema ?? '',
     table: tab.table ?? '',
     column: tab.column ?? '',
-    mode: (tab.mode ?? 'similar') as PostgresVectorMode,
     vectorText: tab.vectorText ?? '',
     filterText: '',
     metric: 'cosine',
@@ -123,7 +122,6 @@ export function PostgresVectorQuery({ tab, connectionId }: PostgresVectorQueryPr
   return (
     <div className="flex flex-col h-full">
       <PostgresVectorQueryControls
-        mode={state.mode}
         schema={state.schema}
         table={state.table}
         column={state.column}
@@ -137,7 +135,6 @@ export function PostgresVectorQuery({ tab, connectionId }: PostgresVectorQueryPr
         schemas={schemas}
         vectorTables={vectorTables}
         vectorColumns={vectorColumns}
-        onModeChange={(value) => dispatch({ type: 'setMode', value })}
         onSchemaChange={(value) => dispatch({ type: 'setSchema', value })}
         onTableChange={(value) => dispatch({ type: 'setTable', value })}
         onColumnChange={(value) => dispatch({ type: 'setColumn', value })}

@@ -1,12 +1,9 @@
 import type { PostgresVectorSearchResult } from '@kamehadb/shared';
 
-export type PostgresVectorMode = 'similar' | 'raw';
-
 export type PgVectorState = {
   readonly schema: string;
   readonly table: string;
   readonly column: string;
-  readonly mode: PostgresVectorMode;
   readonly vectorText: string;
   readonly filterText: string;
   readonly metric: 'l2' | 'cosine' | 'inner_product';
@@ -21,7 +18,6 @@ export type PgVectorAction =
   | { type: 'setSchema'; value: string }
   | { type: 'setTable'; value: string }
   | { type: 'setColumn'; value: string }
-  | { type: 'setMode'; value: PostgresVectorMode }
   | { type: 'setVectorText'; value: string }
   | { type: 'setFilterText'; value: string }
   | { type: 'setMetric'; value: 'l2' | 'cosine' | 'inner_product' }
@@ -40,8 +36,6 @@ export function pgVectorReducer(state: PgVectorState, action: PgVectorAction): P
       return { ...state, table: action.value, column: '', result: null, info: null, error: null };
     case 'setColumn':
       return { ...state, column: action.value, result: null, info: null, error: null };
-    case 'setMode':
-      return { ...state, mode: action.value, result: null, info: null, error: null };
     case 'setVectorText':
       return { ...state, vectorText: action.value };
     case 'setFilterText':

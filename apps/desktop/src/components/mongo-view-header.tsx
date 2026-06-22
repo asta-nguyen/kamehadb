@@ -1,16 +1,4 @@
-import {
-  ArrowUpDown,
-  BarChart3,
-  Download,
-  FileJson,
-  FileSpreadsheet,
-  List,
-  RefreshCw,
-  Search,
-  Table2,
-  Terminal,
-  X,
-} from 'lucide-react';
+import { ArrowUpDown, BarChart3, Download, FileJson, FileSpreadsheet, List, Search, Table2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -35,7 +23,6 @@ interface MongoViewHeaderProps {
   onRefresh: () => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
-  onOpenShell?: () => void;
 }
 
 export function MongoViewHeader({
@@ -48,11 +35,8 @@ export function MongoViewHeader({
   showSortClear,
   viewMode,
   onViewModeChange,
-  isFetching,
-  onRefresh,
   onExportJSON,
   onExportCSV,
-  onOpenShell,
 }: MongoViewHeaderProps) {
   return (
     <div className="px-4 py-2 border-b border-border">
@@ -118,14 +102,6 @@ export function MongoViewHeader({
           >
             <BarChart3 className="!size-3.5" />
           </Button>
-          <Button variant="outline" size="icon" onClick={onRefresh} disabled={isFetching} title="Refresh">
-            <RefreshCw className={`!size-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-          </Button>
-          {onOpenShell && (
-            <Button variant="outline" size="icon" onClick={onOpenShell} title="Open Mongo Shell">
-              <Terminal className="!size-3.5" />
-            </Button>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-muted hover:text-foreground size-8">
               <Download className="size-3.5" />

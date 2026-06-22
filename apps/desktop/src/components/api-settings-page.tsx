@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { navigateTo } from '@/store';
+import { api } from '@/lib/api';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
 
@@ -530,20 +531,14 @@ export function ApiSettingsPage() {
       if (!baseUrl) return;
       setModelsLoading(true);
       try {
-        const headers: HeadersInit = {};
-        if (selectedConfig.apiKey) {
-          headers['Authorization'] = `Bearer ${selectedConfig.apiKey}`;
-        }
-        const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, { signal, headers });
-        if (!res.ok) return;
-        const data = (await res.json()) as { data?: { id: string }[] };
-        const models = (data.data ?? []).flatMap((m) => (m.id ? [m.id] : []));
-        setAvailableModels(models);
+        const result = await api.fetchAvailableModels(baseUrl, selectedConfig.apiKey?.trim() || undefined);
+        if (signal.aborted) return;
+        setAvailableModels(result.models);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setAvailableModels([]);
       } finally {
-        setModelsLoading(false);
+        if (!signal.aborted) setModelsLoading(false);
       }
     },
     [selectedConfig.apiKey, selectedConfig.baseUrl],

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
@@ -43,6 +44,12 @@ export function initMetadataStore(dbPath: string): void {
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
 
+  try {
+    sqliteVec.load(db);
+  } catch (e) {
+    console.warn('[MetadataStore] sqlite-vec extension failed to load:', e instanceof Error ? e.message : e);
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS connection_profiles (
       id TEXT PRIMARY KEY,
@@ -55,13 +62,17 @@ export function initMetadataStore(dbPath: string): void {
       password TEXT,
       ssl INTEGER DEFAULT 0,
       file_path TEXT,
-      readonly INTEGER DEFAULT 1,
+      readonly INTEGER DEFAULT 0,
       color TEXT,
       connection_string TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Migration: Flip readonly default from 1 to 0 so existing connections become editable.
+  // The original schema defaulted readonly to 1 (true), which blocked all editing.
+  getDb().exec('UPDATE connection_profiles SET readonly = 0 WHERE readonly = 1');
 
   // Migration: Add password column if it doesn't exist
   try {
@@ -108,7 +119,7 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
+        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -138,7 +149,7 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
+        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -169,7 +180,7 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
+        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -200,7 +211,7 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
+        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -318,11 +329,40 @@ export function initMetadataStore(dbPath: string): void {
     // Migration already applied or no rows to update
   }
 
+  // Create sqlite-vec virtual table for schema embeddings.
+  // Uses a fixed dimension of 1536 (OpenAI text-embedding-ada-002 / text-embedding-3-small).
+  // Other providers may produce different dimensions — the table is recreated on mismatch.
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS schema_vec USING vec0(
+        connection_id TEXT,
+        table_id TEXT,
+        embedding float[1536]
+      );
+    `);
+  } catch (e) {
+    console.warn('[MetadataStore] Failed to create schema_vec table:', e instanceof Error ? e.message : e);
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_embeddings (
+      connection_id TEXT NOT NULL,
+      table_id TEXT NOT NULL,
+      ddl TEXT NOT NULL,
+      hash TEXT NOT NULL,
+      PRIMARY KEY (connection_id, table_id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
+  `);
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
 
-function getDb(): Database.Database {
+export function getDb(): Database.Database {
   if (!db) throw new Error('Metadata store not initialized');
   return db;
 }
@@ -387,7 +427,7 @@ export function createProfile(input: {
       input.password ?? null,
       input.ssl ? 1 : 0,
       input.filePath ?? null,
-      input.readonly !== false ? 1 : 0,
+      input.readonly === true ? 1 : 0,
       input.color ?? null,
       input.connectionString ?? null,
       now,

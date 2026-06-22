@@ -15,6 +15,13 @@ export type DbKind =
   | 'duckdb'
   | 'tigerbeetle';
 
+export const FILE_DATABASE_KINDS = ['sqlite', 'duckdb'] as const;
+export type FileDatabaseKind = (typeof FILE_DATABASE_KINDS)[number];
+
+export function isFileDatabaseKind(kind: DbKind): kind is FileDatabaseKind {
+  return FILE_DATABASE_KINDS.some((candidate) => candidate === kind);
+}
+
 // Connection profile (without secret)
 export const ConnectionProfileSchema = z.object({
   id: z.string(),
@@ -39,7 +46,7 @@ export const ConnectionProfileSchema = z.object({
   username: z.string().optional(),
   ssl: z.boolean().optional(),
   filePath: z.string().optional(),
-  readonly: z.boolean().optional().default(true),
+  readonly: z.boolean().optional().default(false),
   color: z.string().optional(),
   connectionString: z.string().optional(),
   createdAt: z.string(),
@@ -71,7 +78,7 @@ const BaseCreateSchema = z.object({
   password: z.string().optional(),
   ssl: z.boolean().optional(),
   filePath: z.string().optional(),
-  readonly: z.boolean().optional().default(true),
+  readonly: z.boolean().optional().default(false),
   color: z.string().optional(),
   connectionString: z.string().optional(),
 });
@@ -84,6 +91,9 @@ export const CreateConnectionProfileSchema = BaseCreateSchema.refine(
     if (data.kind === 'mongodb' && !data.connectionString) {
       return false;
     }
+    if ((data.kind === 'sqlite' || data.kind === 'duckdb') && !data.filePath) {
+      return false;
+    }
     return true;
   },
   (data) => {
@@ -91,6 +101,12 @@ export const CreateConnectionProfileSchema = BaseCreateSchema.refine(
       return {
         message: 'Connection string is required for MongoDB connections',
         path: ['connectionString'],
+      };
+    }
+    if ((data.kind === 'sqlite' || data.kind === 'duckdb') && !data.filePath) {
+      return {
+        message: 'Database file path is required for SQLite/DuckDB connections',
+        path: ['filePath'],
       };
     }
     return {
@@ -101,8 +117,52 @@ export const CreateConnectionProfileSchema = BaseCreateSchema.refine(
 );
 export type CreateConnectionProfileInput = z.infer<typeof CreateConnectionProfileSchema>;
 
+export const EditConnectionProfileSchema = BaseCreateSchema.refine(
+  (data) => {
+    if (data.kind === 'mongodb' && !data.connectionString) {
+      return false;
+    }
+    if ((data.kind === 'sqlite' || data.kind === 'duckdb') && !data.filePath) {
+      return false;
+    }
+    return true;
+  },
+  (data) => {
+    if (data.kind === 'mongodb' && !data.connectionString) {
+      return {
+        message: 'Connection string is required for MongoDB connections',
+        path: ['connectionString'],
+      };
+    }
+    if ((data.kind === 'sqlite' || data.kind === 'duckdb') && !data.filePath) {
+      return {
+        message: 'Database file path is required for SQLite/DuckDB connections',
+        path: ['filePath'],
+      };
+    }
+    return { message: 'Invalid connection', path: [] };
+  },
+);
+export type EditConnectionProfileInput = z.infer<typeof EditConnectionProfileSchema>;
+
 export const UpdateConnectionProfileSchema = BaseCreateSchema.partial();
 export type UpdateConnectionProfileInput = z.infer<typeof UpdateConnectionProfileSchema>;
+
+export const FileDatabaseBackupRequestSchema = z.object({
+  outputPath: z.string().min(1),
+});
+export type FileDatabaseBackupRequest = z.infer<typeof FileDatabaseBackupRequestSchema>;
+
+export const FileDatabaseRestoreRequestSchema = z.object({
+  inputPath: z.string().min(1),
+});
+export type FileDatabaseRestoreRequest = z.infer<typeof FileDatabaseRestoreRequestSchema>;
+
+export const FileDatabaseMaintenanceResultSchema = z.object({
+  path: z.string().min(1),
+  relatedPaths: z.array(z.string()),
+});
+export type FileDatabaseMaintenanceResult = z.infer<typeof FileDatabaseMaintenanceResultSchema>;
 
 // Query result
 export type QueryColumn = {
@@ -559,6 +619,40 @@ export type PostgresVectorSampleResult = {
   dimensions: number;
 };
 
+// sqlite-vec types
+export type SqliteVecColumn = {
+  tableName: string;
+  columnName: string;
+  dimensions: number;
+};
+
+export type SqliteVecCapability = {
+  available: boolean;
+  version: string | null;
+  columns: SqliteVecColumn[];
+  metadataColumns: Record<string, string[]>;
+};
+
+export type SqliteVecSearchInput = {
+  table: string;
+  column: string;
+  vector: number[];
+  filter?: string;
+  metric?: 'cosine' | 'l2' | 'inner_product';
+  limit?: number;
+};
+
+export type SqliteVecSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type SqliteVecSearchResult = {
+  hits: SqliteVecSearchHit[];
+  durationMs: number;
+};
+
 // TigerBeetle types
 export type TigerBeetleAccount = {
   id: string;
@@ -771,7 +865,28 @@ export type WorkspaceTab =
       camera?: { position: [number, number, number]; target: [number, number, number] };
     }
   // Interactive Mongo shell (mongosh) via desktop PTY
-  | { id: string; type: 'mongo-shell'; title: string; connectionId: string; sessionId?: string };
+  | { id: string; type: 'mongo-shell'; title: string; connectionId: string; sessionId?: string }
+  // sqlite-vec vector similarity search
+  | {
+      id: string;
+      type: 'sqlite-vec-search';
+      title: string;
+      connectionId: string;
+      table?: string;
+      column?: string;
+      vectorText?: string;
+      mode?: 'similar' | 'raw';
+    }
+  // sqlite-vec 3D vector map (PCA projection)
+  | {
+      id: string;
+      type: 'sqlite-vec-map';
+      title: string;
+      connectionId: string;
+      table: string;
+      column: string;
+      camera?: { position: [number, number, number]; target: [number, number, number] };
+    };
 
 export type AppView = 'workspace' | 'api-settings' | 'logs';
 

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.kamehadb",
   "build": {
-    "beforeDevCommand": "pnpm --filter @kamehadb/desktop build",
+    "beforeDevCommand": "pnpm --filter @kamehadb/desktop dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm --filter @kamehadb/desktop build",
     "frontendDist": "../dist"
@@ -16,7 +16,8 @@
         "width": 1200,
         "height": 800,
         "minWidth": 900,
-        "minHeight": 600
+        "minHeight": 600,
+        "dragDropEnabled": false
       }
     ],
     "security": {

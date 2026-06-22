@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Copy, Eye, Save, X, Trash2 } from 'lucide-react';
+import { Copy, Eye, Trash2, Ellipsis } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type ColumnDef } from '@/components/data-table';
@@ -59,7 +59,9 @@ export function DocumentTableView({
           return { field: entry[0], dir: entry[1] as 1 | -1 };
         }
       }
-    } catch {}
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
+    }
     return null;
   }, [sortStr]);
 
@@ -86,7 +88,8 @@ export function DocumentTableView({
       } else {
         try {
           parsedValue = JSON.parse(editValue);
-        } catch {
+        } catch (error) {
+          if (!(error instanceof SyntaxError)) throw error;
           parsedValue = editValue;
         }
       }
@@ -121,9 +124,7 @@ export function DocumentTableView({
   const handleCopyRow = async (doc: Record<string, unknown>) => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(doc, null, 2));
-    } catch {
-      // clipboard not available
-    }
+    } catch {}
   };
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = useMemo(
@@ -133,35 +134,25 @@ export function DocumentTableView({
         header: col,
         accessor: (row) => row[col],
         sortable: true,
-        cellClassName: 'px-1 overflow-hidden',
         render: (value, _row, rowIndex) => {
           const isEditing = editCell?.row === rowIndex && editCell?.key === col;
           if (isEditing) {
             return (
-              <div className="flex min-w-0 items-end gap-0.5">
-                <Input
-                  type="text"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="h-6 min-w-0 flex-1 shrink-0 rounded border bg-background px-1 font-mono text-xs focus:ring-1 focus:ring-primary"
-                  autoFocus
-                />
-                <Button variant="ghost" size="icon" onClick={saveEdit} disabled={saving} title="Save (Enter)">
-                  <Save className="size-3" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={cancelEdit} title="Cancel (Esc)">
-                  <X className="size-3" />
-                </Button>
-              </div>
+              <Input
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={() => setTimeout(() => saveEdit(), 150)}
+                className="h-5 min-w-0 rounded border bg-background px-1 font-mono text-xs focus:ring-1 focus:ring-primary"
+                autoFocus
+              />
             );
           }
           return (
-            <Button
-              variant="ghost"
-              size="sm"
+            <span
               onClick={() => startEdit(rowIndex, col, value)}
-              className="block w-full truncate justify-start font-normal text-left"
+              className="block w-full truncate cursor-pointer"
               title={formatCellValue(value)}
             >
               {value === null ? (
@@ -169,7 +160,7 @@ export function DocumentTableView({
               ) : (
                 <span className={typeof value === 'object' ? 'text-primary' : ''}>{formatCellValue(value)}</span>
               )}
-            </Button>
+            </span>
           );
         },
       })),
@@ -178,45 +169,41 @@ export function DocumentTableView({
 
   return (
     <>
-      <div>
-        <DataTable
-          rows={documents}
-          columns={tableColumns}
-          rowKey={(doc, i) => (doc._id ? String(doc._id) : String(i))}
-          prefixHeader="Actions"
-          prefixWidth="56px"
-          prefixCellClassName="bg-background"
-          showIndex
-          onSortChange={onSortChange}
-          sortColumn={currentSort?.field}
-          sortDirection={currentSort?.dir === -1 ? 'desc' : 'asc'}
-          prefix={(doc) => (
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
-                  <path d="M8 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM9.5 12.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
-                </svg>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => setSelectedRow(doc)}>
-                  <Eye className="size-3.5 mr-2" />
-                  View details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleCopyRow(doc)}>
-                  <Copy className="size-3.5 mr-2" />
-                  Copy JSON
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDelete(doc)}>
-                  <Trash2 className="size-3.5 mr-2" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          className="bg-background"
-        />
-      </div>
+      <DataTable
+        rows={documents}
+        columns={tableColumns}
+        rowKey={(doc, i) => (doc._id ? String(doc._id) : String(i))}
+        suffixHeader="Actions"
+        suffixWidth="64px"
+        showIndex
+        stickyHeader
+        onSortChange={onSortChange}
+        sortColumn={currentSort?.field}
+        sortDirection={currentSort?.dir === -1 ? 'desc' : 'asc'}
+        suffix={(doc) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+              <Ellipsis className="size-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => setSelectedRow(doc)}>
+                <Eye className="size-3.5 mr-2" />
+                View details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCopyRow(doc)}>
+                <Copy className="size-3.5 mr-2" />
+                Copy JSON
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onDelete(doc)}>
+                <Trash2 className="size-3.5 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        className="bg-background"
+      />
 
       <Sheet open={!!selectedRow} onOpenChange={(open) => !open && setSelectedRow(null)}>
         <SheetContent className="flex flex-col sm:max-w-lg">

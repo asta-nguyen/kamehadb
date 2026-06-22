@@ -15,7 +15,6 @@ import { MongoViewHeader } from '@/components/mongo-view-header';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
-import { openMongoShellTab } from '@/store';
 
 const PAGE_LIMIT = 20;
 
@@ -297,7 +296,6 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         onRefresh={onRefresh}
         onExportJSON={handleExportJSON}
         onExportCSV={handleExportCSV}
-        onOpenShell={() => openMongoShellTab(connectionId)}
       />
 
       <Tabs
@@ -458,18 +456,20 @@ function DocumentsPanel({
 
   if (viewMode === 'table') {
     return (
-      <div className="p-4">
-        <div className="overflow-auto border rounded-md">
-          <DocumentTableView
-            documents={documents}
-            connectionId={connectionId}
-            collection={collection}
-            database={database}
-            onDelete={onDelete}
-            onUpdate={onUpdate}
-            sortStr={sortStr}
-            onSortChange={onSortFieldChange}
-          />
+      <div className="flex flex-col flex-1 h-full min-h-0 p-4 pt-2 gap-0">
+        <div className="min-h-0 max-h-full flex flex-col border border-border rounded-md overflow-hidden">
+          <div className="overflow-auto min-h-0">
+            <DocumentTableView
+              documents={documents}
+              connectionId={connectionId}
+              collection={collection}
+              database={database}
+              onDelete={onDelete}
+              onUpdate={onUpdate}
+              sortStr={sortStr}
+              onSortChange={onSortFieldChange}
+            />
+          </div>
           <DataFooter rowCount={documents.length} {...footerProps} />
         </div>
       </div>
