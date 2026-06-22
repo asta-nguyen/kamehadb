@@ -1,0 +1,19 @@
+apps/desktop/src/components/sql-editor.tsx
+  s_5d16a4fe607716::t_d5a1af8f484876 454-455
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "01721b7eabd650858252080be0afd7a5abf8d82b",
+  "prompts": {},
+  "sessions": {
+    "s_5d16a4fe607716": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "5142da6d-2b80-476a-afea-0287b92b4349",
+        "model": "Claude Sonnet 4.6"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
