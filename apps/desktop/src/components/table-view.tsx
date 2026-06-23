@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { debounce } from '@tanstack/pacer';
-import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
+import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
 import { useRunQuery } from '@/hooks/use-query';
 import { useConnections } from '@/hooks/use-connections';
 import { useFieldVisibility } from '@/hooks/use-field-visibility';
@@ -125,7 +125,10 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   const queryClient = useQueryClient();
   const runQuery = useRunQuery(connectionId);
   const { data: connections } = useConnections();
-  const { data: columns } = useTableColumns(connectionId, tableId);
+  const [tableSchema] = tableId.split('.');
+  const { data: tables } = useTables(connectionId, tableSchema);
+  const isView = tables?.find((t) => t.id === tableId)?.type === 'view';
+  const { data: columns, isLoading: isLoadingColumns } = useTableColumns(connectionId, tableId);
   const { data: result, isLoading } = usePreviewRows(connectionId, {
     tableId,
     offset: state.offset,
@@ -137,7 +140,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; column: string } | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const currentConnection = connections?.find((connection) => connection.id === connectionId);
 
   // Find primary key columns for constructing UPDATE WHERE clause
   const pkColumns = useMemo(
@@ -147,8 +149,21 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const editability = getTableEditabilityState({
     hasPrimaryKey: pkColumns.length > 0,
-    isReadOnly: currentConnection?.readonly === true,
+    isReadOnly: false,
   });
+
+  // Only show the missing-PK warning after schema metadata has loaded,
+  // because preview rows often arrive before columns and otherwise the UI
+  // flashes a false "No primary key" state during the first render.
+  const showNoPrimaryKeyWarning = !isLoadingColumns && !!columns && pkColumns.length === 0 && !isView;
+
+  // Escape a raw input value for SQL (strings get single-quoted with doubled quotes).
+  const escapeVal = (v: unknown): string => {
+    if (v === null || v === undefined) return 'NULL';
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+    return `'${String(v).replace(/'/g, "''")}'`;
+  };
 
   const page = Math.floor(state.offset / state.pageSize) + 1;
   // Prefer schema metadata because several adapters cannot infer columns from
@@ -353,6 +368,16 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
       {editability.warningMessage && editability.warningTone && (
         <div className="shrink-0">
           <TableEditabilityNotice message={editability.warningMessage} tone={editability.warningTone} />
+        </div>
+      )}
+      {isView && (
+        <div className="mb-2 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 rounded-md">
+          This is a view — in-cell editing is not supported.
+        </div>
+      )}
+      {showNoPrimaryKeyWarning && !isView && (
+        <div className="mb-2 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-md">
+          No primary key — in-cell editing disabled to prevent ambiguous row updates.
         </div>
       )}
       <div className="min-h-0 max-h-full flex flex-col border border-border rounded-md overflow-hidden">
