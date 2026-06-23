@@ -1,3 +1,6 @@
+/** Default page size for paginated views. */
+export const PAGE_LIMIT = 20;
+
 /** How long to cache schema metadata (5 minutes). */
 export const SCHEMA_CACHE_TIME = 5 * 60 * 1000;
 
@@ -6,6 +9,22 @@ export const STATS_CACHE_TIME = 30 * 1000;
 
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';
 import type { DbKind } from '@kamehadb/shared';
+import { FileText, History, BarChart3, Search, Share2, Terminal, type LucideIcon } from 'lucide-react';
+import {
+  openNewQueryTab,
+  openGraphTab,
+  openDatabaseStatsTab,
+  openSchemaTimelineTab,
+  openMigrationTab,
+  openQdrantSearchTab,
+  openMongoQueryTab,
+  openMongoShellTab,
+  openRedisQueryTab,
+  openRedisTab,
+  openSqliteVecSearchTab,
+  appStore,
+} from '@/store';
+import type { ConnectionProfile } from '@kamehadb/shared';
 
 export const KIND_ICON_COMPONENT: Record<DbKind, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
   postgres: PostgreSQL,
@@ -155,3 +174,89 @@ export const PROMPTS = [
   'Inspect records quickly with these tools.',
   'Ready for an update summary?',
 ];
+
+export type ShortcutEntry = {
+  keys: string;
+  description: string;
+};
+
+export const SHORTCUT_GROUPS: { heading: string; entries: ShortcutEntry[] }[] = [
+  {
+    heading: 'Global',
+    entries: [
+      { keys: 'Ctrl+K', description: 'Open command palette / global search' },
+      { keys: 'Ctrl+/', description: 'Show keyboard shortcuts' },
+      { keys: 'Ctrl+,', description: 'Open API settings' },
+      { keys: 'Ctrl+L', description: 'Open logs' },
+    ],
+  },
+  {
+    heading: 'Tabs',
+    entries: [
+      { keys: 'Ctrl+W', description: 'Close active tab' },
+      { keys: 'Ctrl+Shift+W', description: 'Close all tabs' },
+      { keys: 'Ctrl+Tab', description: 'Switch to next tab' },
+      { keys: 'Ctrl+Shift+Tab', description: 'Switch to previous tab' },
+      { keys: 'Ctrl+1 — Ctrl+9', description: 'Jump to tab by position' },
+    ],
+  },
+  {
+    heading: 'Actions',
+    entries: [
+      { keys: 'Ctrl+N', description: 'New query tab (requires active SQL connection)' },
+      { keys: 'Ctrl+Shift+K', description: 'Open AI chat panel for active connection' },
+    ],
+  },
+  {
+    heading: 'Table Editing',
+    entries: [
+      { keys: 'Enter', description: 'Confirm cell edit' },
+      { keys: 'Escape', description: 'Cancel cell edit' },
+    ],
+  },
+  {
+    heading: 'Column Resize',
+    entries: [
+      { keys: 'Drag', description: 'Drag the right edge of a column header to resize' },
+      { keys: 'Enter / Space', description: 'Start resize mode on focused column header' },
+    ],
+  },
+  {
+    heading: 'Navigation',
+    entries: [
+      { keys: 'Enter / Space', description: 'Activate focused row or item' },
+      { keys: 'Arrow Up / Down', description: 'Adjust split ratio in Monaco / Mongo editor panels' },
+    ],
+  },
+];
+
+export type TabAction = {
+  label: string;
+  icon: LucideIcon;
+  open: (id: string) => void;
+};
+
+export const SQL_TAB_ACTIONS: TabAction[] = [
+  { label: 'New Query', icon: FileText, open: openNewQueryTab },
+  { label: 'Graph', icon: Share2, open: openGraphTab },
+  { label: 'Stats', icon: BarChart3, open: openDatabaseStatsTab },
+  { label: 'Schema Timeline', icon: History, open: openSchemaTimelineTab },
+  { label: 'Migration Assistant', icon: Terminal, open: openMigrationTab },
+];
+
+export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAction[]>> = {
+  qdrant: [{ label: 'Vector Search', icon: Search, open: openQdrantSearchTab }],
+  sqlite: [{ label: 'Vector Search', icon: Search, open: openSqliteVecSearchTab }],
+  mongodb: [
+    { label: 'Mongo Shell', icon: Terminal, open: openMongoShellTab },
+    {
+      label: 'Aggregation',
+      icon: Terminal,
+      open: (id) => openMongoQueryTab(id, appStore.state.activeMongoDatabase ?? 'admin', ''),
+    },
+  ],
+  redis: [
+    { label: 'Query', icon: Terminal, open: openRedisQueryTab },
+    { label: 'Stats', icon: BarChart3, open: openRedisTab },
+  ],
+};

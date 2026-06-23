@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { api } from '@/lib/api';
 import { projectVectorsTo3d } from '@/lib/pca3d';

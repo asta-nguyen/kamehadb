@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
 import { appStore } from './state';
 
 export function openTab(tab: WorkspaceTab): void {
@@ -270,6 +270,70 @@ export function closeTab(tabId: string): void {
   });
 }
 
+export function openSqliteVecSearchTab(
+  connectionId: string,
+  options?: {
+    readonly table?: string;
+    readonly column?: string;
+    readonly vectorText?: string;
+    readonly mode?: 'similar' | 'raw';
+  },
+): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'sqlite-vec-search').length;
+  openTab({
+    id: `sqlite-vec-search-${nanoid()}`,
+    type: 'sqlite-vec-search',
+    title: options?.table ? `Vector Search ${options.table}` : `Vector Search ${tabCount + 1}`,
+    connectionId,
+    table: options?.table,
+    column: options?.column,
+    vectorText: options?.vectorText,
+    mode: options?.mode,
+  });
+}
+
+export function openSqliteVecMapTab(
+  connectionId: string,
+  options: {
+    readonly table: string;
+    readonly column: string;
+  },
+): void {
+  openTab({
+    id: `${connectionId}:sqlite-vec-map:${options.table}.${options.column}`,
+    type: 'sqlite-vec-map',
+    title: `Vector Map ${options.table}`,
+    connectionId,
+    table: options.table,
+    column: options.column,
+  });
+}
+
+export function updateTabSqliteVecMapState(
+  tabId: string,
+  updates: {
+    readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+  },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'sqlite-vec-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
 export function closeAllTabs(): void {
   appStore.setState((state) => ({ ...state, openedTabs: [], activeTabId: null }));
+}
+
+export function reorderTabs(fromIndex: number, toIndex: number): void {
+  appStore.setState((state) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return state;
+    if (fromIndex >= state.openedTabs.length || toIndex >= state.openedTabs.length) return state;
+    const tabs = [...state.openedTabs];
+    const [moved] = tabs.splice(fromIndex, 1);
+    tabs.splice(toIndex, 0, moved);
+    return { ...state, openedTabs: tabs };
+  });
 }

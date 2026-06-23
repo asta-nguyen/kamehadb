@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { WorkspaceTab } from '@kamehadb/shared';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import type { WorkspaceTab } from '@/lib/types';
 import { TerminalPane } from '@/components/terminal-pane';
 import { useConnections } from '@/hooks/use-connections';
 import { useTerminalSession } from '@/hooks/use-terminal-session';
@@ -10,7 +8,6 @@ import { startPostgresPsqlSession } from '@/lib/postgres-psql';
 import type { TerminalSize } from '@/lib/terminal-session';
 import { appStore } from '@/store';
 import { useStore } from '@tanstack/react-store';
-import { AlertTriangle, Loader2, RotateCcw, Terminal } from 'lucide-react';
 
 type PostgresPsqlTabProps = {
   readonly active: boolean;
@@ -23,14 +20,6 @@ type TerminalPaneApi = {
   readonly reset: () => void;
   readonly write: (data: Uint8Array | string) => void;
 };
-
-function statusLabel(status: 'idle' | 'starting' | 'running' | 'exited' | 'error') {
-  if (status === 'starting') return 'Starting';
-  if (status === 'running') return 'Connected';
-  if (status === 'exited') return 'Exited';
-  if (status === 'error') return 'Failed';
-  return 'Idle';
-}
 
 export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
   const theme = useStore(appStore, (state) => state.theme);
@@ -81,13 +70,7 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
     setTerminalReady(true);
   }, []);
 
-  const retry = useCallback(async () => {
-    session.reset();
-    await start();
-  }, [session, start]);
-
   const dark = theme === 'dark' || document.documentElement.classList.contains('dark');
-  const canRetry = session.state.status === 'error' || session.state.status === 'exited';
 
   if (!connection) {
     return (
@@ -98,36 +81,7 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Terminal className="size-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{connection.name}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {connection.database || 'postgres'} · {connection.host || 'localhost'}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={session.state.status === 'running' ? 'default' : 'secondary'}>
-            {session.state.status === 'starting' ? <Loader2 className="mr-1 size-3 animate-spin" /> : null}
-            {statusLabel(session.state.status)}
-          </Badge>
-          {canRetry ? (
-            <Button size="sm" variant="outline" onClick={() => void retry()}>
-              <RotateCcw className="mr-1.5 size-3.5" />
-              Reconnect
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      {session.state.message && session.state.status !== 'running' ? (
-        <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-          {session.state.status === 'error' ? <AlertTriangle className="size-3.5 text-destructive" /> : null}
-          <span>{session.state.message}</span>
-        </div>
-      ) : null}
+    <div className="h-full w-full overflow-hidden bg-black">
       {activated ? (
         <TerminalPane
           active={active}

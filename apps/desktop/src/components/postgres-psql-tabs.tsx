@@ -1,4 +1,4 @@
-import type { WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
 
 import { PostgresPsqlTab } from '@/components/postgres-psql-tab';
 

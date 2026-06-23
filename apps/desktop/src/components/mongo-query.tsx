@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useReducer, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import type { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -8,26 +8,25 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChartView } from '@/components/chart-view';
+import { DataTable, type ColumnDef } from '@/components/data-table';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { Spinner } from '@/components/ui/spinner';
 import { Play, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChart3, Braces } from 'lucide-react';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { PAGE_LIMIT } from '@/lib/constants';
 import JSON5 from 'json5';
-import type { WorkspaceTab, DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
+import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
 import { buildMongoCompletionEntries, type MongoCompletionsData } from '@/lib/mongo-autocomplete';
 
 const Editor = lazy(() => import('@monaco-editor/react').then((m) => ({ default: m.Editor })));
-
-const PAGE_SIZE = 20;
 
 type MongoQueryProps = {
   tab: WorkspaceTab & { pipeline?: string };
   connectionId: string;
 };
 
-// Group pipeline/db/collection/result/error/running/page state into one reducer
-// so a single dispatch produces a single re-render instead of seven.
 type MongoQueryState = {
   pipeline: string;
   db: string;
@@ -216,7 +215,26 @@ function AggregationResult({
   page: number;
   onPageChange: (page: number) => void;
 }) {
-  const totalPages = Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(result.totalCount / PAGE_LIMIT));
+  const columns = Array.from(new Set(result.documents.flatMap((doc) => Object.keys(doc))));
+  const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(
+    () =>
+      columns.map((key) => ({
+        id: key,
+        header: key,
+        accessor: (row) => row[key],
+        sortable: false,
+        render: (value: unknown, _row: Record<string, unknown>) =>
+          value === null || value === undefined ? (
+            <span className="text-muted-foreground italic">—</span>
+          ) : typeof value === 'object' ? (
+            <span className="text-muted-foreground">{JSON.stringify(value)}</span>
+          ) : (
+            String(value)
+          ),
+      })),
+    [columns],
+  );
 
   if (running) {
     return (
@@ -235,55 +253,21 @@ function AggregationResult({
     );
   }
 
-  const columns = Array.from(new Set(result.documents.flatMap((d) => Object.keys(d))));
-
   return (
     <>
       {columns.length > 0 && (
-        <div className="border rounded-md">
-          <div
-            className="grid text-xs bg-muted/50"
-            style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(140px, 1fr))` }}
-          >
-            {columns.map((key) => (
-              <div
-                key={key}
-                className="px-3 py-1.5 font-medium text-muted-foreground border-r last:border-r-0 whitespace-nowrap"
-              >
-                {key}
-              </div>
-            ))}
+        <div className="flex-1 min-h-0 flex flex-col border rounded-md bg-background">
+          <div className="flex-1 min-h-0 overflow-auto">
+            <DataTable
+              rows={result.documents}
+              columns={tableColumns}
+              rowKey={(doc, i) => String(doc._id ?? i)}
+              showIndex
+              indexOffset={page * PAGE_LIMIT}
+              stickyHeader
+              className="bg-background"
+            />
           </div>
-          {result.documents.map((doc, i) => (
-            <div
-              key={String(doc._id ?? i)}
-              className="grid text-xs border-t border-border/40 hover:bg-muted/30"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(140px, 1fr))` }}
-            >
-              {columns.map((key) => {
-                const val = doc[key];
-                return (
-                  <div
-                    key={key}
-                    className="px-3 py-1 border-r last:border-r-0 truncate max-w-60"
-                    title={
-                      val === null || val === undefined
-                        ? ''
-                        : String(typeof val === 'object' ? JSON.stringify(val) : val)
-                    }
-                  >
-                    {val === null || val === undefined ? (
-                      <span className="text-muted-foreground italic">—</span>
-                    ) : typeof val === 'object' ? (
-                      <span className="text-muted-foreground">{JSON.stringify(val)}</span>
-                    ) : (
-                      String(val)
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
         </div>
       )}
       <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
@@ -297,7 +281,7 @@ function AggregationResult({
       <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
         <div className="text-xs text-muted-foreground">
           {result.documents.length > 0
-            ? `${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + result.documents.length} of ${result.totalCount}`
+            ? `${page * PAGE_LIMIT + 1}–${page * PAGE_LIMIT + result.documents.length} of ${result.totalCount}`
             : '0 results'}
         </div>
         <div className="flex items-center gap-2">
@@ -344,8 +328,6 @@ function AggregationResult({
   );
 }
 
-// Derive column metadata from every document so sparse fields remain
-// available when ChartView consumes Mongo aggregation results.
 function deriveColumns(docs: Record<string, unknown>[]): QueryResult['columns'] {
   if (docs.length === 0) return [];
   return collectRecordFields(docs).map((name) => {
@@ -373,7 +355,6 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     showChart: false,
   });
 
-  // Resizable split: editor takes a fraction of the available height
   const [editorRatio, setEditorRatio] = useState(0.55);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -438,8 +419,6 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     staleTime: 5 * 60 * 1000,
   });
 
-  // The Monaco keybinding calls into the latest handleRun without re-binding
-  // the editor action — keep a ref so the keybinding stays valid.
   const runRef = useRef<() => Promise<void>>(async () => {});
   const completionsRef = useRef<MongoCompletionsData | null>(null);
   completionsRef.current = completionsData ?? null;
@@ -462,8 +441,8 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           collection: state.collection,
           database: state.db,
           pipeline: parsed,
-          skip: currentPage * PAGE_SIZE,
-          limit: PAGE_SIZE,
+          skip: currentPage * PAGE_LIMIT,
+          limit: PAGE_LIMIT,
         });
         dispatch({ type: 'finishRun', result: res, page: currentPage });
       } catch (err) {
@@ -485,7 +464,6 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
       },
     });
 
-    // Register completion provider for MongoDB aggregation pipeline syntax
     const provider = monaco.languages.registerCompletionItemProvider('javascript', {
       triggerCharacters: ['.', ' ', '$', '{', '[', '"', ':'],
       provideCompletionItems: (model, position) => {
@@ -550,12 +528,16 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         onRun={() => handleRun()}
         onToggleChart={() => dispatch({ type: 'toggleChart' })}
         onFormat={() => {
-          try {
-            const parsed = JSON5.parse(state.pipeline);
-            dispatch({ type: 'setPipeline', value: JSON5.stringify(parsed, null, 2) });
-          } catch {
-            /* invalid pipeline — no-op */
-          }
+          const parsed = (() => {
+            try {
+              return JSON5.parse(state.pipeline);
+            } catch (error) {
+              if (error instanceof SyntaxError) return null;
+              throw error;
+            }
+          })();
+          if (parsed === null) return;
+          dispatch({ type: 'setPipeline', value: JSON5.stringify(parsed, null, 2) });
         }}
       />
 
@@ -587,7 +569,6 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           </Suspense>
         </div>
 
-        {/* Draggable resize handle */}
         <div
           role="separator"
           tabIndex={0}

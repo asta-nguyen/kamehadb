@@ -1,12 +1,11 @@
+import { CLAUSE_RE, NUMERIC_RE } from './constants.js';
+
 type SafeFilterValue = string | number | boolean;
 
 type CompiledFilter = {
   sql: string;
   params: SafeFilterValue[];
 };
-
-const CLAUSE_RE = /^([A-Za-z_][A-Za-z0-9_]*)\s*(=|!=|<>|>=|<=|>|<|ILIKE|LIKE|IS NULL|IS NOT NULL)\s*(.*)$/i;
-const NUMERIC_RE = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 export function quoteSqlIdentifier(identifier: string): string {
   if (!identifier.trim()) {

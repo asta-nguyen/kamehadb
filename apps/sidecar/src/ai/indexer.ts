@@ -1,6 +1,6 @@
 import { listProfiles, getAISettings } from '../db/metadata-store.js';
 import { getSqlAdapter } from '../routes/sql.js';
-import { buildSchemaIndex } from './qdrant-store.js';
+import { buildSchemaIndex } from './vec-store.js';
 
 export async function indexAllConnections(): Promise<void> {
   const settings = getAISettings();

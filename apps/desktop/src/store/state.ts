@@ -1,5 +1,5 @@
 import { Store } from '@tanstack/store';
-import type { AppStoreState, WorkspaceTab } from '@kamehadb/shared';
+import type { AppStoreState, WorkspaceTab } from '@/lib/types';
 
 function restoreTabs(): WorkspaceTab[] {
   try {

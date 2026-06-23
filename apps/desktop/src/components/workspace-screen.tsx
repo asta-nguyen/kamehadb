@@ -134,7 +134,18 @@ function Workspace() {
   if (!activeTab)
     return <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading...</div>;
 
-  return <WorkspaceContent activeTab={activeTab} />;
+  return (
+    <div className="h-full">
+      {openedTabs.map(
+        (tab) =>
+          tab.id === activeTab.id && (
+            <div key={tab.id} className="h-full">
+              <WorkspaceContent activeTab={tab} />
+            </div>
+          ),
+      )}
+    </div>
+  );
 }
 
 export function MainLayout() {

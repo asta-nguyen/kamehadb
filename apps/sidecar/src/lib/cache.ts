@@ -1,6 +1,5 @@
 import { LRUCache } from 'lru-cache';
-
-const MAX_ENTRIES = 100;
+import { CACHE_MAX_ENTRIES } from './constants.js';
 
 export const CACHE_TTL = {
   SCHEMA: 5 * 60 * 1000, // 5 minutes for schema/tables
@@ -8,7 +7,7 @@ export const CACHE_TTL = {
   AI_SCHEMA: 5 * 60 * 1000, // 5 minutes for AI schema context
 };
 
-const cache = new LRUCache<string, { data: unknown; timestamp: number }>({ max: MAX_ENTRIES });
+const cache = new LRUCache<string, { data: unknown; timestamp: number }>({ max: CACHE_MAX_ENTRIES });
 
 export function getCached<T>(key: string, ttl = CACHE_TTL.SCHEMA): T | null {
   const cached = cache.get(key);

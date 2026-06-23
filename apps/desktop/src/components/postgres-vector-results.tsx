@@ -11,7 +11,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable, type ColumnDef } from '@/components/data-table';
-import { Check, Copy, FileJson, Eye, Network } from 'lucide-react';
+import { Check, Copy, FileJson, Eye, Network, MoreVertical } from 'lucide-react';
 
 type PostgresVectorResultsProps = {
   readonly result: PostgresVectorSearchResult;
@@ -158,26 +158,41 @@ export function PostgresVectorResults({ result, onViewMap }: PostgresVectorResul
     [result.hits],
   );
 
-  // Row column first (widest, flex) then ID and Score — Actions suffix appended by DataTable.
-  const columns: ColumnDef<{ id: string | number; score: number; row: Record<string, unknown> }>[] = useMemo(
-    () => [
-      {
-        id: 'row',
-        header: 'Row',
-        accessor: (row) => row.row,
+  // Build columns dynamically from row keys, plus ID and Score
+  const columns: ColumnDef<{ id: string | number; score: number; row: Record<string, unknown> }>[] = useMemo(() => {
+    const rowKeys = result.hits.length > 0 ? Object.keys(result.hits[0].row).filter((k) => k !== 'rowid') : [];
+
+    const dataCols: ColumnDef<{ id: string | number; score: number; row: Record<string, unknown> }>[] = rowKeys.map(
+      (key) => ({
+        id: key,
+        header: key,
+        accessor: (row) => row.row[key],
         headerClassName: 'px-3 py-1.5 font-medium h-auto',
-        cellClassName: 'px-3 py-1.5',
-        render: (value) => (
-          <pre className="font-mono whitespace-pre-wrap break-all">{JSON.stringify(value, null, 2)}</pre>
-        ),
-      },
+        cellClassName: 'px-3 py-1.5 font-mono text-xs truncate max-w-48',
+        render: (value) => {
+          const str = value === null ? 'null' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+          return (
+            <span className="truncate block" title={str}>
+              {str}
+            </span>
+          );
+        },
+      }),
+    );
+
+    return [
+      ...dataCols,
       {
         id: 'id',
         header: 'ID',
         accessor: (row) => row.id,
         headerClassName: 'px-3 py-1.5 font-medium h-auto',
-        cellClassName: 'px-3 py-1.5 font-mono text-muted-foreground break-all',
-        render: (value) => <span>{String(value)}</span>,
+        cellClassName: 'px-3 py-1.5 font-mono text-muted-foreground truncate max-w-24',
+        render: (value) => (
+          <span className="truncate block" title={String(value)}>
+            {String(value)}
+          </span>
+        ),
       },
       {
         id: 'score',
@@ -187,9 +202,8 @@ export function PostgresVectorResults({ result, onViewMap }: PostgresVectorResul
         cellClassName: 'px-3 py-1.5 font-mono',
         render: (value) => <span>{(value as number).toFixed(6)}</span>,
       },
-    ],
-    [],
-  );
+    ];
+  }, [result.hits]);
 
   const openRow = useCallback((row: { id: string | number; score: number; row: Record<string, unknown> }) => {
     setSelectedRow({ ...row.row, id: row.id, score: row.score });
@@ -202,48 +216,46 @@ export function PostgresVectorResults({ result, onViewMap }: PostgresVectorResul
 
   return (
     <>
-      <DataTable
-        rows={rows}
-        columns={columns}
-        rowKey={(row) => String(row.id)}
-        fixedTemplate="minmax(0, 1fr) 160px 96px"
-        stickyHeader
-        emptyMessage="No results"
-        className="overflow-visible"
-        onRowClick={(row) => openRow(row)}
-        suffixHeader="Actions"
-        suffixWidth="64px"
-        suffix={(row) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
-                <path d="M8 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM9.5 12.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
-              </svg>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => openRow(row)}>
-                <Eye className="size-3.5 mr-2" />
-                View details
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row.row, null, 2))}>
-                <Copy className="size-3.5 mr-2" />
-                Copy row
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      />
-      <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
-        {onViewMap && (
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onViewMap}>
-            <Network className="size-3.5 mr-1.5" />
-            View map
-          </Button>
-        )}
-        <span className={onViewMap ? 'ml-auto' : ''}>
-          {result.hits.length} results in {result.durationMs}ms
-        </span>
+      <div className="min-h-0 flex flex-col border border-border rounded-md overflow-hidden">
+        <DataTable
+          rows={rows}
+          columns={columns}
+          rowKey={(row) => String(row.id)}
+          stickyHeader
+          emptyMessage="No results"
+          onRowClick={(row) => openRow(row)}
+          suffixHeader="Actions"
+          suffixWidth="64px"
+          suffix={(row) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <MoreVertical className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => openRow(row)}>
+                  <Eye className="size-3.5 mr-2" />
+                  View details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row.row, null, 2))}>
+                  <Copy className="size-3.5 mr-2" />
+                  Copy row
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        />
+        <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
+          {onViewMap && (
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onViewMap}>
+              <Network className="size-3.5 mr-1.5" />
+              View map
+            </Button>
+          )}
+          <span className={onViewMap ? 'ml-auto' : ''}>
+            {result.hits.length} results in {result.durationMs}ms
+          </span>
+        </div>
       </div>
       <Sheet
         open={selectedRow !== null}
