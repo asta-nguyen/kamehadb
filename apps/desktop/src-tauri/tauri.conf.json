@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "identifier": "com.kamehadb",
   "build": {
-    "beforeDevCommand": "pnpm --filter @kamehadb/desktop dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm --filter @kamehadb/desktop build",
     "frontendDist": "../dist"

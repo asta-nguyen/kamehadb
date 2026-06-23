@@ -4,7 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { useConnections } from '@/hooks/use-connections';
 import { api } from '@/lib/api';
 import { updateTabShellSessionId } from '@/store';
-import type { WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
 import '@xterm/xterm/css/xterm.css';
 
 interface MongoShellProps {

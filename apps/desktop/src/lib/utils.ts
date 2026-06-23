@@ -1,5 +1,3 @@
-export { cn } from 'cnfast';
-
 export function fuzzyMatch(query: string, target: string): boolean {
   const q = query.toLowerCase();
   const t = target.toLowerCase();

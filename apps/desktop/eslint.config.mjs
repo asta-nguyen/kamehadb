@@ -2,12 +2,10 @@
 
 import { parse, pattern, Lang } from "@ast-grep/napi";
 
-// ---------------------------------------------------------------------------
 // Local ast-grep rule that bans `as any`, console.log, and raw HTML elements.
 // We use a local rule instead of eslint-plugin-ast-grep because the upstream
 // plugin uses Lang.TypeScript for ALL TS/TSX files — it can't parse JSX.
 // Our rule checks context.filename and uses Lang.Tsx for .tsx files.
-// ---------------------------------------------------------------------------
 
 /** @type {import("eslint").Rule.RuleModule} */
 const noRestrictedSyntax = {
@@ -96,9 +94,7 @@ const localPlugin = {
   rules: { "no-restricted-syntax": noRestrictedSyntax },
 };
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -182,19 +178,19 @@ export default [
         },
         // <tr> → shadcn <TableRow>
         {
-          pattern: "<tr>$$$</tr>",
+          pattern: "<tr $$$>$$$</tr>",
           message:
             'Use shadcn <TableRow> component instead of raw <tr>.',
         },
         // <th> → shadcn <TableHead>
         {
-          pattern: "<th>$$$</th>",
+          pattern: "<th $$$>$$$</th>",
           message:
             'Use shadcn <TableHead> component instead of raw <th>.',
         },
         // <td> → shadcn <TableCell>
         {
-          pattern: "<td>$$$</td>",
+          pattern: "<td $$$>$$$</td>",
           message:
             'Use shadcn <TableCell> component instead of raw <td>.',
         },

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer } from 'react';
-import type { QdrantSearchResult, WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
+import type { QdrantSearchResult } from '@kamehadb/shared';
 import { useQdrantCollections, useQdrantPoints, useQdrantRecommend, useQdrantSearch } from '@/hooks/use-qdrant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -280,7 +281,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               onChange={(e) =>
                 dispatch({ type: 'setLimit', value: Math.max(1, Math.min(500, Number(e.target.value) || 1)) })
               }
-              className="h-7 w-16 px-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="h-7 w-16 px-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </Label>
           <Button size="sm" onClick={run} disabled={state.running} className="ml-auto">

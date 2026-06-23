@@ -124,7 +124,11 @@ export function DocumentTableView({
   const handleCopyRow = async (doc: Record<string, unknown>) => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(doc, null, 2));
-    } catch {}
+    } catch (err) {
+      // Clipboard write can fail from permissions or Tauri webview context;
+      // non-critical so just log rather than alerting the user.
+      console.warn('[Mongo] copy failed:', err);
+    }
   };
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = useMemo(
@@ -150,9 +154,11 @@ export function DocumentTableView({
             );
           }
           return (
-            <span
+            <Button
+              variant="ghost"
+              size="sm"
+              className="block w-full truncate justify-start font-normal text-left h-auto px-1"
               onClick={() => startEdit(rowIndex, col, value)}
-              className="block w-full truncate cursor-pointer"
               title={formatCellValue(value)}
             >
               {value === null ? (
@@ -160,7 +166,7 @@ export function DocumentTableView({
               ) : (
                 <span className={typeof value === 'object' ? 'text-primary' : ''}>{formatCellValue(value)}</span>
               )}
-            </span>
+            </Button>
           );
         },
       })),

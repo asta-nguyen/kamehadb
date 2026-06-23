@@ -8,6 +8,7 @@ import * as pty from 'node-pty';
 import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
+import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
 
 export const mongoRouter = new Hono();
 
@@ -313,7 +314,6 @@ interface MongoShellSession {
   disposable?: { dispose: () => void };
 }
 
-const SHELL_TIMEOUT_MS = 30 * 60 * 1000;
 const shellSessions = new Map<string, MongoShellSession>();
 
 // Prune expired sessions every 60 seconds

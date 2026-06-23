@@ -275,7 +275,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { updateTabAutoRun, updateTabSql } from '@/store';
-import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
+import type { QueryResult } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
 import {
   AlertCircle,

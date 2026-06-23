@@ -1,5 +1,8 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 
+const EDGE_THRESHOLD = 50;
+const SCROLL_SPEED = 6;
+
 type Options = {
   prefix?: string;
   suffix?: string;
@@ -176,8 +179,6 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
         // Auto-scroll when the mouse nears the scroll container edges so the
         // user can keep dragging a column past the visible viewport.
         if (scrollContainer) {
-          const EDGE_THRESHOLD = 50;
-          const SCROLL_SPEED = 6;
           const rect = scrollContainer.getBoundingClientRect();
           if (me.clientX > rect.right - EDGE_THRESHOLD) {
             scrollContainer.scrollLeft += SCROLL_SPEED;

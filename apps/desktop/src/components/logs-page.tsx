@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { appendFrontendLog, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
 import { navigateTo } from '@/store';
-import { cn } from '@/lib/utils';
+import { cn } from 'cnfast';
 
 type SourceFilter = 'all' | 'frontend' | 'tauri' | 'sidecar';
 type LevelFilter = 'all' | 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';

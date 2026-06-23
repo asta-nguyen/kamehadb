@@ -38,10 +38,10 @@ export const api = {
 
   getAISettings: () => request<import('@kamehadb/shared').AISettings>('GET', '/ai/settings'),
 
-  fetchAvailableModels: (baseUrl: string, apiKey?: string) => {
+  fetchAvailableModels: (baseUrl: string, apiKey?: string, signal?: AbortSignal) => {
     const params = new URLSearchParams({ baseUrl });
     if (apiKey) params.set('apiKey', apiKey);
-    return request<{ models: string[] }>('GET', `/ai/models?${params}`);
+    return request<{ models: string[] }>('GET', `/ai/models?${params}`, undefined, false, signal);
   },
 
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>

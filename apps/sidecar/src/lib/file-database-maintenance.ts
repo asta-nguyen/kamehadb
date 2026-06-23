@@ -8,9 +8,7 @@ import {
 } from '@kamehadb/shared';
 import { access, copyFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-
-const SQLITE_RELATED_SUFFIXES = ['-wal', '-shm'] as const;
-const DUCKDB_RELATED_SUFFIXES = ['.wal'] as const;
+import { SQLITE_RELATED_SUFFIXES, DUCKDB_RELATED_SUFFIXES } from './constants.js';
 
 type SupportedFileDatabaseProfile = ConnectionProfile & {
   readonly kind: 'sqlite' | 'duckdb';

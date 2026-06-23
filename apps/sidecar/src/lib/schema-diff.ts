@@ -13,14 +13,7 @@ import type {
   SchemaTableDiff,
   SchemaValueChange,
 } from '@kamehadb/shared';
-
-const COLUMN_FIELDS = [
-  'type',
-  'nullable',
-  'default',
-  'primaryKey',
-] as const satisfies readonly SchemaColumnChangeField[];
-const INDEX_FIELDS = ['columns', 'unique', 'primary'] as const satisfies readonly SchemaIndexChangeField[];
+import { COLUMN_FIELDS, INDEX_FIELDS } from './constants.js';
 
 function compareStringArrays(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);

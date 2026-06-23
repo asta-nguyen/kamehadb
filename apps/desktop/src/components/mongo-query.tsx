@@ -13,14 +13,14 @@ import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { Spinner } from '@/components/ui/spinner';
 import { Play, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChart3, Braces } from 'lucide-react';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { PAGE_LIMIT } from '@/lib/constants';
 import JSON5 from 'json5';
-import type { WorkspaceTab, DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
+import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
 import { buildMongoCompletionEntries, type MongoCompletionsData } from '@/lib/mongo-autocomplete';
 
 const Editor = lazy(() => import('@monaco-editor/react').then((m) => ({ default: m.Editor })));
-
-const PAGE_SIZE = 20;
 
 type MongoQueryProps = {
   tab: WorkspaceTab & { pipeline?: string };
@@ -215,7 +215,7 @@ function AggregationResult({
   page: number;
   onPageChange: (page: number) => void;
 }) {
-  const totalPages = Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(result.totalCount / PAGE_LIMIT));
   const columns = Array.from(new Set(result.documents.flatMap((doc) => Object.keys(doc))));
   const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(
     () =>
@@ -263,7 +263,7 @@ function AggregationResult({
               columns={tableColumns}
               rowKey={(doc, i) => String(doc._id ?? i)}
               showIndex
-              indexOffset={page * PAGE_SIZE}
+              indexOffset={page * PAGE_LIMIT}
               stickyHeader
               className="bg-background"
             />
@@ -281,7 +281,7 @@ function AggregationResult({
       <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
         <div className="text-xs text-muted-foreground">
           {result.documents.length > 0
-            ? `${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + result.documents.length} of ${result.totalCount}`
+            ? `${page * PAGE_LIMIT + 1}–${page * PAGE_LIMIT + result.documents.length} of ${result.totalCount}`
             : '0 results'}
         </div>
         <div className="flex items-center gap-2">
@@ -441,8 +441,8 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           collection: state.collection,
           database: state.db,
           pipeline: parsed,
-          skip: currentPage * PAGE_SIZE,
-          limit: PAGE_SIZE,
+          skip: currentPage * PAGE_LIMIT,
+          limit: PAGE_LIMIT,
         });
         dispatch({ type: 'finishRun', result: res, page: currentPage });
       } catch (err) {

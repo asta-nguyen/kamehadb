@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import type { WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
 import { DatabaseStats } from '@/components/database-stats';
 import { MigrationAssistant } from '@/components/migration-assistant';
 import { MongoQuery } from '@/components/mongo-query';
@@ -7,7 +7,7 @@ import { MongoShell } from '@/components/mongo-shell';
 import { MongoView } from '@/components/mongo-view';
 import { PostgresPsqlTab } from '@/components/postgres-psql-tab';
 import { PostgresVectorMap } from '@/components/postgres-vector-map';
-import { PostgresVectorQuery } from '@/components/postgres-vector-query';
+import { VectorQuery } from '@/components/vector-query';
 import { QdrantQuery } from '@/components/qdrant-query';
 import { QdrantView } from '@/components/qdrant-view';
 import { RedisQuery } from '@/components/redis-query';
@@ -17,7 +17,6 @@ import { SchemaGraph } from '@/components/schema-graph';
 import { SchemaTimeline } from '@/components/schema-timeline';
 import { SqlEditor } from '@/components/sql-editor';
 import { SqliteVecMap } from '@/components/sqlite-vec-map';
-import { SqliteVecQuery } from '@/components/sqlite-vec-query';
 import { TableStats } from '@/components/table-stats';
 import { TableView } from '@/components/table-view';
 
@@ -51,13 +50,13 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
   }
   if (activeTab.type === 'postgres-vector-search') {
-    return <PostgresVectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+    return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'postgres-vector-map') {
     return <PostgresVectorMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'sqlite-vec-search') {
-    return <SqliteVecQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+    return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'sqlite-vec-map') {
     return <SqliteVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;

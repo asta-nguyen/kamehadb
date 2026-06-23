@@ -3,10 +3,10 @@ import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
+import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
 
 let db: Database.Database | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
-const DEFAULT_AI_PROVIDER = 'openai' satisfies AIProvider;
 
 function createDefaultAISettings(): AISettings {
   return {
@@ -320,21 +320,9 @@ export function initMetadataStore(dbPath: string): void {
     // Migration already applied or no rows to update
   }
 
-  // Create sqlite-vec virtual table for schema embeddings.
-  // Uses a fixed dimension of 1536 (OpenAI text-embedding-ada-002 / text-embedding-3-small).
-  // Other providers may produce different dimensions — the table is recreated on mismatch.
-  try {
-    db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS schema_vec USING vec0(
-        connection_id TEXT,
-        table_id TEXT,
-        embedding float[1536]
-      );
-    `);
-  } catch (e) {
-    console.warn('[MetadataStore] Failed to create schema_vec table:', e instanceof Error ? e.message : e);
-  }
-
+  // schema_embeddings table stores the DDL text and hash for each indexed table.
+  // schema_vec virtual table is created lazily by vec-store.ts ensureVecTable()
+  // with the correct embedding dimension for the active AI provider.
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_embeddings (
       connection_id TEXT NOT NULL,

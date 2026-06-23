@@ -3,8 +3,6 @@ import { createEmbedding } from './provider.js';
 import crypto from 'node:crypto';
 import { getDb } from '../db/metadata-store.js';
 
-const EMBEDDING_DIM = 1536;
-
 type Column = {
   name: string;
   type: string;
@@ -234,7 +232,6 @@ function deleteOrphanedRows(connectionId: string, validTableIds: Set<string>): v
     }
   });
   tx(orphans);
-  console.log(`[VecStore] Deleted ${orphans.length} orphaned entries for ${connectionId}`);
 }
 
 export async function buildSchemaIndex(

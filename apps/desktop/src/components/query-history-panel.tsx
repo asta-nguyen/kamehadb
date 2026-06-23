@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDeleteQueryHistory, useQueryHistory, useUpdateQueryHistory } from '@/hooks/use-query-history';
-import { cn } from '@/lib/utils';
+import { cn } from 'cnfast';
 import type { QueryHistoryEntry } from '@kamehadb/shared';
 import { Clock, Heart, History, Search, Trash2, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';

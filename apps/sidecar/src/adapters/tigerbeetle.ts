@@ -1,6 +1,7 @@
 import { createClient } from 'tigerbeetle-node';
 import type { Client } from 'tigerbeetle-node';
 import { lookup as dnsLookup } from 'node:dns/promises';
+import { TB_CREATED } from '../lib/constants.js';
 
 export type TigerBeetleAdapter = {
   testConnection(): Promise<{ success: boolean; message?: string; serverVersion?: string }>;
@@ -85,11 +86,6 @@ export type CreateResultRow = {
   status: string;
   timestamp?: string;
 };
-
-// TigerBeetle "created" = 4294967295 (0xFFFF_FFFF as u32).
-// Any other status value is an error code; return the raw number so the user
-// can look it up in TigerBeetle docs / CreateAccountStatus / CreateTransferStatus.
-const TB_CREATED = 4294967295;
 
 function toAccountRow(a: {
   id: bigint;

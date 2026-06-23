@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useColumnResize } from '@/hooks/use-column-resize';
-import { cn } from '@/lib/utils';
+import { cn } from 'cnfast';
 import { ArrowDown, ArrowUp, Table2 } from 'lucide-react';
 import { useCallback, useState, type ReactNode } from 'react';
 

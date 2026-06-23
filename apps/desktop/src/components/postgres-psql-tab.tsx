@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
 import { TerminalPane } from '@/components/terminal-pane';
 import { useConnections } from '@/hooks/use-connections';
 import { useTerminalSession } from '@/hooks/use-terminal-session';

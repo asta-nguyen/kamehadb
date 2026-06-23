@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { useRedisCommand } from '@/hooks/use-redis-command';
 import { updateTabCommand } from '@/store';
-import type { RedisCommandResult, WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
+import type { RedisCommandResult } from '@kamehadb/shared';
 import type { Monaco, OnMount } from '@monaco-editor/react';
 import { AlertCircle, Clock, Play, Terminal } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';

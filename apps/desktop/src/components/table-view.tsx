@@ -5,7 +5,6 @@ import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/h
 import { useRunQuery } from '@/hooks/use-query';
 import { useFieldVisibility } from '@/hooks/use-field-visibility';
 import { TableStats } from '@/components/table-stats';
-import { TableEditabilityNotice } from '@/components/table-editability-notice';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -43,7 +42,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { buildRowUpdateQuery, getTableEditabilityState } from '@/lib/table-editability';
+import { buildRowUpdateQuery } from '@/lib/table-editability';
 
 type TableViewProps = {
   connectionId: string;
@@ -144,11 +143,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     () => (columns && columns.length > 0 ? columns.filter((c) => c.primaryKey).map((c) => c.name) : []),
     [columns],
   );
-
-  const editability = getTableEditabilityState({
-    hasPrimaryKey: pkColumns.length > 0,
-    isReadOnly: false,
-  });
 
   // Only show the missing-PK warning after schema metadata has loaded,
   // because preview rows often arrive before columns and otherwise the UI
@@ -264,8 +258,10 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         }
         return (
           <span
-            onDoubleClick={editability.canEditCells ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
-            className={editability.canEditCells ? 'cursor-pointer block w-full' : 'block w-full'}
+            onDoubleClick={
+              pkColumns.length > 0 && !isView ? () => setEditingCell({ rowIndex, column: col.name }) : undefined
+            }
+            className={pkColumns.length > 0 && !isView ? 'cursor-pointer block w-full' : 'block w-full'}
           >
             {value === null ? (
               <span className="text-muted-foreground italic">null</span>
@@ -355,11 +351,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           )}
         </div>
       </div>
-      {editability.warningMessage && editability.warningTone && (
-        <div className="shrink-0">
-          <TableEditabilityNotice message={editability.warningMessage} tone={editability.warningTone} />
-        </div>
-      )}
+
       {isView && (
         <div className="mb-2 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 rounded-md">
           This is a view — in-cell editing is not supported.

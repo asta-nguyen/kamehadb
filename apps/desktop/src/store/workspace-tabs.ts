@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
 import { appStore } from './state';
 
 export function openTab(tab: WorkspaceTab): void {

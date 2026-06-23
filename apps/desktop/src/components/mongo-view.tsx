@@ -8,15 +8,15 @@ import { AlertCircle, Activity } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartView } from '@/components/chart-view';
-import type { WorkspaceTab, QueryResult } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
+import type { QueryResult } from '@kamehadb/shared';
 import { DocumentCard } from '@/components/mongo-document-card';
 import { DocumentTableView } from '@/components/mongo-document-table-view';
 import { MongoViewHeader } from '@/components/mongo-view-header';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
-
-const PAGE_LIMIT = 20;
+import { PAGE_LIMIT } from '@/lib/constants';
 
 // Derive column metadata from every document so sparse Mongo fields remain
 // available to chart and table consumers.
