@@ -48,7 +48,6 @@ dist/
 .openez/
 
 # CodeDB (local index - never commit)
-codedb.snapshot
 .codegraph/
 .pnpm-store
 .serena/

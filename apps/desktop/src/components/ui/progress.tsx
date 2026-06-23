@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from 'cnfast';
 import * as React from 'react';
 
 function Progress({ className, ref, value = 0, ...props }: React.ComponentProps<'div'> & { value?: number }) {

@@ -27,6 +27,7 @@ import {
   Copy,
   Database,
   MoreHorizontal,
+  Pencil,
   Play,
   RefreshCw,
   Settings2,
@@ -197,18 +198,91 @@ function formatChatTime(date?: Date) {
 
 type UserMessageProps = {
   msg: ChatMessage;
+  onResend?: (messageId: string, newText: string) => void;
+  disabled?: boolean;
 };
 
-function UserMessage({ msg }: UserMessageProps) {
+function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const startEdit = () => {
+    setDraft(getChatTextContent(msg));
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setDraft('');
+  };
+
+  const submitEdit = () => {
+    const trimmed = draft.trim();
+    if (!trimmed || !onResend) return;
+    setEditing(false);
+    onResend(msg.id, trimmed);
+  };
+
   return (
     <div className="mb-3 flex justify-end">
       <div className="group max-w-[88%]">
         {msg.createdAt && (
           <div className="mb-0.5 px-1 text-right text-xs text-muted-foreground/45">{formatChatTime(msg.createdAt)}</div>
         )}
-        <div className="whitespace-pre-wrap rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
-          {getChatTextContent(msg)}
-        </div>
+        {editing ? (
+          <div className="rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  submitEdit();
+                } else if (e.key === 'Escape') {
+                  cancelEdit();
+                }
+              }}
+              className="w-full resize-none bg-transparent text-sm leading-relaxed text-foreground/90 outline-none min-h-20"
+              autoFocus
+            />
+            <div className="mt-1 flex justify-end gap-1">
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={cancelEdit}>
+                Cancel
+              </Button>
+              <Button variant="default" size="sm" className="h-6 text-xs" onClick={submitEdit} disabled={!draft.trim()}>
+                Send
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm leading-relaxed text-foreground/90">
+            {getChatTextContent(msg)}
+          </div>
+        )}
+        {!editing && onResend && (
+          <div className="mt-0.5 flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={startEdit}
+              disabled={disabled}
+            >
+              <Pencil className="size-2.5" />
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={() => onResend(msg.id, getChatTextContent(msg))}
+              disabled={disabled}
+            >
+              <RefreshCw className="size-2.5" />
+              Resend
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -312,7 +386,7 @@ function AssistantMessage({ msg, connectionId }: AssistantMessageProps) {
             block.value && (
               <div
                 key={block.value.slice(0, 50)}
-                className="text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
+                className="break-words text-sm leading-relaxed text-foreground/90 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-1.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5"
               >
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.value}</ReactMarkdown>
               </div>
@@ -606,7 +680,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
             {chat.messages.map((msg, i) => {
               const isLastAssistant = chat.isLoading && i === chat.messages.length - 1 && msg.role === 'assistant';
               if (msg.role === 'user') {
-                return <UserMessage key={msg.id} msg={msg} />;
+                return <UserMessage key={msg.id} msg={msg} onResend={chat.resendFrom} disabled={chat.isLoading} />;
               }
               if (isLastAssistant) {
                 return <StreamingAssistantMessage key={msg.id} msg={msg} />;

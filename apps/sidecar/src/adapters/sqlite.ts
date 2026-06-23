@@ -21,7 +21,7 @@ import type {
 } from '@kamehadb/shared';
 
 export function createSqliteAdapter(filePath: string): SqlAdapter {
-  const db = new Database(filePath, { readonly: true });
+  const db = new Database(filePath, { readonly: false });
 
   return {
     async testConnection(): Promise<TestConnectionResult> {
@@ -39,7 +39,9 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
     async listTables(): Promise<TableInfo[]> {
       const rows = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql NOT LIKE '%vec0%' ORDER BY name",
+        )
         .all() as { name: string }[];
 
       return rows.map((r) => ({
@@ -55,7 +57,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
       const tables = db
         .prepare(
-          `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name LIKE ? ORDER BY name LIMIT ?`,
+          `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql NOT LIKE '%vec0%' AND name LIKE ? ORDER BY name LIMIT ?`,
         )
         .all(term, limit) as { name: string }[];
 
@@ -65,7 +67,9 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
       if (results.length < limit) {
         const allTables = db
-          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql NOT LIKE '%vec0%' ORDER BY name",
+          )
           .all() as { name: string }[];
 
         const colLimit = limit - results.length;
@@ -129,7 +133,9 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
 
     async getCompletions(schema?: string): Promise<TableCompletions[]> {
       const tables = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql NOT LIKE '%vec0%' ORDER BY name",
+        )
         .all() as { name: string }[];
       const getColumns = db.prepare('SELECT * FROM pragma_table_info(?)');
       const getFKs = db.prepare('SELECT * FROM pragma_foreign_key_list(?)');
@@ -229,7 +235,20 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
     async runQuery(input: RunQueryInput): Promise<QueryResult> {
       const start = performance.now();
       const stmt = db.prepare(input.query);
-      const rows = (input.params ? stmt.all(...(input.params as unknown[])) : stmt.all()) as Record<string, unknown>[];
+      let rows: Record<string, unknown>[] = [];
+      let rowCount = 0;
+
+      try {
+        rows = (input.params ? stmt.all(...(input.params as unknown[])) : stmt.all()) as Record<string, unknown>[];
+        rowCount = rows.length;
+      } catch (error) {
+        if (!(error instanceof Error) || !error.message.includes('does not return data')) {
+          throw error;
+        }
+        const result = input.params ? stmt.run(...(input.params as unknown[])) : stmt.run();
+        rowCount = result.changes;
+      }
+
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] =
@@ -238,7 +257,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       return {
         columns,
         rows,
-        rowCount: rows.length,
+        rowCount,
         durationMs: Math.round(durationMs),
         truncated: false,
       };
@@ -304,7 +323,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
     async getDatabaseSizes(): Promise<DatabaseSize[]> {
       const tables = db
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'dbstat' ORDER BY name",
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'dbstat' AND sql NOT LIKE '%vec0%' ORDER BY name",
         )
         .all() as { name: string }[];
 

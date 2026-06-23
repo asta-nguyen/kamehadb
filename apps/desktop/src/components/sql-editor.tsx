@@ -1,13 +1,17 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
+import { useTableColumns } from '@/hooks/use-schema';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
+import { TableEditabilityNotice } from '@/components/table-editability-notice';
 import { api } from '@/lib/api';
+import { buildRowUpdateQuery, getQueryResultEditabilityState, inferSimpleSelectTableId } from '@/lib/table-editability';
 import type { OnMount } from '@monaco-editor/react';
 import type { editor as monacoEditor } from 'monaco-editor';
 import { useQuery } from '@tanstack/react-query';
-import { lazy, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 const Editor = lazy(() => import('@monaco-editor/react'));
 
 // SQL keywords that can begin a new statement. Used to detect blank-line-separated
@@ -271,7 +275,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { downloadResult } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { updateTabAutoRun, updateTabSql } from '@/store';
-import type { QueryResult, WorkspaceTab } from '@kamehadb/shared';
+import type { WorkspaceTab } from '@/lib/types';
+import type { QueryResult } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
 import {
   AlertCircle,
@@ -279,7 +284,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Copy,
   Download,
+  Ellipsis,
+  Eye,
   FileJson,
   History,
   Loader2,
@@ -305,16 +313,22 @@ type SqlEditorProps = {
 };
 
 function QueryResultTable({
+  connectionId,
+  executedSql,
   result,
   onSelectRow,
+  onRefresh,
   queryLimit,
   offset,
   onPrevPage,
   onNextPage,
   onLimitChange,
 }: {
+  connectionId: string;
+  executedSql: string;
   result: QueryResult;
   onSelectRow: (row: Record<string, unknown>) => void;
+  onRefresh: () => void;
   queryLimit: number;
   offset: number;
   onPrevPage: () => void;
@@ -322,6 +336,78 @@ function QueryResultTable({
   onLimitChange: (newLimit: number) => void;
 }) {
   const tableRef = useRef<HTMLDivElement>(null);
+  const runQuery = useRunQuery(connectionId);
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; column: string } | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const editableTableId = useMemo(() => inferSimpleSelectTableId(executedSql), [executedSql]);
+  const { data: tableColumns } = useTableColumns(connectionId, editableTableId);
+  const editability = getQueryResultEditabilityState({
+    querySql: executedSql,
+    resultColumns: result.columns,
+    tableColumns,
+    isReadOnly: false,
+  });
+  const pkColumns = useMemo(
+    () =>
+      tableColumns && tableColumns.length > 0
+        ? tableColumns.filter((column) => column.primaryKey).map((column) => column.name)
+        : [],
+    [tableColumns],
+  );
+  const dateColumns = useMemo(
+    () =>
+      new Set(
+        (tableColumns ?? [])
+          .filter((column) => {
+            const type = column.type.toLowerCase();
+            return (
+              type === 'date' ||
+              type === 'timestamp' ||
+              type === 'timestamptz' ||
+              type === 'datetime' ||
+              type.startsWith('timestamp')
+            );
+          })
+          .map((column) => column.name),
+      ),
+    [tableColumns],
+  );
+
+  const saveCellEdit = useCallback(
+    (rowIndex: number, column: string, newValue: string, columnType?: string) => {
+      setEditingCell(null);
+      if (!editability.canEditCells || !editability.tableId) return;
+      const row = result.rows[rowIndex];
+      if (!row) return;
+      const oldValue = row[column];
+      if (String(oldValue ?? '') === newValue) return;
+
+      const sql = buildRowUpdateQuery({
+        tableId: editability.tableId,
+        row,
+        column,
+        newValue,
+        columnType,
+        pkColumns,
+        allColumnNames: result.columns.map((resultColumn) => resultColumn.name),
+        dateColumns,
+      });
+
+      runQuery.mutate(
+        { query: sql },
+        {
+          onSuccess: () => {
+            onRefresh();
+          },
+          onError: (error) => {
+            console.error('Failed to update query result row:', error);
+            onRefresh();
+          },
+        },
+      );
+    },
+    [dateColumns, editability, onRefresh, pkColumns, result.columns, result.rows, runQuery],
+  );
 
   const columns: ColumnDef<Record<string, unknown>>[] = result.columns.map((col) => ({
     id: col.name,
@@ -332,20 +418,100 @@ function QueryResultTable({
       </span>
     ),
     accessor: (row) => row[col.name],
-    headerClassName: 'px-3 text-left whitespace-nowrap',
-    cellClassName: 'px-3',
+    render: (value, _row, rowIndex) => {
+      const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.column === col.name;
+      const isDate = dateColumns.has(col.name);
+      if (isEditing) {
+        const inputType =
+          isDate && typeof value === 'string'
+            ? col.type.toLowerCase() === 'date'
+              ? 'date'
+              : 'datetime-local'
+            : 'text';
+        const formatDefault = (inputValue: unknown): string => {
+          if (inputValue === null || inputValue === undefined) return '';
+          const stringValue = String(inputValue);
+          if (isDate && stringValue.includes('T')) {
+            if (inputType === 'date') return stringValue.slice(0, 10);
+            return stringValue.slice(0, 16);
+          }
+          return stringValue;
+        };
+
+        return (
+          <Input
+            ref={editInputRef}
+            type={inputType}
+            defaultValue={formatDefault(value)}
+            autoFocus
+            className="h-7 min-w-0 text-xs"
+            onClick={(event) => event.stopPropagation()}
+            onBlur={(event) => setTimeout(() => saveCellEdit(rowIndex, col.name, event.target.value, col.type), 150)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.currentTarget.blur();
+              } else if (event.key === 'Escape') {
+                setEditingCell(null);
+              }
+            }}
+          />
+        );
+      }
+
+      return (
+        <span
+          onDoubleClick={editability.canEditCells ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
+          className={editability.canEditCells ? 'block w-full cursor-pointer' : 'block w-full'}
+        >
+          {value === null ? (
+            <span className="text-muted-foreground italic">null</span>
+          ) : value === undefined ? (
+            <span className="text-muted-foreground">-</span>
+          ) : typeof value === 'object' ? (
+            <span className="text-primary">{JSON.stringify(value)}</span>
+          ) : (
+            <span>{String(value)}</span>
+          )}
+        </span>
+      );
+    },
   }));
 
   return (
-    <div ref={tableRef} className="p-4">
-      <div className="overflow-auto border rounded-md">
-        <DataTable
-          rows={result.rows}
-          columns={columns}
-          rowKey={(_, i) => String(i)}
-          showIndex
-          onRowClick={(row) => onSelectRow(row)}
-        />
+    <div ref={tableRef} className="flex flex-col h-full min-h-0 p-4">
+      {editability.warningMessage && editability.warningTone && (
+        <TableEditabilityNotice message={editability.warningMessage} tone={editability.warningTone} />
+      )}
+      <div className="min-h-0 overflow-hidden border border-border rounded-md">
+        <div className="overflow-auto max-h-full">
+          <DataTable
+            rows={result.rows}
+            columns={columns}
+            rowKey={(_, i) => String(i)}
+            showIndex
+            stickyHeader
+            onRowClick={editability.canEditCells ? undefined : (row) => onSelectRow(row)}
+            suffixHeader="Actions"
+            suffixWidth="64px"
+            suffix={(row) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                  <Ellipsis className="size-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => onSelectRow(row)}>
+                    <Eye className="size-3.5 mr-2" />
+                    View details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
+                    <Copy className="size-3.5 mr-2" />
+                    Copy row
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          />
+        </div>
       </div>
       <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
@@ -412,6 +578,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<QueryResult[]>([]);
+  const [executedStatements, setExecutedStatements] = useState<string[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const [isExecutingBatch, setIsExecutingBatch] = useState(false);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
@@ -466,6 +633,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       setError(null);
       setResult(null);
       setResults([]);
+      setExecutedStatements([]);
       setActiveResultIndex(0);
       setIsExecutingBatch(true);
       // Clear previous error markers before a new execution
@@ -494,8 +662,10 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         resultKeyRef.current++;
         if (allResults.length === 1) {
           setResult(allResults[0]);
+          setExecutedStatements([statements[0]]);
         } else {
           setResults(allResults);
+          setExecutedStatements(statements);
           setActiveResultIndex(0);
         }
       } catch (err) {
@@ -588,6 +758,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     const fullQuery = queryWithLimit(baseSqlRef.current, queryLimit, newOffset);
     void executeQuery(fullQuery);
   }, [offset, queryLimit, executeQuery]);
+
+  const refreshCurrentResult = useCallback(() => {
+    const fullQuery = queryWithLimit(baseSqlRef.current, queryLimit, offset);
+    void executeQuery(fullQuery);
+  }, [executeQuery, offset, queryLimit]);
 
   // Ref to avoid stale closure in Monaco keybinding (registered once on mount)
   const handleRunRef = useRef(handleRun);
@@ -811,8 +986,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                   ) : (
                     <QueryResultTable
                       key={`${resultKeyRef.current}-${activeResultIndex}`}
+                      connectionId={connectionId}
+                      executedSql={executedStatements[activeResultIndex] ?? baseSqlRef.current}
                       result={results[activeResultIndex]}
                       onSelectRow={setSelectedRow}
+                      onRefresh={refreshCurrentResult}
                       queryLimit={queryLimit}
                       offset={offset}
                       onPrevPage={goPrevPage}
@@ -839,8 +1017,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
               ) : (
                 <QueryResultTable
                   key={resultKeyRef.current}
+                  connectionId={connectionId}
+                  executedSql={executedStatements[0] ?? baseSqlRef.current}
                   result={result}
                   onSelectRow={setSelectedRow}
+                  onRefresh={refreshCurrentResult}
                   queryLimit={queryLimit}
                   offset={offset}
                   onPrevPage={goPrevPage}

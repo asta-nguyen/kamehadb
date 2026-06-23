@@ -99,7 +99,7 @@ function ChangeBadge({ type }: { type: SchemaChangeDescriptor['type'] }) {
   const label = type.replace(/_/g, ' ');
   const variant = type.includes('added') ? 'default' : type.includes('removed') ? 'destructive' : 'secondary';
   return (
-    <Badge variant={variant} className="text-[10px] px-1.5 py-0 h-4">
+    <Badge variant={variant} className="shrink-0 whitespace-nowrap text-[10px] px-1.5 py-0 h-4">
       {label}
     </Badge>
   );

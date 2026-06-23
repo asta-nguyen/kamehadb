@@ -300,7 +300,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             max={500}
             value={state.pageSize}
             onChange={(e) => changePageSize(Number(e.target.value) || 1)}
-            className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
               placeholder={String(state.offsetStack.length)}
               onChange={(e) => dispatch({ type: 'setPageInput', value: e.target.value })}
               onKeyDown={(e) => e.key === 'Enter' && jumpToPage()}
-              className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="h-6 w-16 px-1.5 bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </Label>
           <Button variant="outline" size="sm" onClick={jumpToPage} disabled={state.jumping}>

@@ -26,6 +26,7 @@ import {
   Eye,
   Activity,
   Download,
+  Ellipsis,
   Search,
   ArrowUp,
   ArrowDown,
@@ -41,6 +42,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { buildRowUpdateQuery } from '@/lib/table-editability';
 
 type TableViewProps = {
   connectionId: string;
@@ -147,14 +149,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   // flashes a false "No primary key" state during the first render.
   const showNoPrimaryKeyWarning = !isLoadingColumns && !!columns && pkColumns.length === 0 && !isView;
 
-  // Escape a raw input value for SQL (strings get single-quoted with doubled quotes).
-  const escapeVal = (v: unknown): string => {
-    if (v === null || v === undefined) return 'NULL';
-    if (typeof v === 'number') return String(v);
-    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
-    return `'${String(v).replace(/'/g, "''")}'`;
-  };
-
   const page = Math.floor(state.offset / state.pageSize) + 1;
   // Prefer schema metadata because several adapters cannot infer columns from
   // an empty page; result metadata remains the fallback while schema loads.
@@ -187,33 +181,16 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
       if (!row) return;
       const oldValue = row[column];
       if (String(oldValue ?? '') === newValue) return;
-
-      // When editing a PK column, WHERE must use the OLD value (before edit).
-      // When no PK columns exist, use ALL columns to identify the row so
-      // the WHERE clause uniquely matches (or at worst matches true duplicates).
-      const whereCols = pkColumns.length > 0 ? pkColumns : displayColumnNames;
-      const whereClause = whereCols
-        .map((pk) => {
-          const val = pk === column ? oldValue : row[pk];
-          const escaped = val === null || val === undefined ? 'NULL' : escapeVal(val);
-          return `"${pk}" IS NOT DISTINCT FROM ${escaped}`;
-        })
-        .join(' AND ');
-
-      let setClause: string;
-      if (newValue === '') {
-        setClause = `"${column}" = NULL`;
-      } else if (colType && dateColumns.has(column)) {
-        // For date/timestamp columns, use an explicit cast so the value is
-        // interpreted correctly regardless of the session date format.
-        const castTo = colType.includes('timestamp') || colType === 'timestamptz' ? 'timestamp' : 'date';
-        setClause = `"${column}" = '${newValue.replace(/'/g, "''")}'::${castTo}`;
-      } else {
-        setClause = `"${column}" = ${escapeVal(newValue)}`;
-      }
-      // If tableId already has a schema prefix (e.g. "public.users"), use as-is
-      const qualifiedTable = tableId.includes('.') ? tableId : `"${tableId}"`;
-      const sql = `UPDATE ${qualifiedTable} SET ${setClause} WHERE ${whereClause}`;
+      const sql = buildRowUpdateQuery({
+        tableId,
+        row,
+        column,
+        newValue,
+        columnType: colType,
+        pkColumns,
+        allColumnNames: displayColumnNames,
+        dateColumns,
+      });
 
       runQuery.mutate(
         { query: sql },
@@ -228,7 +205,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         },
       );
     },
-    [result, pkColumns, dateColumns, runQuery, queryClient, connectionId, tableId],
+    [result, pkColumns, dateColumns, runQuery, queryClient, connectionId, tableId, displayColumnNames],
   );
 
   const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns
@@ -281,8 +258,10 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         }
         return (
           <span
-            onDoubleClick={pkColumns.length > 0 ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
-            className={pkColumns.length > 0 ? 'cursor-pointer block w-full' : 'block w-full'}
+            onDoubleClick={
+              pkColumns.length > 0 && !isView ? () => setEditingCell({ rowIndex, column: col.name }) : undefined
+            }
+            className={pkColumns.length > 0 && !isView ? 'cursor-pointer block w-full' : 'block w-full'}
           >
             {value === null ? (
               <span className="text-muted-foreground italic">null</span>
@@ -309,8 +288,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   if (!result) return null;
 
   return (
-    <>
-      <div className="flex items-center gap-2 mb-3">
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
         <div className="relative flex-1 max-w-64">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
           <Input
@@ -372,6 +351,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           )}
         </div>
       </div>
+
       {isView && (
         <div className="mb-2 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 rounded-md">
           This is a view — in-cell editing is not supported.
@@ -382,46 +362,46 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           No primary key — in-cell editing disabled to prevent ambiguous row updates.
         </div>
       )}
-      <div className="border rounded-md">
-        <DataTable
-          rows={result.rows}
-          columns={tableColumns}
-          rowKey={(_, i) => String(i)}
-          suffixHeader="Actions"
-          suffixWidth="64px"
-          suffixCellClassName="bg-background"
-          showIndex
-          indexOffset={state.offset}
-          onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
-          sortColumn={state.sortColumn}
-          sortDirection={state.sortDirection}
-          suffix={(row) => (
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-3.5">
-                  <path d="M8 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM8 6.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM9.5 12.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0Z" />
-                </svg>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
-                  <Eye className="size-3.5 mr-2" />
-                  View details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
-                  <Copy className="size-3.5 mr-2" />
-                  Copy row
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
-                  <Trash2 className="size-3.5 mr-2" />
-                  Delete row
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          className="text-xs"
-        />
+      <div className="min-h-0 max-h-full flex flex-col border border-border rounded-md overflow-hidden">
+        <div className="overflow-auto min-h-0">
+          <DataTable
+            rows={result.rows}
+            columns={tableColumns}
+            rowKey={(_, i) => String(i)}
+            suffixHeader="Actions"
+            suffixWidth="64px"
+            showIndex
+            indexOffset={state.offset}
+            stickyHeader
+            onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
+            sortColumn={state.sortColumn}
+            sortDirection={state.sortDirection}
+            suffix={(row) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                  <Ellipsis className="size-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
+                    <Eye className="size-3.5 mr-2" />
+                    View details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
+                    <Copy className="size-3.5 mr-2" />
+                    Copy row
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
+                    <Trash2 className="size-3.5 mr-2" />
+                    Delete row
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            className="text-xs"
+          />
+        </div>
         {result && (
-          <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2">
+          <div className="shrink-0 px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2 rounded-b-md">
             <div className="flex items-center gap-1">
               <Select
                 value={String(state.pageSize)}
@@ -506,7 +486,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           <RecordDetailTabs selectedRow={state.selectedRow} />
         </SheetContent>
       </Sheet>
-    </>
+    </div>
   );
 }
 
@@ -690,7 +670,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="data" className="flex-1 p-4 pt-2 overflow-auto">
+        <TabsContent value="data" className="flex-1 p-4 pt-2 overflow-hidden min-h-0">
           <DataGrid connectionId={connectionId} tableId={tableId} />
         </TabsContent>
 

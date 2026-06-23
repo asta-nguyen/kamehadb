@@ -74,13 +74,54 @@ export type WorkspaceTab =
       readonly fromSnapshotId?: string;
       readonly toSnapshotId?: string;
     }
+  | { readonly id: string; readonly type: 'postgres-psql'; readonly title: string; readonly connectionId: string }
   | { readonly id: string; readonly type: 'tigerbeetle'; readonly title: string; readonly connectionId: string }
+  | {
+      readonly id: string;
+      readonly type: 'postgres-vector-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table?: string;
+      readonly schema?: string;
+      readonly column?: string;
+      readonly vectorText?: string;
+      readonly mode?: 'similar' | 'raw';
+    }
+  | {
+      readonly id: string;
+      readonly type: 'postgres-vector-map';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table: string;
+      readonly schema: string;
+      readonly column: string;
+      readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+    }
   | {
       readonly id: string;
       readonly type: 'mongo-shell';
       readonly title: string;
       readonly connectionId: string;
       readonly sessionId?: string;
+    }
+  | {
+      readonly id: string;
+      readonly type: 'sqlite-vec-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table?: string;
+      readonly column?: string;
+      readonly vectorText?: string;
+      readonly mode?: 'similar' | 'raw';
+    }
+  | {
+      readonly id: string;
+      readonly type: 'sqlite-vec-map';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table: string;
+      readonly column: string;
+      readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
     };
 
 export type AppView = 'workspace' | 'api-settings' | 'logs';

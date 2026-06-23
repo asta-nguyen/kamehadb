@@ -39,7 +39,7 @@ export function DataFooter({
   const maxPage = Math.max(0, Math.ceil(totalCount / pageSize) - 1);
   return (
     <div
-      className={`px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3 ${
+      className={`px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3 rounded-b-md ${
         className ?? ''
       }`}
     >

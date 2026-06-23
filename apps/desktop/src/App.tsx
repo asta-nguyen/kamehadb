@@ -1,5 +1,6 @@
 import { ApiSettingsPage } from '@/components/api-settings-page';
 import { GlobalSearch } from '@/components/global-search';
+import { ShortcutsDialog } from '@/components/shortcuts-dialog';
 import { LogsPage } from '@/components/logs-page';
 import { Sidebar } from '@/components/sidebar';
 import { MainLayout } from '@/components/workspace-screen';
@@ -8,10 +9,22 @@ import { appendFrontendLog } from '@/lib/app-logs';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { api } from '@/lib/api';
-import { applyTheme, appStore, closeAllTabs, closeTab, navigateTo, setTheme } from '@/store';
+import {
+  applyTheme,
+  appStore,
+  closeAllTabs,
+  closeTab,
+  navigateTo,
+  openNewQueryTab,
+  openAiChatPanel,
+  setTheme,
+} from '@/store';
 import { useStore } from '@tanstack/react-store';
-import { Monitor, Moon, Search, Sun, TriangleAlert } from 'lucide-react';
+import { Monitor, Moon, Search, Sun, TriangleAlert, Keyboard } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { isSqlKind } from '@/lib/constants';
+import { toast } from 'sonner';
+import { useConnections } from '@/hooks/use-connections';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -78,7 +91,13 @@ function formatUnknownError(reason: unknown): {
   };
 }
 
-function Header({ onSearchOpen }: { readonly onSearchOpen: () => void }) {
+function Header({
+  onSearchOpen,
+  onShortcutsOpen,
+}: {
+  readonly onSearchOpen: () => void;
+  readonly onShortcutsOpen: () => void;
+}) {
   return (
     <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-3">
@@ -97,6 +116,18 @@ function Header({ onSearchOpen }: { readonly onSearchOpen: () => void }) {
             <span>⌘</span>K
           </kbd>
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onShortcutsOpen}
+          className="gap-1.5 text-xs text-muted-foreground/60"
+          title="Keyboard shortcuts"
+        >
+          <Keyboard className="size-3.5" />
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50 sm:inline-flex">
+            <span>⌘</span>/
+          </kbd>
+        </Button>
         <Button variant="outline" size="sm" onClick={() => navigateTo('logs')} className="gap-1.5 text-xs">
           <TriangleAlert className="size-3.5" />
           <span className="hidden sm:inline">Logs</span>
@@ -111,7 +142,7 @@ function App() {
   const view = useStore(appStore, (state) => state.view);
   const theme = useStore(appStore, (state) => state.theme);
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
-  const closeAllChordUntilRef = useRef(0);
+  const connectionsRef = useRef<ReturnType<typeof useConnections>['data']>(undefined);
 
   // Kill orphaned mongo-shell PTY sessions when their tabs are closed.
   // Lives in App() (always mounted) rather than Workspace() (unmounted when
@@ -132,7 +163,10 @@ function App() {
     }
     prevShellTabsRef.current = current;
   }, [openedTabs]);
+  const { data: connections } = useConnections();
+  connectionsRef.current = connections;
   const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -186,6 +220,20 @@ function App() {
     };
   }, []);
 
+  // One-time toast to surface the Ctrl+/ shortcut
+  useEffect(() => {
+    if (localStorage.getItem('kamehadb:shortcuts_hint_seen')) return;
+    const timer = setTimeout(() => {
+      toast('Press Ctrl+/ to see all keyboard shortcuts', {
+        description: 'Ctrl+K opens the command palette',
+        duration: 6000,
+        action: { label: 'Show', onClick: () => setShortcutsOpen(true) },
+      });
+      localStorage.setItem('kamehadb:shortcuts_hint_seen', '1');
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
@@ -193,42 +241,112 @@ function App() {
       const key = event.key.toLowerCase();
       const hasCommandModifier = event.ctrlKey || event.metaKey;
       const hasOpenTabs = appStore.state.openedTabs.length > 0;
-      if (!hasOpenTabs) {
-        closeAllChordUntilRef.current = 0;
+
+      // Ctrl+K — command palette (works even with no tabs)
+      if (hasCommandModifier && key === 'k' && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        setSearchOpen(true);
         return;
       }
 
+      // Ctrl+/ — shortcuts dialog (works even with no tabs)
+      if (hasCommandModifier && key === '/' && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+
+      // Ctrl+, — API settings
+      if (hasCommandModifier && key === ',' && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        navigateTo('api-settings');
+        return;
+      }
+
+      // Ctrl+L — logs
+      if (hasCommandModifier && key === 'l' && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        navigateTo('logs');
+        return;
+      }
+
+      // Ctrl+R — reload webview (resets all React state)
+      if (hasCommandModifier && key === 'r' && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        window.location.reload();
+        return;
+      }
+
+      if (!hasOpenTabs) return;
+
+      // Ctrl+W — close active tab
       if (hasCommandModifier && key === 'w' && !event.shiftKey && !event.altKey) {
         const activeTabId = appStore.state.activeTabId;
         if (!activeTabId) return;
         event.preventDefault();
         closeTab(activeTabId);
-        closeAllChordUntilRef.current = 0;
         return;
       }
 
-      if (hasCommandModifier && key === 'k' && !event.shiftKey && !event.altKey) {
-        event.preventDefault();
-        setSearchOpen(true);
-        closeAllChordUntilRef.current = Date.now() + 2500;
-        return;
-      }
-
-      if (
-        key === 'w' &&
-        event.shiftKey &&
-        !event.ctrlKey &&
-        !event.metaKey &&
-        !event.altKey &&
-        Date.now() <= closeAllChordUntilRef.current
-      ) {
+      // Ctrl+Shift+W — close all tabs
+      if (hasCommandModifier && key === 'w' && event.shiftKey && !event.altKey) {
         event.preventDefault();
         closeAllTabs();
-        closeAllChordUntilRef.current = 0;
         return;
       }
 
-      if (key !== 'shift') closeAllChordUntilRef.current = 0;
+      // Ctrl+Tab / Ctrl+Shift+Tab — cycle tabs
+      if (hasCommandModifier && key === 'tab') {
+        event.preventDefault();
+        const tabs = appStore.state.openedTabs;
+        if (tabs.length === 0) return;
+        const currentIdx = tabs.findIndex((t) => t.id === appStore.state.activeTabId);
+        const nextIdx = event.shiftKey ? (currentIdx - 1 + tabs.length) % tabs.length : (currentIdx + 1) % tabs.length;
+        appStore.setState((s) => ({
+          ...s,
+          activeTabId: tabs[nextIdx].id,
+          activeConnectionId: tabs[nextIdx].connectionId,
+        }));
+        return;
+      }
+
+      // Ctrl+1..9 — jump to tab N
+      if (hasCommandModifier && !event.shiftKey && !event.altKey && /^[1-9]$/.test(key)) {
+        const idx = parseInt(key, 10) - 1;
+        const tabs = appStore.state.openedTabs;
+        if (idx < tabs.length) {
+          event.preventDefault();
+          appStore.setState((s) => ({
+            ...s,
+            activeTabId: tabs[idx].id,
+            activeConnectionId: tabs[idx].connectionId,
+          }));
+        }
+        return;
+      }
+
+      // Ctrl+N — new query tab (if active connection is SQL)
+      if (hasCommandModifier && key === 'n' && !event.shiftKey && !event.altKey) {
+        const connId = appStore.state.activeConnectionId;
+        if (connId) {
+          const conn = connectionsRef.current?.find((c) => c.id === connId);
+          if (conn && isSqlKind(conn.kind)) {
+            event.preventDefault();
+            openNewQueryTab(connId);
+            return;
+          }
+        }
+      }
+
+      // Ctrl+Shift+K — open AI chat panel for active connection
+      if (hasCommandModifier && key === 'k' && event.shiftKey && !event.altKey) {
+        const connId = appStore.state.activeConnectionId;
+        if (connId) {
+          event.preventDefault();
+          openAiChatPanel(connId);
+          return;
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -238,9 +356,10 @@ function App() {
   return (
     <TooltipProvider>
       <Toaster />
-      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} onShortcutsOpen={() => setShortcutsOpen(true)} />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <div className="flex h-screen w-screen flex-col">
-        <Header onSearchOpen={() => setSearchOpen(true)} />
+        <Header onSearchOpen={() => setSearchOpen(true)} onShortcutsOpen={() => setShortcutsOpen(true)} />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
           {view === 'api-settings' ? <ApiSettingsPage /> : view === 'logs' ? <LogsPage /> : <MainLayout />}
