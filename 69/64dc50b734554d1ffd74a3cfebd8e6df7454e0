@@ -1,0 +1,21 @@
+apps/sidecar/src/adapters/postgres.ts
+  s_5d16a4fe607716::t_b1c35fb39e46a1 168-169,171,179
+apps/desktop/src/components/table-view.tsx
+  s_5d16a4fe607716::t_a720cbc9ec1cfc 4,123-125,148,375-379
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "6964dc50b734554d1ffd74a3cfebd8e6df7454e0",
+  "prompts": {},
+  "sessions": {
+    "s_5d16a4fe607716": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "5142da6d-2b80-476a-afea-0287b92b4349",
+        "model": "Claude Sonnet 4.6"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
