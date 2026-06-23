@@ -11,6 +11,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.3.1] — 2026-06-23
+
+### Fixed
+
+- **Table view in-cell editing** — disable editing for views and show an informational banner when no primary key is present to prevent ambiguous row updates.
+- **SQL editor** — trim trailing semicolons before appending LIMIT clause to SQL queries
+
 ## [v1.3.0] — 2026-06-21
 
 ### Added
