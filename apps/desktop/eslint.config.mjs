@@ -137,7 +137,7 @@ export default [
         // Each raw HTML element that has a shadcn equivalent is banned.
         // <button> → shadcn <Button>
         {
-          pattern: "<button>$$$</button>",
+          pattern: "<button $$$>$$$</button>",
           message: 'Use shadcn <Button> component instead of raw <button>.',
         },
         // <input> → shadcn <Input>
@@ -147,36 +147,36 @@ export default [
         },
         // <textarea> → shadcn <Textarea>
         {
-          pattern: "<textarea>$$$</textarea>",
+          pattern: "<textarea $$$>$$$</textarea>",
           message:
             'Use shadcn <Textarea> component instead of raw <textarea>.',
         },
         // <label> → shadcn <Label>
         {
-          pattern: "<label>$$$</label>",
+          pattern: "<label $$$>$$$</label>",
           message: 'Use shadcn <Label> component instead of raw <label>.',
         },
         // <table> → shadcn <Table> + parts
         {
-          pattern: "<table>$$$</table>",
+          pattern: "<table $$$>$$$</table>",
           message:
             'Use shadcn <Table> component instead of raw <table>.',
         },
         // <select> → shadcn <Select> + parts
         {
-          pattern: "<select>$$$</select>",
+          pattern: "<select $$$>$$$</select>",
           message:
             'Use shadcn <Select> component instead of raw <select>.',
         },
         // <thead> → shadcn <TableHeader>
         {
-          pattern: "<thead>$$$</thead>",
+          pattern: "<thead $$$>$$$</thead>",
           message:
             'Use shadcn <TableHeader> component instead of raw <thead>.',
         },
         // <tbody> → shadcn <TableBody>
         {
-          pattern: "<tbody>$$$</tbody>",
+          pattern: "<tbody $$$>$$$</tbody>",
           message:
             'Use shadcn <TableBody> component instead of raw <tbody>.',
         },

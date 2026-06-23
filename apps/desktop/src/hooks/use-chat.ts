@@ -28,8 +28,76 @@ export function useChat(options: UseChatOptions) {
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = messages;
 
-  // Uses raw fetch (not the api.ts wrappers) because the chat endpoint
-  // streams SSE (NDJSON) and the wrappers only support JSON request/response.
+  // Shared SSE-streaming logic used by both sendMessage and resendFrom.
+  // Builds the payload, POSTs to the chat endpoint, reads NDJSON lines from
+  // the response body, and calls onDelta for each content delta. The single
+  // implementation prevents divergence between the two call sites.
+  async function streamChat(
+    messagesPayload: Record<string, unknown>,
+    assistantId: string,
+    requestSeq: number,
+  ): Promise<void> {
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    try {
+      const payload: Record<string, unknown> = { ...messagesPayload };
+      if (options.forwardedProps) {
+        Object.assign(payload, options.forwardedProps);
+      }
+
+      const res = await fetch(`${getApiBase()}${options.url}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: ac.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Chat request failed' }));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+
+          try {
+            const data = JSON.parse(trimmed.slice(6));
+            if (data.type === 'content' && typeof data.delta === 'string') {
+              setMessages((prev) => appendAssistantDelta(prev, assistantId, data.delta));
+            } else if (data.type === 'error') {
+              console.error('[AI] stream error:', data.message);
+            }
+          } catch {
+            // skip malformed JSON
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('[AI] chat error:', err);
+      }
+    } finally {
+      if (requestSeqRef.current === requestSeq) {
+        setIsLoading(false);
+        abortRef.current = null;
+      }
+    }
+  }
+
   const sendMessage = useCallback(
     async (text: string) => {
       const userMsg: ChatMessage = {
@@ -51,70 +119,16 @@ export function useChat(options: UseChatOptions) {
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setIsLoading(true);
 
-      const ac = new AbortController();
-      abortRef.current = ac;
-
-      try {
-        const payload: Record<string, unknown> = {
+      await streamChat(
+        {
           messages: [...messagesRef.current, userMsg].map((m) => ({
             role: m.role,
             content: m.parts[0]?.content ?? '',
           })),
-        };
-        if (options.forwardedProps) {
-          Object.assign(payload, options.forwardedProps);
-        }
-
-        const res = await fetch(`${getApiBase()}${options.url}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: ac.signal,
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ message: 'Chat request failed' }));
-          throw new Error(err.message || `HTTP ${res.status}`);
-        }
-
-        const reader = res.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith('data: ')) continue;
-
-            try {
-              const data = JSON.parse(trimmed.slice(6));
-              if (data.type === 'content' && typeof data.delta === 'string') {
-                setMessages((prev) => appendAssistantDelta(prev, assistantMsg.id, data.delta));
-              } else if (data.type === 'error') {
-                console.error('[AI] stream error:', data.message);
-              }
-            } catch {
-              // skip malformed JSON
-            }
-          }
-        }
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('[AI] chat error:', err);
-        }
-      } finally {
-        if (requestSeqRef.current === requestSeq) {
-          setIsLoading(false);
-          abortRef.current = null;
-        }
-      }
+        },
+        assistantMsg.id,
+        requestSeq,
+      );
     },
     [options.url, options.forwardedProps],
   );
@@ -149,70 +163,16 @@ export function useChat(options: UseChatOptions) {
       setMessages([...baseMessages, assistantMsg]);
       setIsLoading(true);
 
-      const ac = new AbortController();
-      abortRef.current = ac;
-
-      try {
-        const payload: Record<string, unknown> = {
+      await streamChat(
+        {
           messages: [...baseMessages].map((m) => ({
             role: m.role,
             content: m.parts[0]?.content ?? '',
           })),
-        };
-        if (options.forwardedProps) {
-          Object.assign(payload, options.forwardedProps);
-        }
-
-        const res = await fetch(`${getApiBase()}${options.url}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: ac.signal,
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ message: 'Chat request failed' }));
-          throw new Error(err.message || `HTTP ${res.status}`);
-        }
-
-        const reader = res.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith('data: ')) continue;
-
-            try {
-              const data = JSON.parse(trimmed.slice(6));
-              if (data.type === 'content' && typeof data.delta === 'string') {
-                setMessages((prev) => appendAssistantDelta(prev, assistantMsg.id, data.delta));
-              } else if (data.type === 'error') {
-                console.error('[AI] stream error:', data.message);
-              }
-            } catch {
-              // skip malformed JSON
-            }
-          }
-        }
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('[AI] chat error:', err);
-        }
-      } finally {
-        if (requestSeqRef.current === requestSeq) {
-          setIsLoading(false);
-          abortRef.current = null;
-        }
-      }
+        },
+        assistantMsg.id,
+        requestSeq,
+      );
     },
     [options.url, options.forwardedProps],
   );

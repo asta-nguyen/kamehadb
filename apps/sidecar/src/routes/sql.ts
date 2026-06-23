@@ -276,17 +276,6 @@ sqlRouter.post(
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
 
-      if (profile.readonly !== false) {
-        const { query } = c.req.valid('json');
-        const safety = isQuerySafe(query);
-        if (!safety.safe) {
-          return c.json(
-            { error: 'FORBIDDEN', message: safety.reason ?? 'Query is not allowed in read-only mode' },
-            403,
-          );
-        }
-      }
-
       const adapter = await getSqlAdapter(connectionId);
       const result = await adapter.runQuery(c.req.valid('json'));
       return c.json(result);

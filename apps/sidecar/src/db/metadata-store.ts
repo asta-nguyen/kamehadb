@@ -61,18 +61,13 @@ export function initMetadataStore(dbPath: string): void {
       username TEXT,
       password TEXT,
       ssl INTEGER DEFAULT 0,
-      file_path TEXT,
-      readonly INTEGER DEFAULT 0,
-      color TEXT,
+          file_path TEXT,
+          color TEXT,
       connection_string TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
-
-  // Migration: Flip readonly default from 1 to 0 so existing connections become editable.
-  // The original schema defaulted readonly to 1 (true), which blocked all editing.
-  getDb().exec('UPDATE connection_profiles SET readonly = 0 WHERE readonly = 1');
 
   // Migration: Add password column if it doesn't exist
   try {
@@ -119,7 +114,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -127,7 +121,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -149,7 +143,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -157,7 +150,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -180,7 +173,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -188,7 +180,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -211,7 +203,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 0,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -219,7 +210,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -370,7 +361,7 @@ export function getDb(): Database.Database {
 export function listProfiles(): ConnectionProfile[] {
   const rows = getDb()
     .prepare(
-      `SELECT id, name, kind, host, port, database, username, ssl, file_path, readonly, color, connection_string, created_at, updated_at
+      `SELECT id, name, kind, host, port, database, username, ssl, file_path, color, connection_string, created_at, updated_at
      FROM connection_profiles ORDER BY updated_at DESC`,
     )
     .all() as Record<string, unknown>[];
@@ -404,7 +395,6 @@ export function createProfile(input: {
   password?: string;
   ssl?: boolean;
   filePath?: string;
-  readonly?: boolean;
   color?: string;
   connectionString?: string;
 }): ConnectionProfile {
@@ -413,8 +403,8 @@ export function createProfile(input: {
 
   getDb()
     .prepare(
-      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, readonly, color, connection_string, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, color, connection_string, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -427,7 +417,6 @@ export function createProfile(input: {
       input.password ?? null,
       input.ssl ? 1 : 0,
       input.filePath ?? null,
-      input.readonly === true ? 1 : 0,
       input.color ?? null,
       input.connectionString ?? null,
       now,
@@ -449,7 +438,6 @@ export function updateProfile(
     password?: string;
     ssl?: boolean;
     filePath?: string;
-    readonly?: boolean;
     color?: string;
     connectionString?: string;
   },
@@ -463,7 +451,7 @@ export function updateProfile(
     .prepare(
       `UPDATE connection_profiles SET
         name = ?, kind = ?, host = ?, port = ?, database = ?, username = ?, password = ?,
-        ssl = ?, file_path = ?, readonly = ?, color = ?, connection_string = ?, updated_at = ?
+        ssl = ?, file_path = ?, color = ?, connection_string = ?, updated_at = ?
        WHERE id = ?`,
     )
     .run(
@@ -476,7 +464,6 @@ export function updateProfile(
       input.password ?? existingPassword,
       input.ssl !== undefined ? (input.ssl ? 1 : 0) : existing.ssl ? 1 : 0,
       input.filePath ?? existing.filePath,
-      input.readonly !== undefined ? (input.readonly ? 1 : 0) : existing.readonly ? 1 : 0,
       input.color ?? existing.color,
       input.connectionString ?? existing.connectionString,
       now,
@@ -502,7 +489,6 @@ function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
     username: (row.username as string) ?? undefined,
     ssl: row.ssl === 1,
     filePath: (row.file_path as string) ?? undefined,
-    readonly: row.readonly === 1,
     color: (row.color as string) ?? undefined,
     connectionString: (row.connection_string as string) ?? undefined,
     createdAt: row.created_at as string,

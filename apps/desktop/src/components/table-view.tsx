@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
 import { useRunQuery } from '@/hooks/use-query';
-import { useConnections } from '@/hooks/use-connections';
 import { useFieldVisibility } from '@/hooks/use-field-visibility';
 import { TableStats } from '@/components/table-stats';
 import { TableEditabilityNotice } from '@/components/table-editability-notice';
@@ -124,7 +123,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const queryClient = useQueryClient();
   const runQuery = useRunQuery(connectionId);
-  const { data: connections } = useConnections();
   const [tableSchema] = tableId.split('.');
   const { data: tables } = useTables(connectionId, tableSchema);
   const isView = tables?.find((t) => t.id === tableId)?.type === 'view';
@@ -156,14 +154,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   // because preview rows often arrive before columns and otherwise the UI
   // flashes a false "No primary key" state during the first render.
   const showNoPrimaryKeyWarning = !isLoadingColumns && !!columns && pkColumns.length === 0 && !isView;
-
-  // Escape a raw input value for SQL (strings get single-quoted with doubled quotes).
-  const escapeVal = (v: unknown): string => {
-    if (v === null || v === undefined) return 'NULL';
-    if (typeof v === 'number') return String(v);
-    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
-    return `'${String(v).replace(/'/g, "''")}'`;
-  };
 
   const page = Math.floor(state.offset / state.pageSize) + 1;
   // Prefer schema metadata because several adapters cannot infer columns from

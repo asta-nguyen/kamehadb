@@ -318,7 +318,7 @@ aiRouter.post(
 
       const provider = createProvider(providerName, config);
       const abortController = new AbortController();
-      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'tigerbeetle'].includes(connectionKind);
+      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'tigerbeetle', 'qdrant'].includes(connectionKind);
 
       // Extract SQL queries from code fences in LLM output
       function extractSqlQueries(text: string): string[] {
@@ -351,13 +351,6 @@ aiRouter.post(
             let errorMessage: string | null = null;
 
             for (const query of sqlQueries) {
-              if (profile.readonly !== false) {
-                const safety = isQuerySafe(query);
-                if (!safety.safe) {
-                  errorMessage = safety.reason ?? 'Query is not allowed in read-only mode';
-                  continue;
-                }
-              }
               try {
                 const result = await sqlAdapter.runQuery({ query });
                 allResults.push(...(result.rows ?? []));
@@ -489,6 +482,31 @@ aiRouter.get('/models', async (c) => {
   const baseUrl = c.req.query('baseUrl')?.trim();
   if (!baseUrl) return c.json({ error: 'baseUrl is required' }, 400);
   const apiKey = c.req.query('apiKey')?.trim();
+
+  // SSRF guard: reject connections to localhost, private IPs, and cloud
+  // metadata endpoints so the proxy cannot be used to probe internal services.
+  try {
+    const parsed = new URL(baseUrl);
+    const host = parsed.hostname;
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === '0.0.0.0' ||
+      host.startsWith('10.') ||
+      host.startsWith('172.16.') ||
+      host.startsWith('192.168.') ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      host === 'metadata.google.internal' ||
+      host === '169.254.169.254'
+    ) {
+      return c.json({ error: 'FORBIDDEN', message: 'Requests to private or internal hosts are not allowed.' }, 403);
+    }
+  } catch {
+    return c.json({ error: 'INVALID_URL', message: 'The provided baseUrl is not a valid URL.' }, 400);
+  }
+
   try {
     const headers: Record<string, string> = {};
     if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;

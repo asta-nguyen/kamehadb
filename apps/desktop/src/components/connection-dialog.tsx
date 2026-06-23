@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Controller, useForm, type UseFormReturn } from 'react-hook-form';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Plug, Plus, Check, FolderOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
@@ -269,28 +269,6 @@ function BadgeColorPicker({
   );
 }
 
-function ReadonlyToggle({ form }: { form: UseFormReturn<CreateConnectionProfileInput> }) {
-  return (
-    <Controller
-      control={form.control}
-      name="readonly"
-      render={({ field }) => (
-        <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 p-3">
-          <div className="space-y-0.5 pr-4">
-            <Label htmlFor="readonly" className="text-sm font-medium">
-              Read-only
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Block CREATE, INSERT, UPDATE, DELETE, DROP and other write statements.
-            </p>
-          </div>
-          <Switch id="readonly" checked={field.value ?? false} onCheckedChange={field.onChange} />
-        </div>
-      )}
-    />
-  );
-}
-
 function ConnectionDetailsSection({
   form,
   kind,
@@ -516,7 +494,6 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       color: editConnection?.color ?? undefined,
       connectionString: editConnection?.connectionString ?? undefined,
       filePath: editConnection?.filePath ?? undefined,
-      readonly: editConnection?.readonly ?? false,
     },
   });
 
@@ -534,7 +511,6 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         color: editConnection.color ?? undefined,
         connectionString: editConnection.connectionString ?? undefined,
         filePath: editConnection.filePath ?? undefined,
-        readonly: editConnection.readonly ?? false,
       });
     }
   }, [editConnection, form]);
@@ -574,7 +550,6 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
           kind: 'sqlite',
           filePath,
           name: 'test',
-          readonly: true,
         });
       } catch {
         // Ignore auto-test errors
@@ -666,7 +641,6 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
 
             <DatabaseTypeGrid form={form} kind={kind} />
             <BadgeColorPicker form={form} selectedColor={selectedColor} />
-            <ReadonlyToggle form={form} />
             <ConnectionDetailsSection
               form={form}
               kind={kind}

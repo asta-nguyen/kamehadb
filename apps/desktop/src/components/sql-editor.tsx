@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
-import { useConnections } from '@/hooks/use-connections';
 import { useTableColumns } from '@/hooks/use-schema';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
 import { TableEditabilityNotice } from '@/components/table-editability-notice';
@@ -337,17 +336,15 @@ function QueryResultTable({
 }) {
   const tableRef = useRef<HTMLDivElement>(null);
   const runQuery = useRunQuery(connectionId);
-  const { data: connections } = useConnections();
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; column: string } | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-  const currentConnection = connections?.find((connection) => connection.id === connectionId);
   const editableTableId = useMemo(() => inferSimpleSelectTableId(executedSql), [executedSql]);
   const { data: tableColumns } = useTableColumns(connectionId, editableTableId);
   const editability = getQueryResultEditabilityState({
     querySql: executedSql,
     resultColumns: result.columns,
     tableColumns,
-    isReadOnly: currentConnection?.readonly === true,
+    isReadOnly: false,
   });
   const pkColumns = useMemo(
     () =>

@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useMemo, useCallback, type ReactNode } from 'react';
+import { useEffect, useReducer, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import * as React from 'react';
 import { ArrowLeft, Bot, Cloud, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
@@ -523,12 +523,17 @@ export function ApiSettingsPage() {
     return [savedModel, ...availableModels];
   }, [availableModels, selectedConfig.model]);
 
+  // Track which fetch request is the latest so that stale finally blocks
+  // from aborted requests do not clear modelsLoading before the winner sets it.
+  const fetchSeqRef = useRef(0);
+
   // Fetch models when the base URL changes. Each fetch has its own AbortController
   // so the in-flight request is cancelled on cleanup.
   const fetchModels = useCallback(
     async (signal: AbortSignal) => {
       const baseUrl = selectedConfig.baseUrl?.trim();
       if (!baseUrl) return;
+      const seq = ++fetchSeqRef.current;
       setModelsLoading(true);
       try {
         const result = await api.fetchAvailableModels(baseUrl, selectedConfig.apiKey?.trim() || undefined);
@@ -538,7 +543,9 @@ export function ApiSettingsPage() {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setAvailableModels([]);
       } finally {
-        if (!signal.aborted) setModelsLoading(false);
+        // Only the latest request clears the loading flag; aborted or stale
+        // predecessors leave the flag alone so the UI does not flicker.
+        if (fetchSeqRef.current === seq) setModelsLoading(false);
       }
     },
     [selectedConfig.apiKey, selectedConfig.baseUrl],

@@ -46,7 +46,6 @@ export const ConnectionProfileSchema = z.object({
   username: z.string().optional(),
   ssl: z.boolean().optional(),
   filePath: z.string().optional(),
-  readonly: z.boolean().optional().default(false),
   color: z.string().optional(),
   connectionString: z.string().optional(),
   createdAt: z.string(),
@@ -78,7 +77,6 @@ const BaseCreateSchema = z.object({
   password: z.string().optional(),
   ssl: z.boolean().optional(),
   filePath: z.string().optional(),
-  readonly: z.boolean().optional().default(false),
   color: z.string().optional(),
   connectionString: z.string().optional(),
 });

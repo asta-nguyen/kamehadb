@@ -136,11 +136,14 @@ function Workspace() {
 
   return (
     <div className="h-full">
-      {openedTabs.map((tab) => (
-        <div key={tab.id} className={tab.id === activeTab.id ? 'h-full' : 'hidden'}>
-          <WorkspaceContent activeTab={tab} />
-        </div>
-      ))}
+      {openedTabs.map(
+        (tab) =>
+          tab.id === activeTab.id && (
+            <div key={tab.id} className="h-full">
+              <WorkspaceContent activeTab={tab} />
+            </div>
+          ),
+      )}
     </div>
   );
 }
