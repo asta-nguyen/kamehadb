@@ -8,6 +8,7 @@ import * as pty from 'node-pty';
 import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
+import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
 
 export const mongoRouter = new Hono();
 
@@ -146,10 +147,6 @@ mongoRouter.post(
       const connectionId = c.req.param('connectionId');
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
-      if (profile.readonly !== false) {
-        return c.json({ error: 'FORBIDDEN', message: 'Delete operations are not allowed in read-only mode' }, 403);
-      }
-
       const adapter = await getAdapter(connectionId);
       try {
         const { collection, database, filter } = c.req.valid('json');
@@ -183,10 +180,6 @@ mongoRouter.post(
       const connectionId = c.req.param('connectionId');
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
-      if (profile.readonly !== false) {
-        return c.json({ error: 'FORBIDDEN', message: 'Update operations are not allowed in read-only mode' }, 403);
-      }
-
       const adapter = await getAdapter(connectionId);
       try {
         const { collection, database, filter, update } = c.req.valid('json');
@@ -321,7 +314,6 @@ interface MongoShellSession {
   disposable?: { dispose: () => void };
 }
 
-const SHELL_TIMEOUT_MS = 30 * 60 * 1000;
 const shellSessions = new Map<string, MongoShellSession>();
 
 // Prune expired sessions every 60 seconds

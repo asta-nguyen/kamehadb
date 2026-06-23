@@ -1,4 +1,4 @@
-import type { AppView } from '@kamehadb/shared';
+import type { AppView } from '@/lib/types';
 import { appStore } from './state';
 
 const LATENCY_SLOW_THRESHOLD = 500;

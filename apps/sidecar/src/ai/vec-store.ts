@@ -1,25 +1,7 @@
 import type { SqlAdapter, AIProvider, AIProviderConfig } from '@kamehadb/shared';
 import { createEmbedding } from './provider.js';
 import crypto from 'node:crypto';
-
-const QDRANT_URL = process.env.QDRANT_URL || 'http://127.0.0.1:6333';
-
-function collectionName(connectionId: string): string {
-  return `schema_${connectionId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-}
-
-async function qdrantRequest(path: string, options: RequestInit = {}): Promise<any> {
-  const url = `${QDRANT_URL}${path}`;
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Qdrant error (${res.status}) at ${path}: ${body}`);
-  }
-  return res.json();
-}
+import { getDb } from '../db/metadata-store.js';
 
 type Column = {
   name: string;
@@ -192,80 +174,64 @@ function computeTableHash(table: Table, columns: Column[], indexes: Index[]): st
   return h.digest('hex');
 }
 
-async function ensureCollection(connectionId: string, dimension: number): Promise<void> {
-  const name = collectionName(connectionId);
+function toFloat32Array(values: number[]): Float32Array {
+  return new Float32Array(values);
+}
+
+function ensureVecTable(dimension: number): void {
+  const db = getDb();
+  // Check if schema_vec exists and has the right dimension
   try {
-    const info = await qdrantRequest(`/collections/${name}`);
-    const existingDim = info.result?.config?.params?.vectors?.size;
-    if (existingDim && existingDim !== dimension) {
-      await qdrantRequest(`/collections/${name}`, { method: 'DELETE' });
-    } else if (existingDim) {
-      return;
+    const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='schema_vec'").get() as
+      | { sql: string }
+      | undefined;
+    if (row?.sql && row.sql.includes(`float[${dimension}]`)) {
+      return; // Table exists with correct dimension
+    }
+    if (row?.sql) {
+      // Dimension mismatch — recreate
+      db.exec('DROP TABLE IF EXISTS schema_vec');
+      db.exec('DELETE FROM schema_embeddings');
     }
   } catch {
-    // Collection doesn't exist, create below
+    // Table doesn't exist
   }
 
-  await qdrantRequest(`/collections/${name}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      vectors: { size: dimension, distance: 'Cosine' },
-    }),
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS schema_vec USING vec0(
+      connection_id TEXT,
+      table_id TEXT,
+      embedding float[${dimension}]
+    );
+  `);
+}
+
+function getExistingHashes(connectionId: string): Map<string, string> {
+  const db = getDb();
+  const rows = db.prepare('SELECT table_id, hash FROM schema_embeddings WHERE connection_id = ?').all(connectionId) as {
+    table_id: string;
+    hash: string;
+  }[];
+  return new Map(rows.map((r) => [r.table_id, r.hash]));
+}
+
+function deleteOrphanedRows(connectionId: string, validTableIds: Set<string>): void {
+  const db = getDb();
+  const rows = db.prepare('SELECT table_id FROM schema_embeddings WHERE connection_id = ?').all(connectionId) as {
+    table_id: string;
+  }[];
+  const orphans = rows.filter((r) => !validTableIds.has(r.table_id)).map((r) => r.table_id);
+  if (orphans.length === 0) return;
+
+  const deleteEmbedding = db.prepare('DELETE FROM schema_embeddings WHERE connection_id = ? AND table_id = ?');
+  const deleteVec = db.prepare('DELETE FROM schema_vec WHERE connection_id = ? AND table_id = ?');
+  const tx = db.transaction((ids: string[]) => {
+    for (const id of ids) {
+      deleteEmbedding.run(connectionId, id);
+      deleteVec.run(connectionId, id);
+    }
   });
-}
-
-async function collectionPointCount(connectionId: string): Promise<number> {
-  try {
-    const info = await qdrantRequest(`/collections/${collectionName(connectionId)}`);
-    return info.result?.points_count ?? 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function getAllPointsMap(connectionId: string): Promise<Map<string, { hash: string }>> {
-  const map = new Map<string, { hash: string }>();
-  try {
-    let offset: unknown = undefined;
-    for (;;) {
-      const body: Record<string, unknown> = { limit: 100, with_payload: true };
-      if (offset !== undefined) body.offset = offset;
-      const result = await qdrantRequest(`/collections/${collectionName(connectionId)}/points/scroll`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-      const points = result.result?.points ?? [];
-      for (const p of points) {
-        if (p.payload?.tableId) {
-          map.set(p.payload.tableId, { hash: p.payload.hash ?? '' });
-        }
-      }
-      offset = result.result?.next_page_offset;
-      if (offset === undefined || offset === null) break;
-    }
-  } catch {
-    // Collection may not exist yet
-  }
-  return map;
-}
-
-async function deleteOrphanedPoints(connectionId: string, validTableIds: Set<string>): Promise<void> {
-  const existing = await getAllPointsMap(connectionId);
-  const orphanIds: string[] = [];
-  for (const [tableId] of existing) {
-    if (!validTableIds.has(tableId)) {
-      orphanIds.push(tableId);
-    }
-  }
-  if (orphanIds.length === 0) return;
-
-  for (let i = 0; i < orphanIds.length; i += 100) {
-    await qdrantRequest(`/collections/${collectionName(connectionId)}/points/delete`, {
-      method: 'POST',
-      body: JSON.stringify({ points: orphanIds.slice(i, i + 100) }),
-    }).catch(() => {});
-  }
-  console.log(`[Qdrant] Deleted ${orphanIds.length} orphaned points from ${collectionName(connectionId)}`);
+  tx(orphans);
 }
 
 export async function buildSchemaIndex(
@@ -293,22 +259,30 @@ export async function buildSchemaIndex(
 
   if (items.length === 0) return 0;
 
-  const existingMap = force ? null : await getAllPointsMap(connectionId);
+  const existingMap = force ? null : getExistingHashes(connectionId);
 
   const toEmbed = existingMap
     ? items.filter((item) => {
         const existing = existingMap.get(item.tableId);
-        return !existing || existing.hash !== item.hash;
+        return !existing || existing !== item.hash;
       })
     : items;
 
   if (toEmbed.length === 0) {
-    await deleteOrphanedPoints(connectionId, new Set(items.map((i) => i.tableId)));
+    deleteOrphanedRows(connectionId, new Set(items.map((i) => i.tableId)));
     return 0;
   }
 
   const first = await createEmbedding(toEmbed[0].enriched, provider, config);
-  await ensureCollection(connectionId, first.length);
+  ensureVecTable(first.length);
+
+  const db = getDb();
+  const deleteRow = db.prepare('DELETE FROM schema_embeddings WHERE connection_id = ? AND table_id = ?');
+  const deleteVec = db.prepare('DELETE FROM schema_vec WHERE connection_id = ? AND table_id = ?');
+  const insertEmbedding = db.prepare(
+    'INSERT OR REPLACE INTO schema_embeddings (connection_id, table_id, ddl, hash) VALUES (?, ?, ?, ?)',
+  );
+  const insertVec = db.prepare('INSERT INTO schema_vec (connection_id, table_id, embedding) VALUES (?, ?, ?)');
 
   const allVectors: number[][] = [first];
   const batchSize = 20;
@@ -318,22 +292,19 @@ export async function buildSchemaIndex(
     allVectors.push(...embeddings);
   }
 
-  for (let i = 0; i < toEmbed.length; i += 20) {
-    const batch = toEmbed.slice(i, i + 20);
-    const vectors = allVectors.slice(i, i + 20);
-    const points = batch.map((item, j) => ({
-      id: item.tableId,
-      vector: vectors[j],
-      payload: { tableId: item.tableId, ddl: item.enriched, hash: item.hash },
-    }));
-    await qdrantRequest(`/collections/${collectionName(connectionId)}/points`, {
-      method: 'PUT',
-      body: JSON.stringify({ points }),
-    });
+  for (let i = 0; i < toEmbed.length; i++) {
+    const item = toEmbed[i];
+    const vec = allVectors[i];
+    const float32 = toFloat32Array(vec);
+
+    deleteRow.run(connectionId, item.tableId);
+    deleteVec.run(connectionId, item.tableId);
+    insertEmbedding.run(connectionId, item.tableId, item.enriched, item.hash);
+    insertVec.run(connectionId, item.tableId, float32);
   }
 
   if (!force) {
-    await deleteOrphanedPoints(connectionId, new Set(items.map((i) => i.tableId)));
+    deleteOrphanedRows(connectionId, new Set(items.map((i) => i.tableId)));
   }
 
   return toEmbed.length;
@@ -347,21 +318,31 @@ export async function searchRelevantSchema(
   topK: number = 5,
 ): Promise<{ tableId: string; ddl: string; score: number }[]> {
   const queryVector = await createEmbedding(query, provider, config);
+  const float32 = toFloat32Array(queryVector);
 
-  const result = await qdrantRequest(`/collections/${collectionName(connectionId)}/points/search`, {
-    method: 'POST',
-    body: JSON.stringify({
-      vector: queryVector,
-      limit: topK,
-      with_payload: true,
-    }),
-  });
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT v.table_id, e.ddl, v.distance
+       FROM schema_vec v
+       JOIN schema_embeddings e ON e.connection_id = v.connection_id AND e.table_id = v.table_id
+       WHERE v.connection_id = ?
+       ORDER BY v.embedding <=> ?
+       LIMIT ?`,
+    )
+    .all(connectionId, float32, topK) as { table_id: string; ddl: string; distance: number }[];
 
-  return (result.result || []).map((r: any) => ({
-    tableId: r.payload?.tableId ?? '',
-    ddl: r.payload?.ddl ?? '',
-    score: r.score ?? 0,
+  return rows.map((r) => ({
+    tableId: r.table_id,
+    ddl: r.ddl,
+    score: 1 - r.distance,
   }));
 }
 
-export { collectionPointCount, collectionName };
+export function collectionPointCount(connectionId: string): number {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT COUNT(*) as count FROM schema_embeddings WHERE connection_id = ?')
+    .get(connectionId) as { count: number };
+  return row.count;
+}

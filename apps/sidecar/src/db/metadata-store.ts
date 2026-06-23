@@ -1,11 +1,12 @@
 import Database from 'better-sqlite3';
+import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
+import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
 
 let db: Database.Database | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
-const DEFAULT_AI_PROVIDER = 'openai' satisfies AIProvider;
 
 function createDefaultAISettings(): AISettings {
   return {
@@ -43,6 +44,12 @@ export function initMetadataStore(dbPath: string): void {
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
 
+  try {
+    sqliteVec.load(db);
+  } catch (e) {
+    console.warn('[MetadataStore] sqlite-vec extension failed to load:', e instanceof Error ? e.message : e);
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS connection_profiles (
       id TEXT PRIMARY KEY,
@@ -54,9 +61,8 @@ export function initMetadataStore(dbPath: string): void {
       username TEXT,
       password TEXT,
       ssl INTEGER DEFAULT 0,
-      file_path TEXT,
-      readonly INTEGER DEFAULT 1,
-      color TEXT,
+          file_path TEXT,
+          color TEXT,
       connection_string TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -108,7 +114,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -116,7 +121,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -138,7 +143,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -146,7 +150,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -169,7 +173,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -177,7 +180,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -200,7 +203,6 @@ export function initMetadataStore(dbPath: string): void {
         password TEXT,
         ssl INTEGER DEFAULT 0,
         file_path TEXT,
-        readonly INTEGER DEFAULT 1,
         color TEXT,
         connection_string TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -208,7 +210,7 @@ export function initMetadataStore(dbPath: string): void {
       );
       INSERT INTO connection_profiles_new
         SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               readonly, color, connection_string, created_at, updated_at
+               color, connection_string, created_at, updated_at
         FROM connection_profiles;
       DROP TABLE connection_profiles;
       ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
@@ -318,11 +320,28 @@ export function initMetadataStore(dbPath: string): void {
     // Migration already applied or no rows to update
   }
 
+  // schema_embeddings table stores the DDL text and hash for each indexed table.
+  // schema_vec virtual table is created lazily by vec-store.ts ensureVecTable()
+  // with the correct embedding dimension for the active AI provider.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_embeddings (
+      connection_id TEXT NOT NULL,
+      table_id TEXT NOT NULL,
+      ddl TEXT NOT NULL,
+      hash TEXT NOT NULL,
+      PRIMARY KEY (connection_id, table_id)
+    );
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
+  `);
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
 
-function getDb(): Database.Database {
+export function getDb(): Database.Database {
   if (!db) throw new Error('Metadata store not initialized');
   return db;
 }
@@ -330,7 +349,7 @@ function getDb(): Database.Database {
 export function listProfiles(): ConnectionProfile[] {
   const rows = getDb()
     .prepare(
-      `SELECT id, name, kind, host, port, database, username, ssl, file_path, readonly, color, connection_string, created_at, updated_at
+      `SELECT id, name, kind, host, port, database, username, ssl, file_path, color, connection_string, created_at, updated_at
      FROM connection_profiles ORDER BY updated_at DESC`,
     )
     .all() as Record<string, unknown>[];
@@ -364,7 +383,6 @@ export function createProfile(input: {
   password?: string;
   ssl?: boolean;
   filePath?: string;
-  readonly?: boolean;
   color?: string;
   connectionString?: string;
 }): ConnectionProfile {
@@ -373,8 +391,8 @@ export function createProfile(input: {
 
   getDb()
     .prepare(
-      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, readonly, color, connection_string, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, color, connection_string, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -387,7 +405,6 @@ export function createProfile(input: {
       input.password ?? null,
       input.ssl ? 1 : 0,
       input.filePath ?? null,
-      input.readonly !== false ? 1 : 0,
       input.color ?? null,
       input.connectionString ?? null,
       now,
@@ -409,7 +426,6 @@ export function updateProfile(
     password?: string;
     ssl?: boolean;
     filePath?: string;
-    readonly?: boolean;
     color?: string;
     connectionString?: string;
   },
@@ -423,7 +439,7 @@ export function updateProfile(
     .prepare(
       `UPDATE connection_profiles SET
         name = ?, kind = ?, host = ?, port = ?, database = ?, username = ?, password = ?,
-        ssl = ?, file_path = ?, readonly = ?, color = ?, connection_string = ?, updated_at = ?
+        ssl = ?, file_path = ?, color = ?, connection_string = ?, updated_at = ?
        WHERE id = ?`,
     )
     .run(
@@ -436,7 +452,6 @@ export function updateProfile(
       input.password ?? existingPassword,
       input.ssl !== undefined ? (input.ssl ? 1 : 0) : existing.ssl ? 1 : 0,
       input.filePath ?? existing.filePath,
-      input.readonly !== undefined ? (input.readonly ? 1 : 0) : existing.readonly ? 1 : 0,
       input.color ?? existing.color,
       input.connectionString ?? existing.connectionString,
       now,
@@ -462,7 +477,6 @@ function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
     username: (row.username as string) ?? undefined,
     ssl: row.ssl === 1,
     filePath: (row.file_path as string) ?? undefined,
-    readonly: row.readonly === 1,
     color: (row.color as string) ?? undefined,
     connectionString: (row.connection_string as string) ?? undefined,
     createdAt: row.created_at as string,

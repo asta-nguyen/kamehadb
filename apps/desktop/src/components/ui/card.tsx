@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn } from 'cnfast';
 import * as React from 'react';
 
 function Card({ className, ref, ...props }: React.ComponentProps<'div'>) {

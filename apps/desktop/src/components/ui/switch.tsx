@@ -1,6 +1,6 @@
 import { Switch as SwitchPrimitive } from '@base-ui/react/switch';
 
-import { cn } from '@/lib/utils';
+import { cn } from 'cnfast';
 
 interface SwitchProps extends SwitchPrimitive.Root.Props {
   size?: 'sm' | 'default';

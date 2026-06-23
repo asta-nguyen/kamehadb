@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { createMongoDbAdapter } from '../adapters/factory.js';
 import { detectPgVectorCapability } from '../adapters/postgres.js';
 import { createEmbedding, createProvider, validateProviderConfig } from '../ai/provider.js';
-import { searchRelevantSchema } from '../ai/qdrant-store.js';
+import { searchRelevantSchema } from '../ai/vec-store.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { CACHE_TTL, clearSchemaCache, getCached, setCache } from '../lib/cache.js';
@@ -187,13 +187,6 @@ Rules:
 - Accounts have: id (u128), debits_posted, debits_pending, credits_posted, credits_pending, flags, ledger, code.
 - Transfers have: id (u128), debit_account_id, credit_account_id, amount, flags, ledger, code.
 - Prefer read-only operations: lookup_accounts, lookup_transfers, get_account_balances.`;
-  } else if (connectionKind === 'qdrant') {
-    prompt += `\n\nCurrent connection: Qdrant (vector database).
-- Do NOT use SQL, MongoDB, or Redis syntax.
-- Use \`\`\`json\`\`\` blocks for Qdrant REST API request bodies (POST /collections/{name}/points/scroll, /search, /query, etc.).
-- For semantic/vector searches, remind the user that a query vector is required — you do not have one, so show the request shape with a placeholder vector.
-- For filtering without a vector, use the scroll endpoint with a \`filter\` block.
-- Prefer read-only operations: scroll, search, query, get, count.`;
   } else if (connectionKind) {
     prompt += `\n\nCurrent connection: ${connectionKind} (SQL).
 - Use \`\`\`sql\`\`\` blocks only. Do NOT use \`\`\`javascript\`\`\` or \`\`\`js\`\`\` — this is a SQL database, not MongoDB.
@@ -289,7 +282,7 @@ aiRouter.post(
                 } finally {
                   await adapter.close();
                 }
-              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle' && profile.kind !== 'qdrant') {
+              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle') {
                 const adapter = await getSqlAdapter(connectionId);
                 const userQuery = latestUserMsg;
                 if (userQuery) {
@@ -325,7 +318,7 @@ aiRouter.post(
 
       const provider = createProvider(providerName, config);
       const abortController = new AbortController();
-      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'qdrant', 'tigerbeetle'].includes(connectionKind);
+      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'tigerbeetle', 'qdrant'].includes(connectionKind);
 
       // Extract SQL queries from code fences in LLM output
       function extractSqlQueries(text: string): string[] {
@@ -358,13 +351,6 @@ aiRouter.post(
             let errorMessage: string | null = null;
 
             for (const query of sqlQueries) {
-              if (profile.readonly !== false) {
-                const safety = isQuerySafe(query);
-                if (!safety.safe) {
-                  errorMessage = safety.reason ?? 'Query is not allowed in read-only mode';
-                  continue;
-                }
-              }
               try {
                 const result = await sqlAdapter.runQuery({ query });
                 allResults.push(...(result.rows ?? []));
@@ -488,6 +474,58 @@ aiRouter.post(
     }
   },
 );
+
+// GET /ai/models?baseUrl=...&apiKey=...
+// Proxies a model list request to a remote OpenAI-compatible endpoint so the
+// frontend can fetch available models without hitting browser CORS restrictions.
+aiRouter.get('/models', async (c) => {
+  const baseUrl = c.req.query('baseUrl')?.trim();
+  if (!baseUrl) return c.json({ error: 'baseUrl is required' }, 400);
+  const apiKey = c.req.query('apiKey')?.trim();
+
+  // SSRF guard: reject connections to localhost, private IPs, and cloud
+  // metadata endpoints so the proxy cannot be used to probe internal services.
+  try {
+    const parsed = new URL(baseUrl);
+    const host = parsed.hostname;
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host === '0.0.0.0' ||
+      host.startsWith('10.') ||
+      host.startsWith('172.16.') ||
+      host.startsWith('192.168.') ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      host === 'metadata.google.internal' ||
+      host === '169.254.169.254'
+    ) {
+      return c.json({ error: 'FORBIDDEN', message: 'Requests to private or internal hosts are not allowed.' }, 403);
+    }
+  } catch {
+    return c.json({ error: 'INVALID_URL', message: 'The provided baseUrl is not a valid URL.' }, 400);
+  }
+
+  try {
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, { headers });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      return c.json(
+        { error: `Remote returned ${res.status}: ${errBody.slice(0, 200)}` },
+        res.status as 400 | 401 | 403 | 404 | 500,
+      );
+    }
+    const data = (await res.json()) as { data?: { id: string }[] };
+    const models = (data.data ?? []).flatMap((m) => (m.id ? [m.id] : []));
+    return c.json({ models });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch models';
+    return c.json({ error: message }, 502);
+  }
+});
 
 // GET /ai/settings
 aiRouter.get('/settings', async (c) => {

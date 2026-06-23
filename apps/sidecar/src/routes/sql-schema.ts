@@ -50,7 +50,7 @@ export function createSqlSchemaRouter(options: {
 }): Hono {
   const router = new Hono();
 
-  router.post('/capture-schema', async (context) => {
+  router.post('/schema/snapshots', async (context) => {
     try {
       const connectionId = requireConnectionId(context);
       const adapter = await options.getSqlAdapter(connectionId);
@@ -90,7 +90,7 @@ export function createSqlSchemaRouter(options: {
     }
   });
 
-  router.get('/schema-snapshots', async (context) => {
+  router.get('/schema/snapshots', async (context) => {
     try {
       const connectionId = requireConnectionId(context);
       const summaries = metadataStore.getSchemaSnapshots(connectionId).flatMap((entry) => {
@@ -103,7 +103,7 @@ export function createSqlSchemaRouter(options: {
     }
   });
 
-  router.get('/schema-changelog', async (context) => {
+  router.get('/schema/changelog', async (context) => {
     try {
       const connectionId = requireConnectionId(context);
       const snapshotEntries = metadataStore.getSchemaSnapshots(connectionId);
@@ -132,7 +132,7 @@ export function createSqlSchemaRouter(options: {
   });
 
   router.post(
-    '/schema-diff',
+    '/schema/diff',
     zValidator('json', z.object({ fromSnapshotId: z.string(), toSnapshotId: z.string() })),
     async (context) => {
       try {
@@ -175,7 +175,7 @@ export function createSqlSchemaRouter(options: {
   }
 
   router.post(
-    '/generate-migration',
+    '/schema/migrations',
     zValidator('json', z.object({ fromSnapshotId: z.string(), toSnapshotId: z.string() })),
     async (context) => {
       try {

@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { CreateConnectionProfileSchema, UpdateConnectionProfileSchema } from '@kamehadb/shared';
+import {
+  CreateConnectionProfileSchema,
+  FileDatabaseBackupRequestSchema,
+  FileDatabaseRestoreRequestSchema,
+  UpdateConnectionProfileSchema,
+} from '@kamehadb/shared';
 import * as metadataStore from '../db/metadata-store.js';
 import { testPostgresConnection } from '../adapters/postgres.js';
 import { testSqliteConnection } from '../adapters/sqlite.js';
@@ -14,6 +19,11 @@ import { createMongoAdapter } from '../adapters/mongodb.js';
 import { createRedisDbAdapter, createQdrantDbAdapter, createTigerBeetleDbAdapter } from '../adapters/factory.js';
 import { testRedisConnection } from '../adapters/redis.js';
 import { clearConnectionCache } from '../lib/cache.js';
+import {
+  backupFileDatabase,
+  FileDatabaseMaintenanceError,
+  restoreFileDatabase,
+} from '../lib/file-database-maintenance.js';
 import { invalidateAdapterCache } from './sql.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
@@ -43,6 +53,19 @@ const TestConnectionSchema = z.object({
 });
 
 export const connectionsRouter = new Hono();
+
+function fileDatabaseErrorResponse(error: unknown): { readonly message: string; readonly statusCode: 400 | 404 | 500 } {
+  if (error instanceof FileDatabaseMaintenanceError) {
+    return {
+      message: error.message,
+      statusCode: error.code === 'missing-source-file' ? 404 : 400,
+    };
+  }
+  if (error instanceof Error) {
+    return { message: error.message, statusCode: 500 };
+  }
+  return { message: 'Unknown error', statusCode: 500 };
+}
 
 connectionsRouter.get('/', (c) => {
   const profiles = metadataStore.listProfiles();
@@ -321,6 +344,38 @@ connectionsRouter.get('/:id', (c) => {
   const profile = metadataStore.getProfile(c.req.param('id'));
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   return c.json(profile);
+});
+
+connectionsRouter.post('/:id/backup', zValidator('json', FileDatabaseBackupRequestSchema), async (c) => {
+  const connectionId = c.req.param('id');
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+
+  try {
+    invalidateAdapterCache(connectionId);
+    const result = await backupFileDatabase(profile, c.req.valid('json'));
+    clearConnectionCache(connectionId);
+    return c.json(result);
+  } catch (error) {
+    const response = fileDatabaseErrorResponse(error);
+    return c.json({ error: 'FILE_DB_BACKUP_FAILED', message: response.message }, { status: response.statusCode });
+  }
+});
+
+connectionsRouter.post('/:id/restore', zValidator('json', FileDatabaseRestoreRequestSchema), async (c) => {
+  const connectionId = c.req.param('id');
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+
+  try {
+    invalidateAdapterCache(connectionId);
+    const result = await restoreFileDatabase(profile, c.req.valid('json'));
+    clearConnectionCache(connectionId);
+    return c.json(result);
+  } catch (error) {
+    const response = fileDatabaseErrorResponse(error);
+    return c.json({ error: 'FILE_DB_RESTORE_FAILED', message: response.message }, { status: response.statusCode });
+  }
 });
 
 connectionsRouter.post('/', zValidator('json', CreateConnectionProfileSchema), async (c) => {

@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useMemo, useCallback, type ReactNode } from 'react';
+import { useReducer, useMemo, type ReactNode } from 'react';
 import * as React from 'react';
 import { ArrowLeft, Bot, Cloud, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { navigateTo } from '@/store';
+import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
 
@@ -511,8 +513,24 @@ export function ApiSettingsPage() {
     [state.draft, state.savedSnapshot],
   );
 
-  const [availableModels, setAvailableModels] = useReducer((_: string[], next: string[]) => next, []);
-  const [modelsLoading, setModelsLoading] = useReducer((_: boolean, next: boolean) => next, false);
+  const {
+    data: modelsData,
+    isFetching: modelsLoading,
+    refetch: refetchModels,
+  } = useQuery({
+    queryKey: ['available-models', selectedConfig.baseUrl?.trim() || '', selectedConfig.apiKey?.trim() || ''],
+    queryFn: ({ signal }) =>
+      api.fetchAvailableModels(
+        selectedConfig.baseUrl?.trim() || '',
+        selectedConfig.apiKey?.trim() || undefined,
+        signal,
+      ),
+    enabled: !!selectedConfig.baseUrl?.trim(),
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  const availableModels = modelsData?.models ?? [];
 
   const modelsWithCustom = useMemo(() => {
     const savedModel = selectedConfig.model;
@@ -521,42 +539,6 @@ export function ApiSettingsPage() {
     }
     return [savedModel, ...availableModels];
   }, [availableModels, selectedConfig.model]);
-
-  // Fetch models when the base URL changes. Each fetch has its own AbortController
-  // so the in-flight request is cancelled on cleanup.
-  const fetchModels = useCallback(
-    async (signal: AbortSignal) => {
-      const baseUrl = selectedConfig.baseUrl?.trim();
-      if (!baseUrl) return;
-      setModelsLoading(true);
-      try {
-        const headers: HeadersInit = {};
-        if (selectedConfig.apiKey) {
-          headers['Authorization'] = `Bearer ${selectedConfig.apiKey}`;
-        }
-        const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/models`, { signal, headers });
-        if (!res.ok) return;
-        const data = (await res.json()) as { data?: { id: string }[] };
-        const models = (data.data ?? []).flatMap((m) => (m.id ? [m.id] : []));
-        setAvailableModels(models);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setAvailableModels([]);
-      } finally {
-        setModelsLoading(false);
-      }
-    },
-    [selectedConfig.apiKey, selectedConfig.baseUrl],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setAvailableModels([]);
-    if (selectedConfig.baseUrl?.trim()) {
-      fetchModels(controller.signal);
-    }
-    return () => controller.abort();
-  }, [state.selectedProvider, selectedConfig.baseUrl, fetchModels]);
 
   async function handleSave() {
     const payload = normalizeSettings(state.draft);
@@ -601,12 +583,7 @@ export function ApiSettingsPage() {
                   onUpdateField={(updates) =>
                     dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
                   }
-                  onFetchModels={() => {
-                    // Reuse the in-flight effect's logic by triggering a re-render via a
-                    // no-op base-url touch. Easier: just call fetchModels directly.
-                    const controller = new AbortController();
-                    fetchModels(controller.signal);
-                  }}
+                  onFetchModels={() => refetchModels()}
                   canFetchModels={!!selectedConfig.baseUrl?.trim()}
                 />
 

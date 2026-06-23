@@ -2,10 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useMongoCollections, useMongoDatabases } from '@/hooks/use-mongo';
 import { fuzzyMatch } from '@/lib/utils';
-import { appStore, openAiChatPanel, setActiveMongoDatabase } from '@/store';
+import { appStore, setActiveMongoDatabase } from '@/store';
 import { useStore } from '@tanstack/react-store';
 import type { CollectionInfo } from '@kamehadb/shared';
-import { ChevronDown, ChevronRight, Clock, Database, Eye, Search, Sparkles, Table2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, Database, Eye, Search, Table2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -172,19 +172,6 @@ function DatabaseNode({
           {expanded && collections && (
             <span className="ml-auto text-muted-foreground/50 text-xs tabular-nums">{collections.length}</span>
           )}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect();
-            openAiChatPanel(connectionId);
-          }}
-          className="shrink-0 size-6"
-          title="AI Chat"
-        >
-          <Sparkles className="text-muted-foreground/60 size-3" />
         </Button>
       </div>
       {expanded && (

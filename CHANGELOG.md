@@ -11,6 +11,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.3.2] — 2026-06-23
+
+### Added
+
+- **sqlite-vec 3D vector map** — PCA projection of up to 500 vectors with Three.js scatter plot, hover tooltips, click-to-search, and camera persistence.
+- **sqlite-vec bulk sample endpoint** (`/sqlite-vec/sample-bulk`) — discovers vec0 columns and returns vectors with metadata payloads.
+- **sqlite-vec structured filter builder** — column/operator/value dropdowns from vec0 metadata, replacing raw SQL filter input.
+- **"Map" button** in sqlite-vec search toolbar to open 3D visualization without running a search.
+- **Thin scrollbar styling** across all table scroll containers.
+
+### Fixed
+
+- **SQLite "Failed to load sizes"** — vec0 virtual tables filtered from `getDatabaseSizes()` and `searchSchema()`.
+- **Table hover color** on prefix/suffix cells — `bg-inherit` for uniform hover.
+- **Table scrollbar overlap** — removed redundant `overflow-x-auto` from DataTable inner container.
+- **Table rows stretching** with few records — `max-h-full` to shrink to content.
+- **Long values breaking layout** — cells truncate with ellipsis and `title` tooltips.
+- **Tab bar scrollbar visibility** — hidden while preserving scroll.
+
+### Changed
+
+- **MongoDB cell editing simplified** — inline Input with Enter/Esc/blur, no Save/Cancel buttons.
+- **Removed dead "Vector / Raw SQL" toggle** from pgvector and sqlite-vec search UIs.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
+
+---
+
+## [v1.3.1] — 2026-06-23
+
+### Fixed
+
+- **Table view in-cell editing** — disable editing for views and show an informational banner when no primary key is present to prevent ambiguous row updates.
+- **SQL editor** — trim trailing semicolons before appending LIMIT clause to SQL queries
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+
 ## [v1.3.0] — 2026-06-21
 
 ### Added

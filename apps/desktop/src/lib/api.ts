@@ -8,6 +8,20 @@ export const api = {
 
   getConnection: (id: string) => request<import('@kamehadb/shared').ConnectionProfile>('GET', `/connections/${id}`),
 
+  backupFileDatabase: (connectionId: string, input: import('@kamehadb/shared').FileDatabaseBackupRequest) =>
+    request<import('@kamehadb/shared').FileDatabaseMaintenanceResult>(
+      'POST',
+      `/connections/${connectionId}/backup`,
+      input,
+    ),
+
+  restoreFileDatabase: (connectionId: string, input: import('@kamehadb/shared').FileDatabaseRestoreRequest) =>
+    request<import('@kamehadb/shared').FileDatabaseMaintenanceResult>(
+      'POST',
+      `/connections/${connectionId}/restore`,
+      input,
+    ),
+
   createConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
     request<import('@kamehadb/shared').ConnectionProfile>('POST', '/connections', input),
 
@@ -23,6 +37,12 @@ export const api = {
     request<import('@kamehadb/shared').TestConnectionResult>('GET', `/connections/${id}/health`),
 
   getAISettings: () => request<import('@kamehadb/shared').AISettings>('GET', '/ai/settings'),
+
+  fetchAvailableModels: (baseUrl: string, apiKey?: string, signal?: AbortSignal) => {
+    const params = new URLSearchParams({ baseUrl });
+    if (apiKey) params.set('apiKey', apiKey);
+    return request<{ models: string[] }>('GET', `/ai/models?${params}`, undefined, false, signal);
+  },
 
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
     request<{ success: boolean }>('POST', '/ai/settings', input),
@@ -122,6 +142,32 @@ export const api = {
       input,
       true,
     ),
+
+  // sqlite-vec API
+  getSqliteVecCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').SqliteVecCapability>(
+      'GET',
+      `/sql/${connectionId}/sqlite-vec/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchSqliteVec: (connectionId: string, input: import('@kamehadb/shared').SqliteVecSearchInput) =>
+    request<import('@kamehadb/shared').SqliteVecSearchResult>(
+      'POST',
+      `/sql/${connectionId}/sqlite-vec/search`,
+      input,
+      true,
+    ),
+
+  sampleSqliteVec: (connectionId: string, input: { table: string; column: string }) =>
+    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/sqlite-vec/sample`, input, true),
+
+  sampleSqliteVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
+    request<{
+      points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
+      dimensions: number;
+    }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input, true),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
