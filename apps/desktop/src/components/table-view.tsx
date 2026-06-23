@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { debounce } from '@tanstack/pacer';
-import { useTableColumns, useTableIndexes, usePreviewRows } from '@/hooks/use-schema';
+import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
 import { useRunQuery } from '@/hooks/use-query';
 import { useFieldVisibility } from '@/hooks/use-field-visibility';
 import { TableStats } from '@/components/table-stats';
@@ -120,6 +120,9 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const queryClient = useQueryClient();
   const runQuery = useRunQuery(connectionId);
+  const [tableSchema] = tableId.split('.');
+  const { data: tables } = useTables(connectionId, tableSchema);
+  const isView = tables?.find((t) => t.id === tableId)?.type === 'view';
   const { data: columns, isLoading: isLoadingColumns } = useTableColumns(connectionId, tableId);
   const { data: result, isLoading } = usePreviewRows(connectionId, {
     tableId,
@@ -142,7 +145,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   // Only show the missing-PK warning after schema metadata has loaded,
   // because preview rows often arrive before columns and otherwise the UI
   // flashes a false "No primary key" state during the first render.
-  const showNoPrimaryKeyWarning = !isLoadingColumns && !!columns && pkColumns.length === 0;
+  const showNoPrimaryKeyWarning = !isLoadingColumns && !!columns && pkColumns.length === 0 && !isView;
 
   // Escape a raw input value for SQL (strings get single-quoted with doubled quotes).
   const escapeVal = (v: unknown): string => {
@@ -369,7 +372,12 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           )}
         </div>
       </div>
-      {showNoPrimaryKeyWarning && (
+      {isView && (
+        <div className="mb-2 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 rounded-md">
+          This is a view — in-cell editing is not supported.
+        </div>
+      )}
+      {showNoPrimaryKeyWarning && !isView && (
         <div className="mb-2 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-md">
           No primary key — in-cell editing disabled to prevent ambiguous row updates.
         </div>

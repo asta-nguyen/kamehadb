@@ -165,9 +165,10 @@ export function createPostgresAdapter(connection: {
       const sql = `SELECT
         t.table_schema || '.' || t.table_name as id,
         t.table_name as name,
-        t.table_schema as schema
+        t.table_schema as schema,
+        t.table_type
       FROM information_schema.tables t
-      WHERE t.table_schema = COALESCE($1, 'public') AND t.table_type = 'BASE TABLE'
+      WHERE t.table_schema = COALESCE($1, 'public') AND t.table_type IN ('BASE TABLE', 'VIEW')
       ORDER BY t.table_name`;
 
       const result = await query(sql, [schema || 'public']);
@@ -175,6 +176,7 @@ export function createPostgresAdapter(connection: {
         id: r.id as string,
         name: r.name as string,
         schema: r.schema as string,
+        type: r.table_type === 'VIEW' ? 'view' : 'table',
       }));
     },
 
