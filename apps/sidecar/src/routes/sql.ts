@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { isQuerySafe, type SqlAdapter } from '@kamehadb/shared';
+import { isQuerySafe, KIND, DEFAULT_PORTS, type SqlAdapter } from '@kamehadb/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import pg from 'pg';
@@ -7,8 +7,10 @@ import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { detectPgVectorCapability } from '../adapters/postgres.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
 import { createSqlSchemaRouter } from './sql-schema.js';
 import { buildSafeFilterClause, quoteSqlIdentifier } from '../lib/postgres-vector-sql.js';
+import { handleError } from '../lib/route-helpers.js';
 import type {
   PostgresVectorCapability,
   PostgresVectorSampleResult,
@@ -22,12 +24,6 @@ import type {
 import * as sqliteVec from 'sqlite-vec';
 
 export const sqlRouter = new Hono();
-
-function handleError(c: any, err: unknown, context: string) {
-  const message = err instanceof Error ? err.message : 'Unknown error';
-  console.error(`[SQL] ${context}:`, message);
-  return c.json({ error: 'INTERNAL_ERROR', message }, 500);
-}
 
 // Module-level adapter cache to avoid creating + destroying connection pools per request
 const adapterCache = new Map<string, SqlAdapter>();
@@ -48,15 +44,15 @@ export async function getSqlAdapter(connectionId: string) {
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) throw new Error('Connection not found');
 
-  if (profile.kind === 'mongodb') {
+  if (profile.kind === KIND.MONGODB) {
     throw new Error('Use /mongo endpoint for MongoDB connections');
   }
-  if (profile.kind === 'tigerbeetle') {
+  if (profile.kind === KIND.TIGERBEETLE) {
     throw new Error('TigerBeetle is not a SQL database');
   }
 
   const password = metadataStore.getProfilePassword(connectionId);
-  if (!password && profile.kind === 'postgres') {
+  if (!password && profile.kind === KIND.POSTGRES) {
     throw new Error('Password not saved. Open connection settings and save with password.');
   }
 
@@ -86,7 +82,7 @@ async function getMongoAdapter(connectionId: string) {
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) throw new Error('Connection not found');
 
-  if (profile.kind !== 'mongodb') {
+  if (profile.kind !== KIND.MONGODB) {
     throw new Error('Use /sql endpoint for non-MongoDB connections');
   }
 
@@ -397,7 +393,7 @@ function getPgProfile(connectionId: string) {
   if (!profile) {
     throw Object.assign(new Error('Connection not found'), { statusCode: 404 });
   }
-  if (profile.kind !== 'postgres') {
+  if (profile.kind !== KIND.POSTGRES) {
     throw Object.assign(new Error('pgvector requires a PostgreSQL connection'), { statusCode: 400 });
   }
   return profile;
@@ -406,7 +402,7 @@ function getPgProfile(connectionId: string) {
 function getPgConnConfig(profile: ReturnType<typeof getPgProfile>, password?: string) {
   return {
     host: profile.host || 'localhost',
-    port: profile.port || 5432,
+    port: profile.port || DEFAULT_PORTS[KIND.POSTGRES],
     database: profile.database || '',
     username: profile.username || '',
     password: password ?? '',
@@ -469,13 +465,13 @@ sqlRouter.post(
 
       pool = new pg.Pool({
         host: profile.host || 'localhost',
-        port: profile.port || 5432,
+        port: profile.port || DEFAULT_PORTS[KIND.POSTGRES],
         database: profile.database,
         user: profile.username,
         password,
         ssl: profile.ssl ? { rejectUnauthorized: false } : false,
         max: 1,
-        connectionTimeoutMillis: 10000,
+        connectionTimeoutMillis: ADAPTER_TIMEOUTS.CONNECT_LONG,
       });
 
       // Validate that the table/column exist and are vector type
@@ -615,13 +611,13 @@ sqlRouter.post(
 
       pool = new pg.Pool({
         host: profile.host || 'localhost',
-        port: profile.port || 5432,
+        port: profile.port || DEFAULT_PORTS[KIND.POSTGRES],
         database: profile.database,
         user: profile.username,
         password,
         ssl: profile.ssl ? { rejectUnauthorized: false } : false,
         max: 1,
-        connectionTimeoutMillis: 10000,
+        connectionTimeoutMillis: ADAPTER_TIMEOUTS.CONNECT_LONG,
       });
 
       // Find a unique identifier column for this table
@@ -688,7 +684,7 @@ function getSqliteProfile(connectionId: string) {
   if (!profile) {
     throw Object.assign(new Error('Connection not found'), { statusCode: 404 });
   }
-  if (profile.kind !== 'sqlite') {
+  if (profile.kind !== KIND.SQLITE) {
     throw Object.assign(new Error('sqlite-vec requires a SQLite connection'), { statusCode: 400 });
   }
   return profile;

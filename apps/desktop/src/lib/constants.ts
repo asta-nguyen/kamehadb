@@ -7,68 +7,90 @@ export const SCHEMA_CACHE_TIME = 5 * 60 * 1000;
 /** How long to cache database stats (30 seconds). */
 export const STATS_CACHE_TIME = 30 * 1000;
 
+/** Short cache for fast-changing data like Redis/Qdrant keys (10 seconds). */
+export const FAST_CACHE_TIME = 10 * 1000;
+
+/** Stale time for connection list (2 minutes). */
+export const CONNECTIONS_CACHE_TIME = 2 * 60 * 1000;
+
+/** Default stale time for the global query client (30 seconds). */
+export const DEFAULT_STALE_TIME = 30 * 1000;
+
+/** Health check refetch interval (1 minute). */
+export const HEALTH_CHECK_INTERVAL = 60 * 1000;
+
+/** Auto-hide transient UI notifications (5 seconds). */
+export const TOAST_AUTO_HIDE_MS = 5 * 1000;
+
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';
 import type { DbKind } from '@kamehadb/shared';
+import {
+  KIND,
+  ALL_KINDS as SHARED_ALL_KINDS,
+  SQL_KINDS as SHARED_SQL_KINDS,
+  isSqlKind as sharedIsSqlKind,
+  DEFAULT_PORTS as SHARED_DEFAULT_PORTS,
+} from '@kamehadb/shared';
 import { FileText, History, BarChart3, Search, Share2, Terminal, type LucideIcon } from 'lucide-react';
 import {
   openNewQueryTab,
   openGraphTab,
   openDatabaseStatsTab,
   openSchemaTimelineTab,
-  openMigrationTab,
   openQdrantSearchTab,
   openMongoQueryTab,
   openMongoShellTab,
   openRedisQueryTab,
   openRedisTab,
   openSqliteVecSearchTab,
+  openPostgresVectorSearchTab,
   appStore,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
 export const KIND_ICON_COMPONENT: Record<DbKind, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
-  postgres: PostgreSQL,
-  mysql: MySQL,
-  sqlite: MySQL,
-  redis: Redis,
-  mongodb: MongoDB,
-  qdrant: MongoDB,
-  sqlserver: MicrosoftSQLServer,
-  oracle: Oracle,
-  clickhouse: ClickHouse,
-  mariadb: MySQL,
-  duckdb: PostgreSQL,
-  tigerbeetle: PostgreSQL,
+  [KIND.POSTGRES]: PostgreSQL,
+  [KIND.MYSQL]: MySQL,
+  [KIND.SQLITE]: MySQL,
+  [KIND.REDIS]: Redis,
+  [KIND.MONGODB]: MongoDB,
+  [KIND.QDRANT]: MongoDB,
+  [KIND.SQLSERVER]: MicrosoftSQLServer,
+  [KIND.ORACLE]: Oracle,
+  [KIND.CLICKHOUSE]: ClickHouse,
+  [KIND.MARIADB]: MySQL,
+  [KIND.DUCKDB]: PostgreSQL,
+  [KIND.TIGERBEETLE]: PostgreSQL,
 };
 
 export const GROUP_ORDER: Record<string, number> = {
-  postgres: 0,
-  mysql: 1,
-  sqlite: 2,
-  redis: 3,
-  mongodb: 4,
-  qdrant: 5,
-  sqlserver: 6,
-  oracle: 7,
-  clickhouse: 8,
-  mariadb: 9,
-  duckdb: 10,
-  tigerbeetle: 11,
+  [KIND.POSTGRES]: 0,
+  [KIND.MYSQL]: 1,
+  [KIND.SQLITE]: 2,
+  [KIND.REDIS]: 3,
+  [KIND.MONGODB]: 4,
+  [KIND.QDRANT]: 5,
+  [KIND.SQLSERVER]: 6,
+  [KIND.ORACLE]: 7,
+  [KIND.CLICKHOUSE]: 8,
+  [KIND.MARIADB]: 9,
+  [KIND.DUCKDB]: 10,
+  [KIND.TIGERBEETLE]: 11,
 };
 
 export const KIND_LABELS: Record<DbKind, string> = {
-  postgres: 'PostgreSQL',
-  sqlite: 'SQLite',
-  mysql: 'MySQL',
-  redis: 'Redis',
-  mongodb: 'MongoDB',
-  qdrant: 'Qdrant',
-  sqlserver: 'SQL Server',
-  oracle: 'Oracle',
-  clickhouse: 'ClickHouse',
-  mariadb: 'MariaDB',
-  duckdb: 'DuckDB',
-  tigerbeetle: 'TigerBeetle',
+  [KIND.POSTGRES]: 'PostgreSQL',
+  [KIND.SQLITE]: 'SQLite',
+  [KIND.MYSQL]: 'MySQL',
+  [KIND.REDIS]: 'Redis',
+  [KIND.MONGODB]: 'MongoDB',
+  [KIND.QDRANT]: 'Qdrant',
+  [KIND.SQLSERVER]: 'SQL Server',
+  [KIND.ORACLE]: 'Oracle',
+  [KIND.CLICKHOUSE]: 'ClickHouse',
+  [KIND.MARIADB]: 'MariaDB',
+  [KIND.DUCKDB]: 'DuckDB',
+  [KIND.TIGERBEETLE]: 'TigerBeetle',
 };
 
 // Alias for GROUP_LABELS to match semantic usage — labels by engine kind are the
@@ -79,51 +101,16 @@ export const SIDEBAR_MIN_WIDTH = 250;
 export const SIDEBAR_MAX_WIDTH = 400;
 export const SIDEBAR_DEFAULT_WIDTH = 300;
 
-export const KINDS: DbKind[] = [
-  'postgres',
-  'mysql',
-  'sqlite',
-  'redis',
-  'mongodb',
-  'qdrant',
-  'sqlserver',
-  'oracle',
-  'clickhouse',
-  'mariadb',
-  'duckdb',
-  'tigerbeetle',
-];
+export const KINDS: DbKind[] = [...SHARED_ALL_KINDS];
 
 /** Engine kinds that use the SQL adapter path (not Mongo/Redis/Qdrant/TigerBeetle). */
-export const SQL_KINDS: readonly DbKind[] = [
-  'postgres',
-  'mysql',
-  'sqlite',
-  'sqlserver',
-  'oracle',
-  'clickhouse',
-  'mariadb',
-  'duckdb',
-] as const;
+export const SQL_KINDS: readonly DbKind[] = SHARED_SQL_KINDS;
 
 export function isSqlKind(kind: string | undefined): kind is DbKind {
-  return kind !== undefined && SQL_KINDS.includes(kind as DbKind);
+  return kind !== undefined && sharedIsSqlKind(kind);
 }
 
-export const DEFAULT_PORTS: Record<DbKind, number> = {
-  postgres: 5432,
-  mysql: 3306,
-  sqlite: 0,
-  redis: 6379,
-  mongodb: 0,
-  qdrant: 6333,
-  sqlserver: 1433,
-  oracle: 1521,
-  clickhouse: 8123,
-  mariadb: 3306,
-  duckdb: 0,
-  tigerbeetle: 3000,
-};
+export const DEFAULT_PORTS = SHARED_DEFAULT_PORTS;
 
 export const PRESET_COLORS = [
   { hex: '#3b82f6', name: 'Blue' },
@@ -241,10 +228,10 @@ export const SQL_TAB_ACTIONS: TabAction[] = [
   { label: 'Graph', icon: Share2, open: openGraphTab },
   { label: 'Stats', icon: BarChart3, open: openDatabaseStatsTab },
   { label: 'Schema Timeline', icon: History, open: openSchemaTimelineTab },
-  { label: 'Migration Assistant', icon: Terminal, open: openMigrationTab },
 ];
 
 export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAction[]>> = {
+  postgres: [{ label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab }],
   qdrant: [{ label: 'Vector Search', icon: Search, open: openQdrantSearchTab }],
   sqlite: [{ label: 'Vector Search', icon: Search, open: openSqliteVecSearchTab }],
   mongodb: [

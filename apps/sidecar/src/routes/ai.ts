@@ -1,6 +1,8 @@
 import { zValidator } from '@hono/zod-validator';
 import {
   isQuerySafe,
+  KIND,
+  isSqlKind,
   type AIChatMessage,
   type AIProvider,
   type ConnectionProfile,
@@ -167,18 +169,18 @@ Rules:
 - Default to read-only queries. If the user asks for a write, note the risk before providing it.
 - Always use the correct language tag for the code block (see per-database rules below).`;
 
-  if (connectionKind === 'redis') {
+  if (connectionKind === KIND.REDIS) {
     prompt += `\n\nCurrent connection: Redis.
 - Use \`\`\`redis\`\`\` blocks with Redis CLI syntax only.
 - Prefer read-only commands: SCAN, TYPE, TTL, MEMORY USAGE, INFO, DBSIZE, HGETALL, LRANGE, SMEMBERS, ZRANGE.
 - Do NOT use SQL or JavaScript syntax.`;
-  } else if (connectionKind === 'mongodb') {
+  } else if (connectionKind === KIND.MONGODB) {
     prompt += `\n\nCurrent connection: MongoDB.
 - Use \`\`\`javascript\`\`\` blocks for all queries (filter, find, aggregate, etc.).
 - Do NOT use SQL syntax.
 - Write the query using direct shell syntax: \`db.collectionName.find(...)\` or \`db.collectionName.aggregate([...])\`.
 - Prefix the query with a comment explaining what it does.`;
-  } else if (connectionKind === 'tigerbeetle') {
+  } else if (connectionKind === KIND.TIGERBEETLE) {
     prompt += `\n\nCurrent connection: TigerBeetle (financial transaction database).
 - Do NOT use SQL, MongoDB, or Redis syntax.
 - TigerBeetle is a double-entry accounting database with accounts and transfers.
@@ -274,7 +276,7 @@ aiRouter.post(
         if (!ddl && !mongoSchema) {
           try {
             if (profile) {
-              if (profile.kind === 'mongodb') {
+              if (profile.kind === KIND.MONGODB) {
                 const adapter = createMongoDbAdapter(profile);
                 try {
                   mongoSchema = await buildMongoSchemaContext(adapter, mongoDatabase);
@@ -282,7 +284,7 @@ aiRouter.post(
                 } finally {
                   await adapter.close();
                 }
-              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle') {
+              } else if (isSqlKind(profile.kind)) {
                 const adapter = await getSqlAdapter(connectionId);
                 const userQuery = latestUserMsg;
                 if (userQuery) {
@@ -298,7 +300,7 @@ aiRouter.post(
                 }
                 setCache(cacheKey, ddl);
 
-                if (profile.kind === 'postgres') {
+                if (profile.kind === KIND.POSTGRES) {
                   postgresVectorPrompt = await resolvePostgresVectorPrompt(connectionId, profile);
                 }
               }
@@ -308,7 +310,7 @@ aiRouter.post(
           }
         }
 
-        if (profile?.kind === 'postgres' && !postgresVectorPrompt) {
+        if (profile?.kind === KIND.POSTGRES && !postgresVectorPrompt) {
           postgresVectorPrompt = await resolvePostgresVectorPrompt(connectionId, profile);
         }
       }
@@ -318,7 +320,7 @@ aiRouter.post(
 
       const provider = createProvider(providerName, config);
       const abortController = new AbortController();
-      const isSqlConnection = connectionKind && !['mongodb', 'redis', 'tigerbeetle', 'qdrant'].includes(connectionKind);
+      const isSqlConnection = connectionKind && isSqlKind(connectionKind);
 
       // Extract SQL queries from code fences in LLM output
       function extractSqlQueries(text: string): string[] {

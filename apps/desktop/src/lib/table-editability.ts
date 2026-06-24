@@ -10,18 +10,7 @@ export type QueryResultEditabilityState = TableEditabilityState & {
   readonly tableId: string | null;
 };
 
-export function getTableEditabilityState(input: {
-  readonly hasPrimaryKey: boolean;
-  readonly isReadOnly: boolean;
-}): TableEditabilityState {
-  if (input.isReadOnly) {
-    return {
-      canEditCells: false,
-      warningMessage: 'Connection is read-only — disable read-only in connection settings to edit cells.',
-      warningTone: 'warning',
-    };
-  }
-
+export function getTableEditabilityState(input: { readonly hasPrimaryKey: boolean }): TableEditabilityState {
   if (!input.hasPrimaryKey) {
     return {
       canEditCells: true,
@@ -71,15 +60,7 @@ export function getQueryResultEditabilityState(input: {
   readonly querySql: string;
   readonly resultColumns: readonly QueryColumn[];
   readonly tableColumns: readonly ColumnInfo[] | null | undefined;
-  readonly isReadOnly: boolean;
 }): QueryResultEditabilityState {
-  if (input.isReadOnly) {
-    return {
-      ...getTableEditabilityState({ hasPrimaryKey: false, isReadOnly: true }),
-      tableId: null,
-    };
-  }
-
   const tableId = inferSimpleSelectTableId(input.querySql);
   if (!tableId) {
     return {
@@ -116,7 +97,6 @@ export function getQueryResultEditabilityState(input: {
   return {
     ...getTableEditabilityState({
       hasPrimaryKey: input.tableColumns.some((column) => column.primaryKey),
-      isReadOnly: false,
     }),
     tableId,
   };

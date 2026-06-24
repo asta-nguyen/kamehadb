@@ -99,24 +99,14 @@ export function openQdrantTab(connectionId: string, collection: string): void {
   openTab({ id: `${connectionId}:qdrant:${collection}`, type: 'qdrant', title: collection, connectionId, collection });
 }
 
-export function openQdrantSearchTab(
-  connectionId: string,
-  collection?: string,
-  options?: { readonly mode?: 'text' | 'similar' | 'raw'; readonly pointId?: string | number },
-): void {
+export function openQdrantSearchTab(connectionId: string, collection?: string): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'qdrant-search').length;
   openTab({
     id: `qdrant-search-${nanoid()}`,
     type: 'qdrant-search',
-    title: options?.pointId
-      ? `Similar to ${options.pointId}`
-      : collection
-        ? `Search ${collection}`
-        : `Vector Search ${tabCount + 1}`,
+    title: collection ? `Search ${collection}` : `Vector Search ${tabCount + 1}`,
     connectionId,
     collection,
-    mode: options?.mode,
-    pointId: options?.pointId,
   });
 }
 

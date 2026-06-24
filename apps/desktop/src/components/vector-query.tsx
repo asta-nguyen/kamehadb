@@ -521,7 +521,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             value={state.filterText}
             onChange={(event) => dispatch({ type: 'setFilterText', value: event.target.value })}
             placeholder="Optional filter, e.g. category = 'docs' AND id > 10"
-            className="w-full h-9 px-2 text-sm bg-background border rounded"
+            className="w-full"
           />
         )}
 

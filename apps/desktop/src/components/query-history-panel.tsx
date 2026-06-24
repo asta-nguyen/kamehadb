@@ -169,7 +169,7 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose, width 
               placeholder="Search queries..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-7 h-8 text-xs"
+              className="pl-8 text-xs"
             />
           </div>
         </div>

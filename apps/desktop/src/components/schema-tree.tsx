@@ -57,7 +57,7 @@ function SchemaItem({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter..."
-                className="pl-6 pr-2 h-6 text-xs"
+                className="pl-7 pr-2 h-7 text-xs"
               />
             </div>
           </div>
@@ -212,7 +212,7 @@ export function SchemaTree({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search schemas & tables..."
-          className="pl-6 pr-2 h-7 text-xs"
+          className="pl-7 pr-2 h-8 text-xs"
         />
       </div>
       {visibleSchemas.map((schema) => (

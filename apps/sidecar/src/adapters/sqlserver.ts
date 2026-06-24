@@ -1,4 +1,7 @@
 import sql from 'mssql';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
+import { ESCAPE_ID } from '../lib/sql-escape.js';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -23,14 +26,14 @@ export async function testSqlServerConnection(connection: {
 }): Promise<TestConnectionResult> {
   const pool = new sql.ConnectionPool({
     server: connection.host || 'localhost',
-    port: connection.port || 1433,
+    port: connection.port || DEFAULT_PORTS[KIND.SQLSERVER],
     database: connection.database || 'master',
     user: connection.username,
     password: connection.password,
     options: {
       encrypt: false,
       trustServerCertificate: true,
-      connectTimeout: 5000,
+      connectTimeout: ADAPTER_TIMEOUTS.CONNECT_DEFAULT,
     },
   });
   try {
@@ -54,26 +57,24 @@ export function createSqlServerAdapter(connection: {
 }): SqlAdapter {
   const pool = new sql.ConnectionPool({
     server: connection.host || 'localhost',
-    port: connection.port || 1433,
+    port: connection.port || DEFAULT_PORTS[KIND.SQLSERVER],
     database: connection.database || 'master',
     user: connection.username,
     password: connection.password,
     options: {
       encrypt: false,
       trustServerCertificate: true,
-      connectTimeout: 10000,
-      requestTimeout: 30000,
+      connectTimeout: ADAPTER_TIMEOUTS.CONNECT_LONG,
+      requestTimeout: ADAPTER_TIMEOUTS.REQUEST,
     },
     pool: {
       max: 5,
       min: 0,
-      idleTimeoutMillis: 30000,
+      idleTimeoutMillis: ADAPTER_TIMEOUTS.IDLE,
     },
   });
 
-  function escapeId(id: string): string {
-    return '[' + id.replace(/\]/g, ']]') + ']';
-  }
+  const escapeId = ESCAPE_ID.brackets;
 
   return {
     async testConnection(): Promise<TestConnectionResult> {

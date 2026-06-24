@@ -1,5 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form';
-import type { CreateConnectionProfileInput, DbKind } from '@kamehadb/shared';
+import { type CreateConnectionProfileInput, type DbKind, KIND } from '@kamehadb/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,73 +9,73 @@ import { DbIcon } from '@/components/db-icon';
 import { KIND_LABELS, KINDS, DEFAULT_PORTS, PRESET_COLORS } from '@/lib/constants';
 
 const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; ring: string }> = {
-  postgres: {
+  [KIND.POSTGRES]: {
     border: 'hover:border-primary/50',
     bg: 'data-[selected=true]:bg-primary/10',
     icon: 'text-primary',
     ring: 'data-[selected=true]:ring-primary/20',
   },
-  sqlite: {
+  [KIND.SQLITE]: {
     border: 'hover:border-muted-foreground/50',
     bg: 'data-[selected=true]:bg-muted/50',
     icon: 'text-muted-foreground',
     ring: 'data-[selected=true]:ring-muted-foreground/20',
   },
-  mysql: {
+  [KIND.MYSQL]: {
     border: 'hover:border-secondary/50',
     bg: 'data-[selected=true]:bg-secondary/50',
     icon: 'text-secondary-foreground',
     ring: 'data-[selected=true]:ring-secondary/20',
   },
-  redis: {
+  [KIND.REDIS]: {
     border: 'hover:border-destructive/50',
     bg: 'data-[selected=true]:bg-destructive/10',
     icon: 'text-destructive',
     ring: 'data-[selected=true]:ring-destructive/20',
   },
-  mongodb: {
+  [KIND.MONGODB]: {
     border: 'hover:border-accent/50',
     bg: 'data-[selected=true]:bg-accent/50',
     icon: 'text-accent-foreground',
     ring: 'data-[selected=true]:ring-accent-foreground/20',
   },
-  qdrant: {
+  [KIND.QDRANT]: {
     border: 'hover:border-primary/50',
     bg: 'data-[selected=true]:bg-primary/10',
     icon: 'text-primary',
     ring: 'data-[selected=true]:ring-primary/20',
   },
-  sqlserver: {
+  [KIND.SQLSERVER]: {
     border: 'hover:border-blue-500/50',
     bg: 'data-[selected=true]:bg-blue-500/10',
     icon: 'text-blue-500',
     ring: 'data-[selected=true]:ring-blue-500/20',
   },
-  oracle: {
+  [KIND.ORACLE]: {
     border: 'hover:border-red-500/50',
     bg: 'data-[selected=true]:bg-red-500/10',
     icon: 'text-red-500',
     ring: 'data-[selected=true]:ring-red-500/20',
   },
-  clickhouse: {
+  [KIND.CLICKHOUSE]: {
     border: 'hover:border-yellow-500/50',
     bg: 'data-[selected=true]:bg-yellow-500/10',
     icon: 'text-yellow-500',
     ring: 'data-[selected=true]:ring-yellow-500/20',
   },
-  mariadb: {
+  [KIND.MARIADB]: {
     border: 'hover:border-cyan-500/50',
     bg: 'data-[selected=true]:bg-cyan-500/10',
     icon: 'text-cyan-500',
     ring: 'data-[selected=true]:ring-cyan-500/20',
   },
-  duckdb: {
+  [KIND.DUCKDB]: {
     border: 'hover:border-emerald-500/50',
     bg: 'data-[selected=true]:bg-emerald-500/10',
     icon: 'text-emerald-500',
     ring: 'data-[selected=true]:ring-emerald-500/20',
   },
-  tigerbeetle: {
+  [KIND.TIGERBEETLE]: {
     border: 'hover:border-orange-500/50',
     bg: 'data-[selected=true]:bg-orange-500/10',
     icon: 'text-orange-500',
@@ -85,13 +85,13 @@ const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; r
 
 function selectKind(form: UseFormReturn<CreateConnectionProfileInput>, dbKind: DbKind) {
   form.setValue('kind', dbKind);
-  if (dbKind === 'sqlite' || dbKind === 'mongodb' || dbKind === 'duckdb') {
+  if (dbKind === KIND.SQLITE || dbKind === KIND.MONGODB || dbKind === KIND.DUCKDB) {
     form.setValue('host', undefined);
     form.setValue('port', undefined);
     form.setValue('database', undefined);
     form.setValue('username', undefined);
     form.setValue('password', undefined);
-  } else if (dbKind === 'qdrant') {
+  } else if (dbKind === KIND.QDRANT) {
     form.setValue('filePath', undefined);
     form.setValue('database', undefined);
     form.setValue('username', undefined);
@@ -127,6 +127,7 @@ export function DatabaseTypeGrid({ form, kind }: { form: UseFormReturn<CreateCon
                 data-[selected=true]:border-2 data-[selected=true]:shadow-sm
                 data-[selected=true]:ring-2
                 data-[selected=false]:border-border/50
+               
               `}
             >
               {selected && (
@@ -230,20 +231,20 @@ export function ConnectionDetailsSection({
     <div className="space-y-3">
       <div className="h-px bg-border/50" />
 
-      {kind !== 'sqlite' && kind !== 'mongodb' && (
+      {kind !== KIND.SQLITE && kind !== KIND.MONGODB && (
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Connection URL <span className="font-normal normal-case">(auto-fill fields)</span>
           </Label>
           <Input
-            placeholder={`${kind}://user:pass@host:${DEFAULT_PORTS[kind] ?? 3306}/database`}
+            placeholder={`${kind}://user:pass@host:${DEFAULT_PORTS[kind]}/database`}
             onChange={(e) => onUrlChange(e.target.value)}
-            className="h-9 font-mono text-xs"
+            className="font-mono text-xs"
           />
         </div>
       )}
 
-      {kind === 'mongodb' ? (
+      {kind === KIND.MONGODB ? (
         <div className="space-y-1.5">
           <Label
             htmlFor="connectionString"
@@ -255,10 +256,10 @@ export function ConnectionDetailsSection({
             id="connectionString"
             {...form.register('connectionString')}
             placeholder="mongodb://localhost:27017"
-            className="h-9 font-mono text-xs"
+            className="font-mono text-xs"
           />
         </div>
-      ) : kind === 'sqlite' || kind === 'duckdb' ? (
+      ) : kind === KIND.SQLITE || kind === KIND.DUCKDB ? (
         <div className="space-y-1.5">
           <Label htmlFor="filePath" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Database File <span className="text-destructive">*</span>
@@ -268,14 +269,14 @@ export function ConnectionDetailsSection({
               id="filePath"
               {...form.register('filePath')}
               placeholder="/path/to/database.sqlite"
-              className="h-9 font-mono text-xs"
+              className="font-mono text-xs"
             />
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
-              className="h-9 gap-1.5 shrink-0"
+              className="gap-1.5 shrink-0"
             >
               <FolderOpen className="size-3.5" />
               Browse
@@ -304,7 +305,7 @@ export function ConnectionDetailsSection({
               <Label htmlFor="host" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Host
               </Label>
-              <Input id="host" {...form.register('host')} placeholder="localhost" className="h-9" />
+              <Input id="host" {...form.register('host')} placeholder="localhost" />
             </div>
             <div className="space-y-1.5 w-24">
               <Label htmlFor="port" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -314,17 +315,17 @@ export function ConnectionDetailsSection({
                 id="port"
                 type="number"
                 {...form.register('port', { valueAsNumber: true })}
-                className="h-9 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
           </div>
-          {kind !== 'qdrant' && kind !== 'tigerbeetle' && (
+          {kind !== KIND.QDRANT && kind !== KIND.TIGERBEETLE && (
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Database
                 </Label>
-                <Input id="database" {...form.register('database')} placeholder="mydb" className="h-9" />
+                <Input id="database" {...form.register('database')} placeholder="mydb" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
@@ -337,8 +338,7 @@ export function ConnectionDetailsSection({
                   <Input
                     id="username"
                     {...form.register('username')}
-                    placeholder={kind === 'postgres' ? 'postgres' : 'root'}
-                    className="h-9"
+                    placeholder={kind === KIND.POSTGRES ? 'postgres' : 'root'}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -346,25 +346,24 @@ export function ConnectionDetailsSection({
                     htmlFor="password"
                     className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
                   >
-                    Password {kind === 'postgres' && <span className="text-destructive">*</span>}
+                    Password {kind === KIND.POSTGRES && <span className="text-destructive">*</span>}
                   </Label>
                   <Input
                     id="password"
                     type="password"
                     onChange={(e) => form.setValue('password', e.target.value)}
                     placeholder={isEditing ? '(unchanged)' : ''}
-                    className="h-9"
                   />
                 </div>
               </div>
             </>
           )}
-          {kind === 'tigerbeetle' && (
+          {kind === KIND.TIGERBEETLE && (
             <div className="space-y-1.5">
               <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Cluster ID
               </Label>
-              <Input id="database" {...form.register('database')} placeholder="0" className="h-9" />
+              <Input id="database" {...form.register('database')} placeholder="0" />
             </div>
           )}
         </>

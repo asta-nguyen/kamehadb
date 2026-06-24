@@ -3,10 +3,13 @@ import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
-import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
+import { ALL_KINDS, KIND } from '@kamehadb/shared';
+import { DEFAULT_AI_PROVIDER, CACHE_TTL_MS } from '../lib/constants.js';
+
+const KIND_CHECK = `kind TEXT NOT NULL CHECK(kind IN (${ALL_KINDS.map((k) => `'${k}'`).join(',')}))`;
 
 let db: Database.Database | null = null;
-const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
+const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: CACHE_TTL_MS });
 
 function createDefaultAISettings(): AISettings {
   return {
@@ -54,7 +57,7 @@ export function initMetadataStore(dbPath: string): void {
     CREATE TABLE IF NOT EXISTS connection_profiles (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
+      ${KIND_CHECK},
       host TEXT,
       port INTEGER,
       database TEXT,
@@ -100,13 +103,13 @@ export function initMetadataStore(dbPath: string): void {
       | undefined
   )?.sql;
   // Migration: widen the kind CHECK constraint to include sqlserver/oracle/clickhouse.
-  if (profilesSql && !profilesSql.includes('clickhouse')) {
+  if (profilesSql && !profilesSql.includes(KIND.CLICKHOUSE)) {
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE connection_profiles_new (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','tigerbeetle')),
+        ${KIND_CHECK},
         host TEXT,
         port INTEGER,
         database TEXT,
@@ -129,13 +132,13 @@ export function initMetadataStore(dbPath: string): void {
     `);
   }
 
-  if (profilesSql && !profilesSql.includes('qdrant')) {
+  if (profilesSql && !profilesSql.includes(KIND.QDRANT)) {
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE connection_profiles_new (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
+      ${KIND_CHECK},
         host TEXT,
         port INTEGER,
         database TEXT,
@@ -159,13 +162,13 @@ export function initMetadataStore(dbPath: string): void {
   }
 
   // Migration: widen the kind CHECK constraint to include mariadb and duckdb.
-  if (profilesSql && !profilesSql.includes('mariadb')) {
+  if (profilesSql && !profilesSql.includes(KIND.MARIADB)) {
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE connection_profiles_new (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
+        ${KIND_CHECK},
         host TEXT,
         port INTEGER,
         database TEXT,
@@ -189,13 +192,13 @@ export function initMetadataStore(dbPath: string): void {
   }
 
   // Migration: widen the kind CHECK constraint to include tigerbeetle.
-  if (profilesSql && !profilesSql.includes('tigerbeetle')) {
+  if (profilesSql && !profilesSql.includes(KIND.TIGERBEETLE)) {
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE connection_profiles_new (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
+        ${KIND_CHECK},
         host TEXT,
         port INTEGER,
         database TEXT,
@@ -556,9 +559,6 @@ function normalizeAISettings(input: AISettings): AISettings {
 }
 
 export function getAISettings(): AISettings {
-  const cached = aiSettingsCache.get('settings');
-  if (cached) return structuredClone(cached);
-
   const settings = createDefaultAISettings();
   const db = getDb();
 
@@ -590,7 +590,6 @@ export function getAISettings(): AISettings {
     }
   })();
 
-  aiSettingsCache.set('settings', settings);
   return structuredClone(settings);
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { STATS_CACHE_TIME } from '@/lib/constants';
 import { useStore } from '@tanstack/react-store';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -178,7 +179,7 @@ function useVectorScene(
       const hit = raycaster.intersectObject(cloud)[0];
       if (hit && hit.index != null) {
         const p = pointsRef.current[hit.index];
-        if (p) openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: p.id });
+        if (p) openQdrantSearchTab(connectionId, collection);
       }
     };
     renderer.domElement.addEventListener('pointermove', onPointerMove);
@@ -260,7 +261,7 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
         withPayload: true,
         withVector: true,
       }),
-    staleTime: 30000,
+    staleTime: STATS_CACHE_TIME,
   });
 
   const [colorBy, setColorBy] = useState<string>(tab.colorBy || '');

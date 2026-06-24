@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ComponentType } from 'react';
 import { formatBytes, formatNumber } from '@/lib/utils';
+import { FAST_CACHE_TIME } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,7 +30,7 @@ import { useConnections } from '@/hooks/use-connections';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { DataTable, type ColumnDef } from '@/components/data-table';
-import type { ConnectionInfo } from '@kamehadb/shared';
+import { type ConnectionInfo, KIND, isSqlKind } from '@kamehadb/shared';
 
 type DatabaseStatsProps = {
   connectionId: string;
@@ -69,20 +70,11 @@ export function DatabaseStats({ connectionId }: DatabaseStatsProps) {
     );
   }
 
-  if (currentConnection.kind === 'redis') {
+  if (currentConnection.kind === KIND.REDIS) {
     return <RedisDatabaseStats connectionId={connectionId} />;
   }
 
-  if (
-    currentConnection.kind === 'postgres' ||
-    currentConnection.kind === 'mysql' ||
-    currentConnection.kind === 'mariadb' ||
-    currentConnection.kind === 'sqlite' ||
-    currentConnection.kind === 'sqlserver' ||
-    currentConnection.kind === 'oracle' ||
-    currentConnection.kind === 'clickhouse' ||
-    currentConnection.kind === 'duckdb'
-  ) {
+  if (isSqlKind(currentConnection.kind)) {
     return <SqlDatabaseStats connectionId={connectionId} />;
   }
 
@@ -122,7 +114,7 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
   } = useQuery({
     queryKey: ['active-connections', connectionId],
     queryFn: () => api.getActiveConnections(connectionId),
-    staleTime: 10000,
+    staleTime: FAST_CACHE_TIME,
   });
 
   const totalSize = sizes?.reduce((acc, s) => acc + s.totalBytes, 0) ?? 0;
@@ -180,11 +172,16 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Database Analytics</h2>
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon" onClick={() => refetchSizes()} title="Refresh sizes">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              refetchSizes();
+              refetchConns();
+            }}
+            title="Refresh"
+          >
             <RefreshCw className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => refetchConns()} title="Refresh connections">
-            <Users className="size-4" />
           </Button>
         </div>
       </div>

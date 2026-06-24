@@ -31,7 +31,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search shortcuts..."
-          className="w-full h-8 rounded-lg border border-input/30 bg-input/30 px-3 text-sm outline-none focus:ring-1 focus:ring-primary/40"
+          className="w-full rounded-lg border border-input/30 bg-input/30 px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary/40"
           autoFocus
         />
       </div>

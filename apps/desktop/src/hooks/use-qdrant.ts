@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
+import { SCHEMA_CACHE_TIME, FAST_CACHE_TIME } from '@/lib/constants';
 import { QUERY_KEYS } from '@/lib/query-keys';
-import type { QdrantSearchInput, RecommendInput } from '@kamehadb/shared';
+import type { QdrantSearchInput } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function useQdrantCollections(connectionId: string | null) {
@@ -8,7 +9,7 @@ export function useQdrantCollections(connectionId: string | null) {
     queryKey: QUERY_KEYS.QDRANT_COLLECTIONS(connectionId),
     queryFn: () => api.listQdrantCollections(connectionId!),
     enabled: !!connectionId,
-    staleTime: 10000,
+    staleTime: SCHEMA_CACHE_TIME,
     retry: 1,
   });
 }
@@ -31,7 +32,7 @@ export function useQdrantPoints(
         withPayload: true,
       }),
     enabled: !!connectionId && !!collection,
-    staleTime: 10000,
+    staleTime: FAST_CACHE_TIME,
   });
 }
 
@@ -48,24 +49,11 @@ export function useQdrantSearch(connectionId: string | null) {
   });
 }
 
-export function useQdrantRecommend(connectionId: string | null) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: RecommendInput) => {
-      if (!connectionId) return Promise.reject(new Error('No connectionId'));
-      return api.recommendQdrant(connectionId, input);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['qdrant-points', connectionId] });
-    },
-  });
-}
-
 export function useQdrantStats(connectionId: string | null, collection: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.QDRANT_STATS(connectionId!, collection!),
     queryFn: () => api.getQdrantStats(connectionId!, collection!),
     enabled: !!connectionId && !!collection,
-    staleTime: 10000,
+    staleTime: FAST_CACHE_TIME,
   });
 }

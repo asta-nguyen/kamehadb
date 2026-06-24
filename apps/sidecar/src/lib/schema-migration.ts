@@ -1,9 +1,11 @@
-import type {
-  MigrationResult,
-  SchemaColumnDiff,
-  SchemaColumnSnapshot,
-  SchemaDiffResult,
-  SchemaIndexSnapshot,
+import {
+  DEFAULT_DIALECT,
+  DIALECT,
+  type MigrationResult,
+  type SchemaColumnDiff,
+  type SchemaColumnSnapshot,
+  type SchemaDiffResult,
+  type SchemaIndexSnapshot,
 } from '@kamehadb/shared';
 
 function quoteIdent(identifier: string): string {
@@ -37,7 +39,7 @@ function buildCreateIndex(tableId: string, index: SchemaIndexSnapshot): string {
 
 function buildDropIndex(tableId: string, _index: SchemaIndexSnapshot, dialect: string): string {
   // MySQL / MariaDB require "ON tableName" for DROP INDEX
-  if (dialect === 'mysql') {
+  if (dialect === DIALECT.MYSQL) {
     return `DROP INDEX ${quoteIdent(_index.name)} ON ${quoteTableId(tableId)};`;
   }
   return `DROP INDEX IF EXISTS ${quoteIdent(_index.name)};`;
@@ -85,7 +87,7 @@ function pushColumnChangeStatements(statements: string[], tableId: string, colum
   }
 }
 
-export function generateMigrationFromDiff(diff: SchemaDiffResult, dialect = 'postgresql'): MigrationResult {
+export function generateMigrationFromDiff(diff: SchemaDiffResult, dialect: string = DEFAULT_DIALECT): MigrationResult {
   const statements = [`-- Migration: ${diff.fromSnapshot.capturedAt} → ${diff.toSnapshot.capturedAt}`, ''];
 
   for (const tableDiff of diff.tableDiffs) {

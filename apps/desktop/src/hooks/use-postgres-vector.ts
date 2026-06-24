@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { STATS_CACHE_TIME } from '@/lib/constants';
 import type { PostgresVectorSampleInput, PostgresVectorSearchInput } from '@kamehadb/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
@@ -8,7 +9,7 @@ export function usePostgresVectorCapabilities(connectionId: string | null) {
     queryKey: QUERY_KEYS.POSTGRES_VECTOR_CAPABILITIES(connectionId),
     queryFn: () => api.getPostgresVectorCapabilities(connectionId!),
     enabled: !!connectionId,
-    staleTime: 30000,
+    staleTime: STATS_CACHE_TIME,
     retry: 1,
   });
 }
@@ -30,7 +31,7 @@ export function usePostgresVectorSample(connectionId: string | null, input: Post
       return api.getPostgresVectorSample(connectionId, input);
     },
     enabled: !!connectionId && !!input,
-    staleTime: 30000,
+    staleTime: STATS_CACHE_TIME,
     retry: 1,
   });
 }

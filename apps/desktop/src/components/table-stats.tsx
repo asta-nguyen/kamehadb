@@ -145,13 +145,13 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
                 <TableRow
                   style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 100px 80px' }}
                 >
-                  <TableHead>Name</TableHead>
-                  <TableHead>Columns</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Scans</TableHead>
-                  <TableHead>Usage</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead className="whitespace-nowrap">Name</TableHead>
+                  <TableHead className="whitespace-nowrap">Columns</TableHead>
+                  <TableHead className="whitespace-nowrap">Size</TableHead>
+                  <TableHead className="whitespace-nowrap">Scans</TableHead>
+                  <TableHead className="whitespace-nowrap">Usage</TableHead>
+                  <TableHead className="whitespace-nowrap">Method</TableHead>
+                  <TableHead className="whitespace-nowrap">Type</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

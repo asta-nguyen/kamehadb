@@ -275,9 +275,6 @@ export const api = {
   searchQdrant: (connectionId: string, input: import('@kamehadb/shared').QdrantSearchInput) =>
     request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/search`, input, true),
 
-  recommendQdrant: (connectionId: string, input: import('@kamehadb/shared').RecommendInput) =>
-    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/recommend`, input, true),
-
   getQdrantStats: (connectionId: string, collection: string) =>
     request<import('@kamehadb/shared').QdrantStats>(
       'GET',

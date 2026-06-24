@@ -10,6 +10,7 @@ import {
   reorderTabs,
 } from '@/store';
 import { isSqlKind } from '@/lib/constants';
+import { KIND } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import { Activity, BarChart3, Box, Database, History, Plus, Search, Share2, Table2, Terminal, X } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -26,7 +27,7 @@ function tabIcon(tabType: string) {
     return <Share2 className="size-3" />;
   if (tabType === 'mongo' || tabType === 'mongo-query') return <Table2 className="size-3" />;
   if (tabType === 'redis') return <Box className="size-3" />;
-  if (tabType === 'qdrant') return <DbIcon kind="qdrant" className="size-3" />;
+  if (tabType === 'qdrant') return <DbIcon kind={KIND.QDRANT} className="size-3" />;
   if (tabType === 'qdrant-search' || tabType === 'postgres-vector-search' || tabType === 'sqlite-vec-search')
     return <Search className="size-3" />;
   if (tabType === 'qdrant-stats' || tabType === 'stats' || tabType === 'database-stats')
@@ -50,7 +51,7 @@ export function WorkspaceTabBar() {
 
   return (
     <div
-      className="flex h-8 shrink-0 items-center overflow-x-auto border-b border-border bg-muted/20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex h-9 shrink-0 items-center overflow-x-auto border-b border-border bg-muted/20 !py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       onDragEnd={() => {
         dragIndexRef.current = null;
         setDragOverIndex(null);

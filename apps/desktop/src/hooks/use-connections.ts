@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { CONNECTIONS_CACHE_TIME, HEALTH_CHECK_INTERVAL } from '@/lib/constants';
 import { setConnectionStatus } from '@/store';
 import type {
   ConnectionProfile,
@@ -14,6 +15,7 @@ export function useConnections() {
   return useQuery({
     queryKey: QUERY_KEYS.CONNECTIONS,
     queryFn: api.listConnections,
+    staleTime: CONNECTIONS_CACHE_TIME,
   });
 }
 
@@ -22,7 +24,7 @@ export function useConnectionHealth(connectionId: string | null) {
     queryKey: QUERY_KEYS.CONNECTION_HEALTH(connectionId),
     queryFn: () => api.checkConnectionHealth(connectionId!),
     enabled: Boolean(connectionId),
-    refetchInterval: 60_000,
+    refetchInterval: HEALTH_CHECK_INTERVAL,
     retry: 2,
     retryDelay: 1000,
     select: (result) => (result.success ? 'connected' : 'disconnected'),

@@ -49,13 +49,32 @@ services:
     volumes:
       - redis_data:/data
 
-  duckdb:
-    image: duckdb/duckdb:latest
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
     restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: kameha
+      APP_USER: kameha
+      APP_USER_PASSWORD: kameha
+      ORACLE_DB: kamehadb
     ports:
-      - "5433:5432"
+      - "1521:1521"
     volumes:
-      - duckdb_data:/data
+      - oracle_data:/opt/oracle/oradata
+      - ./docker-init/oracle:/container-entrypoint-initdb.d
+
+  sqlserver:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: KamehaDB123!
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./docker-init/sqlserver:/container-entrypoint-initdb.d
 
   tigerbeetle:
     image: ghcr.io/tigerbeetle/tigerbeetle:latest
@@ -80,6 +99,7 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+      - ./docker-init/mongodb:/docker-entrypoint-initdb.d
 
   qdrant:
     image: qdrant/qdrant:v1.13.6
@@ -90,12 +110,28 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_USER: kameha
+      CLICKHOUSE_PASSWORD: kameha
+      CLICKHOUSE_DB: kamehadb
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./docker-init/clickhouse:/docker-entrypoint-initdb.d
+
 volumes:
   postgres_data:
   mysql_data:
   mariadb_data:
   redis_data:
-  duckdb_data:
   tigerbeetle_data:
   mongodb_data:
   qdrant_data:
+  oracle_data:
+  sqlserver_data:
+  clickhouse_data:

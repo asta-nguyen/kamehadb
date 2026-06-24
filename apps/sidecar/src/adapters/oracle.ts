@@ -1,4 +1,7 @@
 import oracledb from 'oracledb';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
+import { ESCAPE_ID } from '../lib/sql-escape.js';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -24,7 +27,7 @@ export async function testOracleConnection(connection: {
   password?: string;
 }): Promise<TestConnectionResult> {
   const conn = await oracledb.getConnection({
-    connectString: `${connection.host || 'localhost'}:${connection.port || 1521}/${connection.database || 'XE'}`,
+    connectString: `${connection.host || 'localhost'}:${connection.port || DEFAULT_PORTS[KIND.ORACLE]}/${connection.database || 'XE'}`,
     user: connection.username,
     password: connection.password,
   });
@@ -44,7 +47,7 @@ export function createOracleAdapter(connection: {
   username?: string;
   password?: string;
 }): SqlAdapter {
-  const connectString = `${connection.host || 'localhost'}:${connection.port || 1521}/${connection.database || 'XE'}`;
+  const connectString = `${connection.host || 'localhost'}:${connection.port || DEFAULT_PORTS[KIND.ORACLE]}/${connection.database || 'XE'}`;
 
   async function getConn() {
     return oracledb.getConnection({
@@ -54,9 +57,7 @@ export function createOracleAdapter(connection: {
     });
   }
 
-  function escapeId(id: string): string {
-    return '"' + id.replace(/"/g, '""') + '"';
-  }
+  const escapeId = ESCAPE_ID.doubleQuote;
 
   return {
     async testConnection(): Promise<TestConnectionResult> {

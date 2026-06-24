@@ -1,4 +1,6 @@
 import Redis from 'ioredis';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
 import type {
   RedisAdapter,
   TestConnectionResult,
@@ -28,11 +30,11 @@ interface RedisConfig {
 export async function testRedisConnection(config: RedisConfig): Promise<TestConnectionResult> {
   const client = new Redis({
     host: config.host ?? 'localhost',
-    port: config.port ?? 6379,
+    port: config.port ?? DEFAULT_PORTS[KIND.REDIS],
     password: config.password || undefined,
     db: config.database ?? 0,
     lazyConnect: true,
-    connectTimeout: 3000,
+    connectTimeout: ADAPTER_TIMEOUTS.CONNECT_SHORT,
     retryStrategy: () => null, // no retries — fail fast
     maxRetriesPerRequest: null,
   });
@@ -57,11 +59,11 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
     if (!client) {
       client = new Redis({
         host: config.host ?? 'localhost',
-        port: config.port ?? 6379,
+        port: config.port ?? DEFAULT_PORTS[KIND.REDIS],
         password: config.password || undefined,
         db: config.database ?? 0,
         lazyConnect: true,
-        connectTimeout: 5000,
+        connectTimeout: ADAPTER_TIMEOUTS.CONNECT_DEFAULT,
       });
     }
     return client;

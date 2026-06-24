@@ -1,10 +1,11 @@
-import type {
-  DbKind,
-  MigrationInput,
-  SchemaDiffInput,
-  SchemaSnapshotRecord,
-  SchemaSnapshotSummary,
-  SqlAdapter,
+import {
+  type MigrationInput,
+  type SchemaDiffInput,
+  type SchemaSnapshotRecord,
+  type SchemaSnapshotSummary,
+  type SqlAdapter,
+  resolveDialect,
+  DEFAULT_DIALECT,
 } from '@kamehadb/shared';
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
@@ -149,31 +150,6 @@ export function createSqlSchemaRouter(options: {
     },
   );
 
-  // Map a connection kind to its migration SQL dialect.  Currently we
-  // generate PostgreSQL or MySQL syntax; other engines produce a generic
-  // dialect that may need manual adjustments.
-  function resolveDialect(kind: DbKind): string {
-    switch (kind) {
-      case 'postgres':
-        return 'postgresql';
-      case 'mysql':
-      case 'mariadb':
-        return 'mysql';
-      case 'sqlite':
-        return 'sqlite';
-      case 'sqlserver':
-        return 'sqlserver';
-      case 'oracle':
-        return 'oracle';
-      case 'clickhouse':
-        return 'clickhouse';
-      case 'duckdb':
-        return 'duckdb';
-      default:
-        return 'postgresql';
-    }
-  }
-
   router.post(
     '/schema/migrations',
     zValidator('json', z.object({ fromSnapshotId: z.string(), toSnapshotId: z.string() })),
@@ -182,7 +158,7 @@ export function createSqlSchemaRouter(options: {
         const connectionId = requireConnectionId(context);
         const input = context.req.valid('json') as MigrationInput;
         const profile = metadataStore.getProfile(connectionId);
-        const dialect = profile ? resolveDialect(profile.kind) : 'postgresql';
+        const dialect = profile ? resolveDialect(profile.kind) : DEFAULT_DIALECT;
         const fromSnapshot = loadSnapshot(connectionId, input.fromSnapshotId);
         const toSnapshot = loadSnapshot(connectionId, input.toSnapshotId);
         if (!fromSnapshot || !toSnapshot)

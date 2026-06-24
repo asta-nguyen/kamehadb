@@ -22,6 +22,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed tab bar horizontal scrollbar visibility — hidden while preserving scroll functionality.
 - v1.4 Adding MCP server
 
+### Added
+
+- **Retro themes** — Mira, Retro, DBeaver, WinXP, Win98 with full UI variable coverage.
+- **Theme-aware tooltips** — custom Tooltip component in Mongo view header replaces native `title` attributes, respecting `--d-tooltip-*` variables per theme.
+- **Theme-specific fonts** — DBeaver uses Roboto, WinXP uses Tahoma, Win98 uses MS Sans Serif, Retro uses monospace, Mira uses Inter.
+- **Per-theme density variables** — control heights, icon sizes, padding, and gaps tuned per theme (compact for Mira, larger for WinXP/Win98).
+
+### Changed
+
+- **Theme consistency** — all themes now share consistent `--d-*` component variables and uniform toolbar header padding.
+
 ---
 
 ## [v1.3.1] — 2026-06-23

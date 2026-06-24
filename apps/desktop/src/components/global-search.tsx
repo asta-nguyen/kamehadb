@@ -21,7 +21,7 @@ import { getApiBase } from '@/lib/api-client';
 import { DbIcon } from '@/components/db-icon';
 import { useStore } from '@tanstack/react-store';
 import { BarChart3, Database, FileText, Keyboard, Share2, Sparkles, Table2, Terminal } from 'lucide-react';
-import type { SchemaSearchMatch } from '@kamehadb/shared';
+import { type SchemaSearchMatch, KIND } from '@kamehadb/shared';
 
 import { isSqlKind } from '@/lib/constants';
 
@@ -277,7 +277,7 @@ export function GlobalSearch({
               const conn = connections?.find((c) => c.id === connId);
               return (
                 <div key={connId} className="px-2 py-1.5 text-xs text-muted-foreground flex items-center gap-2">
-                  <DbIcon kind={conn?.kind ?? 'postgres'} className="size-3.5" />
+                  <DbIcon kind={conn?.kind ?? KIND.POSTGRES} className="size-3.5" />
                   <span>
                     <span className="font-medium">{conn?.name ?? connId}</span> — schema search not available for this
                     database type

@@ -1,3 +1,5 @@
+import type { ThemePreset } from '@/lib/theme-presets';
+
 export type WorkspaceTab =
   | {
       readonly id: string;
@@ -38,8 +40,6 @@ export type WorkspaceTab =
       readonly title: string;
       readonly connectionId: string;
       readonly collection?: string;
-      readonly mode?: 'text' | 'similar' | 'raw';
-      readonly pointId?: string | number;
     }
   | {
       readonly id: string;
@@ -124,7 +124,7 @@ export type WorkspaceTab =
       readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
     };
 
-export type AppView = 'workspace' | 'api-settings' | 'logs';
+export type AppView = 'workspace' | 'api-settings' | 'logs' | 'appearance';
 
 export type AppStoreState = {
   readonly activeConnectionId: string | null;
@@ -139,6 +139,7 @@ export type AppStoreState = {
   readonly density: 'compact' | 'comfortable';
   readonly view: AppView;
   readonly theme: 'light' | 'dark' | 'system';
+  readonly themePreset: ThemePreset;
   readonly expandedConnections: readonly string[];
   readonly pinnedConnections: readonly string[];
   readonly connectionLatency: Readonly<Record<string, number>>;

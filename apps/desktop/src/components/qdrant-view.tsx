@@ -272,13 +272,13 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             fixedTemplate="40px 192px minmax(0, 1fr)"
             stickyHeader
             rowClassName="group"
-            prefix={(p) => (
+            prefix={(_p) => (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={(e) => {
                   e.stopPropagation();
-                  openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: String(p.id) });
+                  openQdrantSearchTab(connectionId, collection);
                 }}
                 className="opacity-0 group-hover:opacity-100"
                 title="Find similar points"

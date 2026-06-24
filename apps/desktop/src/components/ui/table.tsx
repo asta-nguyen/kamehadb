@@ -53,7 +53,7 @@ function TableHead({ className, ref, ...props }: React.ComponentProps<'div'>) {
       ref={ref}
       data-slot="table-head"
       className={cn(
-        'px-2 py-1.5 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-0.5',
+        'px-4 py-2.5 text-left align-middle font-medium text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-0.5',
         className,
       )}
       {...props}
@@ -67,7 +67,7 @@ function TableCell({ className, colSpan, style, ref, ...props }: React.Component
     <div
       ref={ref}
       data-slot="table-cell"
-      className={cn('p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-0.5', className)}
+      className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-0.5', className)}
       style={{ ...(colSpan && colSpan > 1 ? { gridColumn: `span ${colSpan}` } : {}), ...style }}
       {...props}
     />

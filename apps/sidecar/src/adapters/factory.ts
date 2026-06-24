@@ -1,4 +1,5 @@
 import type { ConnectionProfile, SqlAdapter, RedisAdapter, QdrantAdapter } from '@kamehadb/shared';
+import { KIND } from '@kamehadb/shared';
 import { createPostgresAdapter } from './postgres.js';
 import { createSqliteAdapter } from './sqlite.js';
 import { createMysqlAdapter } from './mysql.js';
@@ -13,7 +14,7 @@ import { createTigerBeetleAdapter } from './tigerbeetle.js';
 
 export function createSqlAdapter(profile: ConnectionProfile, _password?: string): SqlAdapter | null {
   switch (profile.kind) {
-    case 'postgres':
+    case KIND.POSTGRES:
       return createPostgresAdapter({
         host: profile.host,
         port: profile.port,
@@ -22,8 +23,8 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
         password: _password,
         ssl: profile.ssl,
       });
-    case 'mysql':
-    case 'mariadb':
+    case KIND.MYSQL:
+    case KIND.MARIADB:
       return createMysqlAdapter({
         host: profile.host,
         port: profile.port,
@@ -31,10 +32,10 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
         username: profile.username,
         password: _password,
       });
-    case 'sqlite':
+    case KIND.SQLITE:
       if (!profile.filePath) throw new Error('SQLite file path is required');
       return createSqliteAdapter(profile.filePath);
-    case 'sqlserver':
+    case KIND.SQLSERVER:
       return createSqlServerAdapter({
         host: profile.host,
         port: profile.port,
@@ -42,7 +43,7 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
         username: profile.username,
         password: _password,
       });
-    case 'oracle':
+    case KIND.ORACLE:
       return createOracleAdapter({
         host: profile.host,
         port: profile.port,
@@ -50,7 +51,7 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
         username: profile.username,
         password: _password,
       });
-    case 'clickhouse':
+    case KIND.CLICKHOUSE:
       return createClickHouseAdapter({
         host: profile.host,
         port: profile.port,
@@ -58,7 +59,7 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
         username: profile.username,
         password: _password,
       });
-    case 'duckdb':
+    case KIND.DUCKDB:
       if (!profile.filePath) throw new Error('DuckDB file path is required');
       return createDuckDbAdapter(profile.filePath);
     default:
@@ -67,7 +68,7 @@ export function createSqlAdapter(profile: ConnectionProfile, _password?: string)
 }
 
 export function createMongoDbAdapter(profile: ConnectionProfile) {
-  if (profile.kind !== 'mongodb') {
+  if (profile.kind !== KIND.MONGODB) {
     throw new Error(`Expected mongodb, got ${profile.kind}`);
   }
   if (!profile.connectionString) {
@@ -83,7 +84,7 @@ export function createRedisDbAdapter(
   profile: { kind: string; host?: string; port?: number; database?: string },
   _password?: string,
 ): RedisAdapter {
-  if (profile.kind !== 'redis') {
+  if (profile.kind !== KIND.REDIS) {
     throw new Error(`Expected redis, got ${profile.kind}`);
   }
   const parsedDb = profile.database ? parseInt(profile.database, 10) : undefined;
@@ -100,7 +101,7 @@ export function createTigerBeetleDbAdapter(
   profile: { kind: string; host?: string; port?: number; database?: string },
   _password?: string,
 ) {
-  if (profile.kind !== 'tigerbeetle') {
+  if (profile.kind !== KIND.TIGERBEETLE) {
     throw new Error(`Expected tigerbeetle, got ${profile.kind}`);
   }
   return createTigerBeetleAdapter({
@@ -111,7 +112,7 @@ export function createTigerBeetleDbAdapter(
 }
 
 export function createQdrantDbAdapter(profile: { kind: string; host?: string; port?: number }): QdrantAdapter {
-  if (profile.kind !== 'qdrant') {
+  if (profile.kind !== KIND.QDRANT) {
     throw new Error(`Expected qdrant, got ${profile.kind}`);
   }
   return createQdrantAdapter({

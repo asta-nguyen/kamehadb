@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import {
+  ALL_KINDS,
+  KIND,
   CreateConnectionProfileSchema,
   FileDatabaseBackupRequestSchema,
   FileDatabaseRestoreRequestSchema,
@@ -19,6 +21,7 @@ import { createMongoAdapter } from '../adapters/mongodb.js';
 import { createRedisDbAdapter, createQdrantDbAdapter, createTigerBeetleDbAdapter } from '../adapters/factory.js';
 import { testRedisConnection } from '../adapters/redis.js';
 import { clearConnectionCache } from '../lib/cache.js';
+import { CONNECTION_TEST_TIMEOUT_MS } from '../lib/constants.js';
 import {
   backupFileDatabase,
   FileDatabaseMaintenanceError,
@@ -28,20 +31,7 @@ import { invalidateAdapterCache } from './sql.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
-  kind: z.enum([
-    'postgres',
-    'sqlite',
-    'mysql',
-    'mariadb',
-    'redis',
-    'mongodb',
-    'qdrant',
-    'sqlserver',
-    'oracle',
-    'clickhouse',
-    'duckdb',
-    'tigerbeetle',
-  ]),
+  kind: z.enum(ALL_KINDS as [string, ...string[]]),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -78,7 +68,7 @@ connectionsRouter.get('/', (c) => {
 // NOTE: literal routes must be registered BEFORE /:id to avoid Hono trie conflicts.
 connectionsRouter.get('/health', async (c) => {
   const abortController = new AbortController();
-  const PER_CHECK_TIMEOUT = 5_000;
+  const PER_CHECK_TIMEOUT = CONNECTION_TEST_TIMEOUT_MS;
 
   /** Wrap a health check with a per-connection timeout so one hanging
    *  adapter (e.g. TigerBeetle) doesn't block the entire SSE stream. */
@@ -104,7 +94,7 @@ connectionsRouter.get('/health', async (c) => {
             let result: { success: boolean; message?: string; latencyMs?: number };
             const start = performance.now();
             switch (profile.kind) {
-              case 'postgres':
+              case KIND.POSTGRES:
                 result = await withTimeout(
                   testPostgresConnection({
                     host: profile.host!,
@@ -116,7 +106,7 @@ connectionsRouter.get('/health', async (c) => {
                   PER_CHECK_TIMEOUT,
                 );
                 break;
-              case 'mongodb':
+              case KIND.MONGODB:
                 result = await withTimeout(
                   createMongoAdapter({
                     connectionString: profile.connectionString!,
@@ -125,7 +115,7 @@ connectionsRouter.get('/health', async (c) => {
                   PER_CHECK_TIMEOUT,
                 );
                 break;
-              case 'redis': {
+              case KIND.REDIS: {
                 const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
                 result = await withTimeout(
                   testRedisConnection({
@@ -138,14 +128,14 @@ connectionsRouter.get('/health', async (c) => {
                 );
                 break;
               }
-              case 'qdrant':
+              case KIND.QDRANT:
                 result = await withTimeout(createQdrantDbAdapter(profile).testConnection(), PER_CHECK_TIMEOUT);
                 break;
-              case 'sqlite':
+              case KIND.SQLITE:
                 result = await withTimeout(testSqliteConnection(profile.filePath), PER_CHECK_TIMEOUT);
                 break;
-              case 'mysql':
-              case 'mariadb':
+              case KIND.MYSQL:
+              case KIND.MARIADB:
                 result = await withTimeout(
                   testMysqlConnection({
                     host: profile.host!,
@@ -157,7 +147,7 @@ connectionsRouter.get('/health', async (c) => {
                   PER_CHECK_TIMEOUT,
                 );
                 break;
-              case 'sqlserver':
+              case KIND.SQLSERVER:
                 result = await withTimeout(
                   testSqlServerConnection({
                     host: profile.host!,
@@ -169,7 +159,7 @@ connectionsRouter.get('/health', async (c) => {
                   PER_CHECK_TIMEOUT,
                 );
                 break;
-              case 'oracle':
+              case KIND.ORACLE:
                 result = await withTimeout(
                   testOracleConnection({
                     host: profile.host!,
@@ -181,7 +171,7 @@ connectionsRouter.get('/health', async (c) => {
                   PER_CHECK_TIMEOUT,
                 );
                 break;
-              case 'clickhouse':
+              case KIND.CLICKHOUSE:
                 result = await withTimeout(
                   testClickHouseConnection({
                     host: profile.host!,
@@ -193,10 +183,10 @@ connectionsRouter.get('/health', async (c) => {
                   PER_CHECK_TIMEOUT,
                 );
                 break;
-              case 'duckdb':
+              case KIND.DUCKDB:
                 result = await withTimeout(testDuckDBConnection(profile.filePath!), PER_CHECK_TIMEOUT);
                 break;
-              case 'tigerbeetle':
+              case KIND.TIGERBEETLE:
                 result = await withTimeout(createTigerBeetleDbAdapter(profile).testConnection(), PER_CHECK_TIMEOUT);
                 break;
               default:
@@ -258,7 +248,7 @@ connectionsRouter.get('/:id/health', async (c) => {
   try {
     let result;
     switch (profile.kind) {
-      case 'postgres':
+      case KIND.POSTGRES:
         result = await testPostgresConnection({
           host: profile.host!,
           port: profile.port!,
@@ -267,13 +257,13 @@ connectionsRouter.get('/:id/health', async (c) => {
           password: password ?? '',
         });
         break;
-      case 'mongodb':
+      case KIND.MONGODB:
         result = await createMongoAdapter({
           connectionString: profile.connectionString!,
           database: profile.database,
         }).testConnection();
         break;
-      case 'redis':
+      case KIND.REDIS:
         const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
         result = await testRedisConnection({
           host: profile.host,
@@ -282,14 +272,14 @@ connectionsRouter.get('/:id/health', async (c) => {
           database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
         });
         break;
-      case 'qdrant':
+      case KIND.QDRANT:
         result = await createQdrantDbAdapter(profile).testConnection();
         break;
-      case 'sqlite':
+      case KIND.SQLITE:
         result = await testSqliteConnection(profile.filePath);
         break;
-      case 'mysql':
-      case 'mariadb':
+      case KIND.MYSQL:
+      case KIND.MARIADB:
         result = await testMysqlConnection({
           host: profile.host,
           port: profile.port,
@@ -298,7 +288,7 @@ connectionsRouter.get('/:id/health', async (c) => {
           password: password ?? '',
         });
         break;
-      case 'sqlserver':
+      case KIND.SQLSERVER:
         result = await testSqlServerConnection({
           host: profile.host,
           port: profile.port,
@@ -307,7 +297,7 @@ connectionsRouter.get('/:id/health', async (c) => {
           password: password ?? '',
         });
         break;
-      case 'oracle':
+      case KIND.ORACLE:
         result = await testOracleConnection({
           host: profile.host,
           port: profile.port,
@@ -316,7 +306,7 @@ connectionsRouter.get('/:id/health', async (c) => {
           password: password ?? '',
         });
         break;
-      case 'clickhouse':
+      case KIND.CLICKHOUSE:
         result = await testClickHouseConnection({
           host: profile.host,
           port: profile.port,
@@ -325,10 +315,10 @@ connectionsRouter.get('/:id/health', async (c) => {
           password: password ?? '',
         });
         break;
-      case 'duckdb':
+      case KIND.DUCKDB:
         result = await testDuckDBConnection(profile.filePath!);
         break;
-      case 'tigerbeetle':
+      case KIND.TIGERBEETLE:
         result = await createTigerBeetleDbAdapter(profile).testConnection();
         break;
       default:
@@ -406,7 +396,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
   const input = c.req.valid('json');
 
   // Validate password is provided for postgres
-  if (input.kind === 'postgres' && !input.password) {
+  if (input.kind === KIND.POSTGRES && !input.password) {
     return c.json({
       success: false,
       message: 'Password is required for PostgreSQL connections',
@@ -414,7 +404,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
   }
 
   // Validate required fields for mysql / mariadb
-  if (input.kind === 'mysql' || input.kind === 'mariadb') {
+  if (input.kind === KIND.MYSQL || input.kind === KIND.MARIADB) {
     if (!input.password) {
       return c.json({
         success: false,
@@ -432,11 +422,11 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
   try {
     let result;
     switch (input.kind) {
-      case 'postgres':
+      case KIND.POSTGRES:
         result = await testPostgresConnection(input);
         break;
-      case 'mysql':
-      case 'mariadb':
+      case KIND.MYSQL:
+      case KIND.MARIADB:
         result = await testMysqlConnection({
           host: input.host,
           port: input.port,
@@ -445,10 +435,10 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
           password: input.password,
         });
         break;
-      case 'sqlite':
+      case KIND.SQLITE:
         result = await testSqliteConnection(input.filePath);
         break;
-      case 'mongodb':
+      case KIND.MONGODB:
         if (!input.connectionString) {
           return c.json({
             success: false,
@@ -460,13 +450,13 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
           database: input.database,
         }).testConnection();
         break;
-      case 'redis':
+      case KIND.REDIS:
         result = await createRedisDbAdapter(input, input.password).testConnection();
         break;
-      case 'qdrant':
+      case KIND.QDRANT:
         result = await createQdrantDbAdapter(input).testConnection();
         break;
-      case 'sqlserver':
+      case KIND.SQLSERVER:
         result = await testSqlServerConnection({
           host: input.host,
           port: input.port,
@@ -475,7 +465,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
           password: input.password,
         });
         break;
-      case 'oracle':
+      case KIND.ORACLE:
         result = await testOracleConnection({
           host: input.host,
           port: input.port,
@@ -484,7 +474,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
           password: input.password,
         });
         break;
-      case 'clickhouse':
+      case KIND.CLICKHOUSE:
         result = await testClickHouseConnection({
           host: input.host,
           port: input.port,
@@ -493,13 +483,13 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
           password: input.password,
         });
         break;
-      case 'duckdb':
+      case KIND.DUCKDB:
         if (!input.filePath) {
           return c.json({ success: false, message: 'File path is required for DuckDB connections' });
         }
         result = await testDuckDBConnection(input.filePath);
         break;
-      case 'tigerbeetle':
+      case KIND.TIGERBEETLE:
         result = await createTigerBeetleDbAdapter(input).testConnection();
         break;
       default:

@@ -7,6 +7,7 @@ import { useTableColumns } from '@/hooks/use-schema';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
 import { TableEditabilityNotice } from '@/components/table-editability-notice';
 import { api } from '@/lib/api';
+import { SCHEMA_CACHE_TIME } from '@/lib/constants';
 import { buildRowUpdateQuery, getQueryResultEditabilityState, inferSimpleSelectTableId } from '@/lib/table-editability';
 import type { OnMount } from '@monaco-editor/react';
 import type { editor as monacoEditor } from 'monaco-editor';
@@ -303,7 +304,7 @@ function useCompletionsSchema(connectionId: string | null) {
     queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
     queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
     enabled: !!connectionId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: SCHEMA_CACHE_TIME,
   });
 }
 
@@ -345,7 +346,6 @@ function QueryResultTable({
     querySql: executedSql,
     resultColumns: result.columns,
     tableColumns,
-    isReadOnly: false,
   });
   const pkColumns = useMemo(
     () =>

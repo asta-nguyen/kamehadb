@@ -1,7 +1,9 @@
 import { createClient } from 'tigerbeetle-node';
 import type { Client } from 'tigerbeetle-node';
 import { lookup as dnsLookup } from 'node:dns/promises';
-import { TB_CREATED } from '../lib/constants.js';
+import * as net from 'node:net';
+import { TB_CREATED, ADAPTER_TIMEOUTS } from '../lib/constants.js';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
 
 export type TigerBeetleAdapter = {
   testConnection(): Promise<{ success: boolean; message?: string; serverVersion?: string }>;
@@ -176,7 +178,7 @@ type TBConfig = {
 export function createTigerBeetleAdapter(config: TBConfig): TigerBeetleAdapter {
   const clusterId = BigInt(config.clusterId ?? '0');
   const rawHost = config.host ?? '127.0.0.1';
-  const port = config.port ?? 3000;
+  const port = config.port ?? DEFAULT_PORTS[KIND.TIGERBEETLE];
   // tigerbeetle-node's native parser rejects hostnames ("Invalid replica
   // address"). Resolve to an IP once via DNS so users can keep typing
   // `localhost` or a remote hostname in the connection dialog.
@@ -222,8 +224,20 @@ export function createTigerBeetleAdapter(config: TBConfig): TigerBeetleAdapter {
   return {
     async testConnection() {
       try {
-        const c = await getClient();
-        await c.lookupAccounts([]);
+        const address = await resolveAddress();
+        const [host, portStr] = address.split(':');
+        const port = parseInt(portStr, 10);
+        await new Promise<void>((resolve, reject) => {
+          const socket = net.createConnection({ host, port, timeout: ADAPTER_TIMEOUTS.CONNECT_SHORT }, () => {
+            socket.destroy();
+            resolve();
+          });
+          socket.on('timeout', () => {
+            socket.destroy();
+            reject(new Error('Connection timed out'));
+          });
+          socket.on('error', (err) => reject(err));
+        });
         return {
           success: true,
           message: `Connected to TigerBeetle at ${displayAddress} (cluster ${config.clusterId ?? '0'})`,

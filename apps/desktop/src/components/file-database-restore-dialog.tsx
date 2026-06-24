@@ -1,4 +1,4 @@
-import type { ConnectionProfile } from '@kamehadb/shared';
+import { type ConnectionProfile, KIND } from '@kamehadb/shared';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -76,7 +76,7 @@ export function FileDatabaseRestoreDialog({ connection, open, onOpenChange }: Fi
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-xl" showCloseButton={!restore.isPending}>
         <DialogHeader>
-          <DialogTitle>Restore {connection.kind === 'sqlite' ? 'SQLite' : 'DuckDB'}</DialogTitle>
+          <DialogTitle>Restore {connection.kind === KIND.SQLITE ? 'SQLite' : 'DuckDB'}</DialogTitle>
           <DialogDescription>
             Replace the configured database file with a backup from disk. The current connection is closed first, and
             the app refreshes after the restore finishes.
