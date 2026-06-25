@@ -1,0 +1,89 @@
+apps/desktop/src/components/chart-view.tsx
+  s_8c6a99264f92f4::t_da15211e2f923e 260-261
+apps/desktop/src/components/tigerbeetle-explorer.tsx
+  s_89fbe4a369f4a3::t_71b4687d2071ae 77,79
+  s_89fbe4a369f4a3::t_e49b1b1b5c6dd4 92
+apps/desktop/package.json
+  s_89fbe4a369f4a3::t_4ce3da6a3edbed 64-65,67
+  s_89fbe4a369f4a3::t_77273e0d44e768 11-12
+apps/sidecar/src/routes/qdrant.ts
+  s_8c6a99264f92f4::t_da15211e2f923e 13-14
+apps/sidecar/src/lib/logger.ts
+  s_89fbe4a369f4a3::t_c0daacbf7e52e4 1-20
+apps/sidecar/eslint.config.mjs
+  s_89fbe4a369f4a3::t_025fc319c6e5d9 1-71,73-120
+  s_89fbe4a369f4a3::t_fd46cb057a3577 72
+.husky/pre-push
+  s_89fbe4a369f4a3::t_726bc59a95fbeb 1-2
+apps/desktop/src/components/logs-page.tsx
+  s_89fbe4a369f4a3::t_8579fa8f4a176c 212,214,224,229,231,241
+apps/sidecar/src/adapters/mysql.ts
+  s_89fbe4a369f4a3::t_890e976c915e90 1,78-79,262
+  s_89fbe4a369f4a3::t_e07e25f79a0018 145
+packages/shared/eslint.config.mjs
+  s_89fbe4a369f4a3::t_73b537389dca90 1-71,73-120
+  s_89fbe4a369f4a3::t_6521441e78a15d 72
+apps/sidecar/src/index.ts
+  s_89fbe4a369f4a3::t_8ba07aa68a088f 6,17,58,71
+apps/sidecar/src/ai/indexer.ts
+  s_89fbe4a369f4a3::t_cafaf546575584 4,10,18,22,29,31,36,38,43
+apps/sidecar/src/routes/mongo.ts
+  s_89fbe4a369f4a3::t_798c58efaabb45 12,385
+apps/sidecar/package.json
+  s_89fbe4a369f4a3::t_65e143bda13dff 10-11,43-45
+apps/sidecar/src/routes/redis.ts
+  s_8c6a99264f92f4::t_da15211e2f923e 13-14
+.gitignore
+  s_89fbe4a369f4a3::t_09fd5329c84d30 54
+apps/desktop/src/components/connection-dialog-fields.tsx
+  s_89fbe4a369f4a3::t_48868e58fd68b8 185,195
+  s_89fbe4a369f4a3::t_4cef36f54a1de6 294
+apps/desktop/src/components/shortcuts-dialog.tsx
+  s_89fbe4a369f4a3::t_dabf325a00ec2c 30
+  s_89fbe4a369f4a3::t_0e3aced6f61fe7 2
+package.json
+  s_8c6a99264f92f4::t_f360290d11f92f 23-39
+  s_8c6a99264f92f4::t_f07dbbc039ae58 40-43
+apps/desktop/src/components/sql-editor.tsx
+  s_89fbe4a369f4a3::t_f18447e955e943 799
+  s_89fbe4a369f4a3::t_dc654b04ca2042 967,969,978
+CHANGELOG.md
+  s_8c6a99264f92f4::t_f360290d11f92f 11
+apps/desktop/src/components/sidebar.tsx
+  s_89fbe4a369f4a3::t_24799608c390b3 196
+.github/workflows/ci.yml
+  s_89fbe4a369f4a3::t_e4c462952e61ea 36-38
+apps/desktop/src/App.tsx
+  s_89fbe4a369f4a3::t_3fbbea53743393 49,52,62
+apps/desktop/src/components/workspace-tab-bar.tsx
+  s_89fbe4a369f4a3::t_abc26f26402691 3
+  s_89fbe4a369f4a3::t_78598d4a52e762 113,115,123,131,133,139,141,143,154,157,159,165-166,168,174
+packages/shared/package.json
+  s_89fbe4a369f4a3::t_8bcd347709b921 9-10,16-18
+apps/desktop/src/components/schema-graph.tsx
+  s_89fbe4a369f4a3::t_8b9305c0331591 262
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "30ec703d8fe2dceb8d0c61b15363c74290952f37",
+  "prompts": {},
+  "sessions": {
+    "s_89fbe4a369f4a3": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "6f248e74-e3ea-48f1-acd2-84dd684e9fc4",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_8c6a99264f92f4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efcb3-2645-7172-9ec2-a2219bbea1cf",
+        "model": "gpt-5.5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
