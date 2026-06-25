@@ -20,6 +20,19 @@ const sidecarDir = dirname(fileURLToPath(import.meta.url));
 
 const app = new Hono();
 
+function sanitizeLogPath(path: string): string {
+  const redactedSegment = ':redacted';
+  return path
+    .split('/')
+    .map((segment) => {
+      if (segment.length > 24 || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(segment) || /^[A-Za-z0-9_-]{24,}$/.test(segment)) {
+        return redactedSegment;
+      }
+      return segment;
+    })
+    .join('/');
+}
+
 // Send access logs through pino so the in-app Logs page sees the same request
 // events that operators see on stdout and in sidecar.log.
 app.use('*', async (c, next) => {
@@ -30,7 +43,7 @@ app.use('*', async (c, next) => {
   const requestLog = {
     scope: 'http',
     method: c.req.method,
-    path: c.req.path,
+    path: sanitizeLogPath(c.req.path),
     status: c.res.status,
     durationMs,
   };

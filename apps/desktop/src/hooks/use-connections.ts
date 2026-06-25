@@ -28,11 +28,14 @@ export function useConnectionHealth(connectionId: string | null) {
     retryDelay: 1000,
     select: (result) => (result.success ? 'connected' : 'disconnected'),
     meta: {
-      onError: (error: Error, id: string) => {
+      // The global QueryCache handler passes the connection id when the query
+      // key shape matches; fall back to the current hook input if it doesn't.
+      onError: (error: Error, id?: string) => {
+        const targetId = id ?? connectionId ?? 'unknown';
         void appendFrontendLog({
           level: 'error',
           scope: 'use-connections.health',
-          message: `Health check failed for ${id}: ${error.message}`,
+          message: `Health check failed for ${targetId}: ${error.message}`,
           details: error.stack,
         });
       },

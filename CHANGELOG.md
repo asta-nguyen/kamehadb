@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - v1.4 Adding MCP server
 - Fixed lint-staged ESLint execution so pre-commit hooks use package-local ESLint configs.
 - Improved the in-app Logs pipeline to tail log files efficiently, avoid self-generated poll errors, and include sidecar HTTP access logs.
+- Hardened log handling by redacting more nested secrets, sanitizing logged paths, and making global query error logging resilient to non-standard errors.
 
 ---
 

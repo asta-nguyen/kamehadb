@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cmp::Reverse;
+use std::collections::VecDeque;
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -11,6 +12,7 @@ const LOG_DIR_NAME: &str = "logs";
 const FRONTEND_LOG_FILE: &str = "frontend.log";
 const TAURI_LOG_FILE: &str = "tauri.log";
 const SIDECAR_LOG_FILE: &str = "sidecar.log";
+const MAX_TAIL_BYTES: u64 = 256 * 1024;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -177,9 +179,18 @@ fn read_last_lines(path: &Path, limit: usize) -> Result<Vec<String>, std::io::Er
     let start = find_tail_start(&mut file, limit)?;
     file.seek(SeekFrom::Start(start))?;
 
-    BufReader::new(file)
-        .lines()
-        .collect::<Result<Vec<_>, _>>()
+    // Keep only the newest `limit` lines in memory because the tail window can
+    // still contain oversized records or fewer newlines than expected.
+    let mut lines = VecDeque::with_capacity(limit);
+    for line in BufReader::new(file).lines() {
+        let line = line?;
+        if lines.len() == limit {
+            lines.pop_front();
+        }
+        lines.push_back(line);
+    }
+
+    Ok(lines.into_iter().collect())
 }
 
 fn find_tail_start(file: &mut File, limit: usize) -> Result<u64, std::io::Error> {
@@ -190,11 +201,15 @@ fn find_tail_start(file: &mut File, limit: usize) -> Result<u64, std::io::Error>
         return Ok(0);
     }
 
+    // Bound the scan to the last 256 KB so a malformed or sparse log file does
+    // not force every 2-second refresh to walk the entire history.
+    let min_start = file_len.saturating_sub(MAX_TAIL_BYTES);
     let mut position = file_len;
     let mut seen_lines = 0usize;
 
-    while position > 0 {
-        let chunk_size = usize::min(CHUNK_SIZE, position as usize);
+    while position > min_start {
+        let remaining = position - min_start;
+        let chunk_size = usize::min(CHUNK_SIZE, remaining as usize);
         position -= chunk_size as u64;
         file.seek(SeekFrom::Start(position))?;
 
@@ -218,7 +233,7 @@ fn find_tail_start(file: &mut File, limit: usize) -> Result<u64, std::io::Error>
         }
     }
 
-    Ok(0)
+    Ok(min_start)
 }
 
 fn parse_sidecar_log_line(line: &str) -> Option<AppLogEntry> {

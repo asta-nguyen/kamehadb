@@ -11,7 +11,35 @@ mkdirSync(logsDir, { recursive: true });
 export const log = pino(
   {
     level: process.env.LOG_LEVEL || 'info',
-    redact: ['password', 'secret', 'token'],
+    redact: {
+      // Persisted logs should never keep credentials, even when callers attach
+      // nested config objects or provider payloads to structured log metadata.
+      paths: [
+        'password',
+        'secret',
+        'token',
+        'apiKey',
+        'authorization',
+        'cookie',
+        'set-cookie',
+        'connectionString',
+        '*.password',
+        '*.secret',
+        '*.token',
+        '*.apiKey',
+        '*.authorization',
+        '*.cookie',
+        '*.connectionString',
+        '*.*.password',
+        '*.*.secret',
+        '*.*.token',
+        '*.*.apiKey',
+        '*.*.authorization',
+        '*.*.cookie',
+        '*.*.connectionString',
+      ],
+      censor: '[REDACTED]',
+    },
   },
   pino.multistream([
     { stream: process.stdout },
