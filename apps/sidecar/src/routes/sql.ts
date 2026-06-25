@@ -21,12 +21,13 @@ import type {
   SqliteVecSearchHit,
 } from '@kamehadb/shared';
 import * as sqliteVec from 'sqlite-vec';
+import { log } from '../lib/logger.js';
 
 export const sqlRouter = new Hono();
 
 function handleError(c: any, err: unknown, context: string) {
   const message = err instanceof Error ? err.message : 'Unknown error';
-  console.error(`[SQL] ${context}:`, message);
+  log.error({ err }, `SQL ${context}`);
   return c.json({ error: 'INTERNAL_ERROR', message }, 500);
 }
 
@@ -63,7 +64,7 @@ export async function getSqlAdapter(connectionId: string) {
 
   const adapter = createSqlAdapter(profile, password);
   if (!adapter) {
-    console.warn(`[SQL] Unsupported connection kind for ${connectionId}: ${profile.kind}`);
+    log.warn({ connectionId, kind: profile.kind }, 'Unsupported connection kind for SQL adapter');
     const fallback = {
       testConnection: () => Promise.resolve({ success: false, message: `Unsupported for ${profile.kind}` }),
       listDatabases: () => Promise.resolve([]),
@@ -389,7 +390,7 @@ function handlePgError(c: any, err: unknown, context: string) {
     typeof err === 'object' && err && 'statusCode' in err
       ? Number((err as { statusCode?: number }).statusCode) || 500
       : 500;
-  console.error(`[PostgresVector] ${context}:`, message);
+  log.error({ err }, `PostgresVector ${context}`);
   return c.json({ error: statusCode === 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST', message }, statusCode);
 }
 

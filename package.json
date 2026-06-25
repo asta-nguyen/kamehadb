@@ -20,7 +20,27 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,css,md}": "prettier --write"
+    "*.{json,css,md}": "prettier --write",
+    "apps/desktop/**/*.{ts,tsx}": [
+      "pnpm --dir apps/desktop exec eslint --fix",
+      "prettier --write"
+    ],
+    "apps/sidecar/**/*.ts": [
+      "pnpm --dir apps/sidecar exec eslint --fix",
+      "prettier --write"
+    ],
+    "packages/shared/**/*.ts": [
+      "pnpm --dir packages/shared exec eslint --fix",
+      "prettier --write"
+    ],
+    "landing/**/*.{js,jsx,ts,tsx}": [
+      "npm --prefix landing exec eslint -- --fix",
+      "prettier --write"
+    ],
+    "./*.{js,jsx,ts,tsx}": "prettier --write",
+    "apps/desktop/*.{js,jsx,ts,tsx}": "prettier --write",
+    "apps/sidecar/*.{js,jsx,ts,tsx}": "prettier --write",
+    "packages/shared/*.{js,jsx,ts,tsx}": "prettier --write"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

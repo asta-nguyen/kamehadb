@@ -259,6 +259,7 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
           className="!bg-popover !border !border-border [&>button>svg]:!fill-foreground [&>button]:!bg-popover [&>button]:!border [&>button]:!border-border [&>svg]:!fill-foreground [&>button]:hover:!bg-muted"
           style={{ '--xy-controls-button-color': 'var(--foreground)' } as React.CSSProperties}
         >
+          {/* eslint-disable-next-line local/no-restricted-syntax -- custom ReactFlow control button */}
           <button onClick={handleAutoArrange} className="react-flow__controls-button" title="Auto Arrange">
             <LayoutGrid className="size-4" />
           </button>

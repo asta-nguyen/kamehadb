@@ -4,6 +4,7 @@ import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
 import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
+import { log } from '../lib/logger.js';
 
 let db: Database.Database | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
@@ -47,7 +48,7 @@ export function initMetadataStore(dbPath: string): void {
   try {
     sqliteVec.load(db);
   } catch (e) {
-    console.warn('[MetadataStore] sqlite-vec extension failed to load:', e instanceof Error ? e.message : e);
+    log.warn({ err: e }, 'sqlite-vec extension failed to load');
   }
 
   db.exec(`

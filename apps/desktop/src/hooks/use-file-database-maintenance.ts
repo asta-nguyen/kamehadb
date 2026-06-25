@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { backupFileDatabase, restoreFileDatabase } from '@/lib/file-database-maintenance';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 function queryKeyIncludesConnectionId(queryKey: readonly unknown[], connectionId: string): boolean {
   return queryKey.some((part) => typeof part === 'string' && part === connectionId);
@@ -32,7 +33,14 @@ export function useFileDatabaseBackup(connectionId: string) {
       toast.success('Backup completed');
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Backup failed');
+      const message = error instanceof Error ? error.message : 'Backup failed';
+      toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'file-database-backup',
+        message: `Backup failed: ${message}`,
+        details: error instanceof Error ? error.stack : String(error),
+      });
     },
   });
 }
@@ -47,7 +55,14 @@ export function useFileDatabaseRestore(connectionId: string) {
       toast.success('Restore completed');
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Restore failed');
+      const message = error instanceof Error ? error.message : 'Restore failed';
+      toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'file-database-restore',
+        message: `Restore failed: ${message}`,
+        details: error instanceof Error ? error.stack : String(error),
+      });
     },
   });
 }

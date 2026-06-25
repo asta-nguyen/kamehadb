@@ -9,11 +9,12 @@ import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
+import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
 
 function handleError(c: any, err: unknown, context: string) {
-  console.error(`[Mongo] ${context}:`, err instanceof Error ? err.stack || err.message : err);
+  log.error({ err }, `Mongo ${context}`);
   return c.json({ error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500);
 }
 
@@ -359,7 +360,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
     // connected to an actual terminal — colors, box-drawing, and
     // interactive input all work out of the box.
     const args = [...mongoshCommand.argsPrefix, connStr];
-    console.debug('[mongosh] spawning pty:', { program: mongoshCommand.program, cols, rows });
+    log.debug({ program: mongoshCommand.program, cols, rows }, 'mongosh spawning pty');
     ptyProcess = pty.spawn(mongoshCommand.program, args, {
       name: 'xterm-256color',
       cols,
@@ -367,7 +368,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
       env: { ...process.env } as Record<string, string | undefined>,
     });
   } catch (err) {
-    console.error('[mongosh] pty.spawn failed:', { mongoshCommand, error: err });
+    log.error({ mongoshCommand, err }, 'mongosh pty.spawn failed');
     throw new Error(`mongosh failed to start: ${err instanceof Error ? err.message : String(err)}`);
   }
 
@@ -381,7 +382,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
   shellSessions.get(sessionId)!.disposable = bufDisposable;
 
   ptyProcess.onExit(({ exitCode }) => {
-    console.log(`[MongoShell] mongosh exited with code ${exitCode}`);
+    log.info({ exitCode }, '[MongoShell] mongosh exited');
     shellSessions.delete(sessionId);
   });
 

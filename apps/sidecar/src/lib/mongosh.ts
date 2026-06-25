@@ -4,6 +4,7 @@ import { delimiter, dirname, join, resolve } from 'path';
 import { promisify } from 'util';
 import { execFile } from 'child_process';
 import os from 'os';
+import { log } from './logger.js';
 
 const execFileAsync = promisify(execFile);
 const MONGOSH_INSTALL_DIR = 'tools/mongosh';
@@ -20,20 +21,20 @@ let mongoshInstallPromise: Promise<MongoshCommand> | null = null;
 export async function resolveMongoshCommand(): Promise<MongoshCommand> {
   const localCommand = findMongoshOnPath();
   if (localCommand) {
-    console.debug('[mongosh] resolved from PATH:', localCommand);
+    log.debug({ command: localCommand }, 'mongosh resolved from PATH');
     return localCommand;
   }
-  console.debug('[mongosh] not found on PATH, trying bundled...');
+  log.debug('mongosh not found on PATH, trying bundled...');
 
   const installedCommand = await findBundledMongosh();
   if (installedCommand) {
-    console.debug('[mongosh] resolved from bundled install:', installedCommand);
+    log.debug({ command: installedCommand }, 'mongosh resolved from bundled install');
     return installedCommand;
   }
-  console.debug('[mongosh] no bundled install found, attempting auto-install...');
+  log.debug('mongosh no bundled install found, attempting auto-install...');
 
   const installed = await installBundledMongosh();
-  console.debug('[mongosh] auto-install resolved to:', installed);
+  log.debug({ command: installed }, 'mongosh auto-install resolved');
   return installed;
 }
 function findMongoshOnPath(): MongoshCommand | null {

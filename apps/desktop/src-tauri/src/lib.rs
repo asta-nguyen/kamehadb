@@ -9,7 +9,7 @@ mod postgres_psql;
 mod postgres_tools;
 mod terminal_sessions;
 
-use app_logs::{append_frontend_log, append_tauri_log, read_app_logs};
+use app_logs::{append_frontend_log, append_tauri_log, clear_app_logs, read_app_logs};
 use postgres_psql::start_postgres_psql_session;
 use terminal_sessions::{
     resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
@@ -141,6 +141,7 @@ pub fn run() {
             cancel_postgres_job,
             append_frontend_log,
             read_app_logs,
+            clear_app_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

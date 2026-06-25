@@ -30,6 +30,7 @@ import {
   restoreFileDatabase,
 } from '../lib/file-database-maintenance.js';
 import { invalidateAdapterCache } from './sql.js';
+import { log } from '../lib/logger.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
@@ -197,6 +198,7 @@ connectionsRouter.get('/health', async (c) => {
             result.latencyMs = Math.round(performance.now() - start);
             results[profile.id] = result;
           } catch (err) {
+            log.error({ connectionId: profile.id, err }, 'Connection health check failed');
             results[profile.id] = {
               success: false,
               latencyMs: 0,
@@ -328,6 +330,7 @@ connectionsRouter.get('/:id/health', async (c) => {
     }
     return c.json(result);
   } catch (err) {
+    log.error({ connectionId: c.req.param('id'), err }, 'Test connection failed');
     return c.json({ success: false, message: err instanceof Error ? err.message : 'Unknown error' });
   }
 });
@@ -491,6 +494,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
     }
     return c.json(result);
   } catch (err) {
+    log.error({ err }, 'Test connection (create) failed');
     return c.json({
       success: false,
       message: err instanceof Error ? err.message : 'Unknown error',
