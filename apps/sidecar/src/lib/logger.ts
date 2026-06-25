@@ -30,6 +30,8 @@ export const log = pino(
         'authorization',
         'cookie',
         'set-cookie',
+        '*.set-cookie',
+        '*.*.set-cookie',
         'connectionString',
         '*.password',
         '*.secret',

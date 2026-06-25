@@ -193,7 +193,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         level: 'error',
         scope: 'connection-dialog.test',
         message: `Test connection failed: ${message}`,
-        details: err instanceof Error ? err.stack : String(err),
+        stack: err instanceof Error ? err.stack : String(err),
         url: typeof window !== 'undefined' ? window.location.href : undefined,
       });
     }
