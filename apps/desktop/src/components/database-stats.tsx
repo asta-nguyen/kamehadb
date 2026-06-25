@@ -187,7 +187,7 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
       </div>
 
       <Tabs defaultValue="sizes">
-        <TabsList>
+        <TabsList variant="notebook">
           <TabsTrigger value="sizes">Size Explorer</TabsTrigger>
           <TabsTrigger value="connections">Connections</TabsTrigger>
         </TabsList>

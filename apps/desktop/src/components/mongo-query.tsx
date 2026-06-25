@@ -13,6 +13,7 @@ import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { Spinner } from '@/components/ui/spinner';
 import { Play, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChart3, Braces } from 'lucide-react';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { appendFrontendLog } from '@/lib/app-logs';
 import { PAGE_LIMIT, SCHEMA_CACHE_TIME } from '@/lib/constants';
 import JSON5 from 'json5';
 import type { WorkspaceTab } from '@/lib/types';
@@ -446,7 +447,14 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         });
         dispatch({ type: 'finishRun', result: res, page: currentPage });
       } catch (err) {
-        dispatch({ type: 'failRun', error: err instanceof Error ? err.message : 'Aggregation failed' });
+        const message = err instanceof Error ? err.message : 'Aggregation failed';
+        dispatch({ type: 'failRun', error: message });
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'mongo-query.run',
+          message: `MongoDB aggregation failed: ${message}`,
+          details: err instanceof Error ? err.stack : String(err),
+        });
       }
     },
     [state.collection, state.db, state.pipeline, connectionId],

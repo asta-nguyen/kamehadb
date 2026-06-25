@@ -11,6 +11,7 @@ import {
 } from '@/store';
 import { isSqlKind } from '@/lib/constants';
 import { KIND } from '@kamehadb/shared';
+import { Button } from '@/components/ui/button';
 import { useStore } from '@tanstack/react-store';
 import { Activity, BarChart3, Box, Database, History, Plus, Search, Share2, Table2, Terminal, X } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -110,16 +111,18 @@ export function WorkspaceTabBar() {
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
             {tabIcon(tab.type)}
             <span className="max-w-30 truncate">{tab.title}</span>
-            <button
+            <Button
               type="button"
-              className="ml-1 rounded-sm p-0.5 hover:bg-muted"
+              variant="ghost"
+              size="icon-xs"
+              className="ml-1 rounded-sm hover:bg-muted"
               onClick={(event) => {
                 event.stopPropagation();
                 closeTab(tab.id);
               }}
             >
               <X className="size-2.5" />
-            </button>
+            </Button>
           </div>
         );
       })}
@@ -127,17 +130,21 @@ export function WorkspaceTabBar() {
       {activeConnectionId && (
         <>
           {activeTab && (activeTab.type === 'redis-query' || activeTab.type === 'redis') ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               onClick={() => openRedisQueryTab(activeTab.connectionId)}
               title="Redis Query"
             >
               <Terminal className="size-3.5" />
-            </button>
+            </Button>
           ) : activeTab && (activeTab.type === 'mongo-query' || activeTab.type === 'mongo') ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               onClick={() => {
                 const mongoDatabase = appStore.state.activeMongoDatabase;
@@ -148,25 +155,29 @@ export function WorkspaceTabBar() {
               title="New Aggregation"
             >
               <Database className="size-3.5" />
-            </button>
+            </Button>
           ) : activeConnection && isSqlKind(activeConnection.kind) && activeTab ? (
             <>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 onClick={() => openNewQueryTab(activeTab.connectionId)}
                 title="New Query"
               >
                 <Plus className="size-3.5" />
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 onClick={() => openGraphTab(activeTab.connectionId)}
                 title="Schema Graph"
               >
                 <Share2 className="size-3.5" />
-              </button>
+              </Button>
             </>
           ) : null}
         </>

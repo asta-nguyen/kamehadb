@@ -86,7 +86,7 @@ function RecordDetailTabs({ selectedRow }: { readonly selectedRow: Record<string
   return (
     <Tabs defaultValue="view" className="flex-1 flex flex-col min-h-0">
       <div className="shrink-0 px-4 pb-2">
-        <TabsList>
+        <TabsList variant="notebook">
           <TabsTrigger value="view" className="text-xs">
             <Eye className="size-3 mr-1" />
             View

@@ -1,4 +1,14 @@
-export type ThemeStyle = 'vega' | 'nova' | 'maia' | 'lyra' | 'mira' | 'winxp' | 'win98' | 'dbeaver' | 'retro';
+export type ThemeStyle =
+  | 'vega'
+  | 'nova'
+  | 'maia'
+  | 'lyra'
+  | 'mira'
+  | 'winxp'
+  | 'win98'
+  | 'dbeaver'
+  | 'retro'
+  | 'macosx';
 export type BaseColor = 'neutral' | 'stone' | 'zinc' | 'mauve' | 'olive' | 'mist' | 'taupe';
 export type FontFamily =
   | 'geist'
@@ -27,6 +37,7 @@ export const THEME_STYLES: readonly { value: ThemeStyle; label: string; descript
   { value: 'win98', label: 'Windows 98', description: 'Flat gray, tiny, no rounded corners' },
   { value: 'dbeaver', label: 'DBeaver', description: 'Clean IDE look, blue accents, Roboto font' },
   { value: 'retro', label: 'Retro Terminal', description: 'Green-on-black vibes, mono, compact' },
+  { value: 'macosx', label: 'Mac OS X', description: 'Aqua brushed metal, pinstripes, gel buttons' },
 ];
 
 export const BASE_COLORS: readonly { value: BaseColor; label: string; swatch: string }[] = [
@@ -445,6 +456,33 @@ const STYLE_COLORS_LIGHT: Partial<Record<ThemeStyle, Record<string, string>>> = 
     '--sidebar-border': '#004400',
     '--sidebar-ring': '#33FF33',
   },
+  macosx: {
+    '--background': '#E8E8E8',
+    '--foreground': '#4C4C4C',
+    '--card': '#FFFFFF',
+    '--card-foreground': '#4C4C4C',
+    '--popover': '#FFFFFF',
+    '--popover-foreground': '#4C4C4C',
+    '--primary': '#2563AE',
+    '--primary-foreground': '#FFFFFF',
+    '--secondary': '#D8D8D8',
+    '--secondary-foreground': '#4C4C4C',
+    '--muted': '#D0D0D0',
+    '--muted-foreground': '#6B6B6B',
+    '--accent': '#2563AE',
+    '--accent-foreground': '#FFFFFF',
+    '--border': '#B8B8B8',
+    '--input': '#FFFFFF',
+    '--ring': '#2563AE',
+    '--sidebar': '#E8E8E8',
+    '--sidebar-foreground': '#4C4C4C',
+    '--sidebar-primary': '#2563AE',
+    '--sidebar-primary-foreground': '#FFFFFF',
+    '--sidebar-accent': '#BBBBBB',
+    '--sidebar-accent-foreground': '#4C4C4C',
+    '--sidebar-border': '#A0A0A0',
+    '--sidebar-ring': '#2563AE',
+  },
 };
 
 const STYLE_COLORS_DARK: Partial<Record<ThemeStyle, Record<string, string>>> = {
@@ -555,6 +593,33 @@ const STYLE_COLORS_DARK: Partial<Record<ThemeStyle, Record<string, string>>> = {
     '--sidebar-accent-foreground': '#33FF33',
     '--sidebar-border': '#003300',
     '--sidebar-ring': '#33FF33',
+  },
+  macosx: {
+    '--background': '#3A3A3A',
+    '--foreground': '#F0F0F0',
+    '--card': '#484848',
+    '--card-foreground': '#F0F0F0',
+    '--popover': '#484848',
+    '--popover-foreground': '#F0F0F0',
+    '--primary': '#4A90E2',
+    '--primary-foreground': '#FFFFFF',
+    '--secondary': '#505050',
+    '--secondary-foreground': '#F0F0F0',
+    '--muted': '#444444',
+    '--muted-foreground': '#AAAAAA',
+    '--accent': '#4A90E2',
+    '--accent-foreground': '#FFFFFF',
+    '--border': '#606060',
+    '--input': '#3A3A3A',
+    '--ring': '#4A90E2',
+    '--sidebar': '#2E2E2E',
+    '--sidebar-foreground': '#F0F0F0',
+    '--sidebar-primary': '#4A90E2',
+    '--sidebar-primary-foreground': '#FFFFFF',
+    '--sidebar-accent': '#404040',
+    '--sidebar-accent-foreground': '#F0F0F0',
+    '--sidebar-border': '#282828',
+    '--sidebar-ring': '#4A90E2',
   },
 };
 
@@ -695,7 +760,11 @@ export function applyThemePreset(preset: ThemePreset, isDark: boolean): void {
   // Apply font family
   root.style.setProperty('--app-font-sans', FONT_CSS[preset.fontFamily]);
 
-  // Apply radius — retro themes force radius 0
+  // Apply radius — retro themes force radius 0; macosx uses 10px (Cheetah-style)
+  if (preset.style === 'macosx') {
+    root.style.setProperty('--radius', '0.625rem');
+    return;
+  }
   const retroStyles: ThemeStyle[] = ['winxp', 'win98', 'retro'];
   if (retroStyles.includes(preset.style)) {
     root.style.setProperty('--radius', '0');

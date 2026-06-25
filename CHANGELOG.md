@@ -7,31 +7,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- Added 3D vector map visualization for sqlite-vec — PCA projection of up to 500 vectors with Three.js scatter plot, hover tooltips, click-to-search, and camera state persistence.
-- Added bulk sample endpoint for sqlite-vec (`/sqlite-vec/sample-bulk`) that discovers vec0 table columns and returns vectors with metadata payloads.
-- Added structured filter builder for sqlite-vec search — column/operator/value dropdowns populated from vec0 table metadata columns, replacing raw SQL filter input.
-- Added "Map" button to sqlite-vec search toolbar to open the 3D visualization without running a search first.
-- Fixed "Failed to load sizes" for SQLite connections by filtering vec0 virtual tables from `getDatabaseSizes()` and `searchSchema()` queries.
-- Fixed table hover color being hidden by solid `bg-background` on prefix/suffix cells — now uses `bg-inherit` for uniform hover.
-- Fixed table horizontal scrollbar overlapping cells — removed redundant `overflow-x-auto` from DataTable inner container; parent wrappers handle scrolling.
-- Fixed table rows stretching to full container height with few records — containers now use `max-h-full` to shrink to content.
-- Fixed long values breaking table layout — cells now truncate with ellipsis and native `title` tooltips.
-- Simplified MongoDB cell editing — removed Save/Cancel buttons, now uses inline Input with Enter to save, Esc to cancel, blur to save (matching SQL editor pattern).
-- Removed dead "Vector / Raw SQL" mode toggle from pgvector and sqlite-vec search UIs — the toggle had no backend effect.
-- Added thin scrollbar styling to all table scroll containers for consistent, non-intrusive scrollbars.
-- Fixed tab bar horizontal scrollbar visibility — hidden while preserving scroll functionality.
-- v1.4 Adding MCP server
+### Added
+
+- **MCP server** — v1.4.
+- **Retro themes** — Mira, Retro, DBeaver, WinXP, Win98 with theme-aware fonts and density controls.
+- **Image optimization** — landing page images now use Next.js Image for faster load times.
+
+### Fixed
+
+- **MySQL/MariaDB connection validation** — password is now required for MySQL, MariaDB, SQL Server, and Oracle (previously only PostgreSQL was checked).
+- **MongoDB default port** — corrected to 27017 so auto-generated connection defaults are valid.
+- **Connection URL parsing** — supports protocol aliases like `postgresql://`, `rediss://`, `mongodb+srv://`, and `mssql://`.
+- **Username validation** — no longer blocks connection tests for databases that don't need an explicit username.
+- **Theme fidelity** — the appearance page now uses theme-aware shadcn controls, and the header theme switch thumb stays centered on its icons across all themes.
+- **UI consistency** — buttons, inputs, and textareas now use Shadcn components throughout the desktop app.
+- **Pre-commit hooks** — ESLint now runs with the correct package-local config.
+- **Logs viewer** — efficient file tailing, no more self-generated poll errors, and sidecar HTTP access logs included.
+- **Log security** — deeper secret redaction and sanitized paths in logged output.
+
+---
+
+## [v1.3.2] — 2026-06-23
 
 ### Added
 
-- **Retro themes** — Mira, Retro, DBeaver, WinXP, Win98 with full UI variable coverage.
-- **Theme-aware tooltips** — custom Tooltip component in Mongo view header replaces native `title` attributes, respecting `--d-tooltip-*` variables per theme.
-- **Theme-specific fonts** — DBeaver uses Roboto, WinXP uses Tahoma, Win98 uses MS Sans Serif, Retro uses monospace, Mira uses Inter.
-- **Per-theme density variables** — control heights, icon sizes, padding, and gaps tuned per theme (compact for Mira, larger for WinXP/Win98).
+- **sqlite-vec 3D vector map** — PCA projection of up to 500 vectors with Three.js scatter plot, hover tooltips, click-to-search, and camera persistence.
+- **sqlite-vec bulk sample endpoint** (`/sqlite-vec/sample-bulk`) — discovers vec0 columns and returns vectors with metadata payloads.
+- **sqlite-vec structured filter builder** — column/operator/value dropdowns from vec0 metadata, replacing raw SQL filter input.
+- **"Map" button** in sqlite-vec search toolbar to open 3D visualization without running a search.
+- **Thin scrollbar styling** across all table scroll containers.
+
+### Fixed
+
+- **SQLite "Failed to load sizes"** — vec0 virtual tables filtered from `getDatabaseSizes()` and `searchSchema()`.
+- **Table hover color** on prefix/suffix cells — `bg-inherit` for uniform hover.
+- **Table scrollbar overlap** — removed redundant `overflow-x-auto` from DataTable inner container.
+- **Table rows stretching** with few records — `max-h-full` to shrink to content.
+- **Long values breaking layout** — cells truncate with ellipsis and `title` tooltips.
+- **Tab bar scrollbar visibility** — hidden while preserving scroll.
 
 ### Changed
 
+- **MongoDB cell editing simplified** — inline Input with Enter/Esc/blur, no Save/Cancel buttons.
+- **Removed dead "Vector / Raw SQL" toggle** from pgvector and sqlite-vec search UIs.
 - **Theme consistency** — all themes now share consistent `--d-*` component variables and uniform toolbar header padding.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
 
 ---
 
@@ -41,6 +65,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Table view in-cell editing** — disable editing for views and show an informational banner when no primary key is present to prevent ambiguous row updates.
 - **SQL editor** — trim trailing semicolons before appending LIMIT clause to SQL queries
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
 
 ## [v1.3.0] — 2026-06-21
 

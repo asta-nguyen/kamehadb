@@ -43,27 +43,32 @@ function ThemeToggle() {
   );
 
   return (
-    <div className="relative grid grid-cols-[repeat(3,1.75rem)] items-center gap-0.5 rounded-md bg-muted/40 p-0.5 shadow-sm density-compact:grid-cols-[repeat(3,1.25rem)] density-compact:gap-0">
+    <div
+      data-segmented
+      className="relative grid grid-cols-[repeat(3,1.75rem)] items-center gap-0.5 rounded-md bg-muted/40 p-0.5 shadow-sm density-compact:grid-cols-[repeat(3,1.25rem)] density-compact:gap-0"
+    >
       <div
-        className="pointer-events-none absolute left-0.5 top-0.5 h-7 w-7 rounded bg-background shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] transition-transform duration-200 ease-out will-change-transform density-compact:h-5 density-compact:w-5"
-        style={{
-          transform: `translateX(${activeIndex * (typeof window !== 'undefined' && document.documentElement.classList.contains('density-compact') ? 1.25 : 1.875)}rem)`,
-        }}
+        aria-hidden="true"
+        className="pointer-events-none row-start-1 self-center justify-self-center h-7 w-7 rounded bg-background shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] transition-[grid-column] duration-200 ease-out density-compact:h-5 density-compact:w-5"
+        style={{ gridColumnStart: activeIndex + 1 }}
       />
-      {THEME_OPTIONS.map(({ value, label, Icon }) => (
-        <button
+      {THEME_OPTIONS.map(({ value, label, Icon }, index) => (
+        <Button
           key={value}
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={() => setTheme(value)}
-          className={`relative z-10 flex size-7 items-center justify-center rounded transition-colors duration-150 density-compact:size-5 ${
+          className={`relative z-10 flex size-7 self-center justify-self-center items-center justify-center rounded transition-colors duration-150 density-compact:size-5 ${
             theme === value ? 'text-foreground' : 'text-muted-foreground/60 hover:text-foreground'
           }`}
+          style={{ gridColumnStart: index + 1, gridRowStart: 1 }}
           title={label}
           aria-label={label}
           aria-pressed={theme === value}
         >
           <Icon className="size-3.75 shrink-0 density-compact:size-3" />
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -103,6 +108,57 @@ function Header({
   readonly onSearchOpen: () => void;
   readonly onShortcutsOpen: () => void;
 }) {
+  const themePreset = useStore(appStore, (state) => state.themePreset);
+  const isMacOsx = themePreset.style === 'macosx';
+
+  if (isMacOsx) {
+    return (
+      <header className="macosx-titlebar flex h-11 shrink-0 items-center justify-between border-b border-[#a0a0a0]">
+        <div className="flex items-center gap-2 px-4">
+          <img alt="kamehadb" className="h-4 w-4 rounded object-contain" src="/logo.png" />
+          <div className="flex items-baseline">
+            <span className="font-mono text-[13px] font-bold tracking-widest text-white/80">KAME</span>
+            <span className="font-mono text-[13px] font-black tracking-widest text-white">HA</span>
+            <span className="ml-0.5 font-mono text-[13px] font-bold tracking-widest text-[#b8d8ff]">DB</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-1.5 px-3">
+          <Button variant="ghost" size="icon-xs" onClick={onSearchOpen} className="text-foreground/70" title="Search">
+            <Search className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onShortcutsOpen}
+            className="text-foreground/70"
+            title="Keyboard shortcuts"
+          >
+            <Keyboard className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => navigateTo('logs')}
+            className="text-foreground/70"
+            title="Logs"
+          >
+            <TriangleAlert className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => navigateTo('appearance')}
+            className="text-foreground/70"
+            title="Appearance"
+          >
+            <Palette className="size-3.5" />
+          </Button>
+          <ThemeToggle />
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-3">

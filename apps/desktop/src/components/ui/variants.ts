@@ -64,6 +64,7 @@ export const tabsListVariants = cva(
       variant: {
         default: 'bg-muted',
         line: 'gap-1 bg-transparent',
+        notebook: 'gap-0.5 bg-transparent p-0 rounded-none',
       },
     },
     defaultVariants: {

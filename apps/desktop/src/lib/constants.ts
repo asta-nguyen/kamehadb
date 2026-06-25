@@ -22,6 +22,8 @@ export const HEALTH_CHECK_INTERVAL = 60 * 1000;
 /** Auto-hide transient UI notifications (5 seconds). */
 export const TOAST_AUTO_HIDE_MS = 5 * 1000;
 
+/** Debounce delay for auto-testing SQLite file connections (500ms). */
+export const AUTO_TEST_DEBOUNCE_MS = 500;
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';
 import type { DbKind } from '@kamehadb/shared';
 import {

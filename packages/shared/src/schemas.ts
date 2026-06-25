@@ -18,6 +18,14 @@ export const KIND = {
 
 export type DbKind = (typeof KIND)[keyof typeof KIND];
 
+/** URL protocol aliases that differ from KIND values. */
+export const PROTOCOL_ALIASES: Record<string, DbKind> = {
+  postgresql: KIND.POSTGRES,
+  rediss: KIND.REDIS,
+  'mongodb+srv': KIND.MONGODB,
+  mssql: KIND.SQLSERVER,
+};
+
 export const ALL_KINDS: readonly DbKind[] = [
   KIND.POSTGRES,
   KIND.SQLITE,
@@ -61,13 +69,33 @@ export function isFileDatabaseKind(kind: DbKind): kind is FileDatabaseKind {
   return FILE_DATABASE_KINDS.some((candidate) => candidate === kind);
 }
 
+/** Database kinds that require a password for authentication. */
+export const PASSWORD_REQUIRED_KINDS: readonly DbKind[] = [
+  KIND.POSTGRES,
+  KIND.MYSQL,
+  KIND.MARIADB,
+  KIND.SQLSERVER,
+  KIND.ORACLE,
+];
+
+export function isPasswordRequired(kind: string): boolean {
+  return (PASSWORD_REQUIRED_KINDS as readonly string[]).includes(kind);
+}
+
+/** Database kinds that require an explicit username (others have sensible defaults). */
+export const USERNAME_REQUIRED_KINDS: readonly DbKind[] = [KIND.MYSQL, KIND.MARIADB];
+
+export function isUsernameRequired(kind: string): boolean {
+  return (USERNAME_REQUIRED_KINDS as readonly string[]).includes(kind);
+}
+
 /** Default network port for each database kind (0 = not networked). */
 export const DEFAULT_PORTS: Record<DbKind, number> = {
   [KIND.POSTGRES]: 5432,
   [KIND.MYSQL]: 3306,
   [KIND.SQLITE]: 0,
   [KIND.REDIS]: 6379,
-  [KIND.MONGODB]: 0,
+  [KIND.MONGODB]: 27017,
   [KIND.QDRANT]: 6333,
   [KIND.SQLSERVER]: 1433,
   [KIND.ORACLE]: 1521,
@@ -130,7 +158,7 @@ export type ConnectionProfile = {
 // Connection profile input (for create/update, without id/timestamps)
 const BaseCreateSchema = z.object({
   name: z.string().min(1),
-  kind: z.enum(ALL_KINDS as [string, ...string[]]),
+  kind: z.enum(ALL_KINDS as [DbKind, ...DbKind[]]),
   host: z.string().optional(),
   port: z.number().int().positive().optional(),
   database: z.string().optional(),
@@ -144,7 +172,7 @@ const BaseCreateSchema = z.object({
 
 export const CreateConnectionProfileSchema = BaseCreateSchema.refine(
   (data) => {
-    if (data.kind === KIND.POSTGRES && !data.password) {
+    if (isPasswordRequired(data.kind) && !data.password) {
       return false;
     }
     if (data.kind === KIND.MONGODB && !data.connectionString) {
@@ -169,7 +197,7 @@ export const CreateConnectionProfileSchema = BaseCreateSchema.refine(
       };
     }
     return {
-      message: 'Password is required for PostgreSQL connections',
+      message: `Password is required for ${data.kind} connections`,
       path: ['password'],
     };
   },

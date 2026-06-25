@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { isQuerySafe, KIND, DEFAULT_PORTS, type SqlAdapter } from '@kamehadb/shared';
+import { isQuerySafe, KIND, DEFAULT_PORTS, isPasswordRequired, type SqlAdapter } from '@kamehadb/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import pg from 'pg';
@@ -10,7 +10,6 @@ import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
 import { createSqlSchemaRouter } from './sql-schema.js';
 import { buildSafeFilterClause, quoteSqlIdentifier } from '../lib/postgres-vector-sql.js';
-import { handleError } from '../lib/route-helpers.js';
 import type {
   PostgresVectorCapability,
   PostgresVectorSampleResult,
@@ -22,8 +21,15 @@ import type {
   SqliteVecSearchHit,
 } from '@kamehadb/shared';
 import * as sqliteVec from 'sqlite-vec';
+import { log } from '../lib/logger.js';
 
 export const sqlRouter = new Hono();
+
+function handleError(c: any, err: unknown, context: string) {
+  const message = err instanceof Error ? err.message : 'Unknown error';
+  log.error({ err }, `SQL ${context}`);
+  return c.json({ error: 'INTERNAL_ERROR', message }, 500);
+}
 
 // Module-level adapter cache to avoid creating + destroying connection pools per request
 const adapterCache = new Map<string, SqlAdapter>();
@@ -52,13 +58,13 @@ export async function getSqlAdapter(connectionId: string) {
   }
 
   const password = metadataStore.getProfilePassword(connectionId);
-  if (!password && profile.kind === KIND.POSTGRES) {
+  if (!password && isPasswordRequired(profile.kind)) {
     throw new Error('Password not saved. Open connection settings and save with password.');
   }
 
   const adapter = createSqlAdapter(profile, password);
   if (!adapter) {
-    console.warn(`[SQL] Unsupported connection kind for ${connectionId}: ${profile.kind}`);
+    log.warn({ connectionId, kind: profile.kind }, 'Unsupported connection kind for SQL adapter');
     const fallback = {
       testConnection: () => Promise.resolve({ success: false, message: `Unsupported for ${profile.kind}` }),
       listDatabases: () => Promise.resolve([]),
@@ -384,7 +390,7 @@ function handlePgError(c: any, err: unknown, context: string) {
     typeof err === 'object' && err && 'statusCode' in err
       ? Number((err as { statusCode?: number }).statusCode) || 500
       : 500;
-  console.error(`[PostgresVector] ${context}:`, message);
+  log.error({ err }, `PostgresVector ${context}`);
   return c.json({ error: statusCode === 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST', message }, statusCode);
 }
 

@@ -568,7 +568,7 @@ export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, 
   return (
     <Tabs defaultValue="view" className="flex-1 flex flex-col min-h-0">
       <div className="shrink-0 px-4">
-        <TabsList>
+        <TabsList variant="notebook">
           <TabsTrigger value="view" className="text-xs">
             View
           </TabsTrigger>
@@ -645,7 +645,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
     <div className="flex flex-col h-full bg-background">
       <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
         <div className="px-4 pt-2 shrink-0">
-          <TabsList>
+          <TabsList variant="notebook">
             <TabsTrigger value="data" className="text-xs">
               Data
             </TabsTrigger>

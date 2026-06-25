@@ -78,18 +78,18 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.bloatBytes)}</div>
-            <p className="text-muted-foreground text-xs">{stats.bloatPercent.toFixed(1)}%</p>
+            <p className="text-muted-foreground text-xs">{(stats.bloatPercent ?? 0).toFixed(1)}%</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Bloat Warning */}
-      {stats.bloatPercent > 10 && (
+      {(stats.bloatPercent ?? 0) > 10 && (
         <Card className="bg-destructive/5 border-destructive/50">
           <CardContent className="flex items-center py-3 gap-3">
             <AlertTriangle className="text-destructive shrink-0 size-5" />
             <div className="text-sm">
-              <strong>Bloat detected:</strong> This table has {stats.bloatPercent.toFixed(1)}% bloat (
+              <strong>Bloat detected:</strong> This table has {(stats.bloatPercent ?? 0).toFixed(1)}% bloat (
               {formatBytes(stats.bloatBytes)}). Consider running{' '}
               <code className="px-1 py-0.5 text-xs bg-muted rounded-xs">VACUUM FULL</code> to reclaim space.
             </div>

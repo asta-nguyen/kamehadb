@@ -644,7 +644,7 @@
 
 /* Buttons: beige raised bevel */
 [data-theme-style='winxp']
-  [data-slot='button']:not([class*='variant-ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+  [data-slot='button']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
     [data-selected='true']
   ):not([style]),
 [data-theme-style='winxp'] [data-slot='dropdown-menu-trigger'] {
@@ -663,17 +663,17 @@
   color: var(--d-btn-color) !important;
 }
 [data-theme-style='winxp']
-  [data-slot='button']:not([class*='variant-ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+  [data-slot='button']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
     [data-selected='true']
   ):not([style]):active,
 [data-theme-style='winxp'] [data-slot='dropdown-menu-trigger']:active {
   box-shadow: var(--d-btn-active-shadow) !important;
 }
-[data-theme-style='winxp'] [data-slot='button'].bg-primary:not([class*='variant-ghost']),
+[data-theme-style='winxp'] [data-slot='button'].bg-primary:not([data-variant='ghost']),
 [data-theme-style='winxp']
   [data-slot='button'][class*='bg-primary']:not([class*='bg-card']):not([class*='bg-destructive']):not(
     [class*='bg-primary/']
-  ):not([style]):not([class*='variant-ghost']) {
+  ):not([style]):not([data-variant='ghost']) {
   border: var(--d-btn-border) !important;
   background: var(--d-btn-bg) !important;
   box-shadow: var(--d-btn-shadow) !important;
@@ -683,10 +683,10 @@
   min-height: var(--d-btn-min-height) !important;
   padding: var(--d-btn-padding) !important;
 }
-[data-theme-style='winxp'] [data-slot='button'].bg-primary:not([class*='variant-ghost']):active,
+[data-theme-style='winxp'] [data-slot='button'].bg-primary:not([data-variant='ghost']):active,
 [data-theme-style='winxp']
   [data-slot='button'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not(
-    [class*='variant-ghost']
+    [data-variant='ghost']
   ):active {
   box-shadow: var(--d-btn-active-shadow) !important;
 }
@@ -703,7 +703,7 @@
 }
 
 /* Tabs: flat with orange top highlight */
-[data-theme-style='winxp'] [data-slot='tabs-trigger'] {
+[data-theme-style='winxp'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'] {
   border-radius: var(--d-tabs-trigger-radius) !important;
   border: var(--d-tabs-trigger-border) !important;
   border-bottom: none !important;
@@ -711,8 +711,10 @@
   box-shadow: var(--d-tabs-trigger-shadow) !important;
   color: var(--d-tabs-trigger-color) !important;
 }
-[data-theme-style='winxp'] [data-slot='tabs-trigger'][data-active],
-[data-theme-style='winxp'] [data-slot='tabs-trigger'][aria-selected='true'] {
+[data-theme-style='winxp'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'][data-active],
+[data-theme-style='winxp']
+  [data-slot='tabs-list'][data-variant='notebook']
+  [data-slot='tabs-trigger'][aria-selected='true'] {
   border-top: var(--d-tabs-active-border-top) !important;
   box-shadow: var(--d-tabs-active-shadow) !important;
   background: var(--d-tabs-active-bg) !important;
@@ -1024,7 +1026,7 @@
 
 /* Buttons: raised bevel */
 [data-theme-style='win98']
-  [data-slot='button']:not([class*='variant-ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+  [data-slot='button']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
     [data-selected='true']
   ):not([style]),
 [data-theme-style='win98'] [data-slot='dropdown-menu-trigger'] {
@@ -1043,15 +1045,15 @@
   color: var(--d-btn-color) !important;
 }
 [data-theme-style='win98']
-  [data-slot='button']:not([class*='variant-ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+  [data-slot='button']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
     [data-selected='true']
   ):not([style]):active,
 [data-theme-style='win98'] [data-slot='dropdown-menu-trigger']:active {
   box-shadow: var(--d-btn-active-shadow) !important;
 }
-[data-theme-style='win98'] [data-slot='button'].bg-primary:not([class*='variant-ghost']),
+[data-theme-style='win98'] [data-slot='button'].bg-primary:not([data-variant='ghost']),
 [data-theme-style='win98']
-  [data-slot='button'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not([class*='variant-ghost']) {
+  [data-slot='button'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not([data-variant='ghost']) {
   border: var(--d-btn-border) !important;
   background: var(--d-btn-bg) !important;
   box-shadow: var(--d-btn-shadow) !important;
@@ -1061,10 +1063,10 @@
   min-height: var(--d-btn-min-height) !important;
   padding: var(--d-btn-padding) !important;
 }
-[data-theme-style='win98'] [data-slot='button'].bg-primary:not([class*='variant-ghost']):active,
+[data-theme-style='win98'] [data-slot='button'].bg-primary:not([data-variant='ghost']):active,
 [data-theme-style='win98']
   [data-slot='button'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not(
-    [class*='variant-ghost']
+    [data-variant='ghost']
   ):active {
   box-shadow: var(--d-btn-active-shadow) !important;
 }
@@ -1083,15 +1085,17 @@
 }
 
 /* Tabs: raised bevel */
-[data-theme-style='win98'] [data-slot='tabs-trigger'] {
+[data-theme-style='win98'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'] {
   border-radius: var(--d-tabs-trigger-radius) !important;
   border: var(--d-tabs-trigger-border) !important;
   box-shadow: var(--d-tabs-trigger-shadow) !important;
   background: var(--d-tabs-trigger-bg) !important;
   color: var(--d-tabs-trigger-color) !important;
 }
-[data-theme-style='win98'] [data-slot='tabs-trigger'][data-active],
-[data-theme-style='win98'] [data-slot='tabs-trigger'][aria-selected='true'] {
+[data-theme-style='win98'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'][data-active],
+[data-theme-style='win98']
+  [data-slot='tabs-list'][data-variant='notebook']
+  [data-slot='tabs-trigger'][aria-selected='true'] {
   background: var(--d-tabs-active-bg) !important;
 }
 
@@ -1518,15 +1522,17 @@
 }
 
 /* Tabs: flat with blue underline (DBeaver uses border-bottom, others use raised bevel) */
-[data-theme-style='dbeaver'] [data-slot='tabs-trigger'] {
+[data-theme-style='dbeaver'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'] {
   border-radius: var(--d-tabs-trigger-radius) !important;
   border: none !important;
   background: var(--d-tabs-trigger-bg) !important;
   box-shadow: none !important;
   color: var(--d-tabs-trigger-color) !important;
 }
-[data-theme-style='dbeaver'] [data-slot='tabs-trigger'][data-active],
-[data-theme-style='dbeaver'] [data-slot='tabs-trigger'][aria-selected='true'] {
+[data-theme-style='dbeaver'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'][data-active],
+[data-theme-style='dbeaver']
+  [data-slot='tabs-list'][data-variant='notebook']
+  [data-slot='tabs-trigger'][aria-selected='true'] {
   border-bottom: var(--d-tabs-active-border-bottom) !important;
   background: var(--d-tabs-active-bg) !important;
   color: var(--d-tabs-active-color) !important;
@@ -1545,6 +1551,676 @@
 [data-theme-style='dbeaver'] tbody tr:hover,
 [data-theme-style='dbeaver'] [data-slot='table'] tbody tr:hover {
   background-color: color-mix(in srgb, var(--accent) 50%, transparent) !important;
+}
+
+/* ─── Mac OS X Cheetah Theme Overrides ──────────────────────────────── */
+/* Values sourced from B00merang-Project/Mac-OS-X-Cheetah GTK theme */
+[data-theme-style='macosx'] {
+  font-family: 'Lucida Grande', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --radius: 0.625rem;
+
+  /* ── Tailwind/shadcn CSS variables (from gtk.css @define-color) ── */
+  --background: #e8e8e8;
+  --foreground: #4c4c4c;
+  --card: #ffffff;
+  --card-foreground: #4c4c4c;
+  --popover: #ffffff;
+  --popover-foreground: #4c4c4c;
+  --primary: #2563ae;
+  --primary-foreground: #ffffff;
+  --secondary: #d8d8d8;
+  --secondary-foreground: #4c4c4c;
+  --muted: #d0d0d0;
+  --muted-foreground: #6b6b6b;
+  --accent: #2563ae;
+  --accent-foreground: #ffffff;
+  --destructive: #cc0000;
+  --border: #b8b8b8;
+  --input: #ffffff;
+  --ring: #2563ae;
+  --sidebar: var(--d-sidebar-bg);
+  --sidebar-foreground: #4c4c4c;
+  --sidebar-border: #a0a0a0;
+  --sidebar-accent: rgba(0, 0, 0, 0.07);
+  --sidebar-accent-foreground: #4c4c4c;
+  --sidebar-ring: #2563ae;
+
+  /* ── Sidebar ── */
+  --d-sidebar-bg: #e8e8e8;
+  --d-sidebar-border-right: 1px solid #a0a0a0;
+  --d-sidebar-color: #4c4c4c;
+
+  /* ── Title bar (brushed metal) ── */
+  --d-header-bg: linear-gradient(180deg, #e6e6e6 0%, #bdbdbd 50%, #a0a0a0 100%);
+  --d-header-border-bottom: 1px solid #a8a8a8;
+  --d-header-color: #4c4c4c;
+  --d-header-kbd-bg: rgba(0, 0, 0, 0.1);
+  --d-header-kbd-color: #4c4c4c;
+  --d-header-btn-bg: transparent;
+  --d-header-btn-border: none;
+  --d-header-btn-color: #4c4c4c;
+  --d-header-btn-hover-bg: rgba(0, 0, 0, 0.07);
+
+  /* ── Buttons (from gtk-widgets.css .button) ── */
+  /* Regular: silver bevel — white 15%, gray 40%, white 75% */
+  --d-btn-bg: linear-gradient(180deg, #ffffff 0%, #ffffff 15%, #e8e8e8 40%, #ffffff 75%, #ffffff 100%);
+  --d-btn-color: #4c4c4c;
+  --d-btn-shadow:
+    0 0 2px 0 rgba(128, 128, 128, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+    inset 1px 0 2px 0 rgba(128, 128, 128, 0.4), inset -1px 0 2px 0 rgba(128, 128, 128, 0.4);
+  --d-btn-active-shadow:
+    inset 1px 0 rgba(0, 0, 0, 0.07), inset 0 1px rgba(0, 0, 0, 0.08), inset -1px 0 rgba(0, 0, 0, 0.07),
+    inset 0 -1px rgba(0, 0, 0, 0.05);
+  --d-btn-border: 1px solid #848484;
+  --d-btn-radius: 10px;
+  --d-btn-min-width: 60px;
+  --d-btn-min-height: 24px;
+  --d-btn-padding: 3px 8px;
+  --d-btn-focus-outline: none;
+  --d-btn-focus-outline-offset: 0;
+  --d-btn-focus-shadow: 0 0 0 2px rgba(37, 99, 174, 0.5);
+  /* Default/primary button: Aqua blue gel (real Cheetah — glossy glass button) */
+  --d-btn-primary-bg: linear-gradient(180deg, #6ab4ff 0%, #3a8eef 40%, #2563ae 50%, #2a7df0 60%, #4a9eff 100%);
+  --d-btn-primary-color: #ffffff;
+  --d-btn-primary-border: 1px solid #1a4a8a;
+  --d-btn-primary-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    inset 0 6px 12px rgba(255, 255, 255, 0.25), 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  /* ── Card ── */
+  --d-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
+  --d-card-border: 1px solid #c0c0c0;
+  --d-card-radius: 0.625rem;
+
+  /* ── Table head: metal strip ── */
+  --d-table-head-bg: linear-gradient(180deg, #e0e0e0 0%, #c8c8c8 50%, #d4d4d4 100%);
+  --d-table-head-color: #4c4c4c;
+
+  /* ── Input / Textarea (from gtk-widgets.css .entry) ── */
+  /* Cheetah: sharp corners, 1px border, white bg */
+  --d-input-border: 1px solid #aeaeae;
+  --d-input-bg: #ffffff;
+  --d-input-color: #4c4c4c;
+  --d-input-radius: 0px;
+  --d-input-shadow: none;
+  --d-input-focus-border: 1px solid #2563ae;
+  --d-input-focus-shadow: none;
+
+  /* ── Select (from gtk.css: combobox radius 5px, menu_bg_color rgba(255,255,255,0.9)) ── */
+  --d-select-trigger-border: 1px solid #aeaeae;
+  --d-select-trigger-bg: linear-gradient(180deg, #ffffff 0%, #ffffff 15%, #e8e8e8 40%, #ffffff 75%, #ffffff 100%);
+  --d-select-trigger-radius: 5px;
+  --d-select-trigger-shadow: 0 0 2px 0 rgba(128, 128, 128, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  --d-select-trigger-focus-border: 1px solid #2563ae;
+  --d-select-content-border: 1px solid #b3b3b3;
+  --d-select-content-bg: rgba(255, 255, 255, 0.92);
+  --d-select-content-radius: 0px;
+  --d-select-content-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --d-select-item-hover-bg: #2563ae;
+  --d-select-item-hover-color: #ffffff;
+  --d-select-trigger-color: #4c4c4c;
+  --d-select-content-color: #4c4c4c;
+
+  /* ── Dialog ── */
+  --d-dialog-radius: 0.75rem;
+  --d-dialog-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.15);
+  --d-dialog-border: 1px solid #c0c0c0;
+  --d-dialog-overlay: rgba(0, 0, 0, 0.25);
+  --d-dialog-bg: #f0f0f0;
+
+  /* ── Tooltip (from gtk.css: tooltip_bg_color #cecece, tooltip_fg_color #4c4c4c) ── */
+  --d-tooltip-border: 1px solid #848484;
+  --d-tooltip-bg: #cecece;
+  --d-tooltip-color: #4c4c4c;
+  --d-tooltip-radius: 0;
+  --d-tooltip-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+
+  /* ── Tabs: Cheetah notebook folder tabs (from gtk-widgets.css .notebook tab) ── */
+  --d-tabs-trigger-radius: 8px 8px 0 0;
+  --d-tabs-trigger-bg: linear-gradient(180deg, #ffffff 0%, #ffffff 15%, #e8e8e8 40%, #ffffff 75%, #ffffff 100%);
+  --d-tabs-trigger-color: #4c4c4c;
+  --d-tabs-trigger-border: none;
+  --d-tabs-trigger-shadow:
+    0 0 2px 0 rgba(128, 128, 128, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+    inset 1px 0 2px 0 rgba(128, 128, 128, 0.4), inset -1px 0 2px 0 rgba(128, 128, 128, 0.4);
+  --d-tabs-active-bg: linear-gradient(180deg, #b6d2ed 0%, #8ebbe8 35%, #63a1df 36%, #b9edff 100%);
+  --d-tabs-active-color: #07067b;
+  --d-tabs-active-border: 1px solid #07067b;
+  --d-tabs-active-shadow:
+    0 0 2px 0 rgba(128, 128, 128, 0.6), inset 1px 0 2px 0 rgba(0, 0, 0, 0.4), inset -1px 0 2px 0 rgba(0, 0, 0, 0.4);
+  --d-tabs-list-border-bottom: 1px solid #aeaeae;
+
+  /* ── Switch (Aqua toggle) ── */
+  --d-switch-radius: 1rem;
+  --d-switch-border: 1px solid #a0a0a0;
+  --d-switch-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.15);
+  --d-switch-thumb-radius: 1rem;
+  --d-switch-bg: #d0d0d0;
+  --d-switch-checked-bg: #2563ae;
+
+  /* ── Badge ── */
+  --d-badge-bg: #e0e8f4;
+  --d-badge-color: #003d7a;
+  --d-badge-border: 1px solid #b8cce8;
+  --d-badge-radius: 1rem;
+  --d-badge-shadow: none;
+
+  /* ── Dropdown (Cheetah menu: translucent white, sharp corners) ── */
+  --d-dropdown-border: 1px solid #b3b3b3;
+  --d-dropdown-bg: rgba(255, 255, 255, 0.9);
+  --d-dropdown-radius: 0px;
+  --d-dropdown-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+
+  /* ── Selection ── */
+  --d-selection-bg: #2563ae;
+  --d-selection-color: #ffffff;
+
+  /* ── Progress ── */
+  --d-progress-bg: #d8d8d8;
+  --d-progress-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+  --d-progress-fill: linear-gradient(180deg, #3fa8ff 0%, #2563ae 50%, #07067b 100%);
+  --d-progress-height: 14px;
+
+  /* ── Label ── */
+  --d-label-color: #4c4c4c;
+  --d-label-weight: 500;
+
+  /* ── Separator ── */
+  --d-separator-height: 1px;
+  --d-separator-bg: #c0c0c0;
+  --d-separator-margin: 4px 0;
+}
+
+/* ── Mac OS X Title Bar ───────────────────────────────────────────── */
+/* Cheetah active title bar: blue pinstripe gradient (avg RGB(42,84,155) from screenshot) */
+.macosx-titlebar {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 1px,
+      rgba(255, 255, 255, 0.06) 1px,
+      rgba(255, 255, 255, 0.06) 2px
+    ),
+    linear-gradient(180deg, #2a549b 0%, #3a6cb0 40%, #4278c4 70%, #3668b0 100%);
+  position: relative;
+  border-bottom: 1px solid #1a1a1a !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  -webkit-app-region: drag;
+}
+/* Title bar text: white on blue */
+.macosx-titlebar .flex.items-baseline {
+  color: #ffffff !important;
+}
+.macosx-titlebar .flex.items-baseline span {
+  color: inherit !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5) !important;
+}
+.macosx-titlebar .flex.items-baseline span:last-child {
+  color: #b8d8ff !important;
+}
+.macosx-titlebar button,
+.macosx-titlebar [data-slot='button'] {
+  -webkit-app-region: no-drag;
+}
+/* Title bar icon buttons: white on blue (like Cheetah toolbar icons) */
+.macosx-titlebar [data-slot='button'][data-variant='ghost'] {
+  color: rgba(255, 255, 255, 0.85) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.macosx-titlebar [data-slot='button'][data-variant='ghost']:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+.macosx-titlebar [data-slot='button'][data-variant='ghost']:active {
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* ── Aqua Segmented Control (ThemeToggle in macosx title bar) ── */
+/* Container: silver bevel (avg RGB(184,184,184) from Cheetah screenshot) */
+[data-theme-style='macosx'] [data-segmented] {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #d8d8d8 0%, #b8b8b8 50%, #989898 100%) !important;
+  border: 1px solid #333333 !important;
+  border-radius: 999px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  padding: 2px !important;
+  gap: 0 !important;
+}
+
+/* Selected segment: BLUE gel gradient (avg RGB(132,177,225) from Cheetah screenshot) */
+[data-theme-style='macosx'] [data-segmented] > .pointer-events-none {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.18) 28%, rgba(255, 255, 255, 0) 29%),
+    linear-gradient(180deg, #b5ddff 0%, #7cb9f6 34%, #4c8fdd 35%, #2877d2 62%, #5aa5ee 100%) !important;
+  border: 1px solid #2d67b0 !important;
+  border-radius: 999px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(11, 54, 113, 0.32),
+    inset 0 -7px 12px rgba(21, 82, 153, 0.22),
+    0 1px 1px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-theme-style='macosx'] [data-segmented] > .pointer-events-none::before {
+  content: '';
+  position: absolute;
+  inset: 1px 2px auto;
+  height: 42%;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.38) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+[data-theme-style='macosx'] [data-segmented] > .pointer-events-none::after {
+  content: '';
+  position: absolute;
+  inset: auto 3px 2px;
+  height: 28%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(14, 61, 124, 0.05) 0%, rgba(14, 61, 124, 0.24) 100%);
+}
+
+/* Segment buttons: transparent, no border, icon centered */
+[data-theme-style='macosx'] [data-segmented] [data-slot='button'] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 999px !important;
+}
+
+/* Unselected segment icons: dark gray on silver */
+[data-theme-style='macosx'] [data-segmented] [data-slot='button'][aria-pressed='false'] {
+  color: #333333 !important;
+}
+
+/* Selected segment icon: white on blue */
+[data-theme-style='macosx'] [data-segmented] [data-slot='button'][aria-pressed='true'] {
+  color: #ffffff !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Dark mode: graphite container + blue selected segment */
+.dark [data-theme-style='macosx'] [data-segmented],
+[data-theme-style='macosx'].dark [data-segmented] {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #6a6a6a 0%, #4a4a4a 50%, #3a3a3a 100%) !important;
+  border: 1px solid #1a1a1a !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark [data-theme-style='macosx'] [data-segmented] > .pointer-events-none,
+[data-theme-style='macosx'].dark [data-segmented] > .pointer-events-none {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.08) 28%, rgba(255, 255, 255, 0) 29%),
+    linear-gradient(180deg, #6ea1d3 0%, #4b83bf 35%, #2f5e96 36%, #214f86 62%, #4d84bf 100%) !important;
+  border: 1px solid #2a5a8a !important;
+}
+
+.dark [data-theme-style='macosx'] [data-segmented] > .pointer-events-none::before,
+[data-theme-style='macosx'].dark [data-segmented] > .pointer-events-none::before {
+  content: '';
+  position: absolute;
+  inset: 1px 2px auto;
+  height: 42%;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.14) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.dark [data-theme-style='macosx'] [data-segmented] > .pointer-events-none::after,
+[data-theme-style='macosx'].dark [data-segmented] > .pointer-events-none::after {
+  content: '';
+  position: absolute;
+  inset: auto 3px 2px;
+  height: 28%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(6, 23, 47, 0.04) 0%, rgba(6, 23, 47, 0.26) 100%);
+}
+
+.dark [data-theme-style='macosx'] [data-segmented] [data-slot='button'][aria-pressed='false'],
+[data-theme-style='macosx'].dark [data-segmented] [data-slot='button'][aria-pressed='false'] {
+  color: #dddddd !important;
+}
+
+/* Dark mode title bar — Cheetah graphite: dark gray pinstripes */
+.dark .macosx-titlebar,
+.macosx-titlebar.dark {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 1px,
+      rgba(255, 255, 255, 0.03) 1px,
+      rgba(255, 255, 255, 0.03) 2px
+    ),
+    linear-gradient(180deg, #2a2a2a 0%, #3a3a3a 40%, #2e2e2e 70%, #222222 100%);
+  border-bottom: 1px solid #000000 !important;
+}
+
+/* ── Mac OS X Dark Mode Vars ─────────────────────────────────────── */
+/* Graphite mode — charcoal metal, muted Aqua accents */
+.dark [data-theme-style='macosx'],
+[data-theme-style='macosx'].dark {
+  --background: #3a3a3a;
+  --foreground: #f0f0f0;
+  --card: #484848;
+  --card-foreground: #f0f0f0;
+  --popover: #484848;
+  --popover-foreground: #f0f0f0;
+  --muted: #444444;
+  --muted-foreground: #aaaaaa;
+  --border: #606060;
+  --input: #3a3a3a;
+  --ring: #2563ae;
+  --d-sidebar-bg: linear-gradient(180deg, #383838 0%, #2e2e2e 100%);
+  --d-sidebar-border-right: 1px solid #282828;
+  --d-sidebar-color: #f0f0f0;
+  --d-header-bg: linear-gradient(180deg, #525252 0%, #404040 50%, #484848 100%);
+  --d-header-border-bottom: 1px solid #282828;
+  --d-header-color: #f0f0f0;
+  --d-header-kbd-bg: rgba(255, 255, 255, 0.1);
+  --d-header-kbd-color: #f0f0f0;
+  --d-header-btn-color: #f0f0f0;
+  --d-header-btn-hover-bg: rgba(255, 255, 255, 0.07);
+  --d-btn-bg: linear-gradient(180deg, #5c5c5c 0%, #5c5c5c 15%, #4a4a4a 40%, #5c5c5c 75%, #5c5c5c 100%);
+  --d-btn-color: #f0f0f0;
+  --d-btn-border: 1px solid #2a2a2a;
+  --d-btn-shadow:
+    0 0 2px 0 rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 1px 0 2px 0 rgba(0, 0, 0, 0.4),
+    inset -1px 0 2px 0 rgba(0, 0, 0, 0.4);
+  --d-btn-primary-bg: linear-gradient(180deg, #4a8acc 0%, #2a6a9e 40%, #1a4a8a 50%, #2a6a9e 60%, #3a7acc 100%);
+  --d-btn-primary-color: #ffffff;
+  --d-btn-primary-border: 1px solid #1a3a6e;
+  --d-btn-primary-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 6px 12px rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --d-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --d-card-border: 1px solid #606060;
+  --d-table-head-bg: linear-gradient(180deg, #525252 0%, #404040 50%, #484848 100%);
+  --d-table-head-color: #f0f0f0;
+  --d-input-bg: #2c2c2c;
+  --d-input-color: #f0f0f0;
+  --d-input-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 0 0 1px #606060;
+  --d-input-focus-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 0 0 1px #606060, 0 0 0 3px rgba(37, 99, 174, 0.35);
+  --d-select-trigger-bg: linear-gradient(180deg, #5c5c5c 0%, #5c5c5c 15%, #4a4a4a 40%, #5c5c5c 75%, #5c5c5c 100%);
+  --d-select-trigger-shadow: 0 0 2px 0 rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --d-select-trigger-color: #f0f0f0;
+  --d-select-content-bg: rgba(50, 50, 50, 0.92);
+  --d-select-content-border: 1px solid #2a2a2a;
+  --d-select-content-color: #f0f0f0;
+  --d-select-content-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --d-dialog-bg: #3a3a3a;
+  --d-dialog-border: 1px solid #606060;
+  --d-dialog-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --d-tooltip-border: 1px solid #2a2a2a;
+  --d-tooltip-bg: #3a3a3a;
+  --d-tooltip-color: #f0f0f0;
+  --d-tabs-trigger-bg: linear-gradient(180deg, #5c5c5c 0%, #5c5c5c 15%, #4a4a4a 40%, #5c5c5c 75%, #5c5c5c 100%);
+  --d-tabs-trigger-color: #f0f0f0;
+  --d-tabs-trigger-shadow:
+    0 0 2px 0 rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 1px 0 2px 0 rgba(0, 0, 0, 0.4),
+    inset -1px 0 2px 0 rgba(0, 0, 0, 0.4);
+  --d-tabs-active-bg: linear-gradient(180deg, #4a7ab0 0%, #3a6a9a 35%, #2a5a8a 36%, #5a8ac0 100%);
+  --d-tabs-active-color: #ffffff;
+  --d-tabs-active-border: 1px solid #07067b;
+  --d-tabs-active-shadow:
+    0 0 2px 0 rgba(0, 0, 0, 0.6), inset 1px 0 2px 0 rgba(0, 0, 0, 0.4), inset -1px 0 2px 0 rgba(0, 0, 0, 0.4);
+  --d-tabs-list-border-bottom: 1px solid #2a2a2a;
+  --d-switch-bg: #505050;
+  --d-switch-checked-bg: #2563ae;
+  --d-switch-border: 1px solid #606060;
+  --d-badge-bg: #2a4060;
+  --d-badge-color: #a0c8f0;
+  --d-badge-border: 1px solid #3a5878;
+  --d-dropdown-bg: rgba(60, 60, 60, 0.9);
+  --d-dropdown-border: 1px solid #2a2a2a;
+  --d-dropdown-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --d-progress-bg: #505050;
+  --d-progress-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  --d-progress-fill: linear-gradient(180deg, #1a4a8a 0%, #2563ae 50%, #07067b 100%);
+  --d-label-color: #f0f0f0;
+  --d-separator-bg: #606060;
+}
+
+/* ── Mac OS X per-theme selectors ─────────────────────────────────── */
+/* Sidebar: pinstripe brushed metal */
+[data-theme-style='macosx'] .sidebar {
+  background: var(--d-sidebar-bg) !important;
+  border-right: var(--d-sidebar-border-right);
+}
+[data-theme-style='macosx'] .sidebar .text-foreground,
+[data-theme-style='macosx'] .sidebar .text-foreground\/90,
+[data-theme-style='macosx'] .sidebar .text-foreground\/50,
+[data-theme-style='macosx'] .sidebar .text-muted-foreground,
+[data-theme-style='macosx'] .sidebar .text-muted-foreground\/60,
+[data-theme-style='macosx'] .sidebar .text-muted-foreground\/50,
+[data-theme-style='macosx'] .sidebar .text-primary {
+  color: var(--d-sidebar-color) !important;
+}
+
+/* Header: brushed metal (for sub-headers, not the main title bar) */
+[data-theme-style='macosx'] header:not(.macosx-titlebar) {
+  background: var(--d-header-bg) !important;
+  border-bottom: var(--d-header-border-bottom);
+  color: var(--d-header-color);
+}
+[data-theme-style='macosx'] header:not(.macosx-titlebar) .text-foreground,
+[data-theme-style='macosx'] header:not(.macosx-titlebar) .text-foreground\/90,
+[data-theme-style='macosx'] header:not(.macosx-titlebar) .text-foreground\/50,
+[data-theme-style='macosx'] header:not(.macosx-titlebar) .text-muted-foreground\/60,
+[data-theme-style='macosx'] header:not(.macosx-titlebar) .text-muted-foreground\/50,
+[data-theme-style='macosx'] header:not(.macosx-titlebar) .text-primary {
+  color: var(--d-header-color) !important;
+}
+[data-theme-style='macosx'] header:not(.macosx-titlebar) kbd {
+  background: var(--d-header-kbd-bg) !important;
+  color: var(--d-header-kbd-color) !important;
+}
+[data-theme-style='macosx'] header:not(.macosx-titlebar) [data-slot='button'] {
+  background: var(--d-header-btn-bg) !important;
+  border: var(--d-header-btn-border) !important;
+  color: var(--d-header-btn-color) !important;
+  box-shadow: none !important;
+}
+[data-theme-style='macosx'] header:not(.macosx-titlebar) [data-slot='button']:hover {
+  background: var(--d-header-btn-hover-bg) !important;
+}
+
+/* Card: white panels with drop shadow */
+[data-theme-style='macosx'] .card {
+  box-shadow: var(--d-card-shadow) !important;
+  border: var(--d-card-border) !important;
+  border-radius: var(--d-card-radius) !important;
+  background: var(--card) !important;
+}
+
+/* Buttons: Aqua gel pill style — border/bg/shadow/radius/color for all non-ghost */
+[data-theme-style='macosx']
+  [data-slot='button']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary']
+  ):not([data-selected='true']):not([style]),
+[data-theme-style='macosx']
+  [data-slot='dialog-trigger']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary']
+  ):not([data-selected='true']):not([style]),
+[data-theme-style='macosx'] [data-slot='dropdown-menu-trigger'] {
+  border: var(--d-btn-border) !important;
+  background: var(--d-btn-bg) !important;
+  box-shadow: var(--d-btn-shadow) !important;
+  border-radius: var(--d-btn-radius) !important;
+  color: var(--d-btn-color) !important;
+}
+/* Min-width/min-height/padding only for text buttons — NOT icon-size buttons */
+[data-theme-style='macosx']
+  [data-slot='button']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary']
+  ):not([data-selected='true']):not([style]):not([class*='size-[var(--d-control-icon']),
+[data-theme-style='macosx']
+  [data-slot='dialog-trigger']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary']
+  ):not([data-selected='true']):not([style]):not([class*='size-[var(--d-control-icon']),
+[data-theme-style='macosx'] [data-slot='dropdown-menu-trigger']:not([class*='size-[var(--d-control-icon']) {
+  min-width: var(--d-btn-min-width) !important;
+  min-height: var(--d-btn-min-height) !important;
+  padding: var(--d-btn-padding) !important;
+}
+[data-theme-style='macosx'] [data-slot='dropdown-menu-trigger']:hover {
+  background: var(--d-btn-bg) !important;
+  box-shadow: var(--d-btn-shadow) !important;
+  color: var(--d-btn-color) !important;
+}
+[data-theme-style='macosx']
+  [data-slot='button']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary']
+  ):not([data-selected='true']):not([style]):active,
+[data-theme-style='macosx']
+  [data-slot='dialog-trigger']:not([data-variant='ghost']):not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary']
+  ):not([data-selected='true']):not([style]):active,
+[data-theme-style='macosx'] [data-slot='dropdown-menu-trigger']:active {
+  box-shadow: var(--d-btn-active-shadow) !important;
+}
+[data-theme-style='macosx'] [data-slot='button'].bg-primary:not([data-variant='ghost']),
+[data-theme-style='macosx'] [data-slot='dialog-trigger'].bg-primary:not([data-variant='ghost']),
+[data-theme-style='macosx']
+  [data-slot='button'][class*='bg-primary']:not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary/']
+  ):not([style]):not([data-variant='ghost']),
+[data-theme-style='macosx']
+  [data-slot='dialog-trigger'][class*='bg-primary']:not([class*='bg-card']):not([class*='bg-destructive']):not(
+    [class*='bg-primary/']
+  ):not([style]):not([data-variant='ghost']) {
+  border: var(--d-btn-primary-border) !important;
+  background: var(--d-btn-primary-bg) !important;
+  box-shadow: var(--d-btn-primary-shadow) !important;
+  border-radius: var(--d-btn-radius) !important;
+  color: var(--d-btn-primary-color) !important;
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.4) !important;
+}
+/* Min-width/min-height/padding only for primary text buttons — NOT icon-size buttons */
+[data-theme-style='macosx']
+  [data-slot='button'].bg-primary:not([data-variant='ghost']):not([class*='size-[var(--d-control-icon']),
+[data-theme-style='macosx']
+  [data-slot='dialog-trigger'].bg-primary:not([data-variant='ghost']):not([class*='size-[var(--d-control-icon']),
+[data-theme-style='macosx']
+  [data-slot='button'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not([data-variant='ghost']):not(
+    [class*='size-[var(--d-control-icon']
+  ),
+[data-theme-style='macosx']
+  [data-slot='dialog-trigger'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not(
+    [data-variant='ghost']
+  ):not([class*='size-[var(--d-control-icon']) {
+  min-width: var(--d-btn-min-width) !important;
+  min-height: var(--d-btn-min-height) !important;
+  padding: var(--d-btn-padding) !important;
+}
+[data-theme-style='macosx'] [data-slot='button'].bg-primary:not([data-variant='ghost']):active,
+[data-theme-style='macosx'] [data-slot='dialog-trigger'].bg-primary:not([data-variant='ghost']):active,
+[data-theme-style='macosx']
+  [data-slot='button'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not([data-variant='ghost']):active,
+[data-theme-style='macosx']
+  [data-slot='dialog-trigger'][class*='bg-primary']:not([class*='bg-primary/']):not([style]):not(
+    [data-variant='ghost']
+  ):active {
+  box-shadow: var(--d-btn-active-shadow) !important;
+}
+[data-theme-style='macosx'] [data-slot='button']:focus-visible,
+[data-theme-style='macosx'] [data-slot='dropdown-menu-trigger']:focus-visible {
+  outline: var(--d-btn-focus-outline) !important;
+  outline-offset: var(--d-btn-focus-outline-offset);
+  box-shadow: var(--d-btn-focus-shadow) !important;
+}
+
+/* Input: etched sunken field */
+[data-theme-style='macosx'] [data-slot='input'] {
+  box-shadow: var(--d-input-shadow) !important;
+  border: none !important;
+}
+[data-theme-style='macosx'] [data-slot='input']:focus-visible {
+  box-shadow: var(--d-input-focus-shadow) !important;
+  outline: none !important;
+}
+[data-theme-style='macosx'] textarea {
+  box-shadow: var(--d-input-shadow) !important;
+  border: none !important;
+}
+
+/* Tabs: Cheetah notebook folder tabs (from gtk-widgets.css .notebook tab) */
+[data-theme-style='macosx'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'] {
+  border-radius: var(--d-tabs-trigger-radius) !important;
+  border: none !important;
+  background: var(--d-tabs-trigger-bg) !important;
+  color: var(--d-tabs-trigger-color) !important;
+  box-shadow: var(--d-tabs-trigger-shadow) !important;
+  padding: 4px 16px !important;
+  margin-right: 2px !important;
+}
+[data-theme-style='macosx'] [data-slot='tabs-list'][data-variant='notebook'] [data-slot='tabs-trigger'][data-active],
+[data-theme-style='macosx']
+  [data-slot='tabs-list'][data-variant='notebook']
+  [data-slot='tabs-trigger'][aria-selected='true'] {
+  background: var(--d-tabs-active-bg) !important;
+  color: var(--d-tabs-active-color) !important;
+  border: var(--d-tabs-active-border) !important;
+  border-radius: var(--d-tabs-trigger-radius) !important;
+  box-shadow: var(--d-tabs-active-shadow) !important;
+}
+
+/* Switch thumb */
+[data-theme-style='macosx'] [data-slot='switch-thumb'] {
+  border-radius: var(--d-switch-thumb-radius) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Scrollbars: Cheetah blue gel slider (from gtk-widgets.css .scrollbar) */
+[data-theme-style='macosx'] * {
+  scrollbar-width: thin;
+  scrollbar-color: #3b9eff #ffffff;
+}
+[data-theme-style='macosx'] ::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+}
+[data-theme-style='macosx'] ::-webkit-scrollbar-track {
+  background: #ffffff;
+  box-shadow: inset 2px -2px 3px 1px rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+}
+[data-theme-style='macosx'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #55e4ff 0%, #55e4ff 15%, #3b9eff 45%, #4ed0ff 75%, #4ed0ff 100%);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  box-shadow:
+    inset 1px 0 2px 0 rgba(0, 0, 0, 0.34),
+    inset -1px 0 2px 0 rgba(0, 0, 0, 0.34);
+}
+[data-theme-style='macosx'] ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #55e4ff 0%, #55e4ff 15%, #5ab8ff 45%, #4ed0ff 75%, #4ed0ff 100%);
+}
+[data-theme-style='macosx'] ::-webkit-scrollbar-corner {
+  background: #e8e8e8;
 }
 
 /* ─── Global Select Dropdown Fix ──────────────────────────────────── */
@@ -1566,7 +2242,8 @@
 [data-theme-style='win98'] .api-settings-sidebar,
 [data-theme-style='dbeaver'] .api-settings-sidebar,
 [data-theme-style='mira'] .api-settings-sidebar,
-[data-theme-style='retro'] .api-settings-sidebar {
+[data-theme-style='retro'] .api-settings-sidebar,
+[data-theme-style='macosx'] .api-settings-sidebar {
   background: var(--d-sidebar-bg) !important;
   border-right: var(--d-sidebar-border-right) !important;
 }
@@ -1574,7 +2251,8 @@
 [data-theme-style='win98'] .api-settings-sidebar [data-slot='button'],
 [data-theme-style='dbeaver'] .api-settings-sidebar [data-slot='button'],
 [data-theme-style='mira'] .api-settings-sidebar [data-slot='button'],
-[data-theme-style='retro'] .api-settings-sidebar [data-slot='button'] {
+[data-theme-style='retro'] .api-settings-sidebar [data-slot='button'],
+[data-theme-style='macosx'] .api-settings-sidebar [data-slot='button'] {
   border-radius: 0 !important;
   color: var(--d-sidebar-color) !important;
 }
@@ -1765,12 +2443,29 @@
   border-radius: var(--d-tooltip-radius) !important;
   box-shadow: var(--d-tooltip-shadow) !important;
 }
+/* Hide tooltip arrow in retro themes — they didn't have arrows */
+[data-theme-style='macosx'] [data-slot='tooltip-content'] > [class*='rotate-45'],
+[data-theme-style='winxp'] [data-slot='tooltip-content'] > [class*='rotate-45'],
+[data-theme-style='win98'] [data-slot='tooltip-content'] > [class*='rotate-45'],
+[data-theme-style='retro'] [data-slot='tooltip-content'] > [class*='rotate-45'] {
+  display: none !important;
+}
 
 /* Tabs list: theme-consistent bottom border */
-[data-theme-style] [data-slot='tabs-list'] {
+[data-theme-style] [data-slot='tabs-list'][data-variant='notebook'] {
   background: transparent !important;
   border-bottom: var(--d-tabs-list-border-bottom) !important;
   border-radius: 0 !important;
+}
+
+/* macosx tabs-list: folder-tab container with bottom border — must come
+   after the shared tabs-list rule above to win source-order precedence at
+   equal specificity. */
+[data-theme-style='macosx'] [data-slot='tabs-list'][data-variant='notebook'] {
+  background: transparent !important;
+  border-radius: 0 !important;
+  border-bottom: var(--d-tabs-list-border-bottom) !important;
+  padding: 0 !important;
 }
 
 /* Selection color */
@@ -1798,12 +2493,23 @@
   border-radius: 0 !important;
 }
 
+/* macosx: Aqua aesthetic uses rounded corners for command palette + input
+   group — must come after the shared rules above to win source-order
+   precedence at equal specificity. */
+[data-theme-style='macosx'] [data-slot='command'] {
+  border-radius: var(--radius) !important;
+}
+[data-theme-style='macosx'] [data-slot='input-group'] {
+  border-radius: var(--radius) !important;
+}
+
 /* Retro themes: consistent top padding for AI provider sidebar */
 [data-theme-style='dbeaver'] .api-settings-sidebar,
 [data-theme-style='mira'] .api-settings-sidebar,
 [data-theme-style='retro'] .api-settings-sidebar,
 [data-theme-style='winxp'] .api-settings-sidebar,
-[data-theme-style='win98'] .api-settings-sidebar {
+[data-theme-style='win98'] .api-settings-sidebar,
+[data-theme-style='macosx'] .api-settings-sidebar {
   padding-top: 0.75rem;
 }
 
@@ -1812,4 +2518,163 @@
 .mongo-view-header {
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
+}
+
+.appearance-page .appearance-preview {
+  border: var(--d-card-border) !important;
+  border-radius: var(--d-card-radius, var(--radius)) !important;
+  background: var(--card) !important;
+  box-shadow: var(--d-card-shadow) !important;
+}
+
+.appearance-page [data-appearance-option] {
+  transition: none !important;
+  transform: none !important;
+}
+
+.appearance-page [data-appearance-option]:active {
+  transform: none !important;
+}
+
+.appearance-page [data-appearance-option='block'],
+.appearance-page [data-appearance-option='swatch'],
+.appearance-page [data-appearance-option='radius'] {
+  height: auto !important;
+  min-width: 0 !important;
+  border: 1px solid var(--border) !important;
+  background: var(--background) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: none !important;
+  color: var(--foreground) !important;
+}
+
+.appearance-page [data-appearance-option='block'] {
+  min-height: 5.5rem !important;
+  padding: 0.75rem !important;
+}
+
+.appearance-page [data-appearance-option='swatch'] {
+  min-height: 3.75rem !important;
+  padding: 0.5rem !important;
+}
+
+.appearance-page [data-appearance-option='radius'] {
+  min-width: 4rem !important;
+  min-height: 0 !important;
+  padding: 0.5rem !important;
+}
+
+.appearance-page [data-appearance-option][data-selected='true'] {
+  border-color: var(--ring) !important;
+  box-shadow: inset 0 0 0 1px var(--ring) !important;
+}
+
+.appearance-page [data-appearance-option][data-selected='true'] .text-muted-foreground {
+  color: color-mix(in srgb, var(--foreground) 72%, transparent) !important;
+}
+
+[data-theme-style='winxp'] .appearance-page .appearance-preview {
+  border: var(--d-fieldset-border) !important;
+  background: #fcfcfe !important;
+  box-shadow: none !important;
+}
+
+[data-theme-style='winxp'] .appearance-page [data-appearance-option='block'],
+[data-theme-style='winxp'] .appearance-page [data-appearance-option='swatch'],
+[data-theme-style='winxp'] .appearance-page [data-appearance-option='radius'] {
+  border: var(--d-btn-border) !important;
+  background: var(--d-btn-bg) !important;
+  border-radius: var(--d-btn-radius) !important;
+  box-shadow: var(--d-btn-shadow) !important;
+  color: var(--d-btn-color) !important;
+}
+
+[data-theme-style='winxp'] .appearance-page [data-appearance-option][data-selected='true'] {
+  border: 1px solid #003c74 !important;
+  background: linear-gradient(180deg, #316ac5 0%, #1b57b2 45%, #0f3d97 100%) !important;
+  box-shadow:
+    inset 1px 1px #90c8ff,
+    inset -1px -1px #062b6f !important;
+  color: #ffffff !important;
+}
+
+[data-theme-style='winxp'] .appearance-page [data-appearance-option][data-selected='true'] .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+[data-theme-style='win98'] .appearance-page .appearance-preview {
+  border: 1px solid #808080 !important;
+  background: #c0c0c0 !important;
+  box-shadow:
+    inset -1px -1px #0a0a0a,
+    inset 1px 1px #ffffff !important;
+}
+
+[data-theme-style='win98'] .appearance-page [data-appearance-option='block'],
+[data-theme-style='win98'] .appearance-page [data-appearance-option='swatch'],
+[data-theme-style='win98'] .appearance-page [data-appearance-option='radius'] {
+  border: var(--d-btn-border) !important;
+  background: var(--d-btn-bg) !important;
+  border-radius: var(--d-btn-radius) !important;
+  box-shadow: var(--d-btn-shadow) !important;
+  color: var(--d-btn-color) !important;
+}
+
+[data-theme-style='win98'] .appearance-page [data-appearance-option][data-selected='true'] {
+  border: none !important;
+  background: var(--d-selection-bg) !important;
+  box-shadow: var(--d-btn-active-shadow) !important;
+  color: var(--d-selection-color) !important;
+}
+
+[data-theme-style='win98'] .appearance-page [data-appearance-option][data-selected='true'] .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+[data-theme-style='dbeaver'] .appearance-page .appearance-preview {
+  border: var(--d-card-border) !important;
+  background: var(--card) !important;
+  box-shadow: var(--d-card-shadow) !important;
+}
+
+[data-theme-style='dbeaver'] .appearance-page [data-appearance-option='block'],
+[data-theme-style='dbeaver'] .appearance-page [data-appearance-option='swatch'],
+[data-theme-style='dbeaver'] .appearance-page [data-appearance-option='radius'] {
+  border: var(--d-card-border) !important;
+  background: var(--card) !important;
+  border-radius: var(--d-btn-radius) !important;
+  color: var(--foreground) !important;
+}
+
+[data-theme-style='dbeaver'] .appearance-page [data-appearance-option][data-selected='true'] {
+  border-color: var(--d-selection-bg) !important;
+  background: color-mix(in srgb, var(--d-selection-bg) 15%, var(--card)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--d-selection-bg) 45%, transparent) !important;
+}
+
+[data-theme-style='macosx'] .appearance-page .appearance-preview {
+  border: var(--d-card-border) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(243, 243, 243, 0.95) 100%) !important;
+  box-shadow: var(--d-card-shadow) !important;
+}
+
+[data-theme-style='macosx'] .appearance-page [data-appearance-option='block'],
+[data-theme-style='macosx'] .appearance-page [data-appearance-option='swatch'],
+[data-theme-style='macosx'] .appearance-page [data-appearance-option='radius'] {
+  border: var(--d-btn-border) !important;
+  background: var(--d-btn-bg) !important;
+  border-radius: var(--d-btn-radius) !important;
+  box-shadow: var(--d-btn-shadow) !important;
+  color: var(--d-btn-color) !important;
+}
+
+[data-theme-style='macosx'] .appearance-page [data-appearance-option][data-selected='true'] {
+  border: var(--d-btn-primary-border) !important;
+  background: var(--d-btn-primary-bg) !important;
+  box-shadow: var(--d-btn-primary-shadow) !important;
+  color: var(--d-btn-primary-color) !important;
+}
+
+[data-theme-style='macosx'] .appearance-page [data-appearance-option][data-selected='true'] .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.84) !important;
 }

@@ -13,6 +13,7 @@ import type { QueryResult } from '@kamehadb/shared';
 import { DocumentCard } from '@/components/mongo-document-card';
 import { DocumentTableView } from '@/components/mongo-document-table-view';
 import { MongoViewHeader } from '@/components/mongo-view-header';
+import { appendFrontendLog } from '@/lib/app-logs';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
@@ -240,7 +241,14 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
           queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
         });
       } catch (err) {
-        alert(`Delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        alert(`Delete failed: ${message}`);
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'mongo-view.delete',
+          message: `MongoDB delete failed: ${message}`,
+          details: err instanceof Error ? err.stack : String(err),
+        });
       }
     },
     [connectionId, collection, database, queryClient],
@@ -304,7 +312,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         className="flex-1 flex flex-col min-h-0"
       >
         <div className="px-4 pt-2">
-          <TabsList>
+          <TabsList variant="notebook">
             <TabsTrigger value="data" className="text-xs">
               Data
             </TabsTrigger>

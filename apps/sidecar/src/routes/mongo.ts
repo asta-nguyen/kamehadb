@@ -10,9 +10,25 @@ import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS, SHELL_CLEANUP_INTERVAL } from '../lib/constants.js';
-import { handleError, getKindAdapter } from '../lib/route-helpers.js';
+import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
+
+function handleError(c: any, err: unknown, context: string) {
+  log.error({ err }, `Mongo ${context}`);
+  return c.json({ error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500);
+}
+
+async function getAdapter(connectionId: string, _kind?: unknown, _factory?: unknown, _label?: string) {
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) throw new Error('Connection not found');
+
+  if (profile.kind !== 'mongodb') {
+    throw new Error('This endpoint is for MongoDB connections only');
+  }
+
+  return createMongoDbAdapter(profile);
+}
 
 // GET /mongo/:connectionId/collections
 mongoRouter.get('/:connectionId/collections', async (c) => {
@@ -23,7 +39,7 @@ mongoRouter.get('/:connectionId/collections', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+    const adapter = await getAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
     try {
       const collections = await adapter.listCollections(database || undefined);
       setCache(cacheKey, collections);
@@ -44,7 +60,7 @@ mongoRouter.get('/:connectionId/databases', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+    const adapter = await getAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
     try {
       const databases = await adapter.listDatabases();
       setCache(cacheKey, databases);
@@ -75,7 +91,7 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getKindAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+      const adapter = await getAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
       try {
         const result = await adapter.findDocuments(c.req.valid('json'));
         return c.json(result);
@@ -102,7 +118,7 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getKindAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+      const adapter = await getAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
       try {
         const result = await adapter.aggregate(c.req.valid('json'));
         return c.json(result);
@@ -133,7 +149,7 @@ mongoRouter.post(
       const connectionId = c.req.param('connectionId');
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
-      const adapter = await getKindAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+      const adapter = await getAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
       try {
         const { collection, database, filter } = c.req.valid('json');
         const result = await adapter.deleteDocument(database || '', collection, filter);
@@ -166,7 +182,7 @@ mongoRouter.post(
       const connectionId = c.req.param('connectionId');
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
-      const adapter = await getKindAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+      const adapter = await getAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
       try {
         const { collection, database, filter, update } = c.req.valid('json');
         const result = await adapter.updateDocument(database || '', collection, filter, update);
@@ -183,7 +199,7 @@ mongoRouter.post(
 // GET /mongo/:connectionId/stats
 mongoRouter.get('/:connectionId/stats', async (c) => {
   try {
-    const adapter = await getKindAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+    const adapter = await getAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
     try {
       const database = c.req.query('database');
       const collection = c.req.query('collection');
@@ -212,7 +228,7 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getKindAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+      const adapter = await getAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
       try {
         const { database, command } = c.req.valid('json');
         const result = await adapter.runCommand(database || '', command);
@@ -236,7 +252,7 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+    const adapter = await getAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
     try {
       const collections = await adapter.listCollections(database || undefined);
       // Sample one document from each collection to extract field names
@@ -271,7 +287,7 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
 // GET /mongo/:connectionId/test
 mongoRouter.get('/:connectionId/test', async (c) => {
   try {
-    const adapter = await getKindAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
+    const adapter = await getAdapter(c.req.param('connectionId'), KIND.MONGODB, createMongoDbAdapter, 'MongoDB');
     try {
       const result = await adapter.testConnection();
       return c.json(result);
@@ -344,15 +360,8 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
     // node-pty spawns a real pseudo-terminal so mongosh thinks it's
     // connected to an actual terminal — colors, box-drawing, and
     // interactive input all work out of the box.
-    const args = [
-      ...mongoshCommand.argsPrefix,
-      connStr,
-      '--quiet',
-      '--shell',
-      '--eval',
-      'const _o=console.log;console.log=()=>{};config.set("inspectCompact",false);console.log=_o;void 0',
-    ];
-    console.debug('[mongosh] spawning pty:', { program: mongoshCommand.program, cols, rows });
+    const args = [...mongoshCommand.argsPrefix, connStr];
+    log.debug({ program: mongoshCommand.program, cols, rows }, 'mongosh spawning pty');
     ptyProcess = pty.spawn(mongoshCommand.program, args, {
       name: 'xterm-256color',
       cols,
@@ -360,7 +369,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
       env: { ...process.env } as Record<string, string | undefined>,
     });
   } catch (err) {
-    console.error('[mongosh] pty.spawn failed:', { mongoshCommand, error: err });
+    log.error({ mongoshCommand, err }, 'mongosh pty.spawn failed');
     throw new Error(`mongosh failed to start: ${err instanceof Error ? err.message : String(err)}`);
   }
 
@@ -374,7 +383,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
   shellSessions.get(sessionId)!.disposable = bufDisposable;
 
   ptyProcess.onExit(({ exitCode }) => {
-    console.log(`[MongoShell] mongosh exited with code ${exitCode}`);
+    log.info({ exitCode }, '[MongoShell] mongosh exited');
     shellSessions.delete(sessionId);
   });
 
