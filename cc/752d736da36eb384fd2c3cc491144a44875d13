@@ -1,0 +1,59 @@
+apps/sidecar/src/routes/qdrant.ts
+  s_89fbe4a369f4a3::t_066a761b5b2aca 8,13
+apps/sidecar/src/routes/sql.ts
+  s_89fbe4a369f4a3::t_0795d798bdb9b5 23,29,66,392
+apps/desktop/src/lib/app-logs.ts
+  s_01a83d1dbdfd95::t_f97070c14f34c0 39
+  s_01a83d1dbdfd95::t_60f141cdfd6e33 44-48
+apps/sidecar/src/lib/mongosh.ts
+  s_89fbe4a369f4a3::t_9534d30627dd85 7,24,27,31,34,37
+apps/sidecar/src/routes/ai.ts
+  s_89fbe4a369f4a3::t_df310ea3122e75 16,396
+apps/sidecar/src/routes/connections.ts
+  s_89fbe4a369f4a3::t_d6b9744b1b51d8 28,209,341,513
+apps/sidecar/src/routes/mongo.ts
+  s_89fbe4a369f4a3::t_485b3693b41b47 17,371
+  s_89fbe4a369f4a3::t_9473cf16b79987 363
+apps/sidecar/src/db/metadata-store.ts
+  s_89fbe4a369f4a3::t_bf2d43a9aa73e9 7,51
+apps/sidecar/src/routes/redis.ts
+  s_89fbe4a369f4a3::t_abaea208f0e8f5 8,13
+apps/sidecar/src/routes/tigerbeetle.ts
+  s_89fbe4a369f4a3::t_d31a1b23433ca2 6,11
+apps/desktop/src-tauri/src/lib.rs
+  s_01a83d1dbdfd95::t_d5d0ad6838c8a3 144
+apps/sidecar/src/adapters/postgres.ts
+  s_89fbe4a369f4a3::t_b4ed3cd026511e 21
+  s_89fbe4a369f4a3::t_17ab247a720331 130
+apps/desktop/src-tauri/src/app_logs.rs
+  s_01a83d1dbdfd95::t_14286e5733448d 83-94
+apps/desktop/src/components/logs-page.tsx
+  s_01a83d1dbdfd95::t_46b7352eb80295 2,6,205-213
+  s_01a83d1dbdfd95::t_7c19a6ede0e190 167-181
+apps/sidecar/src/ai/provider.ts
+  s_89fbe4a369f4a3::t_ef36c118042f47 2,228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "cc752d736da36eb384fd2c3cc491144a44875d13",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_89fbe4a369f4a3": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "6f248e74-e3ea-48f1-acd2-84dd684e9fc4",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
