@@ -1,0 +1,46 @@
+apps/sidecar/src/lib/logger.ts
+  s_8c6a99264f92f4::t_2cd4d555bc36ab 14-42
+CHANGELOG.md
+  s_8c6a99264f92f4::t_2cd4d555bc36ab 13
+apps/desktop/src/hooks/use-connections.ts
+  s_8c6a99264f92f4::t_2cd4d555bc36ab 31-34,38
+apps/desktop/src/components/ui/button.tsx
+  s_8c6a99264f92f4::t_2cd4d555bc36ab 13-20
+apps/desktop/src-tauri/src/app_logs.rs
+  s_8c6a99264f92f4::t_f738c23a0039a3 182-183,204-205
+  s_8c6a99264f92f4::t_2cd4d555bc36ab 4,15,184-193,206,210-212,236
+apps/desktop/src/components/table-stats.tsx
+  s_01a83d1dbdfd95::t_806161d1ec9772 81,87,92
+apps/desktop/src/main.tsx
+  s_01a83d1dbdfd95::t_5f4f4b5d098be3 5
+  s_8c6a99264f92f4::t_2cd4d555bc36ab 8-24,28-31,37-39
+  s_01a83d1dbdfd95::t_2cf2ee17b96a85 48-50
+apps/sidecar/src/index.ts
+  s_8c6a99264f92f4::t_2cd4d555bc36ab 23-35
+apps/desktop/src/components/error-boundary.tsx
+  s_01a83d1dbdfd95::t_10f66b5e382d17 1-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "85d176ac538d906620c96d7525cbc3f98f708f17",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_8c6a99264f92f4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019efcb3-2645-7172-9ec2-a2219bbea1cf",
+        "model": "gpt-5.4"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
