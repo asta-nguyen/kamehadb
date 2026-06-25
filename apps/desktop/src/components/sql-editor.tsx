@@ -964,8 +964,10 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
               <>
                 <div className="flex items-center gap-0.5 px-4 pt-2 pb-1 border-b border-border shrink-0">
                   {results.map((_, i) => (
-                    <button
+                    <Button
                       key={i}
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setActiveResultIndex(i)}
                       className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
                         i === activeResultIndex
@@ -974,7 +976,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                       }`}
                     >
                       Result {i + 1}
-                    </button>
+                    </Button>
                   ))}
                 </div>
                 <div className="flex-1 overflow-auto">

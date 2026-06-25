@@ -301,7 +301,21 @@ These guidelines prioritize caution and precision over speed.
 - **No new shadcn components without a shadcn CLI install** — if a shadcn component does not exist in `ui/`, install it via the shadcn CLI before using it; never hand-roll a parallel component.
 - **Acceptable exceptions** (document the reason inline): buttons required by a third-party library (e.g. React Flow's `<Controls>`), elements with required `role` attributes that shadcn doesn't expose (e.g. `role="switch"` toggles).
 
-### 6. Always Comment Non-Trivial Code (How / Why / What)
+### 6. No Magic Strings or Numbers
+
+- **Rule**: Never hardcode database kind strings (e.g. `'postgres'`, `'mysql'`), port numbers, timeout values, or cache durations as literals in application code. Always use the shared constants.
+- **Use `KIND` from `@kamehadb/shared`**: All database kind comparisons must use `KIND.POSTGRES`, `KIND.MYSQL`, etc. — never raw string literals.
+- **Use `DEFAULT_PORTS`**: All port numbers must come from `DEFAULT_PORTS[KIND.X]` — never hardcode `5432`, `3306`, etc.
+- **Use timeout constants**: All timeouts, cache durations, and intervals must use named constants from `apps/sidecar/src/lib/constants.ts` or `apps/desktop/src/lib/constants.ts` — never inline `5000`, `30000`, etc.
+- **Use `ALL_KINDS`, `SQL_KINDS`, `NOSQL_KINDS`**: When iterating over or validating database kinds, use these arrays — never inline a list of kind strings.
+- **Use helper functions**: `isSqlKind()`, `isNoSqlKind()`, `isPasswordRequired()`, `isFileDatabaseKind()` — never write manual `kind === 'postgres' || kind === 'mysql'` chains.
+- **Use `PROTOCOL_ALIASES`**: For URL protocol parsing, use the shared `PROTOCOL_ALIASES` map — never hardcode `'postgresql'` or `'rediss'`.
+- **Zod enums**: Use `z.enum(ALL_KINDS as [string, ...string[]])` — never inline a list of kind string literals.
+- **SQL CHECK constraints**: Generate from `ALL_KINDS` — never inline a list of kind string literals.
+- **Exception**: String literals inside SQL query text (e.g. `'mysql' AS applicationName`) are SQL values, not DbKind comparisons — these are acceptable.
+- **Exception**: Minor query config values like `retry: 1` are not considered magic numbers.
+
+### 7. Always Comment Non-Trivial Code (How / Why / What)
 
 - **Rule**: Every non-trivial function, hook, or block of logic must carry a short comment that explains the **what** (one line), the **why** (one line of intent / tradeoff), and the **how** only when the mechanism is non-obvious.
 - **What is "non-trivial"**: anything that isn't a one-liner that re-states its name. Trivial `return x + 1` lines don't need a comment. A new function, a hook, a state machine, a tricky expression, a side effect, a workaround — these all do.

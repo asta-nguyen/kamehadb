@@ -1,4 +1,5 @@
 import { CommandDialog, CommandGroup, CommandItem, CommandList, CommandShortcut } from '@/components/ui/command';
+import { Input } from '@/components/ui/input';
 import { useEffect, useMemo, useState } from 'react';
 import { SHORTCUT_GROUPS } from '@/lib/constants';
 
@@ -26,7 +27,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
       description="Search available shortcuts..."
     >
       <div className="p-1 pb-0">
-        <input
+        <Input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
