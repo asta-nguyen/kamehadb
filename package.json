@@ -34,7 +34,7 @@
       "prettier --write"
     ],
     "landing/**/*.{js,jsx,ts,tsx}": [
-      "npm --prefix landing exec eslint -- --fix",
+      "npm --prefix landing run lint -- --fix",
       "prettier --write"
     ],
     "./*.{js,jsx,ts,tsx}": "prettier --write",

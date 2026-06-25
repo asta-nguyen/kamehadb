@@ -177,6 +177,30 @@ fn read_last_lines(path: &Path, limit: usize) -> Result<Vec<String>, std::io::Er
 
     let mut file = File::open(path)?;
     let start = find_tail_start(&mut file, limit)?;
+
+    // If the tail scan fell back to min_start, the position may be mid-record.
+    // Advance to the next newline so decoding starts on a safe boundary.
+    let start = if start == 0 {
+        0
+    } else {
+        file.seek(SeekFrom::Start(start))?;
+        let mut reader = BufReader::new(&file);
+        let mut buf = [0u8; 1];
+        let mut pos = start;
+        loop {
+            match reader.read(&mut buf)? {
+                0 => break,
+                _ => {
+                    if buf[0] == b'\n' {
+                        break;
+                    }
+                    pos += 1;
+                }
+            }
+        }
+        pos
+    };
+
     file.seek(SeekFrom::Start(start))?;
 
     // Keep only the newest `limit` lines in memory because the tail window can

@@ -2,6 +2,7 @@ import { listProfiles, getAISettings } from '../db/metadata-store.js';
 import { getSqlAdapter } from '../routes/sql.js';
 import { buildSchemaIndex } from './vec-store.js';
 import { log } from '../lib/logger.js';
+import { isSqlKind } from '@kamehadb/shared';
 
 export async function indexAllConnections(): Promise<void> {
   const settings = getAISettings();
@@ -12,7 +13,7 @@ export async function indexAllConnections(): Promise<void> {
   }
 
   const profiles = listProfiles();
-  const sqlProfiles = profiles.filter((p) => p.kind !== 'redis' && p.kind !== 'mongodb' && p.kind !== 'tigerbeetle');
+  const sqlProfiles = profiles.filter((p) => isSqlKind(p.kind));
 
   if (sqlProfiles.length === 0) {
     log.info('[AI Indexer] No SQL connections to index');

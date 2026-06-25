@@ -974,6 +974,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                     <Button
                       key={i}
                       variant="ghost"
+                      size="sm"
                       onClick={() => setActiveResultIndex(i)}
                       className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
                         i === activeResultIndex

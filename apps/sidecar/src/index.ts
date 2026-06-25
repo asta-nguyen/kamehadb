@@ -37,28 +37,30 @@ function sanitizeLogPath(path: string): string {
 // events that operators see on stdout and in sidecar.log.
 app.use('*', async (c, next) => {
   const startedAt = performance.now();
-  await next();
+  let threw = false;
+  try {
+    await next();
+  } catch (err) {
+    threw = true;
+    throw err;
+  } finally {
+    const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
+    const requestLog = {
+      scope: 'http',
+      method: c.req.method,
+      path: sanitizeLogPath(c.req.path),
+      status: c.res.status,
+      durationMs,
+    };
 
-  const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
-  const requestLog = {
-    scope: 'http',
-    method: c.req.method,
-    path: sanitizeLogPath(c.req.path),
-    status: c.res.status,
-    durationMs,
-  };
-
-  if (c.res.status >= 500) {
-    log.error(requestLog, 'HTTP request');
-    return;
+    if (threw || c.res.status >= 500) {
+      log.error(requestLog, 'HTTP request');
+    } else if (c.res.status >= 400) {
+      log.warn(requestLog, 'HTTP request');
+    } else {
+      log.info(requestLog, 'HTTP request');
+    }
   }
-
-  if (c.res.status >= 400) {
-    log.warn(requestLog, 'HTTP request');
-    return;
-  }
-
-  log.info(requestLog, 'HTTP request');
 });
 app.use('*', cors({ origin: '*' }));
 

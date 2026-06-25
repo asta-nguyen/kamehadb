@@ -21,3 +21,15 @@ export const DUCKDB_RELATED_SUFFIXES = ['.wal'] as const;
 
 /** Default AI provider. */
 export const DEFAULT_AI_PROVIDER = 'openai';
+
+/** Adapter connection/query timeouts (ms). */
+export const ADAPTER_TIMEOUTS = {
+  CONNECT_SHORT: 3_000,
+  CONNECT_DEFAULT: 5_000,
+  CONNECT_LONG: 10_000,
+  IDLE: 30_000,
+  BUSY: 5_000,
+} as const;
+
+/** Timeout for a single connection test probe (ms). */
+export const CONNECTION_TEST_TIMEOUT_MS = 5_000;

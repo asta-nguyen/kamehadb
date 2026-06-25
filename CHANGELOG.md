@@ -7,10 +7,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- v1.4 Adding MCP server
-- Fixed lint-staged ESLint execution so pre-commit hooks use package-local ESLint configs.
-- Improved the in-app Logs pipeline to tail log files efficiently, avoid self-generated poll errors, and include sidecar HTTP access logs.
-- Hardened log handling by redacting more nested secrets, sanitizing logged paths, and making global query error logging resilient to non-standard errors.
+### Added
+
+- **MCP server** — v1.4.
+
+### Fixed
+
+- **MySQL/MariaDB connection validation** — password is now required for MySQL, MariaDB, SQL Server, and Oracle (previously only PostgreSQL was checked).
+- **MongoDB default port** — corrected to 27017 so auto-generated connection defaults are valid.
+- **Connection URL parsing** — supports protocol aliases like `postgresql://`, `rediss://`, `mongodb+srv://`, and `mssql://`.
+- **Username validation** — no longer blocks connection tests for databases that don't need an explicit username.
+- **UI consistency** — buttons, inputs, and textareas now use Shadcn components throughout the desktop app.
+- **Pre-commit hooks** — ESLint now runs with the correct package-local config.
+
+### Changed
+
+- **Logs pipeline** — efficient file tailing, no more self-generated poll errors, and sidecar HTTP access logs included.
+- **Log security** — deeper secret redaction and sanitized paths in logged output.
 
 ---
 

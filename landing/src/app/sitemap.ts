@@ -1,16 +1,22 @@
 import type { MetadataRoute } from 'next';
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
+import { getBaseUrl } from '@/lib/url';
 
-export default function sitemap(): MetadataRoute.Sitemap {
+const LAST_MODIFIED = statSync(join(process.cwd(), '..', 'CHANGELOG.md')).mtime;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = await getBaseUrl();
   return [
     {
-      url: 'https://kamehadb.astalife.co',
-      lastModified: new Date(),
+      url: baseUrl,
+      lastModified: LAST_MODIFIED,
       changeFrequency: 'weekly',
       priority: 1,
     },
     {
-      url: 'https://kamehadb.astalife.co/changelog',
-      lastModified: new Date(),
+      url: `${baseUrl}/changelog`,
+      lastModified: LAST_MODIFIED,
       changeFrequency: 'monthly',
       priority: 0.5,
     },

@@ -67,7 +67,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
         level: 'error',
         scope: 'schema-diff.capture',
         message: `Schema snapshot capture failed: ${message}`,
-        details: captureError instanceof Error ? captureError.stack : String(captureError),
+        stack: captureError instanceof Error ? captureError.stack : undefined,
       });
     }
   };

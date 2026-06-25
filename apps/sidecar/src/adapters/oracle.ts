@@ -12,6 +12,7 @@ import type {
   RunQueryInput,
   QueryColumn,
   TableCompletions,
+  TableStats,
 } from '@kamehadb/shared';
 
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
@@ -56,6 +57,31 @@ export function createOracleAdapter(connection: {
 
   function escapeId(id: string): string {
     return '"' + id.replace(/"/g, '""') + '"';
+  }
+
+  function serializeRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+    return rows.map((row) => {
+      const out: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(row)) {
+        if (val && typeof val === 'object' && typeof (val as { getData?: unknown }).getData === 'function') {
+          // Oracle LOB object — replaced with placeholder to avoid circular JSON references
+          out[key] = '[CLOB]';
+        } else if (val instanceof Date) {
+          out[key] = val.toISOString();
+        } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+          // Avoid circular references from Oracle metadata objects
+          try {
+            JSON.stringify(val);
+            out[key] = val;
+          } catch {
+            out[key] = String(val);
+          }
+        } else {
+          out[key] = val;
+        }
+      }
+      return out;
+    });
   }
 
   return {
@@ -115,16 +141,16 @@ export function createOracleAdapter(connection: {
         const table = (parts.length > 1 ? parts[1] : tableId).toUpperCase();
 
         const colResult = await conn.execute(
-          `SELECT column_name AS name, data_type AS type, nullable, data_default AS default
-           FROM all_tab_cols WHERE owner = :owner AND table_name = :table ORDER BY column_id`,
-          { owner, table },
+          `SELECT column_name AS name, data_type AS type, nullable, data_default AS default_val
+           FROM all_tab_cols WHERE owner = :owner AND table_name = :tbl ORDER BY column_id`,
+          { owner, tbl: table },
         );
 
         const pkResult = await conn.execute(
           `SELECT cc.column_name FROM all_cons_columns cc
-           JOIN all_constraints c ON cc.constraint_name = c.constraint_name
-           WHERE cc.owner = :owner AND cc.table_name = :table AND c.constraint_type = 'P'`,
-          { owner, table },
+           JOIN all_constraints c ON cc.constraint_name = c.constraint_name AND cc.owner = c.owner
+           WHERE cc.owner = :owner AND cc.table_name = :tbl AND c.constraint_type = 'P'`,
+          { owner, tbl: table },
         );
 
         const pkColumns = new Set((pkResult.rows as Record<string, string>[]).map((r) => r.COLUMN_NAME));
@@ -133,7 +159,7 @@ export function createOracleAdapter(connection: {
           name: r.NAME as string,
           type: r.TYPE as string,
           nullable: r.NULLABLE === 'Y',
-          default: r.DEFAULT === null ? null : String(r.DEFAULT),
+          default: r.DEFAULT_VAL === null || r.DEFAULT_VAL === undefined ? null : String(r.DEFAULT_VAL),
           primaryKey: pkColumns.has(r.NAME as string),
         }));
       } finally {
@@ -150,12 +176,14 @@ export function createOracleAdapter(connection: {
         const result = await conn.execute(
           `SELECT
             i.index_name, i.column_name, i.descend,
-            ix.uniqueness, ix.constraint_index AS is_pk
+            ix.uniqueness,
+            ac.constraint_type
           FROM all_ind_columns i
           JOIN all_indexes ix ON i.index_name = ix.index_name AND i.table_owner = ix.owner
-          WHERE i.table_owner = :owner AND i.table_name = :table
+          LEFT JOIN all_constraints ac ON ac.index_name = ix.index_name AND ac.owner = ix.owner AND ac.constraint_type = 'P'
+          WHERE i.table_owner = :owner AND i.table_name = :tbl
           ORDER BY i.index_name, i.column_position`,
-          { owner, table },
+          { owner, tbl: table },
         );
         const indexMap = new Map<string, IndexInfo>();
         for (const row of result.rows as Record<string, unknown>[]) {
@@ -165,7 +193,7 @@ export function createOracleAdapter(connection: {
               name,
               columns: [],
               unique: row.UNIQUENESS === 'UNIQUE',
-              primary: row.IS_PK === 'YES',
+              primary: row.CONSTRAINT_TYPE === 'P',
             });
           }
           indexMap.get(name)!.columns.push(row.COLUMN_NAME as string);
@@ -182,7 +210,7 @@ export function createOracleAdapter(connection: {
         const owner = schema?.toUpperCase() || connection.username?.toUpperCase();
         const result = await conn.execute(
           `SELECT
-            c.table_name, c.column_name, c.data_type AS type, c.nullable, c.data_default AS default
+            c.table_name, c.column_name, c.data_type AS type, c.nullable, c.data_default AS default_val
           FROM all_tab_cols c
           WHERE c.owner = :owner
           ORDER BY c.table_name, c.column_id`,
@@ -198,7 +226,7 @@ export function createOracleAdapter(connection: {
             name: row.COLUMN_NAME as string,
             type: row.TYPE as string,
             nullable: row.NULLABLE === 'Y',
-            default: row.DEFAULT === null ? null : String(row.DEFAULT),
+            default: row.DEFAULT_VAL === null || row.DEFAULT_VAL === undefined ? null : String(row.DEFAULT_VAL),
             primaryKey: false,
           });
         }
@@ -221,8 +249,8 @@ export function createOracleAdapter(connection: {
 
         if (input.search) {
           const colResult = await conn.execute(
-            `SELECT column_name FROM all_tab_cols WHERE owner = :owner AND table_name = :table ORDER BY column_id`,
-            { owner, table },
+            `SELECT column_name FROM all_tab_cols WHERE owner = :owner AND table_name = :tbl ORDER BY column_id`,
+            { owner, tbl: table },
           );
           const searchCols = (colResult.rows as Record<string, string>[]).map((r) => r.COLUMN_NAME as string);
           if (searchCols.length > 0) {
@@ -254,7 +282,7 @@ export function createOracleAdapter(connection: {
 
         return {
           columns,
-          rows: (result.rows as Record<string, unknown>[]) || [],
+          rows: serializeRows((result.rows as Record<string, unknown>[]) || []),
           rowCount: result.rows?.length || 0,
           durationMs: Math.round(durationMs),
           truncated: (result.rows?.length || 0) >= limit,
@@ -281,10 +309,52 @@ export function createOracleAdapter(connection: {
 
         return {
           columns,
-          rows: (result.rows as Record<string, unknown>[]) || [],
+          rows: serializeRows((result.rows as Record<string, unknown>[]) || []),
           rowCount: result.rows?.length || 0,
           durationMs: Math.round(durationMs),
           truncated: false,
+        };
+      } finally {
+        await conn.close();
+      }
+    },
+
+    async getTableStats(tableId: string): Promise<TableStats> {
+      const conn = await getConn();
+      try {
+        const parts = tableId.split('.');
+        const owner = (parts.length > 1 ? parts[0] : connection.username)!.toUpperCase();
+        const table = (parts.length > 1 ? parts[1] : tableId).toUpperCase();
+        const result = await conn.execute(
+          `SELECT
+            (SELECT num_rows FROM all_tables WHERE owner = :owner AND table_name = :tbl) AS num_rows,
+            (SELECT NVL(SUM(bytes), 0) FROM user_segments WHERE segment_name = :tbl AND segment_type = 'TABLE') AS table_bytes,
+            (SELECT NVL(SUM(s.bytes), 0) FROM user_segments s
+             JOIN user_indexes ix ON s.segment_name = ix.index_name
+             WHERE ix.table_name = :tbl) AS index_bytes
+           FROM dual`,
+          { owner, tbl: table },
+        );
+        const row = (result.rows as Record<string, unknown>[])?.[0];
+        const numRows = row ? Number(row.NUM_ROWS) || 0 : 0;
+        return {
+          tableId,
+          name: table,
+          schema: owner,
+          rowEstimate: numRows,
+          totalBytes: row ? Number(row.TABLE_BYTES) || 0 : 0,
+          indexesBytes: row ? Number(row.INDEX_BYTES) || 0 : 0,
+          toastBytes: 0,
+          bloatBytes: 0,
+          bloatPercent: 0,
+          lastVacuum: null,
+          lastAutovacuum: null,
+          lastAnalyze: null,
+          lastAutoanalyze: null,
+          vacuumCount: 0,
+          autovacuumCount: 0,
+          nLiveTup: numRows,
+          nDeadTup: 0,
         };
       } finally {
         await conn.close();

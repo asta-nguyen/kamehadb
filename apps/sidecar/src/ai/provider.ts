@@ -224,11 +224,7 @@ export async function createEmbedding(
     });
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      log.warn(
-        { status: res.status, errBody: errBody.slice(0, 100) },
-        'Embedding API error, falling back to local embedding',
-      );
+      log.warn({ status: res.status }, 'Embedding API error, falling back to local embedding');
       return localEmbedding(text);
     }
 

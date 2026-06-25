@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReload = (): void => {
-    this.setState({ error: null });
+    window.location.reload();
   };
 
   handleReset = (): void => {
