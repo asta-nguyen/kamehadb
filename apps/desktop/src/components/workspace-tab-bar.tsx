@@ -113,7 +113,8 @@ export function WorkspaceTabBar() {
             <Button
               type="button"
               variant="ghost"
-              className="ml-1 rounded-sm p-0.5 hover:bg-muted"
+              size="icon-xs"
+              className="ml-1 rounded-sm hover:bg-muted"
               onClick={(event) => {
                 event.stopPropagation();
                 closeTab(tab.id);

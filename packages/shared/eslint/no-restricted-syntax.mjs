@@ -2,7 +2,15 @@
 
 import { parse, pattern, Lang } from "@ast-grep/napi";
 
-/** @type {import("eslint").Rule.RuleModule} */
+/**
+ * Shared ast-grep rule that bans configurable syntax patterns.
+ *
+ * We use a local rule instead of eslint-plugin-ast-grep because the upstream
+ * plugin uses Lang.TypeScript for ALL TS/TSX files — it can't parse JSX.
+ * Our rule checks context.filename and picks the correct language.
+ *
+ * @type {import("eslint").Rule.RuleModule}
+ */
 const noRestrictedSyntax = {
   meta: {
     type: "suggestion",
@@ -33,7 +41,11 @@ const noRestrictedSyntax = {
     /** @type {Array<{ pattern: string, message: string } | string>} */
     const patterns = context.options;
     const filename = context.filename ?? context.physicalFilename ?? "";
-    const sgLang = filename.endsWith(".ts") ? Lang.TypeScript : Lang.JavaScript;
+    const sgLang = filename.endsWith(".tsx")
+      ? Lang.Tsx
+      : filename.endsWith(".ts")
+        ? Lang.TypeScript
+        : Lang.JavaScript;
 
     return {
       Program() {
@@ -79,42 +91,6 @@ const noRestrictedSyntax = {
 };
 
 /** @type {import("eslint").ESLint.Plugin} */
-const localPlugin = {
+export const localPlugin = {
   rules: { "no-restricted-syntax": noRestrictedSyntax },
 };
-
-/** @type {import("eslint").Linter.Config[]} */
-export default [
-  {
-    files: ["src/**/*.ts"],
-    plugins: {
-      local: localPlugin,
-    },
-    languageOptions: {
-      parser: (await import("@typescript-eslint/parser")).default,
-      parserOptions: {
-        ecmaVersion: "latest",
-        sourceType: "module",
-      },
-    },
-    linterOptions: {
-      reportUnusedDisableDirectives: "off",
-    },
-    rules: {
-      "local/no-restricted-syntax": [
-        "error",
-        {
-          pattern: "$EXPR as any",
-          message:
-            'Do not use `as any`. Use `unknown` with proper type narrowing instead.',
-        },
-        {
-          pattern: "console.log($$$)",
-          message:
-            "Remove console.log before committing. Use a proper logger instead.",
-        },
-      ],
-    },
-  },
-  { ignores: ["dist/**"] },
-];

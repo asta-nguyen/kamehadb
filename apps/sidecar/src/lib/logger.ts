@@ -6,7 +6,15 @@ import { mkdirSync } from 'fs';
 const sidecarDir = dirname(fileURLToPath(import.meta.url));
 const defaultDataDir = resolve(sidecarDir, '..', '..');
 const logsDir = join(process.env.KAMEHADB_DATA_DIR || defaultDataDir, 'logs');
-mkdirSync(logsDir, { recursive: true });
+
+let fileStream: pino.DestinationStream | null = null;
+try {
+  mkdirSync(logsDir, { recursive: true });
+  fileStream = pino.destination({ dest: join(logsDir, 'sidecar.log'), mkdir: true, sync: false });
+} catch {
+  // If the logs directory cannot be created (read-only FS, permissions, etc.),
+  // fall back to stdout-only logging so the sidecar still starts.
+}
 
 export const log = pino(
   {
@@ -41,8 +49,5 @@ export const log = pino(
       censor: '[REDACTED]',
     },
   },
-  pino.multistream([
-    { stream: process.stdout },
-    { stream: pino.destination({ dest: join(logsDir, 'sidecar.log'), mkdir: true, sync: false }) },
-  ]),
+  fileStream ? pino.multistream([{ stream: process.stdout }, { stream: fileStream }]) : process.stdout,
 );
