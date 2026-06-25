@@ -12,6 +12,7 @@ import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
 import { simpleEmbed } from '@/lib/simple-embed';
 import { Play } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 interface QdrantQueryProps {
   tab: Extract<WorkspaceTab, { type: 'qdrant-search' }>;
@@ -233,7 +234,14 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
         dispatch({ type: 'finishRun', result: res });
       }
     } catch (e) {
-      dispatch({ type: 'failRun', error: e instanceof Error ? e.message : 'Search failed' });
+      const message = e instanceof Error ? e.message : 'Search failed';
+      dispatch({ type: 'failRun', error: message });
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'qdrant-query.run',
+        message: `Qdrant search failed: ${message}`,
+        details: e instanceof Error ? e.stack : String(e),
+      });
     }
   };
 

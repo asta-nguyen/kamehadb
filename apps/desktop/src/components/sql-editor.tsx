@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { appendFrontendLog } from '@/lib/app-logs';
 import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
 import { useTableColumns } from '@/hooks/use-schema';
@@ -671,6 +672,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Query failed';
         setError(message);
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'sql-editor.query',
+          message: `Query execution failed: ${message}`,
+          details: err instanceof Error ? err.stack : String(err),
+        });
         // Parse the error message for line number and add marker in Monaco
         const editor = editorRef.current;
         const m = monacoRef.current;
@@ -796,7 +803,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         label: 'Run Query',
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
         run: () => handleRunRef.current(),
-      }); // eslint-disable-line react-hooks/exhaustive-deps
+      });
 
       const provider = monaco.languages.registerCompletionItemProvider('sql', {
         triggerCharacters: ['.', ' ', '(', ',', '='],
@@ -964,8 +971,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
               <>
                 <div className="flex items-center gap-0.5 px-4 pt-2 pb-1 border-b border-border shrink-0">
                   {results.map((_, i) => (
-                    <button
+                    <Button
                       key={i}
+                      variant="ghost"
                       onClick={() => setActiveResultIndex(i)}
                       className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
                         i === activeResultIndex
@@ -974,7 +982,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                       }`}
                     >
                       Result {i + 1}
-                    </button>
+                    </Button>
                   ))}
                 </div>
                 <div className="flex-1 overflow-auto">

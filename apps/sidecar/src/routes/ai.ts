@@ -13,6 +13,7 @@ import { detectPgVectorCapability } from '../adapters/postgres.js';
 import { createEmbedding, createProvider, validateProviderConfig } from '../ai/provider.js';
 import { searchRelevantSchema } from '../ai/vec-store.js';
 import { buildSchemaContext } from '../ai/schema-context.js';
+import { log } from '../lib/logger.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { CACHE_TTL, clearSchemaCache, getCached, setCache } from '../lib/cache.js';
 import { getSqlAdapter } from './sql.js';
@@ -392,12 +393,10 @@ aiRouter.post(
           try {
             metadataStore.saveChatMessage(connectionId, 'assistant', finalAnswer, mongoDatabase);
           } catch (e) {
-            console.error('[AI] Failed to save assistant message:', {
-              connectionId,
-              mongoDatabase,
-              contentLength: finalAnswer.length,
-              error: e instanceof Error ? e.message : e,
-            });
+            log.error(
+              { connectionId, mongoDatabase, contentLength: finalAnswer.length, err: e },
+              'AI: Failed to save assistant message',
+            );
           }
         }
 
@@ -433,7 +432,7 @@ aiRouter.post(
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI chat failed';
-      console.error('[AI] chat error:', message);
+      log.error({ err }, 'AI chat error');
       return c.json({ error: 'AI_ERROR', message }, 500);
     }
   },
@@ -560,7 +559,7 @@ aiRouter.post(
       metadataStore.saveAISettings(body);
       return c.json({ success: true });
     } catch (err) {
-      console.error('[AI] save settings error:', err);
+      log.error({ err }, 'AI save settings error');
       const message = err instanceof Error ? err.message : 'Failed to save AI settings';
       return c.json({ error: 'CONFIG_ERROR', message }, 500);
     }

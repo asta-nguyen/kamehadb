@@ -1,4 +1,4 @@
-import mysql from 'mysql2/promise';
+import mysql, { type ExecuteValues } from 'mysql2/promise';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -75,8 +75,8 @@ export function createMysqlAdapter(connection: {
     return '`' + id.replace(/`/g, '``') + '`';
   }
 
-  async function query(sql: string, params?: unknown[]) {
-    const [rows] = await pool.execute(sql, params as any);
+  async function query(sql: string, params?: ExecuteValues) {
+    const [rows] = await pool.execute(sql, params);
     return rows as Record<string, unknown>[];
   }
 
@@ -142,6 +142,7 @@ export function createMysqlAdapter(connection: {
 
     async getCompletions(schema?: string): Promise<TableCompletions[]> {
       const db = schema ?? connection.database;
+      if (!db) return [];
       const rows = await query(
         `SELECT
           c.TABLE_NAME AS table_name,
@@ -258,7 +259,7 @@ export function createMysqlAdapter(connection: {
 
     async runQuery(input: RunQueryInput): Promise<QueryResult> {
       const start = performance.now();
-      const rows = await query(input.query, input.params as any);
+      const rows = await query(input.query, input.params as ExecuteValues);
       const durationMs = performance.now() - start;
 
       const columns: QueryColumn[] =

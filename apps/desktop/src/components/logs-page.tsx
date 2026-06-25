@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight, Copy, RefreshCw, ScrollText } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Copy, RefreshCw, ScrollText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { appendFrontendLog, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
+import { clearAppLogs, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
 import { navigateTo } from '@/store';
 import { cn } from 'cnfast';
 
@@ -124,16 +124,9 @@ export function LogsPage() {
       setLogDir(snapshot.logDir);
       setError(null);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Failed to load logs';
-      setError(message);
-      void appendFrontendLog({
-        level: 'error',
-        scope: 'logs-page',
-        message: 'Failed to load app logs',
-        details: message,
-        stack: loadError instanceof Error ? loadError.stack : undefined,
-        url: typeof window !== 'undefined' ? window.location.href : undefined,
-      });
+      // Avoid writing back into the same log pipeline when the log reader is
+      // failing, otherwise the page can spam new errors every 2 seconds.
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load logs');
     } finally {
       if (silent) {
         setIsRefreshing(false);
@@ -164,6 +157,16 @@ export function LogsPage() {
     await navigator.clipboard.writeText(filteredEntries.map(formatLogLine).join('\n\n'));
   }, [filteredEntries]);
 
+  const handleClear = useCallback(async () => {
+    try {
+      await clearAppLogs();
+      setEntries([]);
+      setError(null);
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : 'Failed to clear logs');
+    }
+  }, []);
+
   return (
     <div className="flex w-full h-full flex-col overflow-hidden bg-background">
       <div className="shrink-0 border-b border-border">
@@ -190,6 +193,16 @@ export function LogsPage() {
             <Button
               variant="outline"
               size="icon-sm"
+              onClick={() => void handleClear()}
+              disabled={entries.length === 0}
+              className="size-7"
+              title="Clear all logs"
+            >
+              <Trash2 className="size-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
               onClick={() => void handleCopy()}
               disabled={filteredEntries.length === 0}
               className="size-7"
@@ -209,8 +222,9 @@ export function LogsPage() {
           />
           <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 shrink-0">
             {SOURCE_OPTIONS.map((opt) => (
-              <button
+              <Button
                 key={opt}
+                variant="ghost"
                 onClick={() => setSourceFilter(opt)}
                 className={cn(
                   'rounded px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
@@ -220,13 +234,14 @@ export function LogsPage() {
                 )}
               >
                 {opt}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 shrink-0">
             {LEVEL_OPTIONS.map((opt) => (
-              <button
+              <Button
                 key={opt}
+                variant="ghost"
                 onClick={() => setLevelFilter(opt)}
                 className={cn(
                   'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase transition-colors',
@@ -236,7 +251,7 @@ export function LogsPage() {
                 )}
               >
                 {opt}
-              </button>
+              </Button>
             ))}
           </div>
           <span className="text-[10px] text-muted-foreground ml-auto tabular-nums w-20 text-right shrink-0">

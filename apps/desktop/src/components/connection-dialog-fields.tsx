@@ -182,6 +182,7 @@ export function BadgeColorPicker({
             </Button>
           );
         })}
+        {/* eslint-disable-next-line local/no-restricted-syntax -- custom color picker, no shadcn equivalent */}
         <label
           className={`
             relative w-7 h-7 rounded-full cursor-pointer transition-all duration-200
@@ -191,6 +192,7 @@ export function BadgeColorPicker({
           style={{ ['--tw-ring-color' as string]: selectedColor ?? '' }}
           title="Custom color"
         >
+          {/* eslint-disable-next-line local/no-restricted-syntax -- native color input, no shadcn equivalent */}
           <input
             type="color"
             value={selectedColor && !PRESET_COLORS.some((p) => p.hex === selectedColor) ? selectedColor : '#3b82f6'}
@@ -289,7 +291,7 @@ export function ConnectionDetailsSection({
                 const file = e.target.files?.[0];
                 if (file) {
                   // In Tauri, File has a path property
-                  const path = (file as any).path || file.name;
+                  const path = (file as { path?: string }).path || file.name;
                   form.setValue('filePath', path);
                 }
                 e.target.value = '';

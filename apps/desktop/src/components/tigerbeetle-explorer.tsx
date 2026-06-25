@@ -74,8 +74,9 @@ function AccountNode({
 
   return (
     <div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={onToggle}
         className="flex items-center gap-1.5 w-full text-left py-1 px-1.5 rounded-md hover:bg-accent/50 text-xs group"
       >
@@ -88,7 +89,7 @@ function AccountNode({
         <span className={`text-[10px] font-medium ${posted >= 0n ? 'text-emerald-500' : 'text-red-500'}`}>
           {posted.toString()}
         </span>
-      </button>
+      </Button>
       {isSelected && (
         <div className="ml-3 pl-2 border-l border-border/40 space-y-2 py-1">
           {/* Account details */}

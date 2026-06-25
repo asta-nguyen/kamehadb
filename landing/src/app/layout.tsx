@@ -105,7 +105,7 @@ export default function RootLayout({
               '@type': 'SoftwareApplication',
               name: 'KamehaDB',
               description:
-                'A cross-platform, local-first desktop GUI for SQL, document, cache, vector, and ledger systems — PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle. Built with AI in.',
+                'A cross-platform, local-first desktop GUI for SQL, document, cache, vector, and ledger systems — PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle. Built with AI.',
               url: siteUrl,
               applicationCategory: 'DeveloperApplication',
               operatingSystem: 'Windows, macOS, Linux',

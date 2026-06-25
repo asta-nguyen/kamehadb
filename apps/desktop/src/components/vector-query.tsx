@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Dice5, Loader2, Network, Play } from 'lucide-react';
 import { openPostgresVectorMapTab, openSqliteVecMapTab } from '@/store';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 // ── State type (superset of both PG and sqlite-vec fields) ────────────────
 
@@ -275,7 +276,14 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
       dispatch({ type: 'finishRun', result });
     } catch (error) {
-      dispatch({ type: 'failRun', error: error instanceof Error ? error.message : 'Search failed' });
+      const message = error instanceof Error ? error.message : 'Search failed';
+      dispatch({ type: 'failRun', error: message });
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'vector-query.run',
+        message: `Vector search failed: ${message}`,
+        details: error instanceof Error ? error.stack : String(error),
+      });
     }
   };
 

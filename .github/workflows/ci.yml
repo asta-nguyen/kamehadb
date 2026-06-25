@@ -33,6 +33,9 @@ jobs:
       - name: Type check workspace
         run: pnpm typecheck
 
+      - name: Lint workspace
+        run: pnpm lint
+
       - name: Run tests
         run: pnpm --filter @kamehadb/desktop test
 

@@ -46,9 +46,10 @@ function ThemeToggle() {
         style={{ transform: `translateX(${activeIndex * 1.875}rem)` }}
       />
       {THEME_OPTIONS.map(({ value, label, Icon }) => (
-        <button
+        <Button
           key={value}
           type="button"
+          variant="ghost"
           onClick={() => setTheme(value)}
           className={`relative z-10 flex size-7 items-center justify-center rounded transition-colors duration-150 ${
             theme === value ? 'text-foreground' : 'text-muted-foreground/60 hover:text-foreground'
@@ -58,7 +59,7 @@ function ThemeToggle() {
           aria-pressed={theme === value}
         >
           <Icon className="size-3.75 shrink-0" />
-        </button>
+        </Button>
       ))}
     </div>
   );
