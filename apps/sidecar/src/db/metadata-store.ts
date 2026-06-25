@@ -5,6 +5,7 @@ import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
 import { ALL_KINDS, KIND } from '@kamehadb/shared';
 import { DEFAULT_AI_PROVIDER, CACHE_TTL_MS } from '../lib/constants.js';
+import { log } from '../lib/logger.js';
 
 const KIND_CHECK = `kind TEXT NOT NULL CHECK(kind IN (${ALL_KINDS.map((k) => `'${k}'`).join(',')}))`;
 
@@ -50,7 +51,7 @@ export function initMetadataStore(dbPath: string): void {
   try {
     sqliteVec.load(db);
   } catch (e) {
-    console.warn('[MetadataStore] sqlite-vec extension failed to load:', e instanceof Error ? e.message : e);
+    log.warn({ err: e }, 'sqlite-vec extension failed to load');
   }
 
   db.exec(`

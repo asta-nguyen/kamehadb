@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -67,7 +68,10 @@
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/three": "^0.184.1",
+    "@ast-grep/napi": "^0.36",
+    "@typescript-eslint/parser": "^8",
     "@vitejs/plugin-react": "^4.6.0",
+    "eslint": "^9",
     "shadcn-ui": "^0.9",
     "tailwindcss": "^4",
     "typescript": "~5.8.3",

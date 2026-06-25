@@ -1,21 +1,47 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { KIND } from '@kamehadb/shared';
+import { KIND, type ConnectionProfile } from '@kamehadb/shared';
+import * as metadataStore from '../db/metadata-store.js';
 import { createRedisDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { RedisStats } from '@kamehadb/shared';
-import { handleError, getKindAdapter } from '../lib/route-helpers.js';
+import { log } from '../lib/logger.js';
 
 export const redisRouter = new Hono();
+
+function handleError(c: any, err: unknown, context: string) {
+  log.error({ err }, `Redis ${context}`);
+  const statusCode =
+    err && typeof err === 'object' && 'statusCode' in err ? (err as { statusCode: number }).statusCode : 500;
+  const message = err instanceof Error ? err.message : 'An internal error occurred';
+  return c.json({ error: statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST', message }, statusCode);
+}
+
+async function getAdapter(
+  connectionId: string,
+  password?: string,
+  _kind?: unknown,
+  _factory?: unknown,
+  _label?: string,
+) {
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) throw Object.assign(new Error('Connection not found'), { statusCode: 404 });
+
+  if (profile.kind !== 'redis') {
+    throw Object.assign(new Error('This endpoint is for Redis connections only'), { statusCode: 400 });
+  }
+
+  return createRedisDbAdapter(profile, password);
+}
 
 // GET /redis/:connectionId/test
 redisRouter.get('/:connectionId/test', async (c) => {
   try {
-    const adapter = await getKindAdapter(
+    const adapter = await getAdapter(
       c.req.param('connectionId'),
       KIND.REDIS,
-      (profile) => createRedisDbAdapter(profile, undefined),
+      (profile: ConnectionProfile) => createRedisDbAdapter(profile, undefined),
       'Redis',
     );
     try {
@@ -42,10 +68,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getKindAdapter(
+      const adapter = await getAdapter(
         c.req.param('connectionId'),
         KIND.REDIS,
-        (profile) => createRedisDbAdapter(profile, undefined),
+        (profile: ConnectionProfile) => createRedisDbAdapter(profile, undefined),
         'Redis',
       );
       try {
@@ -71,10 +97,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getKindAdapter(
+      const adapter = await getAdapter(
         c.req.param('connectionId'),
         KIND.REDIS,
-        (profile) => createRedisDbAdapter(profile, undefined),
+        (profile: ConnectionProfile) => createRedisDbAdapter(profile, undefined),
         'Redis',
       );
       try {
@@ -100,10 +126,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getKindAdapter(
+      const adapter = await getAdapter(
         c.req.param('connectionId'),
         KIND.REDIS,
-        (profile) => createRedisDbAdapter(profile, undefined),
+        (profile: ConnectionProfile) => createRedisDbAdapter(profile, undefined),
         'Redis',
       );
       try {
@@ -132,10 +158,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getKindAdapter(
+      const adapter = await getAdapter(
         c.req.param('connectionId'),
         KIND.REDIS,
-        (profile) => createRedisDbAdapter(profile, undefined),
+        (profile: ConnectionProfile) => createRedisDbAdapter(profile, undefined),
         'Redis',
       );
       try {
@@ -158,10 +184,10 @@ redisRouter.get('/:connectionId/stats', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getKindAdapter(
+    const adapter = await getAdapter(
       connectionId,
       KIND.REDIS,
-      (profile) => createRedisDbAdapter(profile, undefined),
+      (profile: ConnectionProfile) => createRedisDbAdapter(profile, undefined),
       'Redis',
     );
     try {

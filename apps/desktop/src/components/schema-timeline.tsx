@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { openSchemaDiffTab } from '@/store';
 import { toast } from 'sonner';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 const CHANGE_ICONS: Record<SchemaChangeDescriptor['type'], typeof Plus> = {
   table_added: Plus,
@@ -122,7 +123,14 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
       ]);
       toast.success(`Snapshot captured — ${result.tableCount} tables`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Capture failed');
+      const message = err instanceof Error ? err.message : 'Capture failed';
+      toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'schema-timeline.capture',
+        message: `Schema capture failed: ${message}`,
+        details: err instanceof Error ? err.stack : String(err),
+      });
     }
   };
 

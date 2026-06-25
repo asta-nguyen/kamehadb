@@ -257,7 +257,8 @@ export function ChartView({ result }: { result: QueryResult }) {
                 const sorted = pieData.sort((a, b) => Number(b[yKey] ?? 0) - Number(a[yKey] ?? 0));
                 const top = sorted.slice(0, MAX_SLICES);
                 const restSum = sorted.slice(MAX_SLICES).reduce((s, r) => s + Number(r[yKey] ?? 0), 0);
-                pieData = restSum > 0 ? [...top, { [xColumn]: 'Other', [yKey]: restSum } as any] : top;
+                pieData =
+                  restSum > 0 ? [...top, { [xColumn]: 'Other', [yKey]: restSum } as Record<string, unknown>] : top;
               }
               return (
                 <PieChart margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>

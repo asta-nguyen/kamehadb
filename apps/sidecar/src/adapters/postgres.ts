@@ -20,6 +20,7 @@ import type {
   PostgresVectorColumn,
   PostgresVectorIndex,
 } from '@kamehadb/shared';
+import { log } from '../lib/logger.js';
 
 export type IndexStats = {
   name: string;
@@ -128,7 +129,7 @@ export function createPostgresAdapter(connection: {
   });
 
   pool.on('error', (err) => {
-    console.error('Unexpected PostgreSQL pool error:', err.message);
+    log.error({ err }, 'Unexpected PostgreSQL pool error');
   });
 
   async function query(sql: string, params?: unknown[]) {

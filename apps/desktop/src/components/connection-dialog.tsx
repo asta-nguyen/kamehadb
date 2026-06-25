@@ -6,6 +6,8 @@ import {
   CreateConnectionProfileSchema,
   EditConnectionProfileSchema,
   KIND,
+  ALL_KINDS,
+  PROTOCOL_ALIASES,
   type CreateConnectionProfileInput,
   type ConnectionProfile,
   type DbKind,
@@ -17,7 +19,8 @@ import { Label } from '@/components/ui/label';
 
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Plus } from 'lucide-react';
-import { DEFAULT_PORTS, TOAST_AUTO_HIDE_MS } from '@/lib/constants';
+import { DEFAULT_PORTS, TOAST_AUTO_HIDE_MS, AUTO_TEST_DEBOUNCE_MS } from '@/lib/constants';
+import { appendFrontendLog } from '@/lib/app-logs';
 import {
   DatabaseTypeGrid,
   BadgeColorPicker,
@@ -30,12 +33,9 @@ function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> 
     const parsed = new URL(url);
     const protocol = parsed.protocol.replace(':', '');
 
-    let kind: DbKind | null = null;
-    if (protocol === 'postgresql' || protocol === KIND.POSTGRES) kind = KIND.POSTGRES;
-    else if (protocol === 'mysql') kind = KIND.MYSQL;
-    else if (protocol === 'redis' || protocol === 'rediss') kind = KIND.REDIS;
-    else if (protocol === 'sqlite') kind = KIND.SQLITE;
-    else if (protocol === 'qdrant') kind = KIND.QDRANT;
+    // Map URL protocol to DbKind via PROTOCOL_ALIASES, then fall back to direct KIND match
+    const kind: DbKind | null =
+      PROTOCOL_ALIASES[protocol] ?? ((ALL_KINDS as readonly string[]).includes(protocol) ? (protocol as DbKind) : null);
 
     if (!kind) return null;
 
@@ -153,7 +153,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       } catch {
         // Ignore auto-test errors
       }
-    }, 500);
+    }, AUTO_TEST_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [filePath, kind, form, testConnection]);
 
@@ -189,6 +189,13 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Connection failed';
       toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'connection-dialog.test',
+        message: `Test connection failed: ${message}`,
+        stack: err instanceof Error ? err.stack : String(err),
+        url: typeof window !== 'undefined' ? window.location.href : undefined,
+      });
     }
   }
 
@@ -208,7 +215,15 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       form.reset();
     } catch (err) {
       // Don't close on error - let user see the error
-      toast.error(err instanceof Error ? err.message : 'Failed to save');
+      const message = err instanceof Error ? err.message : 'Failed to save';
+      toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'connection-dialog.submit',
+        message: `Save connection failed: ${message}`,
+        details: err instanceof Error ? err.stack : String(err),
+        url: typeof window !== 'undefined' ? window.location.href : undefined,
+      });
     }
   }
 

@@ -2,17 +2,32 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { KIND } from '@kamehadb/shared';
+import * as metadataStore from '../db/metadata-store.js';
 import { createTigerBeetleDbAdapter } from '../adapters/factory.js';
-import { handleError, getKindAdapter } from '../lib/route-helpers.js';
+import { log } from '../lib/logger.js';
 
 export const tigerbeetleRouter = new Hono();
+
+function handleError(c: any, err: unknown, context: string) {
+  log.error({ err }, `TigerBeetle ${context}`);
+  return c.json({ error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500);
+}
+
+async function getAdapter(connectionId: string, _kind?: unknown, _factory?: unknown, _label?: string) {
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) throw new Error('Connection not found');
+  if (profile.kind !== 'tigerbeetle') {
+    throw new Error('This endpoint is for TigerBeetle connections only');
+  }
+  return createTigerBeetleDbAdapter(profile);
+}
 
 // GET /tigerbeetle/:connectionId/accounts
 tigerbeetleRouter.get('/:connectionId/accounts', async (c) => {
   const connectionId = c.req.param('connectionId');
   const limit = Math.min(Number(c.req.query('limit') ?? '100'), 1000);
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
+    const adapter = await getAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
     try {
       const accounts = await adapter.queryAccounts(limit);
       return c.json({ accounts });
@@ -29,7 +44,7 @@ tigerbeetleRouter.get('/:connectionId/accounts/:id', async (c) => {
   const connectionId = c.req.param('connectionId');
   const id = c.req.param('id');
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
+    const adapter = await getAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
     try {
       const accounts = await adapter.lookupAccounts([id]);
       if (accounts.length === 0) return c.json({ error: 'NOT_FOUND', message: 'Account not found' }, 404);
@@ -62,7 +77,7 @@ tigerbeetleRouter.post('/:connectionId/accounts', zValidator('json', CreateAccou
   const connectionId = c.req.param('connectionId');
   const { accounts } = c.req.valid('json');
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
+    const adapter = await getAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
     try {
       const results = await adapter.createAccounts(accounts);
       return c.json({ results });
@@ -80,7 +95,7 @@ tigerbeetleRouter.get('/:connectionId/transfers/:accountId', async (c) => {
   const accountId = c.req.param('accountId');
   const limit = Math.min(Number(c.req.query('limit') ?? '100'), 1000);
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
+    const adapter = await getAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
     try {
       const transfers = await adapter.getAccountTransfers(accountId, limit);
       return c.json({ transfers });
@@ -97,7 +112,7 @@ tigerbeetleRouter.get('/:connectionId/balances/:accountId', async (c) => {
   const connectionId = c.req.param('connectionId');
   const accountId = c.req.param('accountId');
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
+    const adapter = await getAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
     try {
       const balances = await adapter.getAccountBalances(accountId);
       return c.json({ balances });
@@ -133,7 +148,7 @@ tigerbeetleRouter.post('/:connectionId/transfers', zValidator('json', CreateTran
   const connectionId = c.req.param('connectionId');
   const { transfers } = c.req.valid('json');
   try {
-    const adapter = await getKindAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
+    const adapter = await getAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter, 'TigerBeetle');
     try {
       const results = await adapter.createTransfers(transfers);
       return c.json({ results });
