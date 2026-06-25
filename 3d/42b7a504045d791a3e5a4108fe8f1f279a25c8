@@ -1,0 +1,55 @@
+apps/desktop/src/hooks/use-connections.ts
+  s_89fbe4a369f4a3::t_2a63e1b077a403 4,147,149,151-156
+  s_89fbe4a369f4a3::t_b56017a171a921 30-39
+apps/desktop/src/main.tsx
+  s_89fbe4a369f4a3::t_7d3cbff1ec0b0a 18
+  s_89fbe4a369f4a3::t_4c4cda9dd45354 3,8-12,14-17,19,21
+  s_89fbe4a369f4a3::t_e48c1d207464dc 7,13,20,22
+apps/desktop/src/components/qdrant-query.tsx
+  s_89fbe4a369f4a3::t_5153908765c496 15,237-244
+apps/desktop/src/components/mongo-query.tsx
+  s_89fbe4a369f4a3::t_9b3e67777f7a44 16,450-457
+apps/desktop/src/components/vector-query.tsx
+  s_89fbe4a369f4a3::t_fbdade112443c0 14,279-286
+apps/desktop/src/hooks/use-file-database-maintenance.ts
+  s_89fbe4a369f4a3::t_ce1036b546be3d 6,36-43,58-65
+apps/desktop/src/components/schema-timeline.tsx
+  s_89fbe4a369f4a3::t_252dd26f8896cc 14,126-133
+apps/desktop/src/components/schema-diff-view.tsx
+  s_89fbe4a369f4a3::t_b2477400f5c3b0 14,64-71
+apps/desktop/src/hooks/use-chat.ts
+  s_89fbe4a369f4a3::t_2026e586d8446d 4,92-98
+apps/desktop/src/components/migration-assistant.tsx
+  s_89fbe4a369f4a3::t_9ad82046ac29c2 11,57-64
+apps/desktop/src/components/connection-dialog.tsx
+  s_89fbe4a369f4a3::t_17b0b2df9a46dd 20,192-198,218-226
+apps/desktop/src/components/mongo-view.tsx
+  s_89fbe4a369f4a3::t_b28935f39c3acb 16,244-251
+apps/desktop/src/components/mongo-document-card.tsx
+  s_89fbe4a369f4a3::t_9ec199e1dcec2f 6,92-98
+  s_89fbe4a369f4a3::t_9e0db9ad436de2 99
+apps/desktop/src/components/sql-editor.tsx
+  s_89fbe4a369f4a3::t_d9b5e0373eb202 4,675-680
+apps/desktop/src/components/mongo-document-table-view.tsx
+  s_89fbe4a369f4a3::t_aad88bb056831e 114
+  s_89fbe4a369f4a3::t_bb9a85de568238 7,107-113
+apps/desktop/src/hooks/use-postgres-tool-job.ts
+  s_89fbe4a369f4a3::t_9d65fbc3083ef5 140-145,170-175
+  s_89fbe4a369f4a3::t_b1c18a6933268b 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "3d42b7a504045d791a3e5a4108fe8f1f279a25c8",
+  "prompts": {},
+  "sessions": {
+    "s_89fbe4a369f4a3": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "6f248e74-e3ea-48f1-acd2-84dd684e9fc4",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
