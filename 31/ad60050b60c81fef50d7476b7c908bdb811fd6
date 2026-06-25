@@ -1,0 +1,30 @@
+apps/desktop/eslint.config.mjs
+  s_01a83d1dbdfd95::t_a554d0c2d59c39 3
+apps/sidecar/src/lib/logger.ts
+  s_01a83d1dbdfd95::t_5c5a0484fe5ba3 10-17,52
+apps/sidecar/eslint.config.mjs
+  s_01a83d1dbdfd95::t_05914e12ad2b8a 3
+packages/shared/eslint.config.mjs
+  s_01a83d1dbdfd95::t_3202794e6c67ed 49
+packages/shared/eslint/no-restricted-syntax.mjs
+  s_01a83d1dbdfd95::t_72361755629d8f 61
+  s_01a83d1dbdfd95::t_6fe8fe97fcc6a1 1-60,62-96
+apps/desktop/src/components/workspace-tab-bar.tsx
+  s_01a83d1dbdfd95::t_ca4f1e63d7a596 116-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "31ad60050b60c81fef50d7476b7c908bdb811fd6",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
