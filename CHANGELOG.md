@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 - v1.4 Adding MCP server
+- Fixed lint-staged ESLint execution so pre-commit hooks use package-local ESLint configs.
 
 ---
 

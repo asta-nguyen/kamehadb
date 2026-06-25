@@ -9,6 +9,7 @@ import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
+import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
 
@@ -381,7 +382,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
   shellSessions.get(sessionId)!.disposable = bufDisposable;
 
   ptyProcess.onExit(({ exitCode }) => {
-    console.log(`[MongoShell] mongosh exited with code ${exitCode}`);
+    log.info({ exitCode }, '[MongoShell] mongosh exited');
     shellSessions.delete(sessionId);
   });
 

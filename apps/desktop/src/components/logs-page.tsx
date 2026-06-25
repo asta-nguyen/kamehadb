@@ -209,8 +209,9 @@ export function LogsPage() {
           />
           <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 shrink-0">
             {SOURCE_OPTIONS.map((opt) => (
-              <button
+              <Button
                 key={opt}
+                variant="ghost"
                 onClick={() => setSourceFilter(opt)}
                 className={cn(
                   'rounded px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
@@ -220,13 +221,14 @@ export function LogsPage() {
                 )}
               >
                 {opt}
-              </button>
+              </Button>
             ))}
           </div>
           <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 shrink-0">
             {LEVEL_OPTIONS.map((opt) => (
-              <button
+              <Button
                 key={opt}
+                variant="ghost"
                 onClick={() => setLevelFilter(opt)}
                 className={cn(
                   'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase transition-colors',
@@ -236,7 +238,7 @@ export function LogsPage() {
                 )}
               >
                 {opt}
-              </button>
+              </Button>
             ))}
           </div>
           <span className="text-[10px] text-muted-foreground ml-auto tabular-nums w-20 text-right shrink-0">

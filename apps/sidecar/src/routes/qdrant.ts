@@ -10,7 +10,8 @@ export const qdrantRouter = new Hono();
 
 function handleError(c: any, err: unknown, context: string) {
   console.error(`[Qdrant] ${context}:`, err instanceof Error ? err.stack || err.message : err);
-  const statusCode = err && typeof err === 'object' && 'statusCode' in err ? (err as any).statusCode : 500;
+  const statusCode =
+    err && typeof err === 'object' && 'statusCode' in err ? (err as { statusCode: number }).statusCode : 500;
   const message = err instanceof Error ? err.message : 'An internal error occurred';
   return c.json({ error: statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST', message }, statusCode);
 }
