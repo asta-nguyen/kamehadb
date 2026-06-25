@@ -3,11 +3,12 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import * as metadataStore from '../db/metadata-store.js';
 import { createTigerBeetleDbAdapter } from '../adapters/factory.js';
+import { log } from '../lib/logger.js';
 
 export const tigerbeetleRouter = new Hono();
 
 function handleError(c: any, err: unknown, context: string) {
-  console.error(`[TigerBeetle] ${context}:`, err instanceof Error ? err.stack || err.message : err);
+  log.error({ err }, `TigerBeetle ${context}`);
   return c.json({ error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500);
 }
 

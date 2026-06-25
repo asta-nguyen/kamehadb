@@ -5,11 +5,12 @@ import * as metadataStore from '../db/metadata-store.js';
 import { createRedisDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { RedisStats } from '@kamehadb/shared';
+import { log } from '../lib/logger.js';
 
 export const redisRouter = new Hono();
 
 function handleError(c: any, err: unknown, context: string) {
-  console.error(`[Redis] ${context}:`, err instanceof Error ? err.stack || err.message : err);
+  log.error({ err }, `Redis ${context}`);
   const statusCode =
     err && typeof err === 'object' && 'statusCode' in err ? (err as { statusCode: number }).statusCode : 500;
   const message = err instanceof Error ? err.message : 'An internal error occurred';

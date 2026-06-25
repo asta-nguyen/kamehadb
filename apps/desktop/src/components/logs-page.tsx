@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight, Copy, RefreshCw, ScrollText } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Copy, RefreshCw, ScrollText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { appendFrontendLog, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
+import { appendFrontendLog, clearAppLogs, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
 import { navigateTo } from '@/store';
 import { cn } from 'cnfast';
 
@@ -164,6 +164,21 @@ export function LogsPage() {
     await navigator.clipboard.writeText(filteredEntries.map(formatLogLine).join('\n\n'));
   }, [filteredEntries]);
 
+  const handleClear = useCallback(async () => {
+    try {
+      await clearAppLogs();
+      setEntries([]);
+    } catch (clearError) {
+      const message = clearError instanceof Error ? clearError.message : 'Failed to clear logs';
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'logs-page',
+        message: 'Failed to clear app logs',
+        details: message,
+      });
+    }
+  }, []);
+
   return (
     <div className="flex w-full h-full flex-col overflow-hidden bg-background">
       <div className="shrink-0 border-b border-border">
@@ -186,6 +201,16 @@ export function LogsPage() {
               title="Refresh"
             >
               {isRefreshing ? <Spinner size="sm" className="size-3" /> : <RefreshCw className="size-3" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => void handleClear()}
+              disabled={entries.length === 0}
+              className="size-7"
+              title="Clear all logs"
+            >
+              <Trash2 className="size-3" />
             </Button>
             <Button
               variant="outline"

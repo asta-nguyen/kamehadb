@@ -80,6 +80,18 @@ pub fn read_app_logs(app: AppHandle, limit: Option<usize>) -> Result<AppLogsSnap
     })
 }
 
+#[tauri::command]
+pub fn clear_app_logs(app: AppHandle) -> Result<(), String> {
+    let log_dir = ensure_log_dir(&app).map_err(|error| error.to_string())?;
+    for file_name in [FRONTEND_LOG_FILE, TAURI_LOG_FILE, SIDECAR_LOG_FILE] {
+        let path = log_dir.join(file_name);
+        if path.exists() {
+            fs::write(&path, "").map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 pub fn append_tauri_log(
     app: &AppHandle,
     level: &str,
