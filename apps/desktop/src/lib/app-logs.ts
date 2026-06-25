@@ -31,7 +31,11 @@ export interface AppLogsSnapshot {
 
 export async function appendFrontendLog(entry: FrontendLogInput): Promise<void> {
   if (!isTauriRuntime()) return;
-  await invokeTauri<void>('append_frontend_log', { entry });
+  try {
+    await invokeTauri<void>('append_frontend_log', { entry });
+  } catch {
+    // Best-effort: swallow IPC or file-write failures so fire-and-forget callers stay safe.
+  }
 }
 
 export async function readAppLogs(limit = 300): Promise<AppLogsSnapshot> {

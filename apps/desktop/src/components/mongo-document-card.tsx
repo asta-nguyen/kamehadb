@@ -95,7 +95,7 @@ export function DocumentCard({
         level: 'error',
         scope: 'mongo-document-card.update',
         message: `MongoDB document update failed: ${message}`,
-        details: err instanceof Error ? err.stack : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
       });
     } finally {
       setSaving(false);

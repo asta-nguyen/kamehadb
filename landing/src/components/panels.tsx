@@ -112,8 +112,8 @@ export function SqlPanel({ ref }: { ref: React.RefObject<HTMLDivElement | null> 
         <div className="flex">
           <div className="text-body text-right pr-4 select-none w-8">8</div>
           <div className="pl-8">
-            <span className="text-[#56b6c2]">'2026-04-01'</span> <span className="text-[#c678dd]">AND</span>{' '}
-            <span className="text-[#56b6c2]">'2026-04-30'</span>
+            <span className="text-[#56b6c2]">&apos;2026-04-01&apos;</span> <span className="text-[#c678dd]">AND</span>{' '}
+            <span className="text-[#56b6c2]">&apos;2026-04-30&apos;</span>
           </div>
         </div>
         <div className="flex">
@@ -148,7 +148,7 @@ export function SqlPanel({ ref }: { ref: React.RefObject<HTMLDivElement | null> 
             <span className="text-[#c678dd]">AND</span> <span className="text-[#e5c07b]">s</span>
             <span className="text-body">.</span>
             <span className="text-[#61afef]">status</span> <span className="text-body">=</span>{' '}
-            <span className="text-[#56b6c2]">'active'</span>
+            <span className="text-[#56b6c2]">&apos;active&apos;</span>
           </div>
         </div>
         <div className="flex">

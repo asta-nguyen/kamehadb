@@ -15,17 +15,21 @@ import type {
 
 export async function testDuckDBConnection(filePath: string): Promise<TestConnectionResult> {
   try {
-    const m = await import('duckdb');
-    const duckdb = m.default || m;
-    const rows = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
-      const db = new duckdb.Database(filePath);
-      db.all('SELECT version() AS version', (err, rows) => {
-        db.close();
-        if (err) reject(err);
-        else resolve(rows as Record<string, unknown>[]);
-      });
+    const { DuckDBInstance } = await import('@duckdb/node-api');
+    const inst = await DuckDBInstance.create(filePath);
+    const conn = await inst.connect();
+    const reader = await conn.runAndReadAll('SELECT version() AS version');
+    const rawRows = reader.getRowObjects();
+    const rows = rawRows.map((row) => {
+      const out: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(row)) {
+        out[key] = typeof val === 'bigint' ? Number(val) : val;
+      }
+      return out;
     });
-    return { success: true, serverVersion: String(rows[0]?.VERSION || '') };
+    conn.closeSync();
+    inst.closeSync();
+    return { success: true, serverVersion: String(rows[0]?.version || '') };
   } catch (err) {
     return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
   }
@@ -40,24 +44,37 @@ function escapeVal(val: string): string {
 }
 
 export function createDuckDbAdapter(filePath: string): SqlAdapter {
-  // Lazy-init: duckdb is imported on first method call, not at construction.
-  let db: any = null;
-  let duckdbModule: any = null;
+  let inst: any = null;
+  let conn: any = null;
 
   async function ensureDb() {
-    if (!db) {
-      duckdbModule = duckdbModule || (await import('duckdb')).default || (await import('duckdb'));
-      db = new duckdbModule.Database(filePath);
+    if (!conn) {
+      const { DuckDBInstance } = await import('@duckdb/node-api');
+      inst = await DuckDBInstance.create(filePath);
+      conn = await inst.connect();
     }
+  }
+
+  function convertBigInt(val: unknown): unknown {
+    if (typeof val === 'bigint') return Number(val);
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(val)) out[k] = convertBigInt(v);
+      return out;
+    }
+    return val;
   }
 
   async function q<T>(sql: string): Promise<T[]> {
     await ensureDb();
-    return new Promise((resolve, reject) => {
-      db!.all(sql, (err: any, rows: T[]) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
+    const reader = await conn.runAndReadAll(sql);
+    const rows = reader.getRowObjects() as Record<string, unknown>[];
+    return rows.map((row) => {
+      const out: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(row)) {
+        out[key] = convertBigInt(val);
+      }
+      return out as T;
     });
   }
 
@@ -65,7 +82,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
     async testConnection(): Promise<TestConnectionResult> {
       try {
         const rows = await q<Record<string, string>>('SELECT version() AS version');
-        return { success: true, serverVersion: rows[0]?.VERSION || '' };
+        return { success: true, serverVersion: rows[0]?.version || '' };
       } catch (err) {
         return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
       }
@@ -73,14 +90,14 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
 
     async listDatabases(): Promise<DatabaseInfo[]> {
       const rows = await q<Record<string, string>>('SELECT current_database() AS name');
-      return rows.map((r) => ({ name: r.NAME }));
+      return rows.map((r) => ({ name: r.name }));
     },
 
     async listSchemas(): Promise<SchemaInfo[]> {
       const rows = await q<Record<string, string>>(
-        "SELECT schema_name AS name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema' ORDER BY schema_name",
+        "SELECT DISTINCT schema_name AS name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema' ORDER BY schema_name",
       );
-      return rows.map((r) => ({ name: r.NAME }));
+      return rows.map((r) => ({ name: r.name }));
     },
 
     async listTables(schema?: string): Promise<TableInfo[]> {
@@ -246,10 +263,43 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
       };
     },
 
+    async getTableStats(tableId: string): Promise<TableStats> {
+      const parts = tableId.split('.');
+      const schema = parts.length > 1 ? parts[0] : 'main';
+      const table = parts.length > 1 ? parts[1] : tableId;
+      const countRows = await q<Record<string, unknown>>(
+        `SELECT COUNT(*) AS cnt FROM ${escapeId(schema)}.${escapeId(table)}`,
+      );
+      const rowEstimate = Number(countRows[0]?.cnt) || 0;
+      return {
+        tableId,
+        name: table,
+        schema,
+        rowEstimate,
+        totalBytes: 0,
+        indexesBytes: 0,
+        toastBytes: 0,
+        bloatBytes: 0,
+        bloatPercent: 0,
+        lastVacuum: null,
+        lastAutovacuum: null,
+        lastAnalyze: null,
+        lastAutoanalyze: null,
+        vacuumCount: 0,
+        autovacuumCount: 0,
+        nLiveTup: rowEstimate,
+        nDeadTup: 0,
+      };
+    },
+
     async close(): Promise<void> {
-      if (db) {
-        db.close();
-        db = null;
+      if (conn) {
+        conn.closeSync();
+        conn = null;
+      }
+      if (inst) {
+        inst.closeSync();
+        inst = null;
       }
     },
   };

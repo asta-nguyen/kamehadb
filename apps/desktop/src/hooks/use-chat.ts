@@ -94,7 +94,7 @@ export function useChat(options: UseChatOptions) {
           level: 'error',
           scope: 'use-chat',
           message: `AI chat error: ${message}`,
-          details: err instanceof Error ? err.stack : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
         });
       }
     } finally {

@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "@clickhouse/client": "^1.20.0",
+    "@duckdb/node-api": "1.5.4-r.1",
     "@hono/node-server": "^1",
     "@hono/zod-validator": "^0.4",
     "@kamehadb/shared": "workspace:*",
     "@qdrant/js-client-rest": "^1.18.0",
     "better-sqlite3": "^11",
-    "duckdb": "^1.4.4",
     "hono": "^4",
     "ioredis": "^5.4.2",
     "lru-cache": "^11.5.0",
@@ -35,12 +35,12 @@
     "zod": "^3"
   },
   "devDependencies": {
+    "@ast-grep/napi": "^0.36",
     "@types/better-sqlite3": "^7",
     "@types/mssql": "^12.3.0",
     "@types/node": "^22",
     "@types/oracledb": "^7.0.0",
     "@types/pg": "^8",
-    "@ast-grep/napi": "^0.36",
     "@typescript-eslint/parser": "^8",
     "eslint": "^9",
     "tsx": "^4",

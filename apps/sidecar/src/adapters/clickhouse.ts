@@ -95,9 +95,19 @@ export function createClickHouseAdapter(connection: {
     },
 
     async listTables(schema?: string): Promise<TableInfo[]> {
-      const db = escapeVal(schema || connection.database || 'default');
+      if (schema) {
+        const rows = await q<{ name: string; database: string }>(
+          `SELECT name, database FROM system.tables WHERE database = ${escapeVal(schema)} AND engine NOT IN ('SystemTable', 'SystemLog') ORDER BY name`,
+        );
+        return rows.map((r) => ({
+          id: `${r.database}.${r.name}`,
+          name: r.name,
+          schema: r.database,
+        }));
+      }
+      // No schema specified — return tables from all non-system databases
       const rows = await q<{ name: string; database: string }>(
-        `SELECT name, database FROM system.tables WHERE database = ${db} AND engine NOT IN ('SystemTable', 'SystemLog') ORDER BY name`,
+        `SELECT name, database FROM system.tables WHERE database NOT IN ('INFORMATION_SCHEMA', 'information_schema', 'system') AND engine NOT IN ('SystemTable', 'SystemLog') ORDER BY database, name`,
       );
       return rows.map((r) => ({
         id: `${r.database}.${r.name}`,

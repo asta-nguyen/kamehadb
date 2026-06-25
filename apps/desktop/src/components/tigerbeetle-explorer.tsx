@@ -77,6 +77,7 @@ function AccountNode({
       <Button
         type="button"
         variant="ghost"
+        size="sm"
         onClick={onToggle}
         className="flex items-center gap-1.5 w-full text-left py-1 px-1.5 rounded-md hover:bg-accent/50 text-xs group"
       >

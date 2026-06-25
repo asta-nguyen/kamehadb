@@ -1,7 +1,6 @@
 import { formatBytes, formatNumber } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart3, Database, HardDrive, RefreshCw, Trash2, Activity, AlertTriangle } from 'lucide-react';
 import { useTableStats, useIndexStats } from '@/hooks/use-schema';
@@ -97,40 +96,58 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
         </Card>
       )}
 
-      {/* Size Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center text-base gap-2">
-            <HardDrive className="size-4" />
-            Size Breakdown
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-sm">
-              <span>Table Data</span>
-              <span className="text-muted-foreground">{formatBytes(stats.totalBytes - stats.indexesBytes)}</span>
-            </div>
-            <Progress value={((stats.totalBytes - stats.indexesBytes) / stats.totalBytes) * 100} className="h-2" />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-sm">
-              <span>Indexes</span>
-              <span className="text-muted-foreground">{formatBytes(stats.indexesBytes)}</span>
-            </div>
-            <Progress value={(stats.indexesBytes / stats.totalBytes) * 100} className="h-2" />
-          </div>
-          {stats.toastBytes > 0 && (
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span>TOAST</span>
-                <span className="text-muted-foreground">{formatBytes(stats.toastBytes)}</span>
-              </div>
-              <Progress value={(stats.toastBytes / stats.totalBytes) * 100} className="h-2" />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Size Breakdown — only show when we have actual size data */}
+      {stats.totalBytes > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center text-base gap-2">
+              <HardDrive className="size-4" />
+              Size Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(() => {
+              const tableBytes = stats.totalBytes - stats.indexesBytes - stats.toastBytes;
+              const segments = [
+                { label: 'Table Data', bytes: Math.max(tableBytes, 0), color: 'bg-primary' },
+                { label: 'Indexes', bytes: stats.indexesBytes, color: 'bg-blue-500' },
+                ...(stats.toastBytes > 0 ? [{ label: 'TOAST', bytes: stats.toastBytes, color: 'bg-amber-500' }] : []),
+              ].filter((s) => s.bytes > 0);
+              const total = segments.reduce((sum, s) => sum + s.bytes, 0) || 1;
+
+              return (
+                <>
+                  {/* Stacked bar */}
+                  <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+                    {segments.map((s) => (
+                      <div
+                        key={s.label}
+                        className={`${s.color} transition-all`}
+                        style={{ width: `${(s.bytes / total) * 100}%` }}
+                        title={`${s.label}: ${formatBytes(s.bytes)}`}
+                      />
+                    ))}
+                  </div>
+                  {/* Legend */}
+                  <div className="space-y-1.5">
+                    {segments.map((s) => (
+                      <div key={s.label} className="flex justify-between text-sm">
+                        <span className="flex items-center gap-2">
+                          <span className={`inline-block size-3 rounded-sm ${s.color}`} />
+                          {s.label}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {formatBytes(s.bytes)} ({((s.bytes / total) * 100).toFixed(1)}%)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Indexes */}
       {indexStats && indexStats.length > 0 && (

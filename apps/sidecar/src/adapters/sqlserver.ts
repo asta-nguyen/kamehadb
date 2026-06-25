@@ -240,6 +240,8 @@ export function createSqlServerAdapter(connection: {
 
       if (input.sortColumn) {
         q += ` ORDER BY ${escapeId(input.sortColumn)} ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
+      } else {
+        q += ' ORDER BY 1';
       }
       q += ` OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
 

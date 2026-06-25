@@ -32,6 +32,16 @@ export default [
           message:
             "Remove console.log before committing. Use the sidecar logger (pino) instead.",
         },
+        {
+          pattern: "console.warn($$$)",
+          message:
+            "Remove console.warn before committing. Use the sidecar logger (pino) instead.",
+        },
+        {
+          pattern: "console.error($$$)",
+          message:
+            "Remove console.error before committing. Use the sidecar logger (pino) instead.",
+        },
       ],
     },
   },
