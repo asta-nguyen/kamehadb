@@ -128,6 +128,7 @@ Important sidecar internals:
 - `apps/sidecar/src/lib/cache.ts` caches schema and metadata results
 - `apps/sidecar/src/lib/sql-safety.ts` contains SQL safety helpers used by the backend
 - `apps/sidecar/src/lib/mongosh.ts` resolves a local `mongosh` binary or installs an app-managed copy under the app data directory
+- `apps/sidecar/src/lib/logger.ts` exports the shared pino logger (`log`) for the entire sidecar. All sidecar code must import `log` from this module instead of using `console.log`.
 - `apps/sidecar/src/ai/` contains provider abstraction and schema-context generation
 
 ### Desktop app
@@ -234,8 +235,20 @@ Override connection with env vars: `TB_HOST`, `TB_PORT`, `TB_CLUSTER_ID`.
 
 - The desktop app exposes a built-in Logs page that reads frontend, Tauri, and sidecar logs from one place.
 - Frontend runtime errors are forwarded through `apps/desktop/src/lib/app-logs.ts` into the Tauri log store.
-- Sidecar logs are persisted to the app data directory so packaged builds still have inspectable logs after startup failures or shell-launch errors.
+- Sidecar logs are produced by pino via `apps/sidecar/src/lib/logger.ts` and persisted to `${KAMEHADB_DATA_DIR}/logs/sidecar.log` (or `<workspace>/logs/sidecar.log` in dev mode when `KAMEHADB_DATA_DIR` is unset).
+- Tauri logs are written by Rust code via `append_tauri_log()` in `apps/desktop/src-tauri/src/app_logs.rs` to `${app_data_dir}/logs/tauri.log`.
+- The Tauri command `read_app_logs` in `app_logs.rs` reads all three log files (`frontend.log`, `tauri.log`, `sidecar.log`) from `${app_data_dir}/logs/` and merges them into a single snapshot.
+- In dev mode (`pnpm dev`, Vite browser without Tauri runtime), `readAppLogs()` falls back to localStorage and only frontend logs are visible. Tauri and sidecar logs require the built Tauri app.
 - If a bundled workflow fails only in the built app, check the in-app Logs page first, then inspect `${KAMEHADB_DATA_DIR}/logs/` if you need the raw files.
+
+### Sidecar Logger Usage
+
+- **Never use `console.log` in sidecar code.** ESLint enforces this via `local/no-restricted-syntax`.
+- Import the shared pino logger: `import { log } from '../lib/logger.js';`
+- Use `log.info()`, `log.warn()`, `log.error()`, `log.debug()` instead of `console.log()` / `console.warn()` / `console.error()`.
+- The only exception is `console.log('KAMEHADB_SIDECAR_PORT=...')` in `index.ts` which is intentionally stdout for Tauri to parse the port — it has an inline `eslint-disable` comment.
+- Pino writes to both stdout and `${KAMEHADB_DATA_DIR}/logs/sidecar.log` via multistream.
+- The Tauri Rust side parses pino's JSON output from `sidecar.log` (see `parse_sidecar_log_line` in `app_logs.rs`).
 
 ## Release Workflow
 
