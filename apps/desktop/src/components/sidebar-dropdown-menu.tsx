@@ -8,7 +8,7 @@ import { isTauriRuntime } from '@/lib/tauri';
 import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
-import type { ConnectionProfile } from '@kamehadb/shared';
+import { type ConnectionProfile, KIND } from '@kamehadb/shared';
 import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
 
 function activate(connId: string, action: (id: string) => void) {
@@ -59,7 +59,7 @@ export function ConnectionDropdownMenu({
           AI Chat
         </DropdownMenuItem>
 
-        {conn.kind === 'postgres' && isTauriRuntime() && (
+        {conn.kind === KIND.POSTGRES && isTauriRuntime() && (
           <>
             <DropdownMenuItem
               onClick={() => {

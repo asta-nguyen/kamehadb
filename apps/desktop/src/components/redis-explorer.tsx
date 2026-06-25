@@ -101,7 +101,7 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter keys..."
-              className="h-6 pl-6 pr-2 text-xs"
+              className="h-6 pl-7 pr-2 text-xs"
             />
           </div>
         </div>

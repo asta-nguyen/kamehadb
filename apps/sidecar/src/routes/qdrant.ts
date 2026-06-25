@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import { KIND } from '@kamehadb/shared';
 import * as metadataStore from '../db/metadata-store.js';
 import { createQdrantDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
@@ -17,7 +18,7 @@ function handleError(c: any, err: unknown, context: string) {
   return c.json({ error: statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST', message }, statusCode);
 }
 
-async function getAdapter(connectionId: string) {
+async function getAdapter(connectionId: string, _kind?: unknown, _factory?: unknown, _label?: string) {
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) throw Object.assign(new Error('Connection not found'), { statusCode: 404 });
 
@@ -31,7 +32,7 @@ async function getAdapter(connectionId: string) {
 // GET /qdrant/:connectionId/test
 qdrantRouter.get('/:connectionId/test', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
+    const adapter = await getAdapter(c.req.param('connectionId'), KIND.QDRANT, createQdrantDbAdapter, 'Qdrant');
     try {
       const result = await adapter.testConnection();
       return c.json(result);
@@ -46,7 +47,7 @@ qdrantRouter.get('/:connectionId/test', async (c) => {
 // GET /qdrant/:connectionId/collections
 qdrantRouter.get('/:connectionId/collections', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
+    const adapter = await getAdapter(c.req.param('connectionId'), KIND.QDRANT, createQdrantDbAdapter, 'Qdrant');
     try {
       const result = await adapter.listCollections();
       return c.json(result);
@@ -74,7 +75,7 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
+      const adapter = await getAdapter(c.req.param('connectionId'), KIND.QDRANT, createQdrantDbAdapter, 'Qdrant');
       try {
         const result = await adapter.scrollPoints(c.req.valid('json'));
         return c.json(result);
@@ -103,7 +104,7 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
+      const adapter = await getAdapter(c.req.param('connectionId'), KIND.QDRANT, createQdrantDbAdapter, 'Qdrant');
       try {
         const result = await adapter.search(c.req.valid('json'));
         return c.json(result);
@@ -132,7 +133,7 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
+      const adapter = await getAdapter(c.req.param('connectionId'), KIND.QDRANT, createQdrantDbAdapter, 'Qdrant');
       try {
         const result = await adapter.recommend(c.req.valid('json'));
         return c.json(result);
@@ -159,7 +160,7 @@ qdrantRouter.get('/:connectionId/stats', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getAdapter(connectionId);
+    const adapter = await getAdapter(connectionId, KIND.QDRANT, createQdrantDbAdapter, 'Qdrant');
     try {
       const result = await adapter.getStats(collection);
       setCache(cacheKey, result);

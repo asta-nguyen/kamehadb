@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useReducer } from 'react';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QdrantSearchResult } from '@kamehadb/shared';
-import { useQdrantCollections, useQdrantPoints, useQdrantRecommend, useQdrantSearch } from '@/hooks/use-qdrant';
+import { useQdrantCollections, useQdrantSearch } from '@/hooks/use-qdrant';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/data-table';
-import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
-import { simpleEmbed } from '@/lib/simple-embed';
 import { Play } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { appendFrontendLog } from '@/lib/app-logs';
@@ -19,41 +17,24 @@ interface QdrantQueryProps {
   connectionId: string;
 }
 
-type Mode = 'text' | 'similar' | 'raw';
-
-const MODES: { value: Mode; label: string }[] = [
-  { value: 'text', label: 'Text' },
-  { value: 'similar', label: 'Find similar' },
-  { value: 'raw', label: 'Advanced' },
-];
-
-// Group collection / mode / text / pointId / vectorText / filter / limit /
-// running / error / info / result into one reducer so a single dispatch
+// Group collection / vectorText / limit /
+// running / error / result into one reducer so a single dispatch
 // produces a single re-render instead of ten.
 type QdrantQueryState = {
   collection: string;
-  mode: Mode;
-  text: string;
-  pointId: string;
   vectorText: string;
-  filter: Record<string, unknown> | undefined;
   limit: number;
   running: boolean;
   error: string | null;
-  info: string | null;
   result: QdrantSearchResult | null;
 };
 
 type QdrantQueryAction =
   | { type: 'setCollection'; value: string }
-  | { type: 'setMode'; value: Mode }
-  | { type: 'setText'; value: string }
-  | { type: 'setPointId'; value: string }
   | { type: 'setVectorText'; value: string }
-  | { type: 'setFilter'; value: Record<string, unknown> | undefined }
   | { type: 'setLimit'; value: number }
   | { type: 'startRun' }
-  | { type: 'finishRun'; result: QdrantSearchResult; info?: string }
+  | { type: 'finishRun'; result: QdrantSearchResult }
   | { type: 'failRun'; error: string }
   | { type: 'endRun' }
   | { type: 'resetResult' }
@@ -62,29 +43,21 @@ type QdrantQueryAction =
 function qdrantQueryReducer(state: QdrantQueryState, action: QdrantQueryAction): QdrantQueryState {
   switch (action.type) {
     case 'setCollection':
-      return { ...state, collection: action.value, result: null, info: null, error: null };
-    case 'setMode':
-      return { ...state, mode: action.value, result: null, info: null, error: null };
-    case 'setText':
-      return { ...state, text: action.value };
-    case 'setPointId':
-      return { ...state, pointId: action.value };
+      return { ...state, collection: action.value, result: null, error: null };
     case 'setVectorText':
       return { ...state, vectorText: action.value };
-    case 'setFilter':
-      return { ...state, filter: action.value };
     case 'setLimit':
       return { ...state, limit: action.value };
     case 'startRun':
-      return { ...state, running: true, error: null, info: null };
+      return { ...state, running: true, error: null };
     case 'finishRun':
-      return { ...state, running: false, result: action.result, info: action.info ?? state.info };
+      return { ...state, running: false, result: action.result };
     case 'failRun':
       return { ...state, running: false, error: action.error };
     case 'endRun':
       return { ...state, running: false };
     case 'resetResult':
-      return { ...state, result: null, info: null, error: null };
+      return { ...state, result: null, error: null };
     case 'setError':
       return { ...state, error: action.value };
   }
@@ -94,38 +67,14 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
   const { data: collections } = useQdrantCollections(connectionId);
   const [state, dispatch] = useReducer(qdrantQueryReducer, {
     collection: tab.collection ?? '',
-    mode: tab.mode ?? (tab.pointId ? 'similar' : 'text'),
-    text: '',
-    pointId: tab.pointId?.toString() ?? '',
     vectorText: '',
-    filter: undefined,
     limit: 10,
     running: false,
     error: null,
-    info: null,
     result: null,
   });
 
   const search = useQdrantSearch(connectionId);
-  const recommend = useQdrantRecommend(connectionId);
-
-  // Sample the chosen collection to get vector size and payload fields.
-  const { data: sample } = useQdrantPoints(connectionId, state.collection);
-  const fields = useMemo(() => {
-    const keys = new Set<string>();
-    for (const p of sample?.points ?? []) for (const k of Object.keys(p.payload ?? {})) keys.add(k);
-    return [...keys];
-  }, [sample]);
-
-  const vectorSize = useMemo(() => {
-    const first = sample?.points?.[0]?.vector;
-    if (Array.isArray(first) && typeof first[0] === 'number') return first.length;
-    if (first && typeof first === 'object') {
-      const v = Object.values(first as Record<string, unknown>)[0];
-      if (Array.isArray(v)) return v.length;
-    }
-    return 128;
-  }, [sample]);
 
   type QdrantHit = {
     id: string | number;
@@ -181,58 +130,25 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
 
     dispatch({ type: 'startRun' });
     try {
-      if (state.mode === 'text') {
-        if (!state.text.trim()) {
-          dispatch({ type: 'setError', value: 'Enter some text to search for' });
-          dispatch({ type: 'endRun' });
-          return;
+      let vector: number[];
+      try {
+        const parsed = JSON.parse(state.vectorText);
+        if (!Array.isArray(parsed) || !parsed.every((n) => typeof n === 'number')) {
+          throw new Error('Vector must be a JSON array of numbers, e.g. [0.1, 0.2, 0.3]');
         }
-        const vector = simpleEmbed(state.text, vectorSize);
-        const res = await search.mutateAsync({
-          collection: state.collection,
-          vector,
-          limit: state.limit,
-          filter: state.filter,
-          withPayload: true,
-        });
-        dispatch({ type: 'finishRun', result: res, info: `Embedded to ${vectorSize} dimensions (local hash-based)` });
-      } else if (state.mode === 'similar') {
-        if (!state.pointId.trim()) {
-          dispatch({ type: 'setError', value: 'Enter a point ID' });
-          dispatch({ type: 'endRun' });
-          return;
-        }
-        const id = /^\d+$/.test(state.pointId.trim()) ? Number(state.pointId.trim()) : state.pointId.trim();
-        const res = await recommend.mutateAsync({
-          collection: state.collection,
-          pointId: id,
-          limit: state.limit,
-          filter: state.filter,
-          withPayload: true,
-        });
-        dispatch({ type: 'finishRun', result: res });
-      } else {
-        let vector: number[];
-        try {
-          const parsed = JSON.parse(state.vectorText);
-          if (!Array.isArray(parsed) || !parsed.every((n) => typeof n === 'number')) {
-            throw new Error('Vector must be a JSON array of numbers, e.g. [0.1, 0.2, 0.3]');
-          }
-          vector = parsed;
-        } catch (e) {
-          dispatch({ type: 'setError', value: e instanceof Error ? e.message : 'Invalid query vector' });
-          dispatch({ type: 'endRun' });
-          return;
-        }
-        const res = await search.mutateAsync({
-          collection: state.collection,
-          vector,
-          limit: state.limit,
-          filter: state.filter,
-          withPayload: true,
-        });
-        dispatch({ type: 'finishRun', result: res });
+        vector = parsed;
+      } catch (e) {
+        dispatch({ type: 'setError', value: e instanceof Error ? e.message : 'Invalid query vector' });
+        dispatch({ type: 'endRun' });
+        return;
       }
+      const res = await search.mutateAsync({
+        collection: state.collection,
+        vector,
+        limit: state.limit,
+        withPayload: true,
+      });
+      dispatch({ type: 'finishRun', result: res });
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Search failed';
       dispatch({ type: 'failRun', error: message });
@@ -248,21 +164,6 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border space-y-2">
-        {/* Mode tabs */}
-        <div className="flex items-center gap-1 bg-muted/40 rounded-md p-0.5 w-fit">
-          {MODES.map((m) => (
-            <Button
-              key={m.value}
-              variant="ghost"
-              size="sm"
-              onClick={() => dispatch({ type: 'setMode', value: m.value })}
-              className={`${state.mode === m.value ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              {m.label}
-            </Button>
-          ))}
-        </div>
-
         <div className="flex items-center gap-2">
           <Select
             value={state.collection || '_select'}
@@ -298,50 +199,15 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
           </Button>
         </div>
 
-        {/* Mode-specific input */}
-        {state.mode === 'text' && (
-          <div className="space-y-2">
-            <Input
-              value={state.text}
-              onChange={(e) => dispatch({ type: 'setText', value: e.target.value })}
-              placeholder="Describe what you're looking for…"
-              className="w-full h-9 px-2 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
-            />
-            <p className="text-xs text-muted-foreground">
-              Text is converted to a vector locally using hash-based embedding — no AI provider needed. Works at
-              {vectorSize} dimensions.
-            </p>
-          </div>
-        )}
-
-        {state.mode === 'similar' && (
-          <div className="space-y-1">
-            <Input
-              value={state.pointId}
-              onChange={(e) => dispatch({ type: 'setPointId', value: e.target.value })}
-              placeholder="Point ID to find neighbors of"
-              className="w-full h-9 px-2 text-sm font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
-            />
-            <p className="text-xs text-muted-foreground">
-              Finds points most similar to an existing point — no model needed.
-            </p>
-          </div>
-        )}
-
-        {state.mode === 'raw' && (
-          <Textarea
-            value={state.vectorText}
-            onChange={(e) => dispatch({ type: 'setVectorText', value: e.target.value })}
-            placeholder="[0.1, 0.2, 0.3, ...]"
-            spellCheck={false}
-            className="w-full min-h-20 px-2 py-1 text-xs font-mono bg-background border rounded resize-y focus:outline-none focus:ring-1 focus:ring-primary/50"
-          />
-        )}
-
-        <QdrantFilterBuilder onChange={(v) => dispatch({ type: 'setFilter', value: v })} fields={fields} />
+        <Textarea
+          value={state.vectorText}
+          onChange={(e) => dispatch({ type: 'setVectorText', value: e.target.value })}
+          placeholder="[0.1, 0.2, 0.3, ...]"
+          spellCheck={false}
+          className="w-full min-h-20 px-2 py-1 text-xs font-mono bg-background border rounded resize-y focus:outline-none focus:ring-1 focus:ring-primary/50"
+        />
 
         {state.error && <div className="text-xs text-destructive">{state.error}</div>}
-        {state.info && !state.error && <div className="text-xs text-muted-foreground">{state.info}</div>}
       </div>
 
       <div className="flex-1 overflow-auto min-h-0">
@@ -357,11 +223,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
           />
         ) : (
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            {state.mode === 'text'
-              ? 'Type a query and run a search'
-              : state.mode === 'similar'
-                ? 'Enter a point ID to find similar points'
-                : 'Enter a query vector and run a search'}
+            Enter a query vector and run a search
           </div>
         )}
       </div>

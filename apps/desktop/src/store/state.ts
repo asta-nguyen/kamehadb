@@ -1,5 +1,6 @@
 import { Store } from '@tanstack/store';
 import type { AppStoreState, WorkspaceTab } from '@/lib/types';
+import { loadThemePreset } from '@/lib/theme-presets';
 
 function restoreTabs(): WorkspaceTab[] {
   try {
@@ -24,9 +25,10 @@ const initialState: AppStoreState = {
   openedTabs: restoreTabs(),
   activeTabId: restoreActiveTab(),
   sidebarCollapsed: false,
-  density: 'compact',
+  density: (localStorage.getItem('kamehadb_density') as 'compact' | 'comfortable') || 'compact',
   view: 'workspace',
   theme: (localStorage.getItem('theme') as 'light' | 'dark' | 'system') || 'system',
+  themePreset: loadThemePreset(),
   expandedConnections: [],
   pinnedConnections: (() => {
     try {

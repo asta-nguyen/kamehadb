@@ -1,4 +1,4 @@
-import type { ConnectionProfile } from '@kamehadb/shared';
+import { type ConnectionProfile, KIND } from '@kamehadb/shared';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -69,7 +69,7 @@ export function FileDatabaseBackupDialog({ connection, open, onOpenChange }: Fil
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-xl" showCloseButton={!backup.isPending}>
         <DialogHeader>
-          <DialogTitle>Backup {connection.kind === 'sqlite' ? 'SQLite' : 'DuckDB'}</DialogTitle>
+          <DialogTitle>Backup {connection.kind === KIND.SQLITE ? 'SQLite' : 'DuckDB'}</DialogTitle>
           <DialogDescription>
             Save a backup of the configured database file to another location on disk.
           </DialogDescription>

@@ -1,4 +1,5 @@
 import { MongoClient, type Collection } from 'mongodb';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
 import type {
   MongoAdapter,
   TestConnectionResult,
@@ -35,7 +36,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
   async function ensureConnected(): Promise<MongoClient> {
     if (!client) {
       client = new MongoClient(config.connectionString, {
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: ADAPTER_TIMEOUTS.CONNECT_DEFAULT,
       });
     }
     return client;
@@ -44,7 +45,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
   return {
     async testConnection(): Promise<TestConnectionResult> {
       const tempClient = new MongoClient(config.connectionString, {
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: ADAPTER_TIMEOUTS.CONNECT_DEFAULT,
       });
       try {
         await tempClient.connect();

@@ -14,7 +14,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Play, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChart3, Braces } from 'lucide-react';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { appendFrontendLog } from '@/lib/app-logs';
-import { PAGE_LIMIT } from '@/lib/constants';
+import { PAGE_LIMIT, SCHEMA_CACHE_TIME } from '@/lib/constants';
 import JSON5 from 'json5';
 import type { WorkspaceTab } from '@/lib/types';
 import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
@@ -417,7 +417,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     queryKey: QUERY_KEYS.MONGO_COMPLETIONS(connectionId),
     queryFn: () => api.getMongoCompletions(connectionId),
     enabled: !!connectionId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: SCHEMA_CACHE_TIME,
   });
 
   const runRef = useRef<() => Promise<void>>(async () => {});

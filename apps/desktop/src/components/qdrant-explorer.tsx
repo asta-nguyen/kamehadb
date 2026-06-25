@@ -35,7 +35,7 @@ export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter..."
-            className="pl-6 pr-2 h-6 text-xs"
+            className="pl-7 pr-2 h-7 text-xs"
           />
         </div>
       </div>

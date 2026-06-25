@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useEffect } from 'react';
+import { SCHEMA_CACHE_TIME } from '@/lib/constants';
 import {
   ReactFlow,
   Background,
@@ -42,7 +43,7 @@ function useCompletionsSchema(connectionId: string | null) {
     queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
     queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
     enabled: !!connectionId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: SCHEMA_CACHE_TIME,
   });
 }
 

@@ -1,4 +1,4 @@
-import type { ConnectionProfile } from '@kamehadb/shared';
+import { type ConnectionProfile, isSqlKind } from '@kamehadb/shared';
 import { RefreshCw } from 'lucide-react';
 
 export type ConnectionStatus = 'connected' | 'slow' | 'reconnecting' | 'disconnected';
@@ -18,7 +18,7 @@ export function getStatusLabel(status: ConnectionStatus, latency?: number) {
 }
 
 export function isSqlLike(kind: string) {
-  return kind !== 'mongodb' && kind !== 'redis' && kind !== 'qdrant' && kind !== 'tigerbeetle';
+  return isSqlKind(kind);
 }
 
 export function SpinningRefresh({ spinning, className = '' }: { spinning: boolean; className?: string }) {

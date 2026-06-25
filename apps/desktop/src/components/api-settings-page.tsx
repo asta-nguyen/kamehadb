@@ -1,6 +1,7 @@
-import { useReducer, useMemo, type ReactNode } from 'react';
+import { useReducer, useMemo, useCallback } from 'react';
 import * as React from 'react';
-import { ArrowLeft, Bot, Cloud, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, EyeOff, Eye, RefreshCw, Route, Save } from 'lucide-react';
+import { Ollama as OllamaLogo, OpenAI as OpenAILogo } from '@lobehub/icons';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,10 @@ import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared'
 
 const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router'];
 
+type ProviderIconProps = { className?: string };
+
+type ProviderIcon = React.ComponentType<ProviderIconProps>;
+
 const PROVIDER_META: Record<
   AIProvider,
   {
@@ -22,7 +27,7 @@ const PROVIDER_META: Record<
     description: string;
     modelPlaceholder: string;
     baseUrlPlaceholder: string;
-    icon: typeof Bot;
+    icon: ProviderIcon;
   }
 > = {
   'ollama-local': {
@@ -30,28 +35,28 @@ const PROVIDER_META: Record<
     description: 'Run models on this machine with the local Ollama daemon.',
     modelPlaceholder: 'llama3.1',
     baseUrlPlaceholder: 'http://localhost:11434/v1',
-    icon: ServerCog,
+    icon: (props: ProviderIconProps) => <OllamaLogo size={20} className={props.className} />,
   },
   'ollama-cloud': {
     label: 'Ollama Cloud',
     description: 'Use a remote Ollama-compatible endpoint with your API token.',
     modelPlaceholder: 'llama3.1:70b',
     baseUrlPlaceholder: 'https://your-ollama-endpoint/v1',
-    icon: Cloud,
+    icon: (props: ProviderIconProps) => <OllamaLogo size={20} className={props.className} />,
   },
   openai: {
     label: 'OpenAI',
     description: 'Direct OpenAI API access for GPT models.',
     modelPlaceholder: 'gpt-4o',
     baseUrlPlaceholder: 'https://api.openai.com/v1',
-    icon: Sparkles,
+    icon: (props: ProviderIconProps) => <OpenAILogo size={20} className={props.className} />,
   },
   '9router': {
     label: '9Router',
     description: 'Self-hosted or remote OpenAI-compatible 9Router endpoint for model routing.',
     modelPlaceholder: 'openai/gpt-4o',
     baseUrlPlaceholder: 'https://router.example.com/v1',
-    icon: Bot,
+    icon: (props: ProviderIconProps) => <Route className={props.className} />,
   },
 };
 
@@ -59,30 +64,10 @@ function createEmptySettings(): AISettings {
   return {
     activeProvider: 'openai',
     providers: {
-      'ollama-local': {
-        enabled: false,
-        model: 'llama3.1',
-        baseUrl: 'http://localhost:11434/v1',
-        apiKey: '',
-      },
-      'ollama-cloud': {
-        enabled: false,
-        model: '',
-        baseUrl: '',
-        apiKey: '',
-      },
-      openai: {
-        enabled: false,
-        model: 'gpt-4o',
-        baseUrl: '',
-        apiKey: '',
-      },
-      '9router': {
-        enabled: false,
-        model: '',
-        baseUrl: '',
-        apiKey: '',
-      },
+      'ollama-local': { enabled: false, model: 'llama3.1', baseUrl: 'http://localhost:11434/v1', apiKey: '' },
+      'ollama-cloud': { enabled: false, model: '', baseUrl: '', apiKey: '' },
+      openai: { enabled: false, model: 'gpt-4o', baseUrl: '', apiKey: '' },
+      '9router': { enabled: false, model: '', baseUrl: '', apiKey: '' },
     },
   };
 }
@@ -111,33 +96,17 @@ function providerNeedsBaseUrl(provider: AIProvider) {
 }
 
 function getProviderStatus(provider: AIProvider, config: AIProviderConfig) {
-  if (!config.enabled) return 'Not configured';
-  if (!config.model.trim()) return 'Needs model';
-  if (providerNeedsApiKey(provider) && !config.apiKey?.trim()) return 'Missing API key';
-  if (providerNeedsBaseUrl(provider) && !config.baseUrl?.trim()) return 'Needs base URL';
-  return 'Configured';
+  if (!config.enabled) return { label: 'Not configured', severity: 'muted' as const };
+  if (!config.model.trim()) return { label: 'Needs model', severity: 'warning' as const };
+  if (providerNeedsApiKey(provider) && !config.apiKey?.trim())
+    return { label: 'Missing API key', severity: 'warning' as const };
+  if (providerNeedsBaseUrl(provider) && !config.baseUrl?.trim())
+    return { label: 'Needs base URL', severity: 'warning' as const };
+  return { label: 'Ready', severity: 'good' as const };
 }
 
-function getProviderAvailabilityStatus(provider: AIProvider, config: AIProviderConfig, isActive: boolean): string {
-  if (isActive) return 'Active';
-  const status = getProviderStatus(provider, config);
-  return status === 'Configured' ? 'Inactive' : status;
-}
+// ─── Reducer ──────────────────────────────────────────────────────────
 
-function Field({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <div className="space-y-0.5">
-        <Label className="text-sm font-medium">{label}</Label>
-        {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-// Group the related draft/provider/snapshot state into one reducer so a single
-// dispatch produces a single re-render instead of three.
 type SettingsState = {
   selectedProvider: AIProvider;
   draft: AISettings;
@@ -148,11 +117,7 @@ type SettingsAction =
   | { type: 'loadFromServer'; settings: AISettings }
   | { type: 'selectProvider'; provider: AIProvider }
   | { type: 'setActiveProvider'; provider: AIProvider }
-  | {
-      type: 'updateProvider';
-      provider: AIProvider;
-      updates: Partial<AIProviderConfig>;
-    }
+  | { type: 'updateProvider'; provider: AIProvider; updates: Partial<AIProviderConfig> }
   | { type: 'resetSelected'; savedSnapshot: AISettings }
   | { type: 'discard'; savedSnapshot: AISettings }
   | { type: 'commit'; savedSnapshot: AISettings };
@@ -174,13 +139,7 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
           ...state.draft,
           activeProvider: action.provider,
           providers: Object.fromEntries(
-            PROVIDER_ORDER.map((provider) => [
-              provider,
-              {
-                ...state.draft.providers[provider],
-                enabled: provider === action.provider,
-              },
-            ]),
+            PROVIDER_ORDER.map((p) => [p, { ...state.draft.providers[p], enabled: p === action.provider }]),
           ) as AISettings['providers'],
         },
       };
@@ -191,10 +150,7 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
           ...state.draft,
           providers: {
             ...state.draft.providers,
-            [action.provider]: {
-              ...state.draft.providers[action.provider],
-              ...action.updates,
-            },
+            [action.provider]: { ...state.draft.providers[action.provider], ...action.updates },
           },
         },
       };
@@ -216,43 +172,9 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
   }
 }
 
-function ApiSettingsHeader({ draft }: { draft: AISettings }) {
-  const activeConfig = draft.providers[draft.activeProvider];
-  const activeStatus = getProviderAvailabilityStatus(draft.activeProvider, activeConfig, true);
-  return (
-    <div className="border-b border-border">
-      <div className="flex flex-wrap items-start gap-3 px-5 py-4">
-        <Button variant="ghost" size="icon-sm" onClick={() => navigateTo('workspace')} title="Back to workspace">
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-lg font-semibold tracking-tight">API Settings</h1>
-            <Badge variant="outline" className="bg-background/70 text-xs">
-              Local user profile
-            </Badge>
-          </div>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            Manage provider credentials for the current desktop user. You can keep multiple providers ready and switch
-            the active one without losing drafts.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/80 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="size-2 rounded-full bg-primary" />
-            <span className="text-sm font-medium">{PROVIDER_META[draft.activeProvider].label}</span>
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {activeStatus}
-          </Badge>
-          <span className="text-xs text-muted-foreground">{activeConfig?.model || 'No model'}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+// ─── Provider List (sidebar) ──────────────────────────────────────────
 
-function ProviderSidebar({
+function ProviderList({
   draft,
   selectedProvider,
   onSelect,
@@ -262,96 +184,71 @@ function ProviderSidebar({
   onSelect: (p: AIProvider) => void;
 }) {
   return (
-    <aside className="w-full shrink-0 border-b border-border bg-muted/5 lg:w-55 lg:border-r lg:border-b-0">
-      <div className="space-y-1 p-3">
-        {PROVIDER_ORDER.map((provider) => {
-          const meta = PROVIDER_META[provider];
-          const isActive = provider === draft.activeProvider;
-          const status = getProviderAvailabilityStatus(provider, draft.providers[provider], isActive);
-          const Icon = meta.icon;
-          const isSelected = provider === selectedProvider;
+    <div className="flex flex-col gap-2">
+      {PROVIDER_ORDER.map((provider) => {
+        const isActive = provider === draft.activeProvider;
+        const isSelected = provider === selectedProvider;
+        const status = getProviderStatus(provider, draft.providers[provider]);
+        const Icon = PROVIDER_META[provider].icon;
 
-          return (
-            <Button
-              key={provider}
-              variant="ghost"
-              onClick={() => onSelect(provider)}
-              className={`group w-full h-auto justify-start font-normal gap-3 py-2 ${
-                isSelected ? 'bg-background shadow-sm ring-1 ring-inset ring-border' : 'hover:bg-muted/50'
+        return (
+          <Button
+            key={provider}
+            variant="ghost"
+            onClick={() => onSelect(provider)}
+            className={`group h-auto flex items-center gap-2.5 rounded-lg px-3 py-3 text-left transition-all ${
+              isSelected ? 'bg-accent shadow-sm ring-1 ring-border' : 'hover:bg-accent/60'
+            }`}
+          >
+            <div
+              className={`flex size-8 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+                isSelected
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-border bg-muted/30 text-muted-foreground'
               }`}
             >
-              <div
-                className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  isSelected
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground group-hover:bg-muted'
+              <Icon className="size-4" />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span
+                className={`truncate text-xs font-medium ${isSelected ? 'text-foreground' : 'text-muted-foreground'}`}
+              >
+                {PROVIDER_META[provider].label}
+              </span>
+              <span
+                className={`truncate text-[10px] leading-none ${
+                  status.severity === 'good'
+                    ? 'text-green-600 dark:text-green-400'
+                    : status.severity === 'warning'
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-muted-foreground/50'
                 }`}
               >
-                <Icon className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium" title={meta.label}>
-                    {meta.label}
-                  </span>
-                  {isActive ? (
-                    <Badge variant="default" className="h-5 px-1.5 text-[10px]">
-                      Active
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="truncate text-xs text-muted-foreground" title={status}>
-                  {status}
-                </div>
-              </div>
-            </Button>
-          );
-        })}
-      </div>
-    </aside>
-  );
-}
-
-function ProviderHeader({
-  selectedProvider,
-  config,
-  isActive,
-  onSetActive,
-}: {
-  selectedProvider: AIProvider;
-  config: AIProviderConfig;
-  isActive: boolean;
-  onSetActive: () => void;
-}) {
-  const SelectedIcon = PROVIDER_META[selectedProvider].icon;
-  const status = getProviderAvailabilityStatus(selectedProvider, config, isActive);
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <SelectedIcon className="size-4" />
-        </div>
-        <div>
-          <h2 className="text-base font-semibold">{PROVIDER_META[selectedProvider].label}</h2>
-          <p className="text-xs text-muted-foreground">{status}</p>
-        </div>
-      </div>
-      {isActive ? (
-        <Badge variant="default" className="text-xs">
-          Active
-        </Badge>
-      ) : (
-        <Button variant="outline" size="sm" onClick={onSetActive}>
-          Set active
-        </Button>
-      )}
+                {status.label}
+              </span>
+            </div>
+            {isActive && (
+              <Badge
+                variant="outline"
+                className="size-4 shrink-0 items-center justify-center rounded-full border-green-500/20 bg-green-500/10 p-0"
+              >
+                <Check className="size-2.5 text-green-600 dark:text-green-400" />
+              </Badge>
+            )}
+          </Button>
+        );
+      })}
     </div>
   );
 }
 
+// ─── Provider Form ────────────────────────────────────────────────────
+
 function ProviderForm({
   selectedProvider,
   config,
+  isActive,
+  onSetActive,
   modelsWithCustom,
   modelsLoading,
   onModelChange,
@@ -361,6 +258,8 @@ function ProviderForm({
 }: {
   selectedProvider: AIProvider;
   config: AIProviderConfig;
+  isActive: boolean;
+  onSetActive: () => void;
   modelsWithCustom: string[];
   modelsLoading: boolean;
   onModelChange: (v: string) => void;
@@ -368,123 +267,185 @@ function ProviderForm({
   onFetchModels: () => void;
   canFetchModels: boolean;
 }) {
+  const [showKey, setShowKey] = React.useState(false);
+  const status = getProviderStatus(selectedProvider, config);
+  const SelectedIcon = PROVIDER_META[selectedProvider].icon;
+
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
-      <Field
-        label="Model"
-        description="The default model for AI chat. Select from available models or type a custom name."
-      >
-        <div className="flex gap-2">
-          {modelsWithCustom.length > 0 ? (
-            <Select
-              value={modelsWithCustom.includes(config.model) ? config.model : undefined}
-              onValueChange={(v) => {
-                if (v && v !== '__custom') onModelChange(v);
-              }}
-            >
-              <SelectTrigger className="h-9 flex-1">
-                <SelectValue placeholder="Select a model..." />
-              </SelectTrigger>
-              <SelectContent>
-                {modelsWithCustom.map((model) => (
-                  <SelectItem key={model} value={model}>
-                    {model}
-                  </SelectItem>
-                ))}
-                <SelectItem value="__custom">Custom…</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input
-              value={config.model}
-              onChange={(e) => onUpdateField({ model: e.target.value })}
-              placeholder={PROVIDER_META[selectedProvider].modelPlaceholder}
-              className="h-9 flex-1"
-            />
-          )}
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0 size-9"
-            onClick={onFetchModels}
-            disabled={modelsLoading || !canFetchModels}
-            title="Fetch available models"
-          >
-            {modelsLoading ? <Spinner size="sm" className="size-3.5" /> : <RefreshCw className="size-3.5" />}
-          </Button>
+    <div className="flex flex-col gap-5">
+      {/* Provider header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-muted-foreground/5 border border-border/20 density-compact:rounded-lg">
+            <SelectedIcon className="size-5 text-primary" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-sm font-semibold">{PROVIDER_META[selectedProvider].label}</h2>
+            <p className="text-xs text-muted-foreground/60">{PROVIDER_META[selectedProvider].description}</p>
+          </div>
         </div>
-      </Field>
+        {isActive ? (
+          <Badge
+            variant="outline"
+            className="gap-1.5 rounded-full border-green-500/20 bg-green-500/10 px-2.5 py-1 text-xs font-medium text-green-600 dark:text-green-400"
+          >
+            <span className="size-1.5 rounded-full bg-green-500" />
+            Active
+          </Badge>
+        ) : (
+          <Button variant="outline" size="sm" onClick={onSetActive} className="gap-1.5">
+            <Check className="size-3" />
+            Set Active
+          </Button>
+        )}
+      </div>
 
-      <Field
-        label="Base URL"
-        description={
-          selectedProvider === 'openai'
-            ? 'Leave blank for official OpenAI endpoint.'
-            : selectedProvider === 'ollama-local'
-              ? 'Defaults to localhost if unchanged.'
-              : selectedProvider === '9router'
-                ? 'Required. Point this at your self-hosted or managed 9Router OpenAI-compatible endpoint.'
-                : 'Required for remote endpoints.'
-        }
+      {/* Status badge */}
+      <Badge
+        variant="outline"
+        className={`w-fit gap-2 rounded-lg px-3 py-2 text-xs ${
+          status.severity === 'good'
+            ? 'border-green-500/20 bg-green-500/5 text-green-600 dark:text-green-400'
+            : status.severity === 'warning'
+              ? 'border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400'
+              : 'border-border/30 bg-muted/20 text-muted-foreground'
+        }`}
       >
-        <Input
-          value={config.baseUrl ?? ''}
-          onChange={(e) => onUpdateField({ baseUrl: e.target.value })}
-          placeholder={PROVIDER_META[selectedProvider].baseUrlPlaceholder}
-          className="h-9"
+        <span
+          className={`size-1.5 rounded-full ${
+            status.severity === 'good'
+              ? 'bg-green-500'
+              : status.severity === 'warning'
+                ? 'bg-amber-400'
+                : 'bg-muted-foreground/30'
+          }`}
         />
-      </Field>
+        {status.label}
+      </Badge>
 
-      {providerNeedsApiKey(selectedProvider) ? (
-        <Field label="API Key" description="Stored locally. Sent only to the selected provider.">
+      {/* Form fields */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs font-medium text-foreground/70">Model</Label>
+          <div className="flex gap-2">
+            {modelsWithCustom.length > 0 ? (
+              <Select
+                value={modelsWithCustom.includes(config.model) ? config.model : undefined}
+                onValueChange={(v) => {
+                  if (v && v !== '__custom') onModelChange(v);
+                }}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select a model..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelsWithCustom.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom">Custom…</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={config.model}
+                onChange={(e) => onUpdateField({ model: e.target.value })}
+                placeholder={PROVIDER_META[selectedProvider].modelPlaceholder}
+                className="flex-1"
+              />
+            )}
+            {canFetchModels && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                onClick={onFetchModels}
+                disabled={modelsLoading}
+                title="Fetch available models"
+              >
+                {modelsLoading ? <Spinner size="sm" /> : <RefreshCw className="size-3.5" />}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-xs font-medium text-foreground/70">Base URL</Label>
           <Input
-            type="password"
-            value={config.apiKey ?? ''}
-            onChange={(e) => onUpdateField({ apiKey: e.target.value })}
-            placeholder="sk-..."
-            className="h-9"
+            value={config.baseUrl ?? ''}
+            onChange={(e) => onUpdateField({ baseUrl: e.target.value })}
+            placeholder={PROVIDER_META[selectedProvider].baseUrlPlaceholder}
           />
-        </Field>
-      ) : null}
+        </div>
+
+        {providerNeedsApiKey(selectedProvider) && (
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs font-medium text-foreground/70">API Key</Label>
+            <div className="relative">
+              <Input
+                type={showKey ? 'text' : 'password'}
+                value={config.apiKey ?? ''}
+                onChange={(e) => onUpdateField({ apiKey: e.target.value })}
+                placeholder="sk-..."
+                className="pr-8"
+              />
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-1 text-muted-foreground hover:text-foreground"
+                style={{ top: '50%', translate: '0 -50%' }}
+                tabIndex={-1}
+              >
+                {showKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
+// ─── Footer ───────────────────────────────────────────────────────────
+
 function SettingsFooter({
   hasUnsavedChanges,
   isSaving,
-  onReset,
   onDiscard,
   onSave,
 }: {
   hasUnsavedChanges: boolean;
   isSaving: boolean;
-  onReset: () => void;
   onDiscard: () => void;
   onSave: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onReset}>
-          Reset
-        </Button>
-        <span className={`text-xs ${hasUnsavedChanges ? 'text-muted-foreground' : 'text-primary'}`}>
-          {hasUnsavedChanges ? 'Unsaved changes' : 'Saved'}
+    <div className="flex items-center justify-between border-t border-border bg-background px-6 py-3">
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-block size-1.5 rounded-full transition-colors ${hasUnsavedChanges ? 'bg-amber-400' : 'bg-green-500'}`}
+        />
+        <span className="text-xs text-muted-foreground">
+          {hasUnsavedChanges ? 'Unsaved changes' : 'All changes saved'}
         </span>
       </div>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onDiscard} disabled={!hasUnsavedChanges || isSaving}>
           Discard
         </Button>
-        <Button size="sm" onClick={onSave} disabled={!hasUnsavedChanges || isSaving}>
-          {isSaving ? <Spinner size="sm" className="size-3.5" /> : <Save className="size-3.5" />}
+        <Button size="sm" onClick={onSave} disabled={!hasUnsavedChanges || isSaving} className="gap-1.5">
+          {isSaving ? <Spinner size="sm" /> : <Save className="size-3.5" />}
           Save
         </Button>
       </div>
     </div>
   );
 }
+
+// ─── Main Page ─────────────────────────────────────────────────────────
 
 export function ApiSettingsPage() {
   const { data: savedSettings, isLoading } = useAISettings();
@@ -495,15 +456,12 @@ export function ApiSettingsPage() {
     savedSnapshot: createEmptySettings(),
   }));
 
-  // Reset the draft and snapshot whenever the server's saved settings change.
-  // Adjusting state inline (per react.dev/learn/you-might-not-need-an-effect)
-  // so we don't briefly render stale data.
-  const [prevSavedSettings, setPrevSavedSettings] = React.useState(savedSettings);
+  // Sync saved settings into reducer (inline, no effect)
+  const [prevSavedSettings, setPrevSavedSettings] = React.useState<AISettings | undefined>(undefined);
   if (savedSettings !== prevSavedSettings) {
     setPrevSavedSettings(savedSettings);
     if (savedSettings) {
-      const normalized = normalizeSettings(savedSettings);
-      dispatch({ type: 'loadFromServer', settings: normalized });
+      dispatch({ type: 'loadFromServer', settings: normalizeSettings(savedSettings) });
     }
   }
 
@@ -531,73 +489,83 @@ export function ApiSettingsPage() {
   });
 
   const availableModels = modelsData?.models ?? [];
-
   const modelsWithCustom = useMemo(() => {
     const savedModel = selectedConfig.model;
-    if (!savedModel || availableModels.includes(savedModel)) {
-      return availableModels;
-    }
+    if (!savedModel || availableModels.includes(savedModel)) return availableModels;
     return [savedModel, ...availableModels];
   }, [availableModels, selectedConfig.model]);
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     const payload = normalizeSettings(state.draft);
     await saveSettings.mutateAsync(payload);
     dispatch({ type: 'commit', savedSnapshot: payload });
-  }
+  }, [state.draft, saveSettings]);
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col bg-background overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-border/80">
-      <ApiSettingsHeader draft={state.draft} />
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-background">
+      {/* Top header bar */}
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-gradient-to-r from-background via-background to-muted/20 px-6 py-3">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => navigateTo('workspace')}
+            title="Back to workspace"
+            className="rounded-lg text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="size-4" />
+          </Button>
+          <div>
+            <h1 className="text-base font-semibold tracking-tight">API Settings</h1>
+            <p className="text-xs text-muted-foreground/70">Local user</p>
+          </div>
+        </div>
+      </div>
 
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center">
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <ProviderSidebar
-            draft={state.draft}
-            selectedProvider={state.selectedProvider}
-            onSelect={(p) => dispatch({ type: 'selectProvider', provider: p })}
-          />
+        <>
+          <div className="flex min-h-0 flex-1">
+            {/* Provider list sidebar */}
+            <aside className="api-settings-sidebar w-56 shrink-0 border-r border-border bg-muted/20 overflow-y-auto px-4 py-6">
+              <ProviderList
+                draft={state.draft}
+                selectedProvider={state.selectedProvider}
+                onSelect={(p) => dispatch({ type: 'selectProvider', provider: p })}
+              />
+            </aside>
 
-          <section className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 px-5 py-5">
-              <div className="space-y-4">
-                <ProviderHeader
-                  selectedProvider={state.selectedProvider}
-                  config={selectedConfig}
-                  isActive={state.selectedProvider === state.draft.activeProvider}
-                  onSetActive={() => dispatch({ type: 'setActiveProvider', provider: state.selectedProvider })}
-                />
-
-                <ProviderForm
-                  selectedProvider={state.selectedProvider}
-                  config={selectedConfig}
-                  modelsWithCustom={modelsWithCustom}
-                  modelsLoading={modelsLoading}
-                  onModelChange={(v) =>
-                    dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates: { model: v } })
-                  }
-                  onUpdateField={(updates) =>
-                    dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
-                  }
-                  onFetchModels={() => refetchModels()}
-                  canFetchModels={!!selectedConfig.baseUrl?.trim()}
-                />
-
-                <SettingsFooter
-                  hasUnsavedChanges={hasUnsavedChanges}
-                  isSaving={saveSettings.isPending}
-                  onReset={() => dispatch({ type: 'resetSelected', savedSnapshot: state.savedSnapshot })}
-                  onDiscard={() => dispatch({ type: 'discard', savedSnapshot: state.savedSnapshot })}
-                  onSave={handleSave}
-                />
-              </div>
+            {/* Form area */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <ProviderForm
+                selectedProvider={state.selectedProvider}
+                config={selectedConfig}
+                isActive={state.selectedProvider === state.draft.activeProvider}
+                onSetActive={() => dispatch({ type: 'setActiveProvider', provider: state.selectedProvider })}
+                modelsWithCustom={modelsWithCustom}
+                modelsLoading={modelsLoading}
+                onModelChange={(v) =>
+                  dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates: { model: v } })
+                }
+                onUpdateField={(updates) =>
+                  dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
+                }
+                onFetchModels={() => refetchModels()}
+                canFetchModels={!!selectedConfig.baseUrl?.trim()}
+              />
             </div>
-          </section>
-        </div>
+          </div>
+
+          <SettingsFooter
+            hasUnsavedChanges={hasUnsavedChanges}
+            isSaving={saveSettings.isPending}
+            onDiscard={() => dispatch({ type: 'discard', savedSnapshot: state.savedSnapshot })}
+            onSave={handleSave}
+          />
+        </>
       )}
     </div>
   );

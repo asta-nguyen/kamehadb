@@ -117,11 +117,11 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
   const handleCapture = async () => {
     try {
       const result = await capture(connectionId);
-      toast.success(`Snapshot captured — ${result.tableCount} tables`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_SNAPSHOTS(connectionId) }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_CHANGELOG(connectionId) }),
       ]);
+      toast.success(`Snapshot captured — ${result.tableCount} tables`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Capture failed';
       toast.error(message);
@@ -148,7 +148,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs gap-1"
+              className="h-8 text-xs gap-1"
               onClick={() => openSchemaDiffTab(connectionId)}
             >
               <GitCompare className="size-3.5" />
@@ -158,7 +158,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
           <Button
             variant="default"
             size="sm"
-            className="h-7 text-xs gap-1"
+            className="h-8 text-xs gap-1"
             onClick={handleCapture}
             disabled={capturing}
           >
@@ -175,12 +175,12 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
+        <div className="flex items-center justify-center py-8">
           <Spinner size="lg" />
         </div>
       ) : entries.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">
             <Camera className="size-8 mx-auto mb-2 opacity-40" />
             <p>No snapshots yet</p>
             <p className="text-xs mt-1">Click "Capture Snapshot" to save the current schema</p>

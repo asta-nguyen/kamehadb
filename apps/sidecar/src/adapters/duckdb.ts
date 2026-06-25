@@ -12,60 +12,71 @@ import type {
   QueryColumn,
   TableStats,
 } from '@kamehadb/shared';
+import { ESCAPE_ID } from '../lib/sql-escape.js';
 
 export async function testDuckDBConnection(filePath: string): Promise<TestConnectionResult> {
   try {
-    const m = await import('duckdb');
-    const duckdb = m.default || m;
-    const rows = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
-      const db = new duckdb.Database(filePath);
-      db.all('SELECT version() AS version', (err, rows) => {
-        db.close();
-        if (err) reject(err);
-        else resolve(rows as Record<string, unknown>[]);
-      });
-    });
-    return { success: true, serverVersion: String(rows[0]?.VERSION || '') };
+    const { DuckDBInstance } = await import('@duckdb/node-api');
+    const inst = await DuckDBInstance.create(filePath);
+    const conn = await inst.connect();
+    const result = await conn.run('SELECT version() AS version');
+    const rows = await result.getRowObjects();
+    inst.closeSync();
+    return { success: true, serverVersion: String(rows[0]?.version || '') };
   } catch (err) {
     return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
   }
 }
 
-function escapeId(id: string): string {
-  return '"' + id.replace(/"/g, '""') + '"';
-}
+const escapeId = ESCAPE_ID.doubleQuote;
 
 function escapeVal(val: string): string {
   return "'" + val.replace(/'/g, "''") + "'";
 }
 
 export function createDuckDbAdapter(filePath: string): SqlAdapter {
-  // Lazy-init: duckdb is imported on first method call, not at construction.
-  let db: any = null;
-  let duckdbModule: any = null;
+  let inst: any = null;
+  let conn: any = null;
 
   async function ensureDb() {
-    if (!db) {
-      duckdbModule = duckdbModule || (await import('duckdb')).default || (await import('duckdb'));
-      db = new duckdbModule.Database(filePath);
+    if (!inst) {
+      const { DuckDBInstance } = await import('@duckdb/node-api');
+      inst = await DuckDBInstance.create(filePath);
+      conn = await inst.connect();
     }
+  }
+
+  function serializeRow(row: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(row)) {
+      if (typeof val === 'bigint') {
+        out[key] = Number(val);
+      } else if (val && typeof val === 'object' && typeof (val as any).toString === 'function') {
+        const str = (val as any).toString();
+        if (str.startsWith('Thu Jan 01 1970') || str.includes('T') || str.match(/^\d{4}-\d{2}-\d{2}/)) {
+          out[key] = str;
+        } else {
+          out[key] = val;
+        }
+      } else {
+        out[key] = val;
+      }
+    }
+    return out;
   }
 
   async function q<T>(sql: string): Promise<T[]> {
     await ensureDb();
-    return new Promise((resolve, reject) => {
-      db!.all(sql, (err: any, rows: T[]) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+    const result = await conn.run(sql);
+    const rows = await result.getRowObjects();
+    return rows.map((r: Record<string, unknown>) => serializeRow(r)) as T[];
   }
 
   return {
     async testConnection(): Promise<TestConnectionResult> {
       try {
         const rows = await q<Record<string, string>>('SELECT version() AS version');
-        return { success: true, serverVersion: rows[0]?.VERSION || '' };
+        return { success: true, serverVersion: rows[0]?.version || '' };
       } catch (err) {
         return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
       }
@@ -73,14 +84,14 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
 
     async listDatabases(): Promise<DatabaseInfo[]> {
       const rows = await q<Record<string, string>>('SELECT current_database() AS name');
-      return rows.map((r) => ({ name: r.NAME }));
+      return rows.map((r) => ({ name: r.name }));
     },
 
     async listSchemas(): Promise<SchemaInfo[]> {
       const rows = await q<Record<string, string>>(
-        "SELECT schema_name AS name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema' ORDER BY schema_name",
+        "SELECT DISTINCT schema_name AS name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema' ORDER BY schema_name",
       );
-      return rows.map((r) => ({ name: r.NAME }));
+      return rows.map((r) => ({ name: r.name }));
     },
 
     async listTables(schema?: string): Promise<TableInfo[]> {
@@ -247,9 +258,10 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
     },
 
     async close(): Promise<void> {
-      if (db) {
-        db.close();
-        db = null;
+      if (inst) {
+        inst.closeSync();
+        inst = null;
+        conn = null;
       }
     },
   };

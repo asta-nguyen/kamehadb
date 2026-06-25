@@ -118,7 +118,7 @@ export function ChartView({ result }: { result: QueryResult }) {
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-muted-foreground font-medium">Chart:</span>
           <Select value={chartKind} onValueChange={(v) => setChartKind(v as ChartKind)}>
-            <SelectTrigger className="w-24 h-7 text-xs">
+            <SelectTrigger className="w-24 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -148,7 +148,7 @@ export function ChartView({ result }: { result: QueryResult }) {
               if (chartKind === 'pie') setYColumns(numColumns.length > 0 ? [numColumns[0]] : []);
             }}
           >
-            <SelectTrigger className="w-auto min-w-28 h-7 text-xs">
+            <SelectTrigger className="w-auto min-w-28 h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -165,7 +165,7 @@ export function ChartView({ result }: { result: QueryResult }) {
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground font-medium">Y-axis:</span>
             <Select value={yColumns[0] ?? ''} onValueChange={handleYChange}>
-              <SelectTrigger className="w-auto min-w-28 h-7 text-xs">
+              <SelectTrigger className="w-auto min-w-28 h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -181,7 +181,7 @@ export function ChartView({ result }: { result: QueryResult }) {
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-muted-foreground font-medium">Value:</span>
             <Select value={yColumns[0] ?? ''} onValueChange={handleYChange}>
-              <SelectTrigger className="w-auto min-w-28 h-7 text-xs">
+              <SelectTrigger className="w-auto min-w-28 h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

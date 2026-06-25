@@ -1,5 +1,5 @@
 import { ArrowUpDown, BarChart3, Download, FileJson, FileSpreadsheet, List, Search, Table2, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/variants';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MongoViewHeaderProps {
   searchText: string;
@@ -39,7 +40,7 @@ export function MongoViewHeader({
   onExportCSV,
 }: MongoViewHeaderProps) {
   return (
-    <div className="px-4 py-2 border-b border-border">
+    <div className="mongo-view-header px-4 py-2 border-b border-border">
       <div className="flex flex-wrap gap-1.5 items-end">
         <div className="flex-1 min-w-48">
           <div className="relative">
@@ -48,14 +49,14 @@ export function MongoViewHeader({
               value={searchText}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search all fields..."
-              className="h-7 pl-7 text-xs"
+              className="h-8 pl-8 text-xs"
             />
           </div>
         </div>
         <div className="flex items-end gap-1 self-end">
           <div className="flex items-center gap-1">
             <Select value={sortField} onValueChange={onSortFieldChange}>
-              <SelectTrigger className="h-7 w-28 text-xs gap-1.5 px-2">
+              <SelectTrigger className="h-8 w-28 text-xs gap-1.5 px-2">
                 <ArrowUpDown className="size-3.5 text-muted-foreground" />
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
@@ -70,40 +71,58 @@ export function MongoViewHeader({
               </SelectContent>
             </Select>
             {showSortClear && (
-              <Button variant="ghost" size="icon" onClick={onClearSort} className="h-7 w-7" title="Clear sort">
-                <X className="size-3" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  onClick={onClearSort}
+                  className={buttonVariants({ variant: 'ghost', size: 'icon', className: 'h-8 w-8' })}
+                >
+                  <X className="size-3" />
+                </TooltipTrigger>
+                <TooltipContent>Clear sort</TooltipContent>
+              </Tooltip>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onViewModeChange('list')}
-            className={viewMode === 'list' ? 'bg-muted' : ''}
-            title="List view"
-          >
-            <List className="!size-3.5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onViewModeChange('table')}
-            className={viewMode === 'table' ? 'bg-muted' : ''}
-            title="Table view"
-          >
-            <Table2 className="!size-3.5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onViewModeChange('chart')}
-            className={viewMode === 'chart' ? 'bg-muted' : ''}
-            title="Chart view"
-          >
-            <BarChart3 className="!size-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              onClick={() => onViewModeChange('list')}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'icon',
+                className: viewMode === 'list' ? 'bg-muted' : '',
+              })}
+            >
+              <List className="!size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent>List view</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              onClick={() => onViewModeChange('table')}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'icon',
+                className: viewMode === 'table' ? 'bg-muted' : '',
+              })}
+            >
+              <Table2 className="!size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent>Table view</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              onClick={() => onViewModeChange('chart')}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'icon',
+                className: viewMode === 'chart' ? 'bg-muted' : '',
+              })}
+            >
+              <BarChart3 className="!size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent>Chart view</TooltipContent>
+          </Tooltip>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-muted hover:text-foreground size-8">
+            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-muted hover:text-foreground size-[var(--d-control-icon)]">
               <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

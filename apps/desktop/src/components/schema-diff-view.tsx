@@ -79,7 +79,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
           <GitCompare className="size-4" />
           Schema Diff
         </h2>
-        <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={handleCapture} disabled={isCapturing}>
+        <Button size="sm" className="gap-1.5 text-xs" onClick={handleCapture} disabled={isCapturing}>
           {isCapturing ? <Loader2 className="size-3.5 animate-spin" /> : <Camera className="size-3.5" />}
           {isCapturing ? 'Capturing...' : 'Capture Current Snapshot'}
         </Button>
@@ -93,13 +93,13 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
 
       {isLoading ? (
         <Card>
-          <CardContent className="flex justify-center py-10">
+          <CardContent className="flex justify-center pt-6 pb-6">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </CardContent>
         </Card>
       ) : snapshots.length < 2 ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          <CardContent className="pt-6 pb-6 text-center text-sm text-muted-foreground">
             Capture at least two snapshots before comparing schema states.
           </CardContent>
         </Card>
@@ -117,7 +117,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                 <div className="space-y-1.5">
                   <div className="text-xs text-muted-foreground">From</div>
                   <Select value={fromSnapshotId} onValueChange={handleFromChange}>
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="text-xs h-8">
                       <SelectValue placeholder="Select snapshot" />
                     </SelectTrigger>
                     <SelectContent>
@@ -132,7 +132,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                 <div className="space-y-1.5">
                   <div className="text-xs text-muted-foreground">To</div>
                   <Select value={toSnapshotId} onValueChange={handleToChange}>
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="text-xs h-8">
                       <SelectValue placeholder="Select snapshot" />
                     </SelectTrigger>
                     <SelectContent>
@@ -151,7 +151,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                     key={value}
                     size="sm"
                     variant={filter === value ? 'default' : 'outline'}
-                    className="h-7 px-2.5 text-xs"
+                    className="text-xs"
                     onClick={() => setFilter(value)}
                   >
                     {value}
@@ -163,7 +163,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
 
           {diffQuery.isLoading ? (
             <Card>
-              <CardContent className="flex justify-center py-10">
+              <CardContent className="flex justify-center pt-6 pb-6">
                 <Loader2 className="size-5 animate-spin text-muted-foreground" />
               </CardContent>
             </Card>
@@ -228,7 +228,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
               </div>
               {filteredTableDiffs.length === 0 ? (
                 <Card>
-                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                  <CardContent className="pt-6 pb-6 text-center text-sm text-muted-foreground">
                     No changes match the current filter.
                   </CardContent>
                 </Card>

@@ -26,7 +26,7 @@ import {
   setConnectionStatus,
   toggleExpandedConnection,
 } from '@/store';
-import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
+import { type ConnectionProfile, type DbKind, KIND } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
 import type { ConnectionStatus } from './sidebar.helpers';
@@ -37,11 +37,9 @@ import { DbIcon } from './db-icon';
 import { PostgresBackupDialog } from './postgres-backup-dialog';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { DeleteConfirmDialog } from './sidebar-delete-dialog';
-import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
 import { ConnectionExpansion } from './sidebar-expansion';
 import { ConnectionStatusDot } from './sidebar-status-dot';
 import { ConnectionTooltip } from './sidebar-tooltip';
-import { SpinningRefresh } from './sidebar.helpers';
 
 const ConnectionItem = memo(function ConnectionItem({
   conn,
@@ -74,7 +72,7 @@ const ConnectionItem = memo(function ConnectionItem({
 
   function handleRowActivate() {
     setActiveConnection(conn.id);
-    if (conn.kind === 'redis') {
+    if (conn.kind === KIND.REDIS) {
       openRedisTab(conn.id);
     } else {
       toggleExpandedConnection(conn.id);
@@ -97,7 +95,7 @@ const ConnectionItem = memo(function ConnectionItem({
           isActive ? 'bg-muted/60 shadow-sm' : 'hover:bg-muted/50'
         }`}
       >
-        {conn.kind !== 'redis' ? (
+        {conn.kind !== KIND.REDIS ? (
           expanded ? (
             <ChevronDown className="shrink-0 size-4 transition-colors group-hover:text-foreground/70" />
           ) : (
@@ -114,45 +112,33 @@ const ConnectionItem = memo(function ConnectionItem({
             <span className="min-w-0 flex-1 truncate">{conn.name}</span>
             {pinned && <Pin className="size-3 shrink-0 text-muted-foreground/50" />}
           </TooltipTrigger>
-          <ConnectionTooltip conn={conn} status={status} latency={latency} />
-        </Tooltip>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            refreshConnection.mutate(conn.id);
-          }}
-          disabled={refreshConnection.isPending}
-          className="opacity-0 size-6 disabled:opacity-100 group-hover:opacity-100"
-          title="Reload connection"
-          aria-label="Reload connection"
-        >
-          <SpinningRefresh
-            spinning={refreshConnection.isPending}
-            className="text-muted-foreground/60 hover:text-foreground"
+          <ConnectionTooltip
+            conn={conn}
+            status={status}
+            latency={latency}
+            pinned={pinned}
+            onRefresh={() => refreshConnection.mutate(conn.id)}
+            refreshPending={refreshConnection.isPending}
+            onEdit={() => setShowEdit(true)}
+            onDelete={() => setShowDeleteConfirm(true)}
+            onOpenPsql={
+              conn.kind === KIND.POSTGRES && isTauriRuntime()
+                ? () => {
+                    setActiveConnection(conn.id);
+                    openPostgresPsqlTab(conn.id);
+                  }
+                : undefined
+            }
+            onBackup={conn.kind === KIND.POSTGRES && isTauriRuntime() ? () => setShowBackup(true) : undefined}
+            onRestore={conn.kind === KIND.POSTGRES && isTauriRuntime() ? () => setShowRestore(true) : undefined}
           />
-        </Button>
-        <ConnectionDropdownMenu
-          conn={conn}
-          refreshConnection={refreshConnection}
-          pinned={pinned}
-          onEdit={() => setShowEdit(true)}
-          onDelete={() => setShowDeleteConfirm(true)}
-          onOpenPsql={() => {
-            setActiveConnection(conn.id);
-            openPostgresPsqlTab(conn.id);
-          }}
-          onBackup={() => setShowBackup(true)}
-          onRestore={() => setShowRestore(true)}
-        />
+        </Tooltip>
 
         <ConnectionStatusDot conn={conn} status={status} latency={latency} />
       </div>
 
       {showEdit && <ConnectionDialog open onOpenChange={setShowEdit} editConnection={conn} />}
-      {conn.kind === 'postgres' && isTauriRuntime() && (
+      {conn.kind === KIND.POSTGRES && isTauriRuntime() && (
         <>
           <PostgresBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
           <PostgresRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
@@ -168,7 +154,7 @@ const ConnectionItem = memo(function ConnectionItem({
         }}
       />
 
-      {expanded && conn.kind !== 'redis' && (
+      {expanded && conn.kind !== KIND.REDIS && (
         <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
           <ConnectionExpansion conn={conn} activeTabId={activeTabId} />
         </div>
@@ -297,7 +283,7 @@ export function Sidebar() {
   return (
     <aside
       ref={sidebarRef}
-      className="flex h-full bg-muted/30 border-border border-r"
+      className="sidebar flex h-full bg-muted/30 border-border border-r"
       style={{ width: sidebarWidth, minWidth: sidebarWidth }}
     >
       <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">

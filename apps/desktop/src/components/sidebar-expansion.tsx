@@ -1,4 +1,4 @@
-import type { ConnectionProfile } from '@kamehadb/shared';
+import { type ConnectionProfile, KIND } from '@kamehadb/shared';
 import { appStore } from '@/store';
 import { MongoExplorer } from './mongo-explorer';
 import { QdrantExplorer } from './qdrant-explorer';
@@ -6,9 +6,9 @@ import { TigerBeetleExplorer } from './tigerbeetle-explorer';
 import { SchemaTree } from './schema-tree';
 
 export function ConnectionExpansion({ conn, activeTabId }: { conn: ConnectionProfile; activeTabId: string | null }) {
-  if (conn.kind === 'mongodb') return <MongoExplorer key={conn.id} connectionId={conn.id} />;
-  if (conn.kind === 'qdrant') return <QdrantExplorer key={conn.id} connectionId={conn.id} />;
-  if (conn.kind === 'tigerbeetle') return <TigerBeetleExplorer key={conn.id} connectionId={conn.id} />;
+  if (conn.kind === KIND.MONGODB) return <MongoExplorer key={conn.id} connectionId={conn.id} />;
+  if (conn.kind === KIND.QDRANT) return <QdrantExplorer key={conn.id} connectionId={conn.id} />;
+  if (conn.kind === KIND.TIGERBEETLE) return <TigerBeetleExplorer key={conn.id} connectionId={conn.id} />;
 
   return (
     <SchemaTree

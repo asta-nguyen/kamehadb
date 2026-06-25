@@ -9,7 +9,13 @@ function Card({ className, ref, ...props }: React.ComponentProps<'div'>) {
 Card.displayName = 'Card';
 
 function CardHeader({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} className={cn('flex flex-col space-y-1.5 p-4', className)} {...props} />;
+  return (
+    <div
+      ref={ref}
+      className={cn('flex flex-col space-y-[var(--d-card-gap)] p-[var(--d-card-p)]', className)}
+      {...props}
+    />
+  );
 }
 CardHeader.displayName = 'CardHeader';
 
@@ -24,12 +30,12 @@ function CardDescription({ className, ref, ...props }: React.ComponentProps<'p'>
 CardDescription.displayName = 'CardDescription';
 
 function CardContent({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} className={cn('p-4 pt-0', className)} {...props} />;
+  return <div ref={ref} className={cn('p-[var(--d-card-p)] pt-0', className)} {...props} />;
 }
 CardContent.displayName = 'CardContent';
 
 function CardFooter({ className, ref, ...props }: React.ComponentProps<'div'>) {
-  return <div ref={ref} className={cn('flex items-center p-4 pt-0', className)} {...props} />;
+  return <div ref={ref} className={cn('flex items-center p-[var(--d-card-p)] pt-0', className)} {...props} />;
 }
 CardFooter.displayName = 'CardFooter';
 

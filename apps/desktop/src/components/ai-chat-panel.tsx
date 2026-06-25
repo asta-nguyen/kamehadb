@@ -43,6 +43,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { KIND } from '@kamehadb/shared';
 import { QUERY_KEYS } from '@/lib/query-keys';
 
 /**
@@ -446,12 +447,12 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const prevConnectionIdRef = useRef(connectionId);
 
   const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
-  const isMongoDb = currentConnection?.kind === 'mongodb';
+  const isMongoDb = currentConnection?.kind === KIND.MONGODB;
   const mongoDatabase = isMongoDb ? (appStore.state.activeMongoDatabase ?? undefined) : undefined;
   const chatMode =
-    currentConnection?.kind === 'mongodb'
+    currentConnection?.kind === KIND.MONGODB
       ? CHAT_MODE_CONFIG.mongodb
-      : currentConnection?.kind === 'redis'
+      : currentConnection?.kind === KIND.REDIS
         ? CHAT_MODE_CONFIG.redis
         : CHAT_MODE_CONFIG.sql;
 

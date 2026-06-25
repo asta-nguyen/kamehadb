@@ -1,4 +1,6 @@
 import pg from 'pg';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -116,14 +118,14 @@ export function createPostgresAdapter(connection: {
 
   const pool = new pg.Pool({
     host: connection.host || 'localhost',
-    port: connection.port || 5432,
+    port: connection.port || DEFAULT_PORTS[KIND.POSTGRES],
     database: connection.database,
     user: connection.username,
     password: connection.password,
     ssl: connection.ssl ? { rejectUnauthorized: false } : false,
     max: 5,
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: ADAPTER_TIMEOUTS.CONNECT_LONG,
+    idleTimeoutMillis: ADAPTER_TIMEOUTS.IDLE,
   });
 
   pool.on('error', (err) => {
@@ -628,12 +630,12 @@ export async function testPostgresConnection(input: {
   // "connected" for minutes after the server goes down.
   const client = new pg.Client({
     host: input.host || 'localhost',
-    port: input.port || 5432,
+    port: input.port || DEFAULT_PORTS[KIND.POSTGRES],
     database: input.database,
     user: input.username,
     password: input.password,
     ssl: input.ssl ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: ADAPTER_TIMEOUTS.CONNECT_DEFAULT,
   });
   try {
     await client.connect();
@@ -671,12 +673,12 @@ export async function detectPgVectorCapability(input: {
 }): Promise<PostgresVectorCapability> {
   const client = new pg.Client({
     host: input.host || 'localhost',
-    port: input.port || 5432,
+    port: input.port || DEFAULT_PORTS[KIND.POSTGRES],
     database: input.database,
     user: input.username,
     password: input.password,
     ssl: input.ssl ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 10_000,
+    connectionTimeoutMillis: ADAPTER_TIMEOUTS.CONNECT_LONG,
   });
   try {
     await client.connect();

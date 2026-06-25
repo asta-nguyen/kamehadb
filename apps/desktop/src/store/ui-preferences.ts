@@ -1,4 +1,6 @@
 import type { AppView } from '@/lib/types';
+import type { ThemePreset } from '@/lib/theme-presets';
+import { applyThemePreset, saveThemePreset } from '@/lib/theme-presets';
 import { appStore } from './state';
 
 const LATENCY_SLOW_THRESHOLD = 500;
@@ -68,7 +70,39 @@ export function applyTheme(theme: 'light' | 'dark' | 'system'): void {
   const root = document.documentElement;
   if (theme === 'system') {
     root.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
-    return;
+  } else {
+    root.classList.toggle('dark', theme === 'dark');
   }
-  root.classList.toggle('dark', theme === 'dark');
+  // Re-apply theme preset colors for the new dark/light state
+  const { themePreset } = appStore.state;
+  if (themePreset) {
+    applyThemePreset(themePreset, root.classList.contains('dark'));
+  }
+}
+
+export function setDensity(density: 'compact' | 'comfortable'): void {
+  localStorage.setItem('kamehadb_density', density);
+  appStore.setState((state) => ({ ...state, density }));
+  applyDensity(density);
+}
+
+export function applyDensity(density: 'compact' | 'comfortable'): void {
+  document.documentElement.classList.toggle('density-compact', density === 'compact');
+  // Re-apply theme preset so density vars match the new mode
+  const { themePreset } = appStore.state;
+  if (themePreset) {
+    applyThemePreset(themePreset, document.documentElement.classList.contains('dark'));
+  }
+}
+
+export function setThemePreset(preset: ThemePreset): void {
+  saveThemePreset(preset);
+  appStore.setState((state) => ({ ...state, themePreset: preset }));
+  const isDark = document.documentElement.classList.contains('dark');
+  applyThemePreset(preset, isDark);
+}
+
+export function applyThemePresetToDOM(preset: ThemePreset): void {
+  const isDark = document.documentElement.classList.contains('dark');
+  applyThemePreset(preset, isDark);
 }

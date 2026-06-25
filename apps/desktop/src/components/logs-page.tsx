@@ -218,7 +218,7 @@ export function LogsPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search logs..."
-            className="h-7 text-xs"
+            className="h-8 text-xs"
           />
           <div className="flex items-center gap-0.5 rounded-md border border-border p-0.5 shrink-0">
             {SOURCE_OPTIONS.map((opt) => (

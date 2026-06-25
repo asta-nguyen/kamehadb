@@ -2,16 +2,17 @@ import Database from 'better-sqlite3';
 import {
   type ConnectionProfile,
   isFileDatabaseKind,
+  KIND,
   type FileDatabaseBackupRequest,
   type FileDatabaseMaintenanceResult,
   type FileDatabaseRestoreRequest,
 } from '@kamehadb/shared';
 import { access, copyFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
-import { SQLITE_RELATED_SUFFIXES, DUCKDB_RELATED_SUFFIXES } from './constants.js';
+import { SQLITE_RELATED_SUFFIXES, DUCKDB_RELATED_SUFFIXES, ADAPTER_TIMEOUTS } from './constants.js';
 
 type SupportedFileDatabaseProfile = ConnectionProfile & {
-  readonly kind: 'sqlite' | 'duckdb';
+  readonly kind: typeof KIND.SQLITE | typeof KIND.DUCKDB;
   readonly filePath: string;
 };
 
@@ -50,7 +51,7 @@ export function requireFileDatabaseProfile(profile: ConnectionProfile): Supporte
 // SQLite and DuckDB keep extra sidecar files for write-ahead logs, so restore
 // must either copy them with the main file or remove stale leftovers.
 function relatedSuffixes(kind: SupportedFileDatabaseProfile['kind']): readonly string[] {
-  return kind === 'sqlite' ? SQLITE_RELATED_SUFFIXES : DUCKDB_RELATED_SUFFIXES;
+  return kind === KIND.SQLITE ? SQLITE_RELATED_SUFFIXES : DUCKDB_RELATED_SUFFIXES;
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
@@ -113,7 +114,7 @@ async function backupSqliteDatabase(
   // source database normally uses WAL mode, which avoids shipping log files.
   const db = new Database(sourcePath);
   try {
-    db.pragma('busy_timeout = 5000');
+    db.pragma(`busy_timeout = ${ADAPTER_TIMEOUTS.BUSY}`);
     db.exec(`VACUUM INTO '${escapeSqliteLiteral(request.outputPath)}'`);
   } finally {
     db.close();
@@ -147,7 +148,7 @@ export async function backupFileDatabase(
   }
   ensureDistinctPaths(fileDatabaseProfile.filePath, request.outputPath);
 
-  if (fileDatabaseProfile.kind === 'sqlite') {
+  if (fileDatabaseProfile.kind === KIND.SQLITE) {
     return backupSqliteDatabase(fileDatabaseProfile.filePath, request);
   }
 

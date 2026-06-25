@@ -1,4 +1,6 @@
 import { createClient } from '@clickhouse/client';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -14,6 +16,7 @@ import type {
   TableCompletions,
   TableStats,
 } from '@kamehadb/shared';
+import { ESCAPE_ID } from '../lib/sql-escape.js';
 
 // The @clickhouse/client's result.json() returns { data: [...], meta: [...], rows, statistics },
 // not a bare array. We extract .data to get the row array.
@@ -30,7 +33,7 @@ export async function testClickHouseConnection(connection: {
   password?: string;
 }): Promise<TestConnectionResult> {
   const client = createClient({
-    host: `http://${connection.host || 'localhost'}:${connection.port || 8123}`,
+    host: `http://${connection.host || 'localhost'}:${connection.port || DEFAULT_PORTS[KIND.CLICKHOUSE]}`,
     username: connection.username || 'default',
     password: connection.password ?? '',
     database: connection.database || 'default',
@@ -52,7 +55,7 @@ export function createClickHouseAdapter(connection: {
   password?: string;
 }): SqlAdapter {
   const client = createClient({
-    host: `http://${connection.host || 'localhost'}:${connection.port || 8123}`,
+    host: `http://${connection.host || 'localhost'}:${connection.port || DEFAULT_PORTS[KIND.CLICKHOUSE]}`,
     username: connection.username || 'default',
     password: connection.password ?? '',
     database: connection.database || 'default',
@@ -61,9 +64,7 @@ export function createClickHouseAdapter(connection: {
     },
   });
 
-  function escapeId(id: string): string {
-    return '`' + id.replace(/`/g, '\\`') + '`';
-  }
+  const escapeId = ESCAPE_ID.backtickBackslash;
 
   function escapeVal(val: string): string {
     return "'" + val.replace(/'/g, "\\'") + "'";

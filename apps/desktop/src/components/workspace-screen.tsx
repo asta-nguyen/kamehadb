@@ -5,6 +5,7 @@ import { WorkspaceContent } from '@/components/workspace-content';
 import { WorkspaceTabBar } from '@/components/workspace-tab-bar';
 import { useConnections } from '@/hooks/use-connections';
 import { GREETINGS, KIND_LABELS, KINDS, PROMPTS } from '@/lib/constants';
+import { KIND } from '@kamehadb/shared';
 import { isSqlKind } from '@/lib/constants';
 import { appStore, closeAiChatPanel, openDatabaseStatsTab, openGraphTab, openNewQueryTab } from '@/store';
 import { useStore } from '@tanstack/react-store';
@@ -99,7 +100,7 @@ function Workspace() {
 
   if (!activeConnectionId || !activeConnection) return <WelcomePage greeting={greeting[0]} prompt={greeting[1]} />;
   if (openedTabs.length === 0) {
-    if (activeConnection.kind === 'mongodb' || activeConnection.kind === 'qdrant') {
+    if (activeConnection.kind === KIND.MONGODB || activeConnection.kind === KIND.QDRANT) {
       return (
         <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
           Select a collection from the sidebar

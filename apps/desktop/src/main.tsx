@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { DEFAULT_STALE_TIME, SCHEMA_CACHE_TIME } from '@/lib/constants';
 import App from './App';
 import { ErrorBoundary } from './components/error-boundary';
 import './index.css';
@@ -40,6 +41,14 @@ const queryClient = new QueryClient({
       }
     },
   }),
+  defaultOptions: {
+    queries: {
+      staleTime: DEFAULT_STALE_TIME,
+      gcTime: SCHEMA_CACHE_TIME,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
 });
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(

@@ -1,4 +1,7 @@
 import mysql, { type ExecuteValues } from 'mysql2/promise';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
+import { ESCAPE_ID } from '../lib/sql-escape.js';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -28,7 +31,7 @@ export async function testMysqlConnection(connection: {
 }): Promise<TestConnectionResult> {
   const pool = mysql.createPool({
     host: connection.host || 'localhost',
-    port: connection.port || 3306,
+    port: connection.port || DEFAULT_PORTS[KIND.MYSQL],
     database: connection.database,
     user: connection.username,
     password: connection.password,
@@ -62,7 +65,7 @@ export function createMysqlAdapter(connection: {
 
   const pool = mysql.createPool({
     host: connection.host || 'localhost',
-    port: connection.port || 3306,
+    port: connection.port || DEFAULT_PORTS[KIND.MYSQL],
     database: connection.database,
     user: connection.username,
     password: connection.password,
@@ -71,9 +74,7 @@ export function createMysqlAdapter(connection: {
     enableKeepAlive: true,
   });
 
-  function escapeId(id: string): string {
-    return '`' + id.replace(/`/g, '``') + '`';
-  }
+  const escapeId = ESCAPE_ID.backtickDouble;
 
   async function query(sql: string, params?: ExecuteValues) {
     const [rows] = await pool.execute(sql, params);

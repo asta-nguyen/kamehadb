@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   Key,
   Hash,
-  Table2,
   ChevronLeft,
   ChevronRight,
   FileJson,
@@ -299,7 +298,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               debouncedSearchFn(e.target.value);
             }}
             placeholder="Search all fields..."
-            className="h-7 pl-7 text-xs"
+            className="h-7 pl-8 text-xs"
           />
         </div>
         <div className="flex items-center gap-1">
@@ -644,13 +643,6 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="px-4 py-2 border-b border-border shrink-0">
-        <div className="flex items-center gap-2">
-          <Table2 className="size-4" />
-          <span className="text-sm font-medium">{tableId}</span>
-        </div>
-      </div>
-
       <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
         <div className="px-4 pt-2 shrink-0">
           <TabsList>
@@ -679,18 +671,20 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
             <Table className="text-xs">
               <TableHeader>
                 <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-                  <TableHead className="px-3 py-1.5">Name</TableHead>
-                  <TableHead className="px-3 py-1.5">Type</TableHead>
-                  <TableHead className="px-3 py-1.5">Nullable</TableHead>
-                  <TableHead className="px-3 py-1.5">Default</TableHead>
-                  <TableHead className="px-3 py-1.5">Key</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Name</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Type</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Nullable</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Default</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Key</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {columns?.map((col) => (
                   <TableRow key={col.name} style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-                    <TableCell className="px-3 py-1.5 font-medium">{col.name}</TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground">
+                    <TableCell className="px-3 py-1.5 font-medium truncate" title={col.name}>
+                      {col.name}
+                    </TableCell>
+                    <TableCell className="px-3 py-1.5 text-muted-foreground truncate">
                       <div className="flex items-center gap-1.5">
                         <span>{col.type}</span>
                         {col.isVector && (
@@ -700,11 +694,11 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
+                    <TableCell className="px-3 py-1.5 whitespace-nowrap">{col.nullable ? 'YES' : 'NO'}</TableCell>
+                    <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs truncate">
                       {col.default ?? <span className="italic">null</span>}
                     </TableCell>
-                    <TableCell className="px-3 py-1.5">
+                    <TableCell className="px-3 py-1.5 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         {col.primaryKey && <Key className="size-3 text-muted-foreground" />}
                         {col.foreignKey && (
@@ -725,25 +719,27 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
           <div className="border rounded-md">
             <Table className="text-xs">
               <TableHeader>
-                <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                  <TableHead className="px-3 py-1.5">Name</TableHead>
-                  <TableHead className="px-3 py-1.5">Columns</TableHead>
-                  <TableHead className="px-3 py-1.5">Unique</TableHead>
-                  <TableHead className="px-3 py-1.5">Method</TableHead>
+                <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Name</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Columns</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Unique</TableHead>
+                  <TableHead className="px-3 py-1.5 whitespace-nowrap">Method</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {indexes?.map((idx) => (
                   <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-                    <TableCell className="px-3 py-1.5 font-medium">
+                    <TableCell className="px-3 py-1.5 font-medium truncate" title={idx.name}>
                       <div className="flex items-center gap-1">
                         {idx.primary && <Hash className="size-3 text-muted-foreground" />}
                         {idx.name}
                       </div>
                     </TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</TableCell>
-                    <TableCell className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</TableCell>
-                    <TableCell className="px-3 py-1.5">
+                    <TableCell className="px-3 py-1.5 text-muted-foreground truncate">
+                      {idx.columns.join(', ')}
+                    </TableCell>
+                    <TableCell className="px-3 py-1.5 whitespace-nowrap">{idx.unique ? 'YES' : 'NO'}</TableCell>
+                    <TableCell className="px-3 py-1.5 whitespace-nowrap">
                       {idx.method ? (
                         <Badge variant={idx.method === 'hnsw' || idx.method === 'ivfflat' ? 'secondary' : 'outline'}>
                           {idx.method}

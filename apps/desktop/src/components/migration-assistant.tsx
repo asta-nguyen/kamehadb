@@ -85,13 +85,13 @@ export function MigrationAssistant({
 
       {loading ? (
         <Card>
-          <CardContent className="py-8 flex justify-center">
+          <CardContent className="pt-6 pb-6 flex justify-center">
             <Spinner size="lg" />
           </CardContent>
         </Card>
       ) : snapshots.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="pt-6 pb-6 text-center text-sm text-muted-foreground">
             No snapshots yet. Go to <span className="font-medium text-foreground">Schema Timeline</span> from the
             connection menu to capture one first.
           </CardContent>
@@ -109,7 +109,7 @@ export function MigrationAssistant({
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">From (before)</Label>
                 <Select value={fromId} onValueChange={(value) => value !== null && setFromId(value)}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="text-xs h-8">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
@@ -124,7 +124,7 @@ export function MigrationAssistant({
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">To (after)</Label>
                 <Select value={toId} onValueChange={(value) => value !== null && setToId(value)}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="text-xs h-8">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
@@ -140,7 +140,7 @@ export function MigrationAssistant({
             <Button
               variant="default"
               size="sm"
-              className="mt-3 h-8 text-xs gap-1"
+              className="mt-3 text-xs gap-1"
               onClick={handleGenerate}
               disabled={!fromId || !toId || fromId === toId || generating}
             >
@@ -159,7 +159,7 @@ export function MigrationAssistant({
                 Migration: {new Date(result.fromSnapshot).toLocaleString()} →{' '}
                 {new Date(result.toSnapshot).toLocaleString()} ({result.statements.length} statements)
               </span>
-              <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={handleCopy}>
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
                 {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
                 {copied ? 'Copied' : 'Copy'}
               </Button>

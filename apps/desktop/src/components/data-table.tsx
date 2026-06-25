@@ -33,6 +33,7 @@ export interface DataTableProps<T> {
   suffixWidth?: string;
   suffixHeaderClassName?: string;
   suffixCellClassName?: string;
+  stickySuffix?: boolean;
   fixedTemplate?: string;
   stickyHeader?: boolean;
   onRowClick?: (row: T, index: number) => void;
@@ -62,6 +63,7 @@ export function DataTable<T>({
   suffixWidth = '80px',
   suffixHeaderClassName,
   suffixCellClassName,
+  stickySuffix = true,
   fixedTemplate,
   stickyHeader = false,
   onRowClick,
@@ -118,7 +120,11 @@ export function DataTable<T>({
                 <TableRow style={{ gridTemplateColumns }} className={cn(!stickyHeader && 'bg-muted')}>
                   {prefix && (
                     <TableHead
-                      className={cn(defaultHeaderClass, prefixHeaderClassName, 'sticky left-0 z-30 min-w-0 bg-muted')}
+                      className={cn(
+                        defaultHeaderClass,
+                        prefixHeaderClassName,
+                        'sticky left-0 z-30 min-w-0 bg-muted shadow-[1px_0_0_0_hsl(var(--border))]',
+                      )}
                     >
                       {prefixHeader ?? ''}
                     </TableHead>
@@ -155,7 +161,14 @@ export function DataTable<T>({
                     );
                   })}
                   {suffix && (
-                    <TableHead className={cn(defaultHeaderClass, suffixHeaderClassName, 'min-w-0 text-center')}>
+                    <TableHead
+                      className={cn(
+                        defaultHeaderClass,
+                        suffixHeaderClassName,
+                        'min-w-0 text-center',
+                        stickySuffix && 'sticky right-0 z-30 bg-muted shadow-[-1px_0_0_0_hsl(var(--border))]',
+                      )}
+                    >
                       {suffixHeader ?? ''}
                     </TableHead>
                   )}
@@ -186,14 +199,19 @@ export function DataTable<T>({
                         key={key}
                         style={{ gridTemplateColumns }}
                         className={cn(
-                          'border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors',
+                          'group/row border-b border-border/40 last:border-b-0 bg-background even:bg-muted/5 hover:bg-muted/10 transition-colors',
                           onRowClick && 'cursor-pointer',
                           extraClass,
                         )}
                         onClick={onRowClick ? () => onRowClick(row, rowIndex) : undefined}
                       >
                         {prefix && (
-                          <TableCell className={cn('sticky left-0 z-20 px-2 py-1 bg-inherit', prefixCellClassName)}>
+                          <TableCell
+                            className={cn(
+                              'sticky left-0 z-20 px-2 py-1 bg-inherit shadow-[1px_0_0_0_hsl(var(--border))]',
+                              prefixCellClassName,
+                            )}
+                          >
                             {prefix(row, rowIndex)}
                           </TableCell>
                         )}
@@ -222,7 +240,11 @@ export function DataTable<T>({
                         })}
                         {suffix && (
                           <TableCell
-                            className={cn('px-2 py-1 flex items-center justify-center bg-inherit', suffixCellClassName)}
+                            className={cn(
+                              'px-2 py-1 flex items-center justify-center bg-background',
+                              suffixCellClassName,
+                              stickySuffix && 'sticky right-0 z-20 shadow-[-1px_0_0_0_hsl(var(--border))]',
+                            )}
                           >
                             {suffix(row, rowIndex)}
                           </TableCell>

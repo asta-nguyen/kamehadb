@@ -1,4 +1,6 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
+import { ADAPTER_TIMEOUTS } from '../lib/constants.js';
 import type { Schemas } from '@qdrant/js-client-rest';
 import type {
   QdrantAdapter,
@@ -47,7 +49,7 @@ export function createQdrantAdapter(config: QdrantConfig): QdrantAdapter {
   function getClient(): QdrantClient {
     if (!client) {
       const host = config.host ?? 'localhost';
-      const port = config.port ?? 6333;
+      const port = config.port ?? DEFAULT_PORTS[KIND.QDRANT];
       client = new QdrantClient({ url: `http://${host}:${port}`, checkCompatibility: false });
     }
     return client;

@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { FAST_CACHE_TIME } from '@/lib/constants';
 import { useQuery } from '@tanstack/react-query';
 
 export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?: number) {
@@ -12,7 +13,7 @@ export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?
         { pattern, count: 100, cursor },
       ),
     enabled: !!connectionId,
-    staleTime: 10000,
+    staleTime: FAST_CACHE_TIME,
     retry: 1,
     retryDelay: 1000,
   });
@@ -30,7 +31,7 @@ export function useRedisKeyDetails(connectionId: string | null, key: string | nu
         },
       ),
     enabled: !!connectionId && !!key,
-    staleTime: 10000,
+    staleTime: FAST_CACHE_TIME,
   });
 }
 
@@ -39,7 +40,7 @@ export function useRedisStats(connectionId: string | null, enabled = true) {
     queryKey: QUERY_KEYS.REDIS_STATS(connectionId),
     queryFn: () => api.getRedisStats(connectionId!),
     enabled: !!connectionId && enabled,
-    staleTime: 10000,
+    staleTime: FAST_CACHE_TIME,
     retry: 1,
   });
 }

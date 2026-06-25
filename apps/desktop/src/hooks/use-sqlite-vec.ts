@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
+import { STATS_CACHE_TIME } from '@/lib/constants';
 import type { SqliteVecSearchInput } from '@kamehadb/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
@@ -8,7 +9,7 @@ export function useSqliteVecCapabilities(connectionId: string | null) {
     queryKey: QUERY_KEYS.SQLITE_VEC_CAPABILITIES(connectionId),
     queryFn: () => api.getSqliteVecCapabilities(connectionId!),
     enabled: !!connectionId,
-    staleTime: 30000,
+    staleTime: STATS_CACHE_TIME,
     retry: 1,
   });
 }
@@ -42,7 +43,7 @@ export function useSqliteVecVectorsSample(
       return api.sampleSqliteVecVectors(connectionId, input);
     },
     enabled: !!connectionId && !!input,
-    staleTime: 30000,
+    staleTime: STATS_CACHE_TIME,
     retry: 1,
   });
 }

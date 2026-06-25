@@ -51,7 +51,7 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
       cursorBlink: true,
       cursorStyle: 'block',
       fontSize: 13,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+      fontFamily: "'Geist Mono Variable', 'Geist Mono', 'JetBrainsMono Nerd Font', monospace",
       allowProposedApi: true,
       cols: 80,
       rows: 24,
@@ -64,6 +64,28 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
 
     term.onData(handleData);
     term.onResize(({ cols, rows }) => handleResize(cols, rows));
+
+    // Right-click copies selected text to clipboard (like real terminals).
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const selection = term.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection).catch(() => {});
+      }
+    };
+    terminalContainer.addEventListener('contextmenu', handleContextMenu);
+
+    // Ctrl+Shift+C copies selection.
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        const selection = term.getSelection();
+        if (selection) {
+          navigator.clipboard.writeText(selection).catch(() => {});
+        }
+      }
+    };
+    terminalContainer.addEventListener('keydown', handleKeyDown);
 
     const resizeObserver = new ResizeObserver(() => {
       try {
@@ -164,6 +186,8 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
       // effect fires with a clean slate.
       abort.abort();
       resizeObserver.disconnect();
+      terminalContainer.removeEventListener('contextmenu', handleContextMenu);
+      terminalContainer.removeEventListener('keydown', handleKeyDown);
       term.dispose();
     };
   }, [connectionString, connectionId, tab.id, handleData, handleResize]);
