@@ -50,6 +50,7 @@ function ThemeToggle() {
           key={value}
           type="button"
           variant="ghost"
+          size="sm"
           onClick={() => setTheme(value)}
           className={`relative z-10 flex size-7 items-center justify-center rounded transition-colors duration-150 ${
             theme === value ? 'text-foreground' : 'text-muted-foreground/60 hover:text-foreground'

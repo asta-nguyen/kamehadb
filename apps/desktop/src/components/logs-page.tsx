@@ -224,7 +224,8 @@ export function LogsPage() {
             {SOURCE_OPTIONS.map((opt) => (
               <Button
                 key={opt}
-                variant="ghost"
+                variant={sourceFilter === opt ? 'default' : 'ghost'}
+                size="sm"
                 onClick={() => setSourceFilter(opt)}
                 className={cn(
                   'rounded px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
@@ -241,7 +242,8 @@ export function LogsPage() {
             {LEVEL_OPTIONS.map((opt) => (
               <Button
                 key={opt}
-                variant="ghost"
+                variant={levelFilter === opt ? 'default' : 'ghost'}
+                size="sm"
                 onClick={() => setLevelFilter(opt)}
                 className={cn(
                   'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase transition-colors',

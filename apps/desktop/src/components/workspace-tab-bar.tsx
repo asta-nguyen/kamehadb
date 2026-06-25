@@ -1,6 +1,5 @@
 import { useConnections } from '@/hooks/use-connections';
 import { DbIcon } from '@/components/db-icon';
-import { Button } from '@/components/ui/button';
 import {
   appStore,
   closeTab,
@@ -11,6 +10,7 @@ import {
   reorderTabs,
 } from '@/store';
 import { isSqlKind } from '@/lib/constants';
+import { Button } from '@/components/ui/button';
 import { useStore } from '@tanstack/react-store';
 import { Activity, BarChart3, Box, Database, History, Plus, Search, Share2, Table2, Terminal, X } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -132,6 +132,7 @@ export function WorkspaceTabBar() {
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               onClick={() => openRedisQueryTab(activeTab.connectionId)}
               title="Redis Query"
@@ -142,6 +143,7 @@ export function WorkspaceTabBar() {
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               onClick={() => {
                 const mongoDatabase = appStore.state.activeMongoDatabase;
@@ -158,6 +160,7 @@ export function WorkspaceTabBar() {
               <Button
                 type="button"
                 variant="ghost"
+                size="sm"
                 className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 onClick={() => openNewQueryTab(activeTab.connectionId)}
                 title="New Query"
@@ -167,6 +170,7 @@ export function WorkspaceTabBar() {
               <Button
                 type="button"
                 variant="ghost"
+                size="sm"
                 className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 onClick={() => openGraphTab(activeTab.connectionId)}
                 title="Schema Graph"
