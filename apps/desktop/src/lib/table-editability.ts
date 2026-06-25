@@ -1,4 +1,5 @@
 import type { ColumnInfo, QueryColumn } from '@kamehadb/shared';
+import { quoteSqlIdentifier } from '@kamehadb/shared';
 
 export type TableEditabilityState = {
   readonly canEditCells: boolean;
@@ -172,10 +173,6 @@ function quoteQualifiedTable(tableId: string): string {
     .split('.')
     .map((part) => quoteSqlIdentifier(part))
     .join('.');
-}
-
-function quoteSqlIdentifier(identifier: string): string {
-  return `"${identifier.replace(/"/g, '""')}"`;
 }
 
 function escapeSqlValue(value: unknown): string {

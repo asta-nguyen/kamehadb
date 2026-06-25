@@ -150,3 +150,7 @@ export type MigrationResult = {
   readonly fromSnapshot: string;
   readonly toSnapshot: string;
 };
+
+export function quoteSqlIdentifier(identifier: string): string {
+  return `"${identifier.replace(/"/g, '""')}"`;
+}

@@ -265,7 +265,7 @@ function containsMultipleStatements(sql: string): boolean {
 }
 
 import { DataTable, type ColumnDef } from '@/components/data-table';
-import { RecordDetailTabs } from '@/components/table-view';
+import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -974,6 +974,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                     <Button
                       key={i}
                       variant="ghost"
+                      size="sm"
                       onClick={() => setActiveResultIndex(i)}
                       className={`px-2.5 py-1 text-xs rounded-t transition-colors ${
                         i === activeResultIndex

@@ -108,6 +108,7 @@ export function LogsPage() {
   const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [clearError, setClearError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -162,8 +163,8 @@ export function LogsPage() {
       await clearAppLogs();
       setEntries([]);
       setError(null);
-    } catch (clearError) {
-      setError(clearError instanceof Error ? clearError.message : 'Failed to clear logs');
+    } catch (err) {
+      setClearError(err instanceof Error ? err.message : 'Failed to clear logs');
     }
   }, []);
 
@@ -197,6 +198,7 @@ export function LogsPage() {
               disabled={entries.length === 0}
               className="size-7"
               title="Clear all logs"
+              aria-label="Clear all logs"
             >
               <Trash2 className="size-3" />
             </Button>
@@ -224,7 +226,8 @@ export function LogsPage() {
             {SOURCE_OPTIONS.map((opt) => (
               <Button
                 key={opt}
-                variant="ghost"
+                variant={sourceFilter === opt ? 'default' : 'ghost'}
+                size="sm"
                 onClick={() => setSourceFilter(opt)}
                 className={cn(
                   'rounded px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
@@ -241,7 +244,8 @@ export function LogsPage() {
             {LEVEL_OPTIONS.map((opt) => (
               <Button
                 key={opt}
-                variant="ghost"
+                variant={levelFilter === opt ? 'default' : 'ghost'}
+                size="sm"
                 onClick={() => setLevelFilter(opt)}
                 className={cn(
                   'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase transition-colors',
@@ -268,6 +272,13 @@ export function LogsPage() {
         ) : error ? (
           <div className="flex flex-1 items-center justify-center p-4 text-sm text-destructive font-mono">
             Failed to load logs: {error}
+          </div>
+        ) : clearError ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-sm text-destructive font-mono">
+            <span>Failed to clear logs: {clearError}</span>
+            <Button variant="outline" size="sm" onClick={() => setClearError(null)}>
+              Dismiss
+            </Button>
           </div>
         ) : filteredEntries.length === 0 ? (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">

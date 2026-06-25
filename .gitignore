@@ -51,4 +51,4 @@ dist/
 .codegraph/
 .pnpm-store
 .serena/
-plans/
+plans/data/

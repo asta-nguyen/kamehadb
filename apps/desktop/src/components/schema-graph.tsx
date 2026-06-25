@@ -260,7 +260,12 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
           style={{ '--xy-controls-button-color': 'var(--foreground)' } as React.CSSProperties}
         >
           {/* eslint-disable-next-line local/no-restricted-syntax -- custom ReactFlow control button */}
-          <button onClick={handleAutoArrange} className="react-flow__controls-button" title="Auto Arrange">
+          <button
+            onClick={handleAutoArrange}
+            className="react-flow__controls-button"
+            title="Auto Arrange"
+            aria-label="Auto Arrange"
+          >
             <LayoutGrid className="size-4" />
           </button>
         </Controls>

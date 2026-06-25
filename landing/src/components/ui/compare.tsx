@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { IconDotsVertical } from '@tabler/icons-react';
+import Image from 'next/image';
 
 interface CompareProps {
   firstImage?: string;
@@ -181,16 +182,18 @@ export const Compare = ({
     >
       {/* Second image (always visible underneath) */}
       {secondImage && (
-        <img
+        <Image
           className={cn('absolute top-0 left-0 z-[19] w-full h-full select-none', secondImageClassname)}
-          alt="second image"
+          alt=""
           src={secondImage}
+          fill
+          sizes="100vw"
           draggable={false}
         />
       )}
 
       {/* First image (clipped) */}
-      <div className="overflow-hidden w-full h-full relative z-20 pointer-events-none">
+      <div className="relative z-20 h-full w-full overflow-hidden pointer-events-none">
         {firstImage && (
           <div
             ref={firstClipRef}
@@ -199,10 +202,12 @@ export const Compare = ({
               clipPath: `inset(0 ${100 - sliderXPercent}% 0 0)`,
             }}
           >
-            <img
-              alt="first image"
+            <Image
+              alt=""
               src={firstImage}
-              className="absolute inset-0 z-20 w-full h-full select-none"
+              fill
+              sizes="100vw"
+              className="absolute z-20 h-full w-full inset-0 select-none"
               draggable={false}
             />
           </div>
@@ -212,17 +217,17 @@ export const Compare = ({
       {/* Slider line */}
       <div
         ref={sliderLineRef}
-        className="h-full w-px absolute top-0 m-auto z-30 bg-gradient-to-b from-transparent from-[5%] to-[95%] via-indigo-500 to-transparent"
+        className="absolute top-0 z-30 m-auto h-full w-px bg-gradient-to-b from-5% from-transparent to-95% to-transparent via-indigo-500"
         style={{
           left: `${sliderXPercent}%`,
           top: '0',
           zIndex: 40,
         }}
       >
-        <div className="w-36 h-full [mask-image:radial-gradient(100px_at_left,white,transparent)] absolute top-1/2 -translate-y-1/2 left-0 bg-gradient-to-r from-indigo-400 via-transparent to-transparent z-20 opacity-50" />
-        <div className="w-10 h-1/2 [mask-image:radial-gradient(50px_at_left,white,transparent)] absolute top-1/2 -translate-y-1/2 left-0 bg-gradient-to-r from-cyan-400 via-transparent to-transparent z-10 opacity-100" />
+        <div className="absolute left-0 top-1/2 z-20 h-full w-36 bg-gradient-to-r opacity-50 -translate-y-1/2 from-indigo-400 mask-[radial-gradient(100px_at_left,white,transparent)] to-transparent via-transparent" />
+        <div className="absolute left-0 top-1/2 z-10 h-1/2 w-10 bg-gradient-to-r opacity-100 -translate-y-1/2 from-cyan-400 mask-[radial-gradient(50px_at_left,white,transparent)] to-transparent via-transparent" />
         {showHandlebar && (
-          <div className="h-5 w-5 rounded-md top-1/2 -translate-y-1/2 bg-white z-30 -right-2.5 absolute flex items-center justify-center shadow-[0px_-1px_0px_0px_#FFFFFF40]">
+          <div className="absolute top-1/2 z-30 flex items-center justify-center h-5 w-5 bg-white rounded-md shadow-[0px_-1px_0px_0px_#FFFFFF40] -right-2.5 -translate-y-1/2">
             <IconDotsVertical className="h-4 w-4 text-black" />
           </div>
         )}
