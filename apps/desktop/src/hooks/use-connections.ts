@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { setConnectionStatus } from '@/store';
+import { appendFrontendLog } from '@/lib/app-logs';
 import type {
   ConnectionProfile,
   CreateConnectionProfileInput,
@@ -26,6 +27,16 @@ export function useConnectionHealth(connectionId: string | null) {
     retry: 2,
     retryDelay: 1000,
     select: (result) => (result.success ? 'connected' : 'disconnected'),
+    meta: {
+      onError: (error: Error, id: string) => {
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'use-connections.health',
+          message: `Health check failed for ${id}: ${error.message}`,
+          details: error.stack,
+        });
+      },
+    },
   });
 }
 
@@ -133,9 +144,16 @@ export function useRefreshConnection() {
     },
     onError: (err, vars, context) => {
       setConnectionStatus(vars, 'disconnected');
+      const message = err instanceof Error ? err.message : 'Reload failed';
       if (context?.toastId !== undefined) {
-        toast.error(err instanceof Error ? err.message : 'Reload failed', { id: context.toastId });
+        toast.error(message, { id: context.toastId });
       }
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'use-connections.refresh',
+        message: `Connection reload failed: ${message}`,
+        details: err instanceof Error ? err.stack : String(err),
+      });
     },
   });
 }
