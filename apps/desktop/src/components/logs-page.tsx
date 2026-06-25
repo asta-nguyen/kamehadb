@@ -3,7 +3,7 @@ import { ArrowLeft, ChevronRight, Copy, RefreshCw, ScrollText, Trash2 } from 'lu
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-import { appendFrontendLog, clearAppLogs, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
+import { clearAppLogs, formatLogTimestamp, readAppLogs, type AppLogEntry } from '@/lib/app-logs';
 import { navigateTo } from '@/store';
 import { cn } from 'cnfast';
 
@@ -124,16 +124,9 @@ export function LogsPage() {
       setLogDir(snapshot.logDir);
       setError(null);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Failed to load logs';
-      setError(message);
-      void appendFrontendLog({
-        level: 'error',
-        scope: 'logs-page',
-        message: 'Failed to load app logs',
-        details: message,
-        stack: loadError instanceof Error ? loadError.stack : undefined,
-        url: typeof window !== 'undefined' ? window.location.href : undefined,
-      });
+      // Avoid writing back into the same log pipeline when the log reader is
+      // failing, otherwise the page can spam new errors every 2 seconds.
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load logs');
     } finally {
       if (silent) {
         setIsRefreshing(false);
@@ -168,14 +161,9 @@ export function LogsPage() {
     try {
       await clearAppLogs();
       setEntries([]);
+      setError(null);
     } catch (clearError) {
-      const message = clearError instanceof Error ? clearError.message : 'Failed to clear logs';
-      void appendFrontendLog({
-        level: 'error',
-        scope: 'logs-page',
-        message: 'Failed to clear app logs',
-        details: message,
-      });
+      setError(clearError instanceof Error ? clearError.message : 'Failed to clear logs');
     }
   }, []);
 

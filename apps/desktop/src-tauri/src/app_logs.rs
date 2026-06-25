@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::cmp::Reverse;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager};
@@ -65,9 +65,9 @@ pub fn read_app_logs(app: AppHandle, limit: Option<usize>) -> Result<AppLogsSnap
     let max_entries = limit.unwrap_or(300).max(1);
     let mut entries = Vec::new();
 
-    entries.extend(read_native_log(&log_dir.join(FRONTEND_LOG_FILE)));
-    entries.extend(read_native_log(&log_dir.join(TAURI_LOG_FILE)));
-    entries.extend(read_sidecar_log(&log_dir.join(SIDECAR_LOG_FILE)));
+    entries.extend(read_native_log(&log_dir.join(FRONTEND_LOG_FILE), max_entries));
+    entries.extend(read_native_log(&log_dir.join(TAURI_LOG_FILE), max_entries));
+    entries.extend(read_sidecar_log(&log_dir.join(SIDECAR_LOG_FILE), max_entries));
 
     entries.sort_by_key(|entry| Reverse(entry.timestamp_ms));
     if entries.len() > max_entries {
@@ -142,28 +142,83 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-fn read_native_log(path: &Path) -> Vec<AppLogEntry> {
-    let Ok(file) = File::open(path) else {
+// Read only the tail window we can actually render so the 2s refresh cadence
+// does not rescan the entire log history on every poll.
+fn read_native_log(path: &Path, limit: usize) -> Vec<AppLogEntry> {
+    let Ok(lines) = read_last_lines(path, limit) else {
         return Vec::new();
     };
 
-    BufReader::new(file)
-        .lines()
-        .map_while(Result::ok)
+    lines
+        .into_iter()
         .filter_map(|line| serde_json::from_str::<AppLogEntry>(&line).ok())
         .collect()
 }
 
-fn read_sidecar_log(path: &Path) -> Vec<AppLogEntry> {
-    let Ok(file) = File::open(path) else {
+// Sidecar logs are JSON-lines too, but they use pino's shape, so we tail them
+// with the same bounded reader and then normalize each record for the UI.
+fn read_sidecar_log(path: &Path, limit: usize) -> Vec<AppLogEntry> {
+    let Ok(lines) = read_last_lines(path, limit) else {
         return Vec::new();
     };
 
-    BufReader::new(file)
-        .lines()
-        .map_while(Result::ok)
+    lines
+        .into_iter()
         .filter_map(|line| parse_sidecar_log_line(&line))
         .collect()
+}
+
+fn read_last_lines(path: &Path, limit: usize) -> Result<Vec<String>, std::io::Error> {
+    if limit == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut file = File::open(path)?;
+    let start = find_tail_start(&mut file, limit)?;
+    file.seek(SeekFrom::Start(start))?;
+
+    BufReader::new(file)
+        .lines()
+        .collect::<Result<Vec<_>, _>>()
+}
+
+fn find_tail_start(file: &mut File, limit: usize) -> Result<u64, std::io::Error> {
+    const CHUNK_SIZE: usize = 8 * 1024;
+
+    let file_len = file.metadata()?.len();
+    if file_len == 0 {
+        return Ok(0);
+    }
+
+    let mut position = file_len;
+    let mut seen_lines = 0usize;
+
+    while position > 0 {
+        let chunk_size = usize::min(CHUNK_SIZE, position as usize);
+        position -= chunk_size as u64;
+        file.seek(SeekFrom::Start(position))?;
+
+        let mut chunk = vec![0; chunk_size];
+        file.read_exact(&mut chunk)?;
+
+        for (index, byte) in chunk.iter().enumerate().rev() {
+            if *byte != b'\n' {
+                continue;
+            }
+
+            let newline_offset = position + index as u64;
+            if newline_offset + 1 == file_len {
+                continue;
+            }
+
+            seen_lines += 1;
+            if seen_lines >= limit {
+                return Ok(newline_offset + 1);
+            }
+        }
+    }
+
+    Ok(0)
 }
 
 fn parse_sidecar_log_line(line: &str) -> Option<AppLogEntry> {

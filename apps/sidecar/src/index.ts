@@ -1,7 +1,6 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { logger } from 'hono/logger';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { initMetadataStore, closeMetadataStore } from './db/metadata-store.js';
@@ -21,7 +20,33 @@ const sidecarDir = dirname(fileURLToPath(import.meta.url));
 
 const app = new Hono();
 
-app.use('*', logger());
+// Send access logs through pino so the in-app Logs page sees the same request
+// events that operators see on stdout and in sidecar.log.
+app.use('*', async (c, next) => {
+  const startedAt = performance.now();
+  await next();
+
+  const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
+  const requestLog = {
+    scope: 'http',
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    durationMs,
+  };
+
+  if (c.res.status >= 500) {
+    log.error(requestLog, 'HTTP request');
+    return;
+  }
+
+  if (c.res.status >= 400) {
+    log.warn(requestLog, 'HTTP request');
+    return;
+  }
+
+  log.info(requestLog, 'HTTP request');
+});
 app.use('*', cors({ origin: '*' }));
 
 // Ensure all errors return JSON so the frontend never gets unparseable HTML/text
