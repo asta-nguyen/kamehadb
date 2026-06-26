@@ -48,3 +48,24 @@ export function quoteSqlIdentifier(identifier: string): string {
   }
   return sharedQuoteSqlIdentifier(identifier);
 }
+
+/**
+ * Wrap an adapter lifecycle: load the adapter, run the callback, and always
+ * close the adapter in a finally block (swallowing close errors so they never
+ * mask the original result or error).
+ *
+ * Used by non-SQL route files (mongo, redis, qdrant, tigerbeetle) to eliminate
+ * the repeated getAdapter + try/finally + adapter.close() boilerplate.
+ */
+export async function withAdapter<TAdapter extends { close(): Promise<unknown> }, T>(
+  loadAdapter: (connectionId: string) => Promise<TAdapter>,
+  connectionId: string,
+  fn: (adapter: TAdapter) => Promise<T>,
+): Promise<T> {
+  const adapter = await loadAdapter(connectionId);
+  try {
+    return await fn(adapter);
+  } finally {
+    await adapter.close().catch(() => {});
+  }
+}
