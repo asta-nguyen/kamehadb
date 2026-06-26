@@ -1,5 +1,6 @@
 import { CLAUSE_RE, NUMERIC_RE } from './constants.js';
 import { quoteSqlIdentifier as sharedQuoteSqlIdentifier } from '@kamehadb/shared';
+import { httpError } from './route-utils.js';
 
 type SafeFilterValue = string | number | boolean;
 
@@ -10,7 +11,7 @@ type CompiledFilter = {
 
 export function quoteSqlIdentifier(identifier: string): string {
   if (!identifier.trim()) {
-    throw filterError('SQL identifier cannot be empty');
+    throw httpError('SQL identifier cannot be empty', 400);
   }
   return sharedQuoteSqlIdentifier(identifier);
 }
@@ -39,7 +40,7 @@ export function buildSafeFilterClause(filter: string, startIndex = 1): CompiledF
 function compileFilterClause(clause: string, paramIndex: number): CompiledFilter {
   const match = clause.match(CLAUSE_RE);
   if (!match) {
-    throw filterError('Filter must use simple comparisons joined with AND');
+    throw httpError('Filter must use simple comparisons joined with AND', 400);
   }
 
   const column = match[1];
@@ -49,7 +50,7 @@ function compileFilterClause(clause: string, paramIndex: number): CompiledFilter
 
   if (operator === 'IS NULL' || operator === 'IS NOT NULL') {
     if (rawValue.length > 0) {
-      throw filterError('IS NULL / IS NOT NULL filters do not take a value');
+      throw httpError('IS NULL / IS NOT NULL filters do not take a value', 400);
     }
     return { sql: `${quotedColumn} ${operator}`, params: [] };
   }
@@ -58,11 +59,11 @@ function compileFilterClause(clause: string, paramIndex: number): CompiledFilter
   if (literal.kind === 'null') {
     if (operator === '=') return { sql: `${quotedColumn} IS NULL`, params: [] };
     if (operator === '!=' || operator === '<>') return { sql: `${quotedColumn} IS NOT NULL`, params: [] };
-    throw filterError('NULL values can only be used with =, !=, or <>');
+    throw httpError('NULL values can only be used with =, !=, or <>', 400);
   }
 
   if ((operator === 'LIKE' || operator === 'ILIKE') && typeof literal.value !== 'string') {
-    throw filterError('LIKE filters require a string value');
+    throw httpError('LIKE filters require a string value', 400);
   }
 
   return {
@@ -73,7 +74,7 @@ function compileFilterClause(clause: string, paramIndex: number): CompiledFilter
 
 function parseFilterLiteral(rawValue: string): { kind: 'value'; value: SafeFilterValue } | { kind: 'null' } {
   if (!rawValue) {
-    throw filterError('Filter value is required');
+    throw httpError('Filter value is required', 400);
   }
 
   if (rawValue.toLowerCase() === 'null') {
@@ -90,14 +91,14 @@ function parseFilterLiteral(rawValue: string): { kind: 'value'; value: SafeFilte
 
   if (rawValue.startsWith("'")) {
     if (!rawValue.endsWith("'") || rawValue.length < 2) {
-      throw filterError('Unterminated string literal in filter');
+      throw httpError('Unterminated string literal in filter', 400);
     }
     const inner = rawValue.slice(1, -1).replace(/''/g, "'");
     return { kind: 'value', value: inner };
   }
 
   if (!NUMERIC_RE.test(rawValue)) {
-    throw filterError('Filter value must be a quoted string, number, boolean, or NULL');
+    throw httpError('Filter value must be a quoted string, number, boolean, or NULL', 400);
   }
 
   return { kind: 'value', value: Number(rawValue) };
@@ -148,8 +149,4 @@ function isStandaloneAnd(input: string, index: number): boolean {
   const after = index + 3 >= input.length ? ' ' : input[index + 3];
 
   return /\s/.test(before) && /\s/.test(after);
-}
-
-function filterError(message: string): Error {
-  return Object.assign(new Error(message), { statusCode: 400 });
 }
