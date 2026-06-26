@@ -24,6 +24,7 @@ import {
   Search,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { cn } from '../lib/utils';
 import { Compare } from './ui/compare';
 import postgresql from 'thesvg/postgresql';
@@ -37,6 +38,8 @@ import duckdb from 'thesvg/duckdb';
 import mongodb from 'thesvg/mongodb';
 import redis from 'thesvg/redis';
 import qdrant from 'thesvg/qdrant';
+
+const HeroCanvas = dynamic(() => import('./hero-canvas'), { ssr: false });
 
 type HomeViewProps = {
   readonly githubStars: number | null;
@@ -439,6 +442,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
       <section className="relative pt-24 md:pt-32 pb-16 md:pb-20 px-4 md:px-6 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(245,158,11,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.06)_1px,transparent_1px)] bg-[size:64px_64px]" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-160 h-160 bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <HeroCanvas />
         <div className="max-w-6xl mx-auto text-center relative">
           <motion.div
             className="flex flex-wrap items-center justify-center gap-2 mb-8"
