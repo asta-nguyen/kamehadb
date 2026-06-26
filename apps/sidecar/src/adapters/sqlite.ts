@@ -19,6 +19,7 @@ import type {
   SchemaSearchInput,
   SchemaSearchMatch,
 } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 
 export function createSqliteAdapter(filePath: string): SqlAdapter {
   const db = new Database(filePath, { readonly: false });
@@ -387,7 +388,7 @@ export async function testSqliteConnection(filePath?: string): Promise<TestConne
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : 'Failed to open SQLite database',
+      message: safeErrorMessage(err, 'Failed to open SQLite database'),
     };
   }
 }

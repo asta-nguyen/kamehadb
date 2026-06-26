@@ -8,6 +8,7 @@ import type {
   TestConnectionResult,
   UpdateConnectionProfileInput,
 } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -147,7 +148,7 @@ export function useRefreshConnection() {
     },
     onError: (err, vars, context) => {
       setConnectionStatus(vars, 'disconnected');
-      const message = err instanceof Error ? err.message : 'Reload failed';
+      const message = safeErrorMessage(err, 'Reload failed');
       if (context?.toastId !== undefined) {
         toast.error(message, { id: context.toastId });
       }

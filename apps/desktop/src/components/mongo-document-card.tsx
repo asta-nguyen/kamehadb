@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { ChevronDown, ChevronRight, Copy, Check, Trash2, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,7 +90,7 @@ export function DocumentCard({
       setEditValue('');
       onUpdate();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = safeErrorMessage(err);
       alert(`Update failed: ${message}`);
       void appendFrontendLog({
         level: 'error',

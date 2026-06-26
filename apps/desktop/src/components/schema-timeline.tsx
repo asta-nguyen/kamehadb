@@ -7,6 +7,7 @@ import { isSqlKind } from '@/lib/constants';
 import { Camera, GitCompare, History, Plus, Minus, Pencil } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import type { SchemaChangeDescriptor } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { openSchemaDiffTab } from '@/store';
@@ -123,7 +124,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_CHANGELOG(connectionId) }),
       ]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Capture failed';
+      const message = safeErrorMessage(err, 'Capture failed');
       toast.error(message);
       void appendFrontendLog({
         level: 'error',

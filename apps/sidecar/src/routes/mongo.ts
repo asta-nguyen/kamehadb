@@ -10,7 +10,7 @@ import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
 import { KIND } from '@kamehadb/shared';
-import { handleError } from '../lib/route-utils.js';
+import { handleError, safeErrorMessage } from '../lib/route-utils.js';
 import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
@@ -366,7 +366,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
     });
   } catch (err) {
     log.error({ mongoshCommand, err }, 'mongosh pty.spawn failed');
-    throw new Error(`mongosh failed to start: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`mongosh failed to start: ${safeErrorMessage(err, String(err))}`);
   }
 
   shellSessions.set(sessionId, { pty: ptyProcess, createdAt: Date.now(), buffer: '' });

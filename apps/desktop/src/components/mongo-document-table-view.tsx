@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { Copy, Eye, Trash2, Ellipsis } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,7 +105,7 @@ export function DocumentTableView({
       setEditValue('');
       onUpdate();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = safeErrorMessage(err);
       alert(`Update failed: ${message}`);
       void appendFrontendLog({
         level: 'error',

@@ -12,6 +12,7 @@ import type {
   QueryColumn,
   TableStats,
 } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import type { DuckDBInstance as DuckDBInst, DuckDBConnection as DuckDBConn } from '@duckdb/node-api';
 
 export async function testDuckDBConnection(filePath: string): Promise<TestConnectionResult> {
@@ -32,7 +33,7 @@ export async function testDuckDBConnection(filePath: string): Promise<TestConnec
     });
     return { success: true, serverVersion: String(rows[0]?.version || '') };
   } catch (err) {
-    return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
+    return { success: false, message: safeErrorMessage(err, 'Connection failed') };
   } finally {
     conn?.closeSync();
     inst?.closeSync();
@@ -97,7 +98,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
         const rows = await q<Record<string, string>>('SELECT version() AS version');
         return { success: true, serverVersion: rows[0]?.version || '' };
       } catch (err) {
-        return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
+        return { success: false, message: safeErrorMessage(err, 'Connection failed') };
       }
     },
 
