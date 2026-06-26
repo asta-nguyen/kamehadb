@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { getBaseUrl, PRODUCTION_URL } from '@/lib/url';
+import { PRODUCTION_URL } from '@/lib/url';
 import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
 import Providers from './providers';
 
 export async function generateMetadata(): Promise<Metadata> {
-  const baseUrl = await getBaseUrl();
+  const baseUrl = PRODUCTION_URL;
 
   return {
     metadataBase: new URL(baseUrl),

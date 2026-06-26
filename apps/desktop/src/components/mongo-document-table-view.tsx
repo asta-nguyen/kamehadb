@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { RecordDetailTabs } from '@/components/table-view';
+import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import { collectRecordFields, useFieldVisibility } from '@/hooks/use-field-visibility';
 
 function formatCellValue(value: unknown): string {

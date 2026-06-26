@@ -179,18 +179,35 @@ fn read_last_lines(path: &Path, limit: usize) -> Result<Vec<String>, std::io::Er
     let start = find_tail_start(&mut file, limit)?;
 
     // If the tail scan fell back to min_start, the position may be mid-record.
-    // Peek at the first byte: if it's a newline we're at the end of a previous
-    // record and should skip past it; otherwise we're at a valid record boundary
-    // and must NOT advance, which would drop the record starting here.
+    // Determine whether we're at a valid record boundary by checking the byte
+    // before `start`: if it's a newline (or start is 0) we're already at the
+    // beginning of a record. Otherwise we're mid-record and must scan forward
+    // to the next newline so `start` points to the beginning of a complete
+    // record. A partial first line would silently fail JSON parsing.
     let start = if start == 0 {
         0
     } else {
-        file.seek(SeekFrom::Start(start))?;
-        let mut buf = [0u8; 1];
-        match file.read(&mut buf)? {
-            0 => start,
-            _ if buf[0] == b'\n' => start + 1,
-            _ => start,
+        file.seek(SeekFrom::Start(start - 1))?;
+        let mut prev = [0u8; 1];
+        if file.read(&mut prev)? == 0 || prev[0] != b'\n' {
+            file.seek(SeekFrom::Start(start))?;
+            let mut reader = BufReader::new(&file);
+            let mut buf = [0u8; 1];
+            let mut pos = start;
+            loop {
+                match reader.read(&mut buf)? {
+                    0 => break,
+                    _ => {
+                        pos += 1;
+                        if buf[0] == b'\n' {
+                            break;
+                        }
+                    }
+                }
+            }
+            pos
+        } else {
+            start
         }
     };
 
@@ -300,5 +317,158 @@ fn map_sidecar_level(level: Option<&Value>) -> String {
         20 => "debug".into(),
         10 => "trace".into(),
         _ => "info".into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::env::temp_dir;
+
+    fn write_temp_log(name: &str, content: &str) -> PathBuf {
+        let path = temp_dir().join(format!("kamehadb_test_{}_{}.log", std::process::id(), name));
+        fs::write(&path, content).unwrap();
+        path
+    }
+
+    fn log_line(index: usize) -> String {
+        json!({
+            "timestampMs": index as u64,
+            "level": "info",
+            "source": "frontend",
+            "message": format!("message {index}"),
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn test_empty_file() {
+        let path = write_temp_log("empty", "");
+        let lines = read_last_lines(&path, 10).unwrap();
+        assert!(lines.is_empty());
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_start_lands_mid_record() {
+        // Build a file larger than MAX_TAIL_BYTES whose first record is huge so
+        // that find_tail_start falls back to min_start, which lands in the
+        // middle of that first record. The boundary fix must scan forward to
+        // the next newline so every returned line is complete JSON.
+        let big = "X".repeat((MAX_TAIL_BYTES + 1024) as usize);
+        let mut content = String::new();
+        // First record is huge so min_start lands inside it.
+        content.push_str(&format!(
+            "{}\n",
+            json!({
+                "timestampMs": 0u64,
+                "level": "info",
+                "source": "frontend",
+                "message": big,
+            })
+        ));
+        for i in 1..5 {
+            content.push_str(&log_line(i));
+            content.push('\n');
+        }
+
+        let path = write_temp_log("mid_record", &content);
+        // Large limit so find_tail_start cannot satisfy it within the tail
+        // window and falls back to min_start (mid-record).
+        let lines = read_last_lines(&path, 1000).unwrap();
+        for line in &lines {
+            assert!(
+                serde_json::from_str::<AppLogEntry>(line).is_ok(),
+                "partial/corrupt line returned: {line}"
+            );
+        }
+        // The huge first record should be skipped (it was split by min_start),
+        // so we expect only the 4 short records.
+        assert_eq!(lines.len(), 4);
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_start_lands_on_newline_boundary() {
+        // Construct content where we can force find_tail_start to return an
+        // offset pointing exactly at a newline. We do this by writing records
+        // and requesting limit=1 so find_tail_start returns the byte after the
+        // last newline before EOF, which is the start of the final record.
+        let mut content = String::new();
+        for i in 0..5 {
+            content.push_str(&log_line(i));
+            content.push('\n');
+        }
+
+        let path = write_temp_log("newline_boundary", &content);
+        let lines = read_last_lines(&path, 1).unwrap();
+        assert_eq!(lines.len(), 1);
+        let entry = serde_json::from_str::<AppLogEntry>(&lines[0]).unwrap();
+        assert_eq!(entry.timestamp_ms, 4);
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_small_file_returns_all_lines() {
+        let mut content = String::new();
+        for i in 0..3 {
+            content.push_str(&log_line(i));
+            content.push('\n');
+        }
+
+        let path = write_temp_log("small", &content);
+        let lines = read_last_lines(&path, 100).unwrap();
+        assert_eq!(lines.len(), 3);
+        for (i, line) in lines.iter().enumerate() {
+            let entry = serde_json::from_str::<AppLogEntry>(line).unwrap();
+            assert_eq!(entry.timestamp_ms, i as u64);
+        }
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_limit_respected() {
+        let mut content = String::new();
+        for i in 0..50 {
+            content.push_str(&log_line(i));
+            content.push('\n');
+        }
+
+        let path = write_temp_log("limit", &content);
+        let lines = read_last_lines(&path, 5).unwrap();
+        assert_eq!(lines.len(), 5);
+        // The newest 5 lines should be records 45..49.
+        for (i, line) in lines.iter().enumerate() {
+            let entry = serde_json::from_str::<AppLogEntry>(line).unwrap();
+            assert_eq!(entry.timestamp_ms, 45 + i as u64);
+        }
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_find_tail_start_empty_file() {
+        let path = write_temp_log("fts_empty", "");
+        let mut file = File::open(&path).unwrap();
+        let start = find_tail_start(&mut file, 10).unwrap();
+        assert_eq!(start, 0);
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_find_tail_start_returns_record_start() {
+        let mut content = String::new();
+        for i in 0..10 {
+            content.push_str(&log_line(i));
+            content.push('\n');
+        }
+        let path = write_temp_log("fts_record", &content);
+        let mut file = File::open(&path).unwrap();
+        // Request a single line; find_tail_start should return the offset of
+        // the final record (after the last newline before EOF).
+        let start = find_tail_start(&mut file, 1).unwrap();
+        let _ = fs::remove_file(&path);
+        // The start should be greater than 0 and less than the file length.
+        assert!(start > 0);
     }
 }

@@ -4,10 +4,10 @@ import { headers } from 'next/headers';
 export const PRODUCTION_URL = 'https://kamehadb.astalife.co';
 
 /** Allowed hostnames for the landing site. */
-const ALLOWED_HOSTS = new Set(['kamehadb.astalife.co', 'www.kamehadb.astalife.co']);
+const ALLOWED_HOSTS = new Set(['kamehadb.astalife.co', 'www.kamehadb.astalife.co', 'localhost:3000', '127.0.0.1:3000']);
 
 /** Protocols we accept from the x-forwarded-proto header. */
-const ALLOWED_PROTOCOLS = new Set(['http', 'https']);
+const ALLOWED_PROTOCOLS = new Set(['https']);
 
 /**
  * Resolve the base URL from the incoming request headers.
@@ -19,7 +19,7 @@ const ALLOWED_PROTOCOLS = new Set(['http', 'https']);
 export async function getBaseUrl(): Promise<string> {
   try {
     const h = await headers();
-    const protocol = h.get('x-forwarded-proto') ?? 'https';
+    const protocol = (h.get('x-forwarded-proto') ?? 'https').split(',')[0].trim();
     const host = h.get('host');
 
     // Validate protocol — only allow http/https

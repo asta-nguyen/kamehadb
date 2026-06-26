@@ -4,15 +4,10 @@ import type {
   FileDatabaseMaintenanceResult,
   FileDatabaseRestoreRequest,
 } from '@kamehadb/shared';
-import { isFileDatabaseKind } from '@kamehadb/shared';
+import { isFileDatabaseKind, FileDatabaseMaintenanceError } from '@kamehadb/shared';
 import { isTauriRuntime } from '@/lib/tauri';
 
-class FileDatabaseMaintenanceError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'FileDatabaseMaintenanceError';
-  }
-}
+export { FileDatabaseMaintenanceError } from '@kamehadb/shared';
 
 type FilePathParts = {
   readonly directory: string;
@@ -59,7 +54,7 @@ export function defaultFileDatabaseBackupPath(connection: ConnectionProfile): st
 
 export async function pickFileDatabaseBackupDestination(connection: ConnectionProfile): Promise<string | null> {
   if (!isTauriRuntime()) {
-    throw new FileDatabaseMaintenanceError('Backup is only available in the Tauri desktop app');
+    throw new FileDatabaseMaintenanceError('missing-file-path', 'Backup is only available in the Tauri desktop app');
   }
 
   const { save } = await import('@tauri-apps/plugin-dialog');
@@ -72,7 +67,7 @@ export async function pickFileDatabaseBackupDestination(connection: ConnectionPr
 
 export async function pickFileDatabaseRestoreInput(connection: ConnectionProfile): Promise<string | null> {
   if (!isTauriRuntime()) {
-    throw new FileDatabaseMaintenanceError('Restore is only available in the Tauri desktop app');
+    throw new FileDatabaseMaintenanceError('missing-file-path', 'Restore is only available in the Tauri desktop app');
   }
 
   const { open } = await import('@tauri-apps/plugin-dialog');

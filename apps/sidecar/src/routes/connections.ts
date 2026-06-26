@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import {
   ALL_KINDS,
+  type DbKind,
   KIND,
   CreateConnectionProfileSchema,
   FileDatabaseBackupRequestSchema,
@@ -31,6 +32,7 @@ import {
 } from '../lib/file-database-maintenance.js';
 import { invalidateAdapterCache } from './sql.js';
 import { log } from '../lib/logger.js';
+import { safeErrorMessage } from '../lib/route-utils.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
@@ -58,6 +60,97 @@ function fileDatabaseErrorResponse(error: unknown): { readonly message: string; 
     return { message: error.message, statusCode: 500 };
   }
   return { message: 'Unknown error', statusCode: 500 };
+}
+
+type TestConnectionParams = {
+  kind: DbKind;
+  host?: string | null;
+  port?: number | null;
+  database?: string | null;
+  username?: string | null;
+  password?: string;
+  connectionString?: string | null;
+  filePath?: string | null;
+};
+
+// Centralized switch for testing a connection by kind, called by all 3
+// endpoints (SSE health, single health, /test) so per-kind params are
+// defined in one place only.
+async function testConnectionByKind(
+  params: TestConnectionParams,
+): Promise<{ success: boolean; message?: string; latencyMs?: number }> {
+  const { kind, host, port, database, username, password, connectionString, filePath } = params;
+
+  switch (kind) {
+    case KIND.POSTGRES:
+      return testPostgresConnection({
+        host: host!,
+        port: port!,
+        database: database!,
+        username: username!,
+        password: password ?? '',
+      });
+    case KIND.MONGODB:
+      return createMongoAdapter({
+        connectionString: connectionString!,
+        database: database ?? undefined,
+      }).testConnection();
+    case KIND.REDIS: {
+      const redisDatabaseParsed = database ? parseInt(database, 10) : NaN;
+      return testRedisConnection({
+        host: host ?? undefined,
+        port: port ?? undefined,
+        password: password ?? undefined,
+        database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
+      });
+    }
+    case KIND.QDRANT:
+      return createQdrantDbAdapter({ kind, host: host ?? undefined, port: port ?? undefined }).testConnection();
+    case KIND.SQLITE:
+      return testSqliteConnection(filePath ?? undefined);
+    case KIND.MYSQL:
+    case KIND.MARIADB:
+      return testMysqlConnection({
+        host: host ?? undefined,
+        port: port ?? undefined,
+        database: database ?? undefined,
+        username: username ?? undefined,
+        password: password ?? '',
+      });
+    case KIND.SQLSERVER:
+      return testSqlServerConnection({
+        host: host ?? undefined,
+        port: port ?? undefined,
+        database: database ?? undefined,
+        username: username ?? undefined,
+        password: password ?? '',
+      });
+    case KIND.ORACLE:
+      return testOracleConnection({
+        host: host ?? undefined,
+        port: port ?? undefined,
+        database: database ?? undefined,
+        username: username ?? undefined,
+        password: password ?? '',
+      });
+    case KIND.CLICKHOUSE:
+      return testClickHouseConnection({
+        host: host ?? undefined,
+        port: port ?? undefined,
+        database: database ?? undefined,
+        username: username ?? undefined,
+        password: password ?? '',
+      });
+    case KIND.DUCKDB:
+      return testDuckDBConnection(filePath!);
+    case KIND.TIGERBEETLE:
+      return createTigerBeetleDbAdapter(
+        { kind, host: host ?? undefined, port: port ?? undefined },
+        password,
+      ).testConnection();
+    default:
+      return { success: false, message: `Unsupported database kind: ${kind}` };
+  }
 }
 
 connectionsRouter.get('/', (c) => {
@@ -94,107 +187,20 @@ connectionsRouter.get('/health', async (c) => {
         profiles.map(async (profile) => {
           const password = metadataStore.getProfilePassword(profile.id);
           try {
-            let result: { success: boolean; message?: string; latencyMs?: number };
             const start = performance.now();
-            switch (profile.kind) {
-              case KIND.POSTGRES:
-                result = await withTimeout(
-                  testPostgresConnection({
-                    host: profile.host!,
-                    port: profile.port!,
-                    database: profile.database!,
-                    username: profile.username!,
-                    password: password ?? '',
-                  }),
-                  PER_CHECK_TIMEOUT,
-                );
-                break;
-              case KIND.MONGODB:
-                result = await withTimeout(
-                  createMongoAdapter({
-                    connectionString: profile.connectionString!,
-                    database: profile.database,
-                  }).testConnection(),
-                  PER_CHECK_TIMEOUT,
-                );
-                break;
-              case KIND.REDIS: {
-                const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
-                result = await withTimeout(
-                  testRedisConnection({
-                    host: profile.host!,
-                    port: profile.port!,
-                    password: password ?? undefined,
-                    database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
-                  }),
-                  PER_CHECK_TIMEOUT,
-                );
-                break;
-              }
-              case KIND.QDRANT:
-                result = await withTimeout(createQdrantDbAdapter(profile).testConnection(), PER_CHECK_TIMEOUT);
-                break;
-              case KIND.SQLITE:
-                result = await withTimeout(testSqliteConnection(profile.filePath), PER_CHECK_TIMEOUT);
-                break;
-              case KIND.MYSQL:
-              case KIND.MARIADB:
-                result = await withTimeout(
-                  testMysqlConnection({
-                    host: profile.host!,
-                    port: profile.port!,
-                    database: profile.database,
-                    username: profile.username!,
-                    password: password ?? '',
-                  }),
-                  PER_CHECK_TIMEOUT,
-                );
-                break;
-              case KIND.SQLSERVER:
-                result = await withTimeout(
-                  testSqlServerConnection({
-                    host: profile.host!,
-                    port: profile.port!,
-                    database: profile.database,
-                    username: profile.username!,
-                    password: password ?? '',
-                  }),
-                  PER_CHECK_TIMEOUT,
-                );
-                break;
-              case KIND.ORACLE:
-                result = await withTimeout(
-                  testOracleConnection({
-                    host: profile.host!,
-                    port: profile.port!,
-                    database: profile.database,
-                    username: profile.username!,
-                    password: password ?? '',
-                  }),
-                  PER_CHECK_TIMEOUT,
-                );
-                break;
-              case KIND.CLICKHOUSE:
-                result = await withTimeout(
-                  testClickHouseConnection({
-                    host: profile.host!,
-                    port: profile.port!,
-                    database: profile.database,
-                    username: profile.username!,
-                    password: password ?? '',
-                  }),
-                  PER_CHECK_TIMEOUT,
-                );
-                break;
-              case KIND.DUCKDB:
-                result = await withTimeout(testDuckDBConnection(profile.filePath!), PER_CHECK_TIMEOUT);
-                break;
-              case KIND.TIGERBEETLE:
-                result = await withTimeout(createTigerBeetleDbAdapter(profile).testConnection(), PER_CHECK_TIMEOUT);
-                break;
-              default:
-                result = { success: false, message: `Unsupported: ${profile.kind}` };
-            }
+            const result = await withTimeout(
+              testConnectionByKind({
+                kind: profile.kind,
+                host: profile.host,
+                port: profile.port,
+                database: profile.database,
+                username: profile.username,
+                password: password ?? undefined,
+                connectionString: profile.connectionString,
+                filePath: profile.filePath,
+              }),
+              PER_CHECK_TIMEOUT,
+            );
             result.latencyMs = Math.round(performance.now() - start);
             results[profile.id] = result;
           } catch (err) {
@@ -202,7 +208,7 @@ connectionsRouter.get('/health', async (c) => {
             results[profile.id] = {
               success: false,
               latencyMs: 0,
-              message: err instanceof Error ? err.message : 'Unknown error',
+              message: safeErrorMessage(err),
             };
           }
         }),
@@ -250,88 +256,20 @@ connectionsRouter.get('/:id/health', async (c) => {
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   const password = metadataStore.getProfilePassword(connectionId);
   try {
-    let result;
-    switch (profile.kind) {
-      case KIND.POSTGRES:
-        result = await testPostgresConnection({
-          host: profile.host!,
-          port: profile.port!,
-          database: profile.database!,
-          username: profile.username!,
-          password: password ?? '',
-        });
-        break;
-      case KIND.MONGODB:
-        result = await createMongoAdapter({
-          connectionString: profile.connectionString!,
-          database: profile.database,
-        }).testConnection();
-        break;
-      case KIND.REDIS:
-        const redisDatabaseParsed = profile.database ? parseInt(profile.database, 10) : NaN;
-        result = await testRedisConnection({
-          host: profile.host,
-          port: profile.port,
-          password: password ?? undefined,
-          database: Number.isNaN(redisDatabaseParsed) ? undefined : redisDatabaseParsed,
-        });
-        break;
-      case KIND.QDRANT:
-        result = await createQdrantDbAdapter(profile).testConnection();
-        break;
-      case KIND.SQLITE:
-        result = await testSqliteConnection(profile.filePath);
-        break;
-      case KIND.MYSQL:
-      case KIND.MARIADB:
-        result = await testMysqlConnection({
-          host: profile.host,
-          port: profile.port,
-          database: profile.database,
-          username: profile.username,
-          password: password ?? '',
-        });
-        break;
-      case KIND.SQLSERVER:
-        result = await testSqlServerConnection({
-          host: profile.host,
-          port: profile.port,
-          database: profile.database,
-          username: profile.username,
-          password: password ?? '',
-        });
-        break;
-      case KIND.ORACLE:
-        result = await testOracleConnection({
-          host: profile.host,
-          port: profile.port,
-          database: profile.database,
-          username: profile.username,
-          password: password ?? '',
-        });
-        break;
-      case KIND.CLICKHOUSE:
-        result = await testClickHouseConnection({
-          host: profile.host,
-          port: profile.port,
-          database: profile.database,
-          username: profile.username,
-          password: password ?? '',
-        });
-        break;
-      case KIND.DUCKDB:
-        result = await testDuckDBConnection(profile.filePath!);
-        break;
-      case KIND.TIGERBEETLE:
-        result = await createTigerBeetleDbAdapter(profile).testConnection();
-        break;
-      default:
-        return c.json({ success: false, message: `Unsupported database kind: ${profile.kind}` });
-    }
+    const result = await testConnectionByKind({
+      kind: profile.kind,
+      host: profile.host,
+      port: profile.port,
+      database: profile.database,
+      username: profile.username,
+      password: password ?? undefined,
+      connectionString: profile.connectionString,
+      filePath: profile.filePath,
+    });
     return c.json(result);
   } catch (err) {
     log.error({ connectionId: c.req.param('id'), err }, 'Test connection failed');
-    return c.json({ success: false, message: err instanceof Error ? err.message : 'Unknown error' });
+    return c.json({ success: false, message: safeErrorMessage(err) });
   }
 });
 
@@ -417,87 +355,19 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
   }
 
   try {
-    let result;
-    switch (input.kind) {
-      case KIND.POSTGRES:
-        result = await testPostgresConnection(input);
-        break;
-      case KIND.MYSQL:
-      case KIND.MARIADB:
-        result = await testMysqlConnection({
-          host: input.host,
-          port: input.port,
-          database: input.database,
-          username: input.username,
-          password: input.password,
-        });
-        break;
-      case KIND.SQLITE:
-        result = await testSqliteConnection(input.filePath);
-        break;
-      case KIND.MONGODB:
-        if (!input.connectionString) {
-          return c.json({
-            success: false,
-            message: 'Connection string is required for MongoDB connections',
-          });
-        }
-        result = await createMongoAdapter({
-          connectionString: input.connectionString,
-          database: input.database,
-        }).testConnection();
-        break;
-      case KIND.REDIS:
-        result = await createRedisDbAdapter(input, input.password).testConnection();
-        break;
-      case KIND.QDRANT:
-        result = await createQdrantDbAdapter(input).testConnection();
-        break;
-      case KIND.SQLSERVER:
-        result = await testSqlServerConnection({
-          host: input.host,
-          port: input.port,
-          database: input.database,
-          username: input.username,
-          password: input.password,
-        });
-        break;
-      case KIND.ORACLE:
-        result = await testOracleConnection({
-          host: input.host,
-          port: input.port,
-          database: input.database,
-          username: input.username,
-          password: input.password,
-        });
-        break;
-      case KIND.CLICKHOUSE:
-        result = await testClickHouseConnection({
-          host: input.host,
-          port: input.port,
-          database: input.database,
-          username: input.username,
-          password: input.password,
-        });
-        break;
-      case KIND.DUCKDB:
-        if (!input.filePath) {
-          return c.json({ success: false, message: 'File path is required for DuckDB connections' });
-        }
-        result = await testDuckDBConnection(input.filePath);
-        break;
-      case KIND.TIGERBEETLE:
-        result = await createTigerBeetleDbAdapter(input).testConnection();
-        break;
-      default:
-        return c.json({ success: false, message: `Unsupported database kind: ${input.kind}` });
-    }
+    const result = await testConnectionByKind({
+      kind: input.kind as DbKind,
+      host: input.host,
+      port: input.port,
+      database: input.database,
+      username: input.username,
+      password: input.password,
+      connectionString: input.connectionString,
+      filePath: input.filePath,
+    });
     return c.json(result);
   } catch (err) {
     log.error({ err }, 'Test connection (create) failed');
-    return c.json({
-      success: false,
-      message: err instanceof Error ? err.message : 'Unknown error',
-    });
+    return c.json({ success: false, message: safeErrorMessage(err) });
   }
 });

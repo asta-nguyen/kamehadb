@@ -59,15 +59,38 @@ export function createOracleAdapter(connection: {
     return '"' + id.replace(/"/g, '""') + '"';
   }
 
+  const MAX_LOB_SIZE = 10240; // 10KB cap per LOB to bound memory/latency
+
   async function serializeRows(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
     const out: Record<string, unknown>[] = [];
     for (const row of rows) {
       const serialized: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(row)) {
         if (val && typeof val === 'object' && typeof (val as { getData?: unknown }).getData === 'function') {
-          // Lob object — read actual data via getData() instead of returning a placeholder
+          // Lob object — read a bounded slice via getData(offset, amount) to avoid
+          // unbounded memory/latency. Reading MAX_LOB_SIZE + 1 lets us detect truncation.
           try {
-            serialized[key] = await (val as { getData(): Promise<string> }).getData();
+            const data = await (
+              val as { getData(offset: number, amount: number): Promise<string | Buffer | null> }
+            ).getData(1, MAX_LOB_SIZE + 1);
+            if (data === null) {
+              serialized[key] = null;
+            } else if (Buffer.isBuffer(data)) {
+              const truncated = data.length > MAX_LOB_SIZE;
+              serialized[key] = {
+                kind: 'blob',
+                encoding: 'base64',
+                data: data.subarray(0, MAX_LOB_SIZE).toString('base64'),
+                truncated,
+              };
+            } else {
+              const truncated = data.length > MAX_LOB_SIZE;
+              serialized[key] = {
+                kind: 'clob',
+                data: truncated ? data.slice(0, MAX_LOB_SIZE) : data,
+                truncated,
+              };
+            }
           } catch {
             serialized[key] = '[LOB read failed]';
           }

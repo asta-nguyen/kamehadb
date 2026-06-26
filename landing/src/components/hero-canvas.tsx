@@ -160,40 +160,42 @@ function TechNode({
   const c = new THREE.Color(engine.color);
 
   return (
-    <group ref={groupRef}>
-      {/* Orbital ring — stays in world space at fixed orbit */}
+    <>
+      {/* Orbital ring — stays in world space at fixed orbit, outside the moving group */}
       <mesh rotation-x={Math.PI / 2} position={[0, 0, 0]}>
         <ringGeometry args={[orbit.radius - 0.015, orbit.radius + 0.015, 48]} />
         <meshBasicMaterial color={engine.color} transparent opacity={0.08} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
-      {/* Icosahedron node at group origin — travels with the group */}
-      <mesh ref={meshRef}>
-        <icosahedronGeometry args={[0.35, 0]} />
-        <meshPhysicalMaterial
-          color={c}
-          emissive={c}
-          emissiveIntensity={0.3}
-          roughness={0.3}
-          metalness={0.6}
-          transparent
-          opacity={0.9}
-        />
-      </mesh>
+      <group ref={groupRef}>
+        {/* Icosahedron node at group origin — travels with the group */}
+        <mesh ref={meshRef}>
+          <icosahedronGeometry args={[0.35, 0]} />
+          <meshPhysicalMaterial
+            color={c}
+            emissive={c}
+            emissiveIntensity={0.3}
+            roughness={0.3}
+            metalness={0.6}
+            transparent
+            opacity={0.9}
+          />
+        </mesh>
 
-      {/* Wireframe overlay */}
-      <mesh scale={1.4}>
-        <icosahedronGeometry args={[0.35, 0]} />
-        <meshBasicMaterial color={c} wireframe transparent opacity={0.15} />
-      </mesh>
+        {/* Wireframe overlay */}
+        <mesh scale={1.4}>
+          <icosahedronGeometry args={[0.35, 0]} />
+          <meshBasicMaterial color={c} wireframe transparent opacity={0.15} />
+        </mesh>
 
-      {/* Icon sprite — inside the icosahedron, depthTest=false so it's not occluded by the faces */}
-      {texture && (
-        <sprite scale={[0.3, 0.3, 1]} position={[0, 0, 0]}>
-          <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false} />
-        </sprite>
-      )}
-    </group>
+        {/* Icon sprite — inside the icosahedron, depthTest=false so it's not occluded by the faces */}
+        {texture && (
+          <sprite scale={[0.3, 0.3, 1]} position={[0, 0, 0]}>
+            <spriteMaterial map={texture} transparent depthTest={false} depthWrite={false} />
+          </sprite>
+        )}
+      </group>
+    </>
   );
 }
 
@@ -419,6 +421,13 @@ function Scene() {
   const orbits = useMemo(() => ORBIT_DATA, []);
   const [texCache] = useState(() => new Map() as TexCache);
 
+  useEffect(() => {
+    return () => {
+      texCache.forEach((texture) => texture.dispose());
+      texCache.clear();
+    };
+  }, [texCache]);
+
   return (
     <>
       <ambientLight intensity={0.3} />
@@ -444,7 +453,7 @@ function Scene() {
 
 export default function HeroCanvas() {
   return (
-    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }} aria-hidden="true">
       <Canvas camera={{ position: [0, 3, 11], fov: 45 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }}>
         <Scene />
       </Canvas>
