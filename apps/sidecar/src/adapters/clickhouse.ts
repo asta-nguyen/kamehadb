@@ -65,7 +65,7 @@ export function createClickHouseAdapter(connection: {
     return '`' + id.replace(/`/g, '\\`') + '`';
   }
 
-  function escapeVal(val: string): string {
+  function escapeClickHouseVal(val: string): string {
     return "'" + val.replace(/'/g, "\\'") + "'";
   }
 
@@ -97,7 +97,7 @@ export function createClickHouseAdapter(connection: {
     async listTables(schema?: string): Promise<TableInfo[]> {
       if (schema) {
         const rows = await q<{ name: string; database: string }>(
-          `SELECT name, database FROM system.tables WHERE database = ${escapeVal(schema)} AND database NOT IN ('INFORMATION_SCHEMA', 'information_schema', 'system') AND engine NOT IN ('SystemTable', 'SystemLog') ORDER BY name`,
+          `SELECT name, database FROM system.tables WHERE database = ${escapeClickHouseVal(schema)} AND database NOT IN ('INFORMATION_SCHEMA', 'information_schema', 'system') AND engine NOT IN ('SystemTable', 'SystemLog') ORDER BY name`,
         );
         return rows.map((r) => ({
           id: `${r.database}.${r.name}`,
@@ -143,7 +143,7 @@ export function createClickHouseAdapter(connection: {
       const db = parts.length > 1 ? parts[0] : connection.database || 'default';
       const table = parts.length > 1 ? parts[1] : tableId;
       const rows = await q<{ name: string; type: string; expr: string; granularity: number }>(
-        `SELECT name, type, expr, granularity FROM system.data_skipping_indices WHERE database = ${escapeVal(db)} AND table = ${escapeVal(table)} ORDER BY name`,
+        `SELECT name, type, expr, granularity FROM system.data_skipping_indices WHERE database = ${escapeClickHouseVal(db)} AND table = ${escapeClickHouseVal(table)} ORDER BY name`,
       );
       return rows.map((r) => ({
         name: r.name,
@@ -166,7 +166,7 @@ export function createClickHouseAdapter(connection: {
       }>(
         `SELECT name, total_rows, total_bytes, metadata_modification_time
          FROM system.tables
-         WHERE database = ${escapeVal(db)} AND name = ${escapeVal(table)}`,
+         WHERE database = ${escapeClickHouseVal(db)} AND name = ${escapeClickHouseVal(table)}`,
       );
       const row = rows[0];
       const rowEstimate = row ? Number(row.total_rows) || 0 : 0;
