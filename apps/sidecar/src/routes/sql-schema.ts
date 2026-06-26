@@ -1,11 +1,11 @@
 import type {
-  DbKind,
   MigrationInput,
   SchemaDiffInput,
   SchemaSnapshotRecord,
   SchemaSnapshotSummary,
   SqlAdapter,
 } from '@kamehadb/shared';
+import { resolveDialect } from '@kamehadb/shared';
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
@@ -148,31 +148,6 @@ export function createSqlSchemaRouter(options: {
       }
     },
   );
-
-  // Map a connection kind to its migration SQL dialect.  Currently we
-  // generate PostgreSQL or MySQL syntax; other engines produce a generic
-  // dialect that may need manual adjustments.
-  function resolveDialect(kind: DbKind): string {
-    switch (kind) {
-      case 'postgres':
-        return 'postgresql';
-      case 'mysql':
-      case 'mariadb':
-        return 'mysql';
-      case 'sqlite':
-        return 'sqlite';
-      case 'sqlserver':
-        return 'sqlserver';
-      case 'oracle':
-        return 'oracle';
-      case 'clickhouse':
-        return 'clickhouse';
-      case 'duckdb':
-        return 'duckdb';
-      default:
-        return 'postgresql';
-    }
-  }
 
   router.post(
     '/schema/migrations',

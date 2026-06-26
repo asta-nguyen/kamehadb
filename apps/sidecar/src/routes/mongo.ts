@@ -9,20 +9,17 @@ import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
+import { KIND } from '@kamehadb/shared';
+import { handleError } from '../lib/route-utils.js';
 import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
-
-function handleError(c: any, err: unknown, context: string) {
-  log.error({ err }, `Mongo ${context}`);
-  return c.json({ error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500);
-}
 
 async function getAdapter(connectionId: string) {
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) throw new Error('Connection not found');
 
-  if (profile.kind !== 'mongodb') {
+  if (profile.kind !== KIND.MONGODB) {
     throw new Error('This endpoint is for MongoDB connections only');
   }
 

@@ -265,7 +265,7 @@ function containsMultipleStatements(sql: string): boolean {
 }
 
 import { DataTable, type ColumnDef } from '@/components/data-table';
-import { RecordDetailTabs } from '@/components/table-view';
+import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,

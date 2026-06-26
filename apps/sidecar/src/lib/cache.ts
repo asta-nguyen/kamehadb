@@ -1,10 +1,13 @@
 import { LRUCache } from 'lru-cache';
 import { CACHE_MAX_ENTRIES } from './constants.js';
+import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@kamehadb/shared';
+
+const AI_SCHEMA_CACHE_TIME = 5 * 60 * 1000;
 
 export const CACHE_TTL = {
-  SCHEMA: 5 * 60 * 1000, // 5 minutes for schema/tables
-  STATS: 30 * 1000, // 30 seconds for stats
-  AI_SCHEMA: 5 * 60 * 1000, // 5 minutes for AI schema context
+  SCHEMA: SCHEMA_CACHE_TIME,
+  STATS: STATS_CACHE_TIME,
+  AI_SCHEMA: AI_SCHEMA_CACHE_TIME,
 };
 
 const cache = new LRUCache<string, { data: unknown; timestamp: number }>({ max: CACHE_MAX_ENTRIES });

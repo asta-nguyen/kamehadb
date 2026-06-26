@@ -1,28 +1,14 @@
-/** Default page size for paginated views. */
+import {
+  SCHEMA_CACHE_TIME as SHARED_SCHEMA_CACHE_TIME,
+  STATS_CACHE_TIME as SHARED_STATS_CACHE_TIME,
+} from '@kamehadb/shared';
+
 export const PAGE_LIMIT = 20;
 
-/** How long to cache schema metadata (5 minutes). */
-export const SCHEMA_CACHE_TIME = 5 * 60 * 1000;
+export const SCHEMA_CACHE_TIME = SHARED_SCHEMA_CACHE_TIME;
+export const STATS_CACHE_TIME = SHARED_STATS_CACHE_TIME;
 
-/** How long to cache database stats (30 seconds). */
-export const STATS_CACHE_TIME = 30 * 1000;
-
-/** Short cache for fast-changing data like Redis/Qdrant keys (10 seconds). */
-export const FAST_CACHE_TIME = 10 * 1000;
-
-/** Stale time for connection list (2 minutes). */
-export const CONNECTIONS_CACHE_TIME = 2 * 60 * 1000;
-
-/** Default stale time for the global query client (30 seconds). */
-export const DEFAULT_STALE_TIME = 30 * 1000;
-
-/** Health check refetch interval (1 minute). */
-export const HEALTH_CHECK_INTERVAL = 60 * 1000;
-
-/** Auto-hide transient UI notifications (5 seconds). */
 export const TOAST_AUTO_HIDE_MS = 5 * 1000;
-
-/** Debounce delay for auto-testing SQLite file connections (500ms). */
 export const AUTO_TEST_DEBOUNCE_MS = 500;
 
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';

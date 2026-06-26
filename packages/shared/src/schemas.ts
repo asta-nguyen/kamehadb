@@ -268,6 +268,22 @@ export type FileDatabaseMaintenanceResult = {
   relatedPaths: string[];
 };
 
+export type FileDatabaseMaintenanceErrorCode =
+  | 'not-file-database'
+  | 'missing-file-path'
+  | 'missing-source-file'
+  | 'same-path';
+
+export class FileDatabaseMaintenanceError extends Error {
+  readonly code: FileDatabaseMaintenanceErrorCode;
+
+  constructor(code: FileDatabaseMaintenanceErrorCode, message: string) {
+    super(message);
+    this.name = 'FileDatabaseMaintenanceError';
+    this.code = code;
+  }
+}
+
 // Query history
 export const SaveQueryHistorySchema = z.object({
   query: z.string().min(1),

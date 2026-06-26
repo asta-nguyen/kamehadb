@@ -3,9 +3,12 @@ import {
   type ConnectionProfile,
   isFileDatabaseKind,
   type FileDatabaseBackupRequest,
+  FileDatabaseMaintenanceError,
   type FileDatabaseMaintenanceResult,
   type FileDatabaseRestoreRequest,
 } from '@kamehadb/shared';
+
+export { FileDatabaseMaintenanceError };
 import { access, copyFile, mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { SQLITE_RELATED_SUFFIXES, DUCKDB_RELATED_SUFFIXES } from './constants.js';
@@ -14,16 +17,6 @@ type SupportedFileDatabaseProfile = ConnectionProfile & {
   readonly kind: 'sqlite' | 'duckdb';
   readonly filePath: string;
 };
-
-export class FileDatabaseMaintenanceError extends Error {
-  readonly code: 'not-file-database' | 'missing-file-path' | 'missing-source-file' | 'same-path';
-
-  constructor(code: 'not-file-database' | 'missing-file-path' | 'missing-source-file' | 'same-path', message: string) {
-    super(message);
-    this.name = 'FileDatabaseMaintenanceError';
-    this.code = code;
-  }
-}
 
 // Narrow a saved profile to the file-backed engines because backup and restore
 // need a concrete on-disk path, not a server connection string.
