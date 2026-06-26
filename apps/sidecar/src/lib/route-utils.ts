@@ -66,6 +66,6 @@ export async function withAdapter<TAdapter extends { close(): Promise<unknown> }
   try {
     return await fn(adapter);
   } finally {
-    await adapter.close().catch(() => {});
+    await adapter.close().catch((err) => { log.warn({ err }, 'Adapter close failed'); });
   }
 }
