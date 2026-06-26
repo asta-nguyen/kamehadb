@@ -11,19 +11,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **MCP server** — v1.4.
 
+## [v1.3.3] — 2026-06-25
+
+### Added
+
+- **Logs page controls** — clear frontend, Tauri, and sidecar logs directly from the desktop app.
+
 ### Fixed
 
 - **MySQL/MariaDB connection validation** — password is now required for MySQL, MariaDB, SQL Server, and Oracle (previously only PostgreSQL was checked).
 - **MongoDB default port** — corrected to 27017 so auto-generated connection defaults are valid.
 - **Connection URL parsing** — supports protocol aliases like `postgresql://`, `rediss://`, `mongodb+srv://`, and `mssql://`.
 - **Username validation** — no longer blocks connection tests for databases that don't need an explicit username.
+- **Frontend crash handling** — runtime failures are captured in the app logs and now fall back to an in-app recovery screen instead of failing silently.
 - **UI consistency** — buttons, inputs, and textareas now use Shadcn components throughout the desktop app.
-- **Pre-commit hooks** — ESLint now runs with the correct package-local config.
 
 ### Changed
 
 - **Logs pipeline** — efficient file tailing, no more self-generated poll errors, and sidecar HTTP access logs included.
-- **Log security** — deeper secret redaction and sanitized paths in logged output.
+- **Log security** — deeper secret redaction, sanitized paths, and resilient error normalization in logged output.
+- **Linting setup** — shared ESLint rules and package-local hooks/configs now keep desktop and sidecar checks aligned.
+
+### Contributors
+
+- [@asta-nguyen](https://github.com/asta-nguyen) — Asta Nguyen
+- [@JoeJoeflyn](https://github.com/JoeJoeflyn) — Tai Nguyen
 
 ---
 
