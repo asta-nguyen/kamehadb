@@ -61,7 +61,7 @@ export function quoteSqlIdentifier(identifier: string): string {
  */
 export async function getNonSqlAdapter<T>(
   connectionId: string,
-  expectedKind: string,
+  expectedKind: ConnectionProfile['kind'],
   factory: (profile: ConnectionProfile) => Promise<T> | T,
 ): Promise<T> {
   const profile = metadataStore.getProfile(connectionId);
