@@ -1,24 +1,16 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import * as metadataStore from '../db/metadata-store.js';
 import { createRedisDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { RedisStats } from '@kamehadb/shared';
 import { KIND } from '@kamehadb/shared';
-import { handleError, httpError } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter } from '../lib/route-utils.js';
 
 export const redisRouter = new Hono();
 
 async function getAdapter(connectionId: string, password?: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw httpError('Connection not found', 404);
-
-  if (profile.kind !== KIND.REDIS) {
-    throw httpError('This endpoint is for Redis connections only', 400);
-  }
-
-  return createRedisDbAdapter(profile, password);
+  return getNonSqlAdapter(connectionId, KIND.REDIS, (profile) => createRedisDbAdapter(profile, password));
 }
 
 // GET /redis/:connectionId/test

@@ -6,19 +6,12 @@ import { createQdrantDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { QdrantStats } from '@kamehadb/shared';
 import { KIND } from '@kamehadb/shared';
-import { handleError, httpError } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter } from '../lib/route-utils.js';
 
 export const qdrantRouter = new Hono();
 
 async function getAdapter(connectionId: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw httpError('Connection not found', 404);
-
-  if (profile.kind !== KIND.QDRANT) {
-    throw httpError('This endpoint is for Qdrant connections only', 400);
-  }
-
-  return createQdrantDbAdapter(profile);
+  return getNonSqlAdapter(connectionId, KIND.QDRANT, createQdrantDbAdapter);
 }
 
 // GET /qdrant/:connectionId/test

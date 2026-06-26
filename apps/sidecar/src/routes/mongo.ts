@@ -10,20 +10,13 @@ import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
 import { KIND } from '@kamehadb/shared';
-import { handleError } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter } from '../lib/route-utils.js';
 import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
 
 async function getAdapter(connectionId: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw new Error('Connection not found');
-
-  if (profile.kind !== KIND.MONGODB) {
-    throw new Error('This endpoint is for MongoDB connections only');
-  }
-
-  return createMongoDbAdapter(profile);
+  return getNonSqlAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter);
 }
 
 // GET /mongo/:connectionId/collections
