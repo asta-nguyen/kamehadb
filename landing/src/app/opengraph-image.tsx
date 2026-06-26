@@ -57,7 +57,10 @@ export default async function Image() {
 
   let stars = 0;
   try {
-    const repoRes = await fetch('https://api.github.com/repos/asta-nguyen/kamehadb');
+    const repoRes = await fetch('https://api.github.com/repos/asta-nguyen/kamehadb', {
+      signal: AbortSignal.timeout(5000),
+      next: { revalidate: 3600 },
+    });
     if (repoRes.ok) {
       const repoData = await repoRes.json();
       stars = repoData.stargazers_count ?? 0;

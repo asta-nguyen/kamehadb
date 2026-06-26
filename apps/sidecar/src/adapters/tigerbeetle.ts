@@ -176,26 +176,19 @@ type TBConfig = {
 export function createTigerBeetleAdapter(config: TBConfig): TigerBeetleAdapter {
   const clusterId = BigInt(config.clusterId ?? '0');
   const rawHost = config.host ?? '127.0.0.1';
-  const port = config.port ?? 3000;
+  const port = config.port ?? 3001;
   // tigerbeetle-node's native parser rejects hostnames ("Invalid replica
   // address"). Resolve to an IP once via DNS so users can keep typing
   // `localhost` or a remote hostname in the connection dialog.
   let resolvedAddress: string | null = null;
-  let resolveError: Error | null = null;
 
   async function resolveAddress(): Promise<string> {
     if (resolvedAddress) return resolvedAddress;
-    if (resolveError) throw resolveError;
-    try {
-      // Force IPv4: dns.lookup may return ::1 for `localhost`, but
-      // tigerbeetle-node's address parser only accepts IPv4 literals.
-      const { address: ip } = await dnsLookup(rawHost, { family: 4 });
-      resolvedAddress = `${ip}:${port}`;
-      return resolvedAddress;
-    } catch (err) {
-      resolveError = err instanceof Error ? err : new Error(String(err));
-      throw resolveError;
-    }
+    // Force IPv4: dns.lookup may return ::1 for `localhost`, but
+    // tigerbeetle-node's address parser only accepts IPv4 literals.
+    const { address: ip } = await dnsLookup(rawHost, { family: 4 });
+    resolvedAddress = `${ip}:${port}`;
+    return resolvedAddress;
   }
 
   const displayAddress = `${rawHost}:${port}`;
@@ -207,13 +200,20 @@ export function createTigerBeetleAdapter(config: TBConfig): TigerBeetleAdapter {
     if (client) return client;
     if (!clientInitPromise) {
       clientInitPromise = (async () => {
-        const address = await resolveAddress();
-        const c = createClient({
-          cluster_id: clusterId,
-          replica_addresses: [address],
-        }) as unknown as Client;
-        client = c;
-        return c;
+        try {
+          const address = await resolveAddress();
+          const c = createClient({
+            cluster_id: clusterId,
+            replica_addresses: [address],
+          }) as unknown as Client;
+          client = c;
+          return c;
+        } catch (err) {
+          // Reset so the next call retries instead of returning a
+          // permanently rejected promise.
+          clientInitPromise = null;
+          throw err;
+        }
       })();
     }
     return clientInitPromise;

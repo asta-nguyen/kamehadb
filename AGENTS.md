@@ -201,7 +201,7 @@ Notes:
 | Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
 | ClickHouse  | 8123 | default | default  | kamehadb |
 | DuckDB      | 5432 | —       | —        | —        |
-| TigerBeetle | 3000 | —       | —        | —        |
+| TigerBeetle | 3001 | —       | —        | —        |
 
 ### TigerBeetle Initialization
 

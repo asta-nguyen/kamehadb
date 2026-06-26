@@ -163,6 +163,7 @@ export function LogsPage() {
       await clearAppLogs();
       setEntries([]);
       setError(null);
+      setClearError(null);
     } catch (err) {
       setClearError(err instanceof Error ? err.message : 'Failed to clear logs');
     }

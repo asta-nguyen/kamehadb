@@ -102,7 +102,7 @@ export const DEFAULT_PORTS: Record<DbKind, number> = {
   [KIND.CLICKHOUSE]: 8123,
   [KIND.MARIADB]: 3306,
   [KIND.DUCKDB]: 0,
-  [KIND.TIGERBEETLE]: 3000,
+  [KIND.TIGERBEETLE]: 3001,
 };
 
 /** SQL migration dialect names. */

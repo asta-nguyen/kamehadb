@@ -61,7 +61,7 @@ services:
     image: ghcr.io/tigerbeetle/tigerbeetle:latest
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - tigerbeetle_data:/data
     security_opt:

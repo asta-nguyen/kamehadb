@@ -108,12 +108,17 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           <CardContent className="space-y-3">
             {(() => {
               const tableBytes = stats.totalBytes - stats.indexesBytes - stats.toastBytes;
+              const total = stats.totalBytes;
               const segments = [
                 { label: 'Table Data', bytes: Math.max(tableBytes, 0), color: 'bg-primary' },
                 { label: 'Indexes', bytes: stats.indexesBytes, color: 'bg-blue-500' },
                 ...(stats.toastBytes > 0 ? [{ label: 'TOAST', bytes: stats.toastBytes, color: 'bg-amber-500' }] : []),
               ].filter((s) => s.bytes > 0);
-              const total = segments.reduce((sum, s) => sum + s.bytes, 0) || 1;
+              const segmentSum = segments.reduce((sum, s) => sum + s.bytes, 0);
+              const remainder = total - segmentSum;
+              if (remainder > 0) {
+                segments.push({ label: 'Other', bytes: remainder, color: 'bg-muted-foreground/30' });
+              }
 
               return (
                 <>

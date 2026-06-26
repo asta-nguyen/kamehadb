@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { getBaseUrl } from '@/lib/url';
+import { getBaseUrl, PRODUCTION_URL } from '@/lib/url';
 import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
 import Providers from './providers';
@@ -81,12 +81,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const baseUrl = await getBaseUrl();
+  // Use the static production URL for JSON-LD to avoid forcing request-time
+  // rendering, which breaks Next.js static prerendering of the layout.
+  const baseUrl = PRODUCTION_URL;
 
   return (
     <html

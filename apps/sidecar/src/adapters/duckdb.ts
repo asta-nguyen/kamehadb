@@ -12,12 +12,15 @@ import type {
   QueryColumn,
   TableStats,
 } from '@kamehadb/shared';
+import type { DuckDBInstance as DuckDBInst, DuckDBConnection as DuckDBConn } from '@duckdb/node-api';
 
 export async function testDuckDBConnection(filePath: string): Promise<TestConnectionResult> {
+  let inst: DuckDBInst | null = null;
+  let conn: DuckDBConn | null = null;
   try {
     const { DuckDBInstance } = await import('@duckdb/node-api');
-    const inst = await DuckDBInstance.create(filePath);
-    const conn = await inst.connect();
+    inst = await DuckDBInstance.create(filePath);
+    conn = await inst.connect();
     const reader = await conn.runAndReadAll('SELECT version() AS version');
     const rawRows = reader.getRowObjects();
     const rows = rawRows.map((row) => {
@@ -27,11 +30,12 @@ export async function testDuckDBConnection(filePath: string): Promise<TestConnec
       }
       return out;
     });
-    conn.closeSync();
-    inst.closeSync();
     return { success: true, serverVersion: String(rows[0]?.version || '') };
   } catch (err) {
     return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
+  } finally {
+    conn?.closeSync();
+    inst?.closeSync();
   }
 }
 
@@ -44,20 +48,29 @@ function escapeVal(val: string): string {
 }
 
 export function createDuckDbAdapter(filePath: string): SqlAdapter {
-  let inst: any = null;
-  let conn: any = null;
+  let inst: DuckDBInst | null = null;
+  let conn: DuckDBConn | null = null;
+  let initPromise: Promise<void> | null = null;
 
   async function ensureDb() {
-    if (!conn) {
-      const { DuckDBInstance } = await import('@duckdb/node-api');
-      inst = await DuckDBInstance.create(filePath);
-      conn = await inst.connect();
+    if (conn) return;
+    if (!initPromise) {
+      initPromise = (async () => {
+        const { DuckDBInstance } = await import('@duckdb/node-api');
+        inst = await DuckDBInstance.create(filePath);
+        conn = await inst.connect();
+      })();
     }
+    await initPromise;
+    initPromise = null;
   }
 
   function convertBigInt(val: unknown): unknown {
-    if (typeof val === 'bigint') return Number(val);
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
+    if (typeof val === 'bigint') {
+      return val > Number.MAX_SAFE_INTEGER || val < -Number.MAX_SAFE_INTEGER ? val.toString() : Number(val);
+    }
+    if (Array.isArray(val)) return val.map(convertBigInt);
+    if (val && typeof val === 'object') {
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(val)) out[k] = convertBigInt(v);
       return out;
@@ -67,7 +80,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
 
   async function q<T>(sql: string): Promise<T[]> {
     await ensureDb();
-    const reader = await conn.runAndReadAll(sql);
+    const reader = await conn!.runAndReadAll(sql);
     const rows = reader.getRowObjects() as Record<string, unknown>[];
     return rows.map((row) => {
       const out: Record<string, unknown> = {};

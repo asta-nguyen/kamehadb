@@ -126,15 +126,18 @@ export function DatabaseTypeGrid({ form, kind }: { form: UseFormReturn<CreateCon
               type="button"
               data-selected={selected}
               onClick={() => selectKind(form, dbKind)}
+              // Inline style ensures `position: relative` is always applied
+              // regardless of how cn()/tailwind-merge resolves the className
+              // with base-ui ButtonPrimitive's own classes.
+              style={{ position: 'relative' }}
               className={`
-                group relative flex flex-col items-center justify-center gap-1.5
+                group flex flex-col items-center justify-center gap-1.5
                 rounded-lg border bg-card p-3 h-auto transition-all duration-200
                 hover:shadow-sm active:scale-[0.98]
                 ${accent.border} ${accent.bg} ${accent.ring}
                 data-[selected=true]:border-2 data-[selected=true]:shadow-sm
                 data-[selected=true]:ring-2
                 data-[selected=false]:border-border/50
-               
               `}
             >
               {selected && (
@@ -180,7 +183,11 @@ export function BadgeColorPicker({
               size="icon"
               onClick={() => form.setValue('color', isSelected ? undefined : hex)}
               className={`rounded-full transition-all duration-200 hover:scale-110 active:scale-95 ${isSelected ? 'ring-2 ring-offset-2 ring-offset-background' : ''}`}
+              // Inline position:relative is required so the absolutely-positioned Check icon
+              // (absolute inset-0 m-auto) centers inside THIS button rather than escaping
+              // to the nearest positioned ancestor (DialogContent).
               style={{
+                position: 'relative',
                 backgroundColor: hex,
                 ['--tw-ring-color' as string]: hex,
               }}
@@ -402,8 +409,7 @@ export function DialogActions({
 }) {
   return (
     <div className="flex items-center gap-3 pt-2 pb-1">
-      <Button type="button" variant="outline" size="sm" onClick={onTest} disabled={isTesting} className="gap-1.5">
-        {isTesting ? <Spinner size="sm" className="size-3.5" /> : null}
+      <Button type="button" variant="outline" size="sm" onClick={onTest} disabled={isTesting}>
         Test
       </Button>
       {testMessage != null && (

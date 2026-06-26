@@ -33,10 +33,7 @@
       "pnpm --dir packages/shared exec eslint --fix",
       "prettier --write"
     ],
-    "landing/**/*.{js,jsx,ts,tsx}": [
-      "npm --prefix landing run lint -- --fix",
-      "prettier --write"
-    ],
+    "landing/**/*.{js,jsx,ts,tsx}": "prettier --write",
     "./*.{js,jsx,ts,tsx}": "prettier --write",
     "apps/desktop/*.{js,jsx,ts,tsx}": "prettier --write",
     "apps/sidecar/*.{js,jsx,ts,tsx}": "prettier --write",

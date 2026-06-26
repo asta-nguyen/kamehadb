@@ -59,29 +59,35 @@ export function createOracleAdapter(connection: {
     return '"' + id.replace(/"/g, '""') + '"';
   }
 
-  function serializeRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
-    return rows.map((row) => {
-      const out: Record<string, unknown> = {};
+  async function serializeRows(rows: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
+    const out: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      const serialized: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(row)) {
         if (val && typeof val === 'object' && typeof (val as { getData?: unknown }).getData === 'function') {
-          // Lob object — read as string
-          out[key] = '[CLOB]';
+          // Lob object — read actual data via getData() instead of returning a placeholder
+          try {
+            serialized[key] = await (val as { getData(): Promise<string> }).getData();
+          } catch {
+            serialized[key] = '[LOB read failed]';
+          }
         } else if (val instanceof Date) {
-          out[key] = val.toISOString();
+          serialized[key] = val.toISOString();
         } else if (val && typeof val === 'object' && !Array.isArray(val)) {
           // Avoid circular references from Oracle metadata objects
           try {
             JSON.stringify(val);
-            out[key] = val;
+            serialized[key] = val;
           } catch {
-            out[key] = String(val);
+            serialized[key] = String(val);
           }
         } else {
-          out[key] = val;
+          serialized[key] = val;
         }
       }
-      return out;
-    });
+      out.push(serialized);
+    }
+    return out;
   }
 
   return {
@@ -141,14 +147,14 @@ export function createOracleAdapter(connection: {
         const table = (parts.length > 1 ? parts[1] : tableId).toUpperCase();
 
         const colResult = await conn.execute(
-          `SELECT column_name AS name, data_type AS type, nullable, data_default AS "default"
+          `SELECT column_name AS name, data_type AS type, nullable, data_default AS default_val
            FROM all_tab_cols WHERE owner = :owner AND table_name = :tbl ORDER BY column_id`,
           { owner, tbl: table },
         );
 
         const pkResult = await conn.execute(
           `SELECT cc.column_name FROM all_cons_columns cc
-           JOIN all_constraints c ON cc.constraint_name = c.constraint_name
+           JOIN all_constraints c ON cc.constraint_name = c.constraint_name AND cc.owner = c.owner
            WHERE cc.owner = :owner AND cc.table_name = :tbl AND c.constraint_type = 'P'`,
           { owner, tbl: table },
         );
@@ -159,7 +165,7 @@ export function createOracleAdapter(connection: {
           name: r.NAME as string,
           type: r.TYPE as string,
           nullable: r.NULLABLE === 'Y',
-          default: r.DEFAULT === null ? null : String(r.DEFAULT),
+          default: r.DEFAULT_VAL === null || r.DEFAULT_VAL === undefined ? null : String(r.DEFAULT_VAL),
           primaryKey: pkColumns.has(r.NAME as string),
         }));
       } finally {
@@ -176,9 +182,11 @@ export function createOracleAdapter(connection: {
         const result = await conn.execute(
           `SELECT
             i.index_name, i.column_name, i.descend,
-            ix.uniqueness
+            ix.uniqueness,
+            ac.constraint_type
           FROM all_ind_columns i
           JOIN all_indexes ix ON i.index_name = ix.index_name AND i.table_owner = ix.owner
+          LEFT JOIN all_constraints ac ON ac.index_name = ix.index_name AND ac.owner = ix.owner AND ac.constraint_type = 'P'
           WHERE i.table_owner = :owner AND i.table_name = :tbl
           ORDER BY i.index_name, i.column_position`,
           { owner, tbl: table },
@@ -191,7 +199,7 @@ export function createOracleAdapter(connection: {
               name,
               columns: [],
               unique: row.UNIQUENESS === 'UNIQUE',
-              primary: false,
+              primary: row.CONSTRAINT_TYPE === 'P',
             });
           }
           indexMap.get(name)!.columns.push(row.COLUMN_NAME as string);
@@ -208,7 +216,7 @@ export function createOracleAdapter(connection: {
         const owner = schema?.toUpperCase() || connection.username?.toUpperCase();
         const result = await conn.execute(
           `SELECT
-            c.table_name, c.column_name, c.data_type AS type, c.nullable, c.data_default AS "default"
+            c.table_name, c.column_name, c.data_type AS type, c.nullable, c.data_default AS default_val
           FROM all_tab_cols c
           WHERE c.owner = :owner
           ORDER BY c.table_name, c.column_id`,
@@ -224,7 +232,7 @@ export function createOracleAdapter(connection: {
             name: row.COLUMN_NAME as string,
             type: row.TYPE as string,
             nullable: row.NULLABLE === 'Y',
-            default: row.DEFAULT === null ? null : String(row.DEFAULT),
+            default: row.DEFAULT_VAL === null || row.DEFAULT_VAL === undefined ? null : String(row.DEFAULT_VAL),
             primaryKey: false,
           });
         }
@@ -280,7 +288,7 @@ export function createOracleAdapter(connection: {
 
         return {
           columns,
-          rows: serializeRows((result.rows as Record<string, unknown>[]) || []),
+          rows: await serializeRows((result.rows as Record<string, unknown>[]) || []),
           rowCount: result.rows?.length || 0,
           durationMs: Math.round(durationMs),
           truncated: (result.rows?.length || 0) >= limit,
@@ -307,7 +315,7 @@ export function createOracleAdapter(connection: {
 
         return {
           columns,
-          rows: serializeRows((result.rows as Record<string, unknown>[]) || []),
+          rows: await serializeRows((result.rows as Record<string, unknown>[]) || []),
           rowCount: result.rows?.length || 0,
           durationMs: Math.round(durationMs),
           truncated: false,
@@ -324,18 +332,24 @@ export function createOracleAdapter(connection: {
         const owner = (parts.length > 1 ? parts[0] : connection.username)!.toUpperCase();
         const table = (parts.length > 1 ? parts[1] : tableId).toUpperCase();
         const result = await conn.execute(
-          `SELECT num_rows, blocks FROM all_tables WHERE owner = :owner AND table_name = :tbl`,
+          `SELECT
+            (SELECT num_rows FROM all_tables WHERE owner = :owner AND table_name = :tbl) AS num_rows,
+            (SELECT NVL(SUM(bytes), 0) FROM user_segments WHERE segment_name = :tbl AND segment_type = 'TABLE') AS table_bytes,
+            (SELECT NVL(SUM(s.bytes), 0) FROM user_segments s
+             JOIN user_indexes ix ON s.segment_name = ix.index_name
+             WHERE ix.table_name = :tbl) AS index_bytes
+           FROM dual`,
           { owner, tbl: table },
         );
         const row = (result.rows as Record<string, unknown>[])?.[0];
-        const blockBytes = row ? (Number(row.BLOCKS) || 0) * 8192 : 0;
+        const numRows = row ? Number(row.NUM_ROWS) || 0 : 0;
         return {
           tableId,
           name: table,
           schema: owner,
-          rowEstimate: row ? Number(row.NUM_ROWS) || 0 : 0,
-          totalBytes: blockBytes,
-          indexesBytes: 0,
+          rowEstimate: numRows,
+          totalBytes: row ? Number(row.TABLE_BYTES) || 0 : 0,
+          indexesBytes: row ? Number(row.INDEX_BYTES) || 0 : 0,
           toastBytes: 0,
           bloatBytes: 0,
           bloatPercent: 0,
@@ -345,7 +359,7 @@ export function createOracleAdapter(connection: {
           lastAutoanalyze: null,
           vacuumCount: 0,
           autovacuumCount: 0,
-          nLiveTup: row ? Number(row.NUM_ROWS) || 0 : 0,
+          nLiveTup: numRows,
           nDeadTup: 0,
         };
       } finally {

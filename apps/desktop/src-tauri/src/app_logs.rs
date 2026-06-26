@@ -179,26 +179,19 @@ fn read_last_lines(path: &Path, limit: usize) -> Result<Vec<String>, std::io::Er
     let start = find_tail_start(&mut file, limit)?;
 
     // If the tail scan fell back to min_start, the position may be mid-record.
-    // Advance to the next newline so decoding starts on a safe boundary.
+    // Peek at the first byte: if it's a newline we're at the end of a previous
+    // record and should skip past it; otherwise we're at a valid record boundary
+    // and must NOT advance, which would drop the record starting here.
     let start = if start == 0 {
         0
     } else {
         file.seek(SeekFrom::Start(start))?;
-        let mut reader = BufReader::new(&file);
         let mut buf = [0u8; 1];
-        let mut pos = start;
-        loop {
-            match reader.read(&mut buf)? {
-                0 => break,
-                _ => {
-                    if buf[0] == b'\n' {
-                        break;
-                    }
-                    pos += 1;
-                }
-            }
+        match file.read(&mut buf)? {
+            0 => start,
+            _ if buf[0] == b'\n' => start + 1,
+            _ => start,
         }
-        pos
     };
 
     file.seek(SeekFrom::Start(start))?;
