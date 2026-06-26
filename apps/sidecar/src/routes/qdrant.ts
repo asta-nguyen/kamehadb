@@ -5,22 +5,17 @@ import * as metadataStore from '../db/metadata-store.js';
 import { createQdrantDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { QdrantStats } from '@kamehadb/shared';
+import { KIND } from '@kamehadb/shared';
+import { handleError, httpError } from '../lib/route-utils.js';
 
 export const qdrantRouter = new Hono();
 
-function handleError(c: any, err: unknown, context: string) {
-  console.error(`[Qdrant] ${context}:`, err instanceof Error ? err.stack || err.message : err);
-  const statusCode = err && typeof err === 'object' && 'statusCode' in err ? (err as any).statusCode : 500;
-  const message = err instanceof Error ? err.message : 'An internal error occurred';
-  return c.json({ error: statusCode >= 500 ? 'INTERNAL_ERROR' : 'BAD_REQUEST', message }, statusCode);
-}
-
 async function getAdapter(connectionId: string) {
   const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw Object.assign(new Error('Connection not found'), { statusCode: 404 });
+  if (!profile) throw httpError('Connection not found', 404);
 
-  if (profile.kind !== 'qdrant') {
-    throw Object.assign(new Error('This endpoint is for Qdrant connections only'), { statusCode: 400 });
+  if (profile.kind !== KIND.QDRANT) {
+    throw httpError('This endpoint is for Qdrant connections only', 400);
   }
 
   return createQdrantDbAdapter(profile);

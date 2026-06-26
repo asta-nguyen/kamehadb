@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { api } from '@/lib/api';
+import { appendFrontendLog } from '@/lib/app-logs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { RecordDetailTabs } from '@/components/table-view';
+import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import { collectRecordFields, useFieldVisibility } from '@/hooks/use-field-visibility';
 
 function formatCellValue(value: unknown): string {
@@ -103,7 +104,14 @@ export function DocumentTableView({
       setEditValue('');
       onUpdate();
     } catch (err) {
-      alert(`Update failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Update failed: ${message}`);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'mongo-document-table.update',
+        message: `MongoDB document update failed: ${message}`,
+        details: err instanceof Error ? err.stack : String(err),
+      });
     } finally {
       setSaving(false);
     }

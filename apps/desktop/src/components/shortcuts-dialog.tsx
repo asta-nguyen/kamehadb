@@ -1,4 +1,5 @@
 import { CommandDialog, CommandGroup, CommandItem, CommandList, CommandShortcut } from '@/components/ui/command';
+import { Input } from '@/components/ui/input';
 import { useEffect, useMemo, useState } from 'react';
 import { SHORTCUT_GROUPS } from '@/lib/constants';
 
@@ -26,11 +27,12 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
       description="Search available shortcuts..."
     >
       <div className="p-1 pb-0">
-        <input
+        <Input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search shortcuts..."
+          aria-label="Search shortcuts"
           className="w-full h-8 rounded-lg border border-input/30 bg-input/30 px-3 text-sm outline-none focus:ring-1 focus:ring-primary/40"
           autoFocus
         />

@@ -193,7 +193,7 @@ function ConnectionGroup({
         {isPinned ? (
           <Pin className="size-3 text-muted-foreground/60" />
         ) : (
-          <DbIcon kind={kind as any} className="size-3.5" />
+          <DbIcon kind={kind as DbKind} className="size-3.5" />
         )}
         <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-widest">
           {isPinned ? 'Pinned' : (GROUP_LABELS[kind as DbKind] ?? kind)}

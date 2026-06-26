@@ -1,43 +1,45 @@
 import { listProfiles, getAISettings } from '../db/metadata-store.js';
 import { getSqlAdapter } from '../routes/sql.js';
 import { buildSchemaIndex } from './vec-store.js';
+import { log } from '../lib/logger.js';
+import { isSqlKind } from '@kamehadb/shared';
 
 export async function indexAllConnections(): Promise<void> {
   const settings = getAISettings();
   const activeConfig = settings.providers[settings.activeProvider];
   if (!activeConfig?.enabled) {
-    console.log('[AI Indexer] No active provider configured, skipping schema indexing');
+    log.info('[AI Indexer] No active provider configured, skipping schema indexing');
     return;
   }
 
   const profiles = listProfiles();
-  const sqlProfiles = profiles.filter((p) => p.kind !== 'redis' && p.kind !== 'mongodb' && p.kind !== 'tigerbeetle');
+  const sqlProfiles = profiles.filter((p) => isSqlKind(p.kind));
 
   if (sqlProfiles.length === 0) {
-    console.log('[AI Indexer] No SQL connections to index');
+    log.info('[AI Indexer] No SQL connections to index');
     return;
   }
 
-  console.log(`[AI Indexer] Indexing schemas for ${sqlProfiles.length} SQL connection(s)...`);
+  log.info({ count: sqlProfiles.length }, '[AI Indexer] Indexing schemas for SQL connections');
 
   for (const profile of sqlProfiles) {
     try {
       const adapter = await getSqlAdapter(profile.id);
       const count = await buildSchemaIndex(adapter, profile.id, settings.activeProvider, activeConfig, false);
       if (count > 0) {
-        console.log(`[AI Indexer] Indexed ${count} table(s) for "${profile.name}"`);
+        log.info({ profile: profile.name, tables: count }, '[AI Indexer] Indexed tables');
       } else {
-        console.log(`[AI Indexer] Schema unchanged for "${profile.name}"`);
+        log.info({ profile: profile.name }, '[AI Indexer] Schema unchanged');
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes('ECONNREFUSED') || errMsg.includes('ENOTFOUND') || errMsg.includes('fetch failed')) {
-        console.warn(`[AI Indexer] Skipping "${profile.name}" — provider unavailable (${errMsg})`);
+        log.warn({ profile: profile.name, err: errMsg }, '[AI Indexer] Skipping — provider unavailable');
       } else {
-        console.error(`[AI Indexer] Failed to index "${profile.name}":`, err);
+        log.error({ profile: profile.name, err }, '[AI Indexer] Failed to index');
       }
     }
   }
 
-  console.log('[AI Indexer] Schema indexing complete');
+  log.info('[AI Indexer] Schema indexing complete');
 }

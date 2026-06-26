@@ -3,18 +3,15 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import * as metadataStore from '../db/metadata-store.js';
 import { createTigerBeetleDbAdapter } from '../adapters/factory.js';
+import { KIND } from '@kamehadb/shared';
+import { handleError } from '../lib/route-utils.js';
 
 export const tigerbeetleRouter = new Hono();
-
-function handleError(c: any, err: unknown, context: string) {
-  console.error(`[TigerBeetle] ${context}:`, err instanceof Error ? err.stack || err.message : err);
-  return c.json({ error: 'INTERNAL_ERROR', message: 'An internal error occurred' }, 500);
-}
 
 async function getAdapter(connectionId: string) {
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) throw new Error('Connection not found');
-  if (profile.kind !== 'tigerbeetle') {
+  if (profile.kind !== KIND.TIGERBEETLE) {
     throw new Error('This endpoint is for TigerBeetle connections only');
   }
   return createTigerBeetleDbAdapter(profile);

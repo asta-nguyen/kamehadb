@@ -1,5 +1,6 @@
 import { ChatInput } from '@/components/chat-input';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { buttonVariants } from '@/components/ui/variants';
 import {
   DropdownMenu,
@@ -231,7 +232,7 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
         )}
         {editing ? (
           <div className="rounded-2xl rounded-br-md border border-primary/15 bg-primary/10 px-3 py-2 text-sm">
-            <textarea
+            <Textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {

@@ -8,6 +8,7 @@ import { Copy, Check, ArrowRight, Terminal } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { useSchemaSnapshots } from '@/hooks/use-schema-changelog';
 import { toast } from 'sonner';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 export function MigrationAssistant({
   connectionId,
@@ -53,7 +54,14 @@ export function MigrationAssistant({
       const r = await api.generateMigration(connectionId, { fromSnapshotId: fromId, toSnapshotId: toId });
       setResult(r);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to generate migration');
+      const message = err instanceof Error ? err.message : 'Failed to generate migration';
+      toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'migration-assistant',
+        message: `Migration generation failed: ${message}`,
+        details: err instanceof Error ? err.stack : String(err),
+      });
     } finally {
       setGenerating(false);
     }

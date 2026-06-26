@@ -11,6 +11,7 @@ import { useCaptureSchemaSnapshot, useSchemaDiff, useSchemaSnapshots } from '@/h
 import { openMigrationTab } from '@/store';
 import { SchemaDiffTableCard } from './schema-diff-table-card';
 import { toast } from 'sonner';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 type DiffFilter = 'all' | 'tables' | 'columns' | 'indexes';
 
@@ -60,7 +61,14 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
       ]);
       toast.success('Schema snapshot captured');
     } catch (captureError) {
-      toast.error(captureError instanceof Error ? captureError.message : 'Capture failed');
+      const message = captureError instanceof Error ? captureError.message : 'Capture failed';
+      toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'schema-diff.capture',
+        message: `Schema snapshot capture failed: ${message}`,
+        stack: captureError instanceof Error ? captureError.stack : undefined,
+      });
     }
   };
 

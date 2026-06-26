@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { ChatMessage } from '@/lib/ai-chat-helpers';
 import { getApiBase } from '@/lib/api-client';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 type UseChatOptions = {
   url: string;
@@ -88,7 +89,13 @@ export function useChat(options: UseChatOptions) {
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        console.error('[AI] chat error:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'use-chat',
+          message: `AI chat error: ${message}`,
+          stack: err instanceof Error ? err.stack : undefined,
+        });
       }
     } finally {
       if (requestSeqRef.current === requestSeq) {

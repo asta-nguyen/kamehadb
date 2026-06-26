@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Copy, Check, Trash2, Save, X } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 interface DocumentCardProps {
   doc: Record<string, unknown>;
@@ -88,7 +89,14 @@ export function DocumentCard({
       setEditValue('');
       onUpdate();
     } catch (err) {
-      alert(`Update failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert(`Update failed: ${message}`);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'mongo-document-card.update',
+        message: `MongoDB document update failed: ${message}`,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     } finally {
       setSaving(false);
     }

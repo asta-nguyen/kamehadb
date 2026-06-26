@@ -5,6 +5,10 @@ import { toast } from 'sonner';
 import {
   CreateConnectionProfileSchema,
   EditConnectionProfileSchema,
+  KIND,
+  ALL_KINDS,
+  PROTOCOL_ALIASES,
+  isFileDatabaseKind,
   type CreateConnectionProfileInput,
   type ConnectionProfile,
   type DbKind,
@@ -16,7 +20,8 @@ import { Label } from '@/components/ui/label';
 
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Plus } from 'lucide-react';
-import { DEFAULT_PORTS } from '@/lib/constants';
+import { DEFAULT_PORTS, TOAST_AUTO_HIDE_MS, AUTO_TEST_DEBOUNCE_MS } from '@/lib/constants';
+import { appendFrontendLog } from '@/lib/app-logs';
 import {
   DatabaseTypeGrid,
   BadgeColorPicker,
@@ -29,12 +34,9 @@ function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> 
     const parsed = new URL(url);
     const protocol = parsed.protocol.replace(':', '');
 
-    let kind: DbKind | null = null;
-    if (protocol === 'postgresql' || protocol === 'postgres') kind = 'postgres';
-    else if (protocol === 'mysql') kind = 'mysql';
-    else if (protocol === 'redis' || protocol === 'rediss') kind = 'redis';
-    else if (protocol === 'sqlite') kind = 'sqlite';
-    else if (protocol === 'qdrant') kind = 'qdrant';
+    // Map URL protocol to DbKind via PROTOCOL_ALIASES, then fall back to direct KIND match
+    const kind: DbKind | null =
+      PROTOCOL_ALIASES[protocol] ?? ((ALL_KINDS as readonly string[]).includes(protocol) ? (protocol as DbKind) : null);
 
     if (!kind) return null;
 
@@ -46,7 +48,7 @@ function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> 
       password: parsed.password || undefined,
     };
 
-    if (kind === 'sqlite') {
+    if (isFileDatabaseKind(kind)) {
       result.filePath = parsed.pathname || undefined;
       result.host = undefined;
       result.port = undefined;
@@ -83,9 +85,9 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     mode: 'onChange',
     defaultValues: {
       name: editConnection?.name ?? '',
-      kind: editConnection?.kind ?? 'postgres',
+      kind: editConnection?.kind ?? KIND.POSTGRES,
       host: editConnection?.host ?? 'localhost',
-      port: editConnection?.port ?? 5432,
+      port: editConnection?.port ?? DEFAULT_PORTS[editConnection?.kind ?? KIND.POSTGRES],
       database: editConnection?.database ?? '',
       username: editConnection?.username ?? '',
       ssl: editConnection?.ssl ?? false,
@@ -102,7 +104,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         name: editConnection.name,
         kind: editConnection.kind,
         host: editConnection.host ?? 'localhost',
-        port: editConnection.port ?? 5432,
+        port: editConnection.port ?? DEFAULT_PORTS[editConnection.kind],
         database: editConnection.database ?? '',
         username: editConnection.username ?? '',
         ssl: editConnection.ssl ?? false,
@@ -113,7 +115,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     }
   }, [editConnection, form]);
 
-  const kind = form.watch('kind');
+  const kind = form.watch('kind') as DbKind;
   const selectedColor = form.watch('color');
 
   // Auto-hide test connection result after 5 seconds
@@ -121,14 +123,14 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     if (!testConnection.data) return;
     const timer = setTimeout(() => {
       resetRef.current();
-    }, 5000);
+    }, TOAST_AUTO_HIDE_MS);
     return () => clearTimeout(timer);
   }, [testConnection.data]);
 
   // Auto-fill name and auto-test when SQLite file is selected
   const filePath = form.watch('filePath');
   useEffect(() => {
-    if (kind !== 'sqlite' || !filePath) return;
+    if (kind !== KIND.SQLITE || !filePath) return;
 
     // Auto-fill name from filename if empty
     const name = form.getValues('name');
@@ -145,14 +147,14 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     const timer = setTimeout(async () => {
       try {
         await testConnection.mutateAsync({
-          kind: 'sqlite',
+          kind: KIND.SQLITE,
           filePath,
           name: 'test',
         });
       } catch {
         // Ignore auto-test errors
       }
-    }, 500);
+    }, AUTO_TEST_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [filePath, kind, form, testConnection]);
 
@@ -166,7 +168,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       if (parsed.port !== undefined) {
         form.setValue('port', parsed.port);
       } else if (parsed.kind) {
-        form.setValue('port', DEFAULT_PORTS[parsed.kind]);
+        form.setValue('port', DEFAULT_PORTS[parsed.kind as DbKind]);
       }
       if (parsed.database !== undefined) form.setValue('database', parsed.database);
       if (parsed.username !== undefined) form.setValue('username', parsed.username);
@@ -188,6 +190,13 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Connection failed';
       toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'connection-dialog.test',
+        message: `Test connection failed: ${message}`,
+        stack: err instanceof Error ? err.stack : String(err),
+        url: typeof window !== 'undefined' ? window.location.href : undefined,
+      });
     }
   }
 
@@ -207,7 +216,15 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       form.reset();
     } catch (err) {
       // Don't close on error - let user see the error
-      toast.error(err instanceof Error ? err.message : 'Failed to save');
+      const message = err instanceof Error ? err.message : 'Failed to save';
+      toast.error(message);
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'connection-dialog.submit',
+        message: `Save connection failed: ${message}`,
+        details: err instanceof Error ? err.stack : String(err),
+        url: typeof window !== 'undefined' ? window.location.href : undefined,
+      });
     }
   }
 
@@ -233,7 +250,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
               <Label htmlFor="name" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Connection Name
               </Label>
-              <Input id="name" {...form.register('name')} placeholder="My Database" className="h-9" />
+              <Input id="name" {...form.register('name')} placeholder="My Database" />
             </div>
 
             <DatabaseTypeGrid form={form} kind={kind} />

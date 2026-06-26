@@ -22,7 +22,6 @@ import {
   ChevronRight,
   FileJson,
   Copy,
-  Check,
   Eye,
   Activity,
   Download,
@@ -43,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { buildRowUpdateQuery } from '@/lib/table-editability';
+import { RecordDetailTabs } from '@/components/record-detail-tabs';
 
 type TableViewProps = {
   connectionId: string;
@@ -487,154 +487,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         </SheetContent>
       </Sheet>
     </div>
-  );
-}
-
-function formatJsonSyntax(json: string): React.ReactNode[] {
-  const lines = json.split('\n');
-  return lines.map((line, i) => {
-    const parts: React.ReactNode[] = [];
-    let lastIdx = 0;
-
-    // Tokenize raw JSON text without HTML escaping — React renders text
-    // safely, so we match actual quote characters instead of HTML entities.
-    const regex =
-      /("[^"\\]*(?:\\.[^"\\]*)*")(?=\s*:)|:\s*("[^"\\]*(?:\\.[^"\\]*)*")|:\s*(true|false)|:\s*(null)|:\s*(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
-    let match;
-    while ((match = regex.exec(line)) !== null) {
-      parts.push(line.slice(lastIdx, match.index));
-      if (match[1])
-        parts.push(
-          <span key={`k-${i}-${parts.length}`} className="text-primary">
-            {match[1]}
-          </span>,
-        );
-      else if (match[2])
-        parts.push(
-          <span key={`s-${i}-${parts.length}`}>
-            : <span className="text-muted-foreground">{match[2]}</span>
-          </span>,
-        );
-      else if (match[3])
-        parts.push(
-          <span key={`b-${i}-${parts.length}`}>
-            : <span className="text-accent-foreground">{match[3]}</span>
-          </span>,
-        );
-      else if (match[4])
-        parts.push(
-          <span key={`n-${i}-${parts.length}`}>
-            : <span className="text-muted-foreground italic">{match[4]}</span>
-          </span>,
-        );
-      else if (match[5])
-        parts.push(
-          <span key={`num-${i}-${parts.length}`}>
-            : <span className="text-foreground">{match[5]}</span>
-          </span>,
-        );
-      lastIdx = regex.lastIndex;
-    }
-    parts.push(line.slice(lastIdx));
-
-    return (
-      <div key={`${i}-${line.slice(0, 50)}`} className="flex">
-        <span className="w-8 shrink-0 text-right text-xs text-muted-foreground/40 select-none mr-3">{i + 1}</span>
-        <span className="flex-1">{parts}</span>
-      </div>
-    );
-  });
-}
-
-export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown> | null }) {
-  const [copied, setCopied] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-
-  const handleCopy = useCallback(async () => {
-    if (!selectedRow) return;
-    await navigator.clipboard.writeText(JSON.stringify(selectedRow, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }, [selectedRow]);
-
-  const handleCopyField = useCallback(async (key: string, value: unknown) => {
-    const text = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
-    await navigator.clipboard.writeText(text);
-    setCopiedField(key);
-    setTimeout(() => setCopiedField(null), 1500);
-  }, []);
-
-  if (!selectedRow) return null;
-
-  return (
-    <Tabs defaultValue="view" className="flex-1 flex flex-col min-h-0">
-      <div className="shrink-0 px-4">
-        <TabsList>
-          <TabsTrigger value="view" className="text-xs">
-            View
-          </TabsTrigger>
-          <TabsTrigger value="json" className="text-xs">
-            JSON
-          </TabsTrigger>
-        </TabsList>
-      </div>
-
-      <TabsContent value="view" className="flex-1 min-h-0 p-0">
-        <div className="h-full overflow-y-auto">
-          <div className="pb-2">
-            {Object.entries(selectedRow).map(([key, value], i) => {
-              const typeLabel = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
-              return (
-                <div key={key} className={`flex items-start gap-3 px-4 py-2 ${i % 2 === 0 ? 'bg-muted/20' : ''}`}>
-                  <div className="w-2/5 shrink-0 min-w-0">
-                    <div className="text-xs font-medium truncate">{key}</div>
-                    <span className="text-xs uppercase text-muted-foreground/50 tracking-wider">{typeLabel}</span>
-                  </div>
-                  <div className="flex-1 min-w-0 text-sm font-mono break-all leading-snug group/field">
-                    {value === null ? (
-                      <span className="text-muted-foreground italic">null</span>
-                    ) : typeof value === 'object' ? (
-                      <pre className="text-xs whitespace-pre-wrap bg-muted/50 rounded p-2 mt-0.5 max-h-32 overflow-auto">
-                        {JSON.stringify(value, null, 2)}
-                      </pre>
-                    ) : (
-                      <span className="text-foreground/90">{String(value)}</span>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleCopyField(key, value)}
-                      className="size-5 rounded opacity-0 group-hover/field:opacity-100 transition-opacity ml-1 align-middle hover:bg-muted-foreground/20"
-                      title="Copy value"
-                    >
-                      {copiedField === key ? (
-                        <Check className="size-3 text-primary" />
-                      ) : (
-                        <Copy className="size-3 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="json" className="flex-1 min-h-0 p-0">
-        <div className="relative h-full">
-          <Button variant="outline" size="icon-sm" className="absolute top-2 right-2 z-10" onClick={handleCopy}>
-            {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
-          </Button>
-          <div className="h-full overflow-y-auto">
-            <div className="p-3 font-mono text-xs leading-relaxed bg-card text-muted-foreground rounded-sm m-2">
-              {formatJsonSyntax(JSON.stringify(selectedRow, null, 2))}
-            </div>
-          </div>
-        </div>
-      </TabsContent>
-    </Tabs>
   );
 }
 

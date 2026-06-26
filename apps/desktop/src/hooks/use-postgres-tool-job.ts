@@ -10,6 +10,7 @@ import {
   startPostgresRestore,
 } from '@/lib/postgres-maintenance';
 import { listenTauri } from '@/lib/tauri';
+import { appendFrontendLog } from '@/lib/app-logs';
 
 type PostgresToolLog = {
   readonly stream: 'stdout' | 'stderr';
@@ -136,6 +137,12 @@ export function usePostgresToolJob() {
           message: error instanceof Error ? error.message : `Failed to listen for ${kind} events`,
           exitCode: null,
         });
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'postgres-tool-job.listen',
+          message: `Failed to listen for ${kind} events: ${error instanceof Error ? error.message : String(error)}`,
+          details: error instanceof Error ? error.stack : String(error),
+        });
         return;
       }
       unlistenRef.current = unlisten;
@@ -159,6 +166,12 @@ export function usePostgresToolJob() {
           status: 'failed',
           message: error instanceof Error ? error.message : `Failed to start ${kind}`,
           exitCode: null,
+        });
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'postgres-tool-job.start',
+          message: `Failed to start ${kind}: ${error instanceof Error ? error.message : String(error)}`,
+          details: error instanceof Error ? error.stack : String(error),
         });
       }
     },

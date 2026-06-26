@@ -1,4 +1,5 @@
 import { CLAUSE_RE, NUMERIC_RE } from './constants.js';
+import { quoteSqlIdentifier as sharedQuoteSqlIdentifier } from '@kamehadb/shared';
 
 type SafeFilterValue = string | number | boolean;
 
@@ -11,7 +12,7 @@ export function quoteSqlIdentifier(identifier: string): string {
   if (!identifier.trim()) {
     throw filterError('SQL identifier cannot be empty');
   }
-  return `"${identifier.replace(/"/g, '""')}"`;
+  return sharedQuoteSqlIdentifier(identifier);
 }
 
 export function buildSafeFilterClause(filter: string, startIndex = 1): CompiledFilter | null {

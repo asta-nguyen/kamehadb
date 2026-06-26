@@ -1,4 +1,5 @@
 import type { AIChatMessage, AIProvider, AIProviderConfig } from '@kamehadb/shared';
+import { log } from '../lib/logger.js';
 
 export type ChatResult = {
   content: string;
@@ -223,10 +224,7 @@ export async function createEmbedding(
     });
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      console.warn(
-        `[AI] Embedding API error (${res.status}), falling back to local embedding: ${errBody.slice(0, 100)}`,
-      );
+      log.warn({ status: res.status }, 'Embedding API error, falling back to local embedding');
       return localEmbedding(text);
     }
 
@@ -235,7 +233,7 @@ export async function createEmbedding(
     };
     return body.data[0]?.embedding ?? localEmbedding(text);
   } catch (err) {
-    console.warn(`[AI] Embedding request failed, falling back to local embedding:`, err);
+    log.warn({ err }, 'Embedding request failed, falling back to local embedding');
     return localEmbedding(text);
   }
 }
