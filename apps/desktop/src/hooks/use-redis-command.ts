@@ -1,4 +1,4 @@
-import { post } from '@/lib/api-client';
+import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import type { RedisCommandResult } from '@kamehadb/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +8,7 @@ export function useRedisCommand(connectionId: string | null) {
   return useMutation({
     mutationFn: async ({ command }: { command: string }): Promise<RedisCommandResult> => {
       if (!connectionId) throw new Error('No active connection');
-      return post<RedisCommandResult>(`/redis/${connectionId}/commands`, { command });
+      return api.runRedisCommand(connectionId, command);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['redis-keys', connectionId!] });
