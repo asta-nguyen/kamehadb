@@ -1,5 +1,7 @@
 import { log } from '../lib/logger.js';
 import { quoteSqlIdentifier as sharedQuoteSqlIdentifier } from '@kamehadb/shared';
+import type { ConnectionProfile } from '@kamehadb/shared';
+import * as metadataStore from '../db/metadata-store.js';
 
 /**
  * Create an HTTP error with a statusCode for the Hono error handler chain.
@@ -50,6 +52,27 @@ export function quoteSqlIdentifier(identifier: string): string {
 }
 
 /**
+ * Load a non-SQL adapter from a connection profile, validating that the
+ * connection exists and its kind matches the expected type.
+ *
+ * Throws httpError with 404 for missing connections and 400 for kind
+ * mismatches, so the error flows through handleError() with proper status
+ * codes instead of generic 500s.
+ */
+export async function getNonSqlAdapter<T>(
+  connectionId: string,
+  expectedKind: ConnectionProfile['kind'],
+  factory: (profile: ConnectionProfile) => Promise<T> | T,
+): Promise<T> {
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) throw httpError('Connection not found', 404);
+  if (profile.kind !== expectedKind) {
+    throw httpError(`This endpoint is for ${expectedKind} connections only`, 400);
+  }
+  return factory(profile);
+}
+
+/**
  * Wrap an adapter lifecycle: load the adapter, run the callback, and always
  * close the adapter in a finally block (swallowing close errors so they never
  * mask the original result or error).
@@ -66,6 +89,8 @@ export async function withAdapter<TAdapter extends { close(): Promise<unknown> }
   try {
     return await fn(adapter);
   } finally {
-    await adapter.close().catch((err) => { log.warn({ err }, 'Adapter close failed'); });
+    await adapter.close().catch((err) => {
+      log.warn({ err }, 'Adapter close failed');
+    });
   }
 }

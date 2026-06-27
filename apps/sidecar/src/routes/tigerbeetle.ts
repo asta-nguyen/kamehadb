@@ -1,20 +1,14 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import * as metadataStore from '../db/metadata-store.js';
 import { createTigerBeetleDbAdapter } from '../adapters/factory.js';
 import { KIND } from '@kamehadb/shared';
-import { handleError, withAdapter } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
 
 export const tigerbeetleRouter = new Hono();
 
 async function getAdapter(connectionId: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw new Error('Connection not found');
-  if (profile.kind !== KIND.TIGERBEETLE) {
-    throw new Error('This endpoint is for TigerBeetle connections only');
-  }
-  return createTigerBeetleDbAdapter(profile);
+  return getNonSqlAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter);
 }
 
 // GET /tigerbeetle/:connectionId/accounts
