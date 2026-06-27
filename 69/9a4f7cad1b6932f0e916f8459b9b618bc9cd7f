@@ -1,0 +1,37 @@
+plans/landing-update.plan
+  s_73cec2c4e39d5c::t_af5099b014fc37 1-272
+plans/mongo-shell.plan
+  s_73cec2c4e39d5c::t_3f15a01266e4a9 1-149
+plans/performance-hotspots.plan
+  s_73cec2c4e39d5c::t_9a4a8e5226a910 1-145
+plans/postgres-backup-restore.plan
+  s_73cec2c4e39d5c::t_4fd84231840fea 1-89
+plans/postgres-grants-admin.plan
+  s_73cec2c4e39d5c::t_d8a2e7f0e8ef36 1-61
+plans/postgres-jobs.plan
+  s_73cec2c4e39d5c::t_6936c122cbedc5 1-50
+plans/postgres-maintenance.plan
+  s_73cec2c4e39d5c::t_93bb09b4957941 1-64
+plans/postgres-pgvector.plan
+  s_73cec2c4e39d5c::t_f4eb9a3748dee3 1-287
+plans/postgres-psql-tool.plan
+  s_73cec2c4e39d5c::t_c4f21e06c1f0de 1-65
+plans/postgres-schema-diff.plan
+  s_73cec2c4e39d5c::t_3978ef8d23099c 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "699a4f7cad1b6932f0e916f8459b9b618bc9cd7f",
+  "prompts": {},
+  "sessions": {
+    "s_73cec2c4e39d5c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec18c-280a-7421-8299-74e34a38f835",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
