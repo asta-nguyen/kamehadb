@@ -1,0 +1,68 @@
+PostgreSQL Schema Diff Plan
+===========================
+
+Goal
+----
+Add a PostgreSQL schema diff workflow that compares two concrete schema states directly, complementing the existing migration assistant and schema timeline.
+
+Why Separate From Migration Assistant
+-------------------------------------
+The current migration assistant is oriented around generating migration SQL from captured schema state. A schema diff feature should optimize for inspection first:
+- compare snapshot A vs snapshot B
+- compare two databases or schemas when feasible
+- show additions, removals, and changes in a direct diff view
+
+Scope
+-----
+- Snapshot-to-snapshot diff
+- Human-readable diff UI
+- PostgreSQL-first
+
+Non-Goals
+---------
+- No generic cross-engine diff in v1
+- No auto-apply changes from the diff screen
+
+Implementation Outline
+----------------------
+Step 1: Diff source model
+- Reuse existing snapshot infrastructure where possible.
+- Define explicit compare modes:
+  - snapshot vs snapshot
+  - current schema vs snapshot
+
+Verify:
+- The compare modes are clear and based on existing data models.
+
+Step 2: Diff engine
+- Add a structured diff layer for:
+  - tables
+  - columns
+  - indexes
+  - constraints
+  - type changes
+
+Verify:
+- The output is structured enough for both UI rendering and future export.
+
+Step 3: Diff UI
+- Add a dedicated compare view with grouped changes.
+- Support filtering by change type.
+
+Verify:
+- Users can quickly answer "what changed?" without reading raw JSON.
+
+Step 4: Optional SQL generation handoff
+- Let users send a diff into the migration assistant when that path makes sense.
+
+Verify:
+- Diff and migration flows complement each other instead of duplicating UI.
+
+Open Questions
+--------------
+- Do we need current-db vs current-db comparison in v1, or are snapshots enough?
+- Should diff results be exportable as Markdown or JSON?
+
+MVP Recommendation
+------------------
+Start with snapshot-to-snapshot diff for PostgreSQL and wire it into the existing schema snapshot flow.

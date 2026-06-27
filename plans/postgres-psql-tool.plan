@@ -1,0 +1,65 @@
+PostgreSQL PSQL Tool Plan
+=========================
+
+Goal
+----
+Add an embedded `psql` terminal for PostgreSQL connections, similar in spirit to pgAdmin's PSQL Tool.
+
+Scope
+-----
+- Embedded terminal session
+- Connection-aware launch
+- Input/output/resize lifecycle
+
+Non-Goals
+---------
+- No SQL history sync with the Monaco editor
+- No multi-database shell orchestration
+
+User Experience
+---------------
+- PostgreSQL connections expose `Open PSQL`.
+- Clicking it opens an interactive terminal tab connected to the selected database.
+- Closing the tab terminates the session.
+
+Implementation Outline
+----------------------
+Step 1: Reuse Mongo shell architecture
+- Mirror the PTY + `xterm.js` approach proposed in `mongo-shell.plan`.
+
+Verify:
+- The shell architecture is shared where possible instead of duplicated.
+
+Step 2: PostgreSQL tab model
+- Add a `psql` workspace tab type and open helpers.
+
+Verify:
+- The tab bar can render and restore the new tab type safely.
+
+Step 3: Tauri PTY command layer
+- Add start/write/resize/stop commands for `psql`.
+
+Verify:
+- `psql` behaves like a real terminal session with prompt and line editing.
+
+Step 4: Connection bootstrap
+- Launch `psql` with the selected connection context.
+- Handle auth carefully to avoid exposing passwords unnecessarily.
+
+Verify:
+- Connection succeeds without leaking secrets to logs.
+
+Step 5: Error UX
+- Detect missing `psql` binary and startup failures.
+
+Verify:
+- The tab shows a clear install or configuration error state.
+
+Open Questions
+--------------
+- Should this share one generic shell framework with Mongo shell from day one?
+- What auth handoff is acceptable for MVP?
+
+MVP Recommendation
+------------------
+Build on top of the Mongo shell PTY framework once that exists, rather than inventing a second shell stack.

@@ -1,0 +1,89 @@
+PostgreSQL Backup And Restore Plan
+=================================
+
+Goal
+----
+Add first-class PostgreSQL backup and restore workflows to KamehaDB so users can create and restore dumps without leaving the app.
+
+Scope
+-----
+- Database backup
+- Schema/table-scoped backup where practical
+- Restore from supported dump files
+- Desktop-only file picker flow
+
+Non-Goals
+---------
+- No cloud storage integration
+- No backup scheduling in v1
+- No support for every `pg_dump` flag in the first version
+
+User Experience
+---------------
+- PostgreSQL connections show `Backup` and `Restore` actions.
+- Backup opens a dialog for:
+  - target scope
+  - output format
+  - destination file
+- Restore opens a dialog for:
+  - input file
+  - target database
+  - basic safety warnings
+- Progress and stderr are shown in-app.
+
+Implementation Outline
+----------------------
+Step 1: Desktop-only action entry points
+- Add PostgreSQL-only actions in the sidebar/connection menu.
+
+Verify:
+- Non-Postgres connections never show backup/restore actions.
+
+Step 2: Tauri process bridge
+- Add commands to spawn `pg_dump` and `pg_restore` or `psql` restore flows.
+- Stream stdout/stderr back to the frontend.
+
+Verify:
+- Long-running backup jobs report progress and exit code.
+
+Step 3: Backup dialog
+- Add a dialog with:
+  - format
+  - file path
+  - scope selector
+  - include/exclude options kept intentionally small
+
+Verify:
+- Valid backup requests produce the expected command payload.
+
+Step 4: Restore dialog
+- Add a dialog with:
+  - file picker
+  - target database
+  - overwrite/safety confirmation when destructive
+
+Verify:
+- Restore requests validate required inputs before execution.
+
+Step 5: Command execution and reporting
+- Run backup/restore through desktop process management.
+- Normalize errors like missing binaries, auth failure, and invalid dump format.
+
+Verify:
+- User gets actionable errors instead of silent command failure.
+
+Step 6: Safety and cleanup
+- Avoid logging secrets.
+- Allow cancel/kill for running jobs.
+
+Verify:
+- Cancelling a running task terminates the child process cleanly.
+
+Open Questions
+--------------
+- Do we require local `pg_dump` / `pg_restore` in `PATH`, or ship guidance only?
+- Should plain SQL restore use `psql` while custom format uses `pg_restore`?
+
+MVP Recommendation
+------------------
+Ship database-level backup and restore first, with minimal options and strong error reporting.

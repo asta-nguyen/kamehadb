@@ -1,0 +1,50 @@
+PostgreSQL Jobs And Scheduling Plan
+===================================
+
+Goal
+----
+Add a PostgreSQL job/scheduling workflow comparable to pgAdmin's pgAgent integration, if the team wants PostgreSQL admin coverage beyond querying and browsing.
+
+Scope
+-----
+- pgAgent-oriented visibility and management
+- basic job list / inspect / create flows
+
+Non-Goals
+---------
+- No homegrown scheduler in v1
+- No cross-engine background job system
+
+Reality Check
+-------------
+This plan is lower-priority than backup, shell, maintenance, and pgvector.
+It should only move forward if PostgreSQL admin parity is a real product goal.
+
+Implementation Outline
+----------------------
+Step 1: Capability detection
+- Detect whether pgAgent is installed and reachable.
+
+Verify:
+- The feature stays hidden when pgAgent is not present.
+
+Step 2: Read-only visibility
+- Start with listing jobs and job steps before allowing writes.
+
+Verify:
+- Users can inspect existing jobs safely.
+
+Step 3: Create/edit workflow
+- Add a guided UI for common job definitions if read-only visibility proves useful.
+
+Verify:
+- Job creation maps cleanly to pgAgent concepts without inventing parallel abstractions.
+
+Open Questions
+--------------
+- Is pgAgent common enough among target users to justify the complexity?
+- Should this remain read-only indefinitely?
+
+MVP Recommendation
+------------------
+Do not prioritize this until higher-value PostgreSQL gaps are closed.

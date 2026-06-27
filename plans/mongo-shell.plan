@@ -1,0 +1,149 @@
+Mongo Shell Embedded Terminal Plan
+=================================
+
+Goal
+----
+Add a MongoDB Compass-style "Mongo Shell" experience to the desktop app so a user can open an interactive `mongosh` session inside KamehaDB instead of switching to an external terminal.
+
+Non-Goals
+---------
+- No web support. This is desktop-only.
+- No shell support for Redis, SQL, or other engines in this phase.
+- No custom Mongo command parser or query translator. The feature should run real `mongosh`.
+- No dependency on the sidecar for shell execution. The desktop Tauri layer should own the process lifecycle.
+
+User Experience
+---------------
+- A MongoDB connection exposes an `Open Mongo Shell` action.
+- Clicking it opens a new tab named `Mongo Shell <n>` or `Mongo Shell <connection name>`.
+- The tab renders a real terminal session, not a textarea-based pseudo-console.
+- The shell session automatically connects with the selected connection's MongoDB connection string.
+- If `mongosh` is not installed or not found in `PATH`, the tab shows a clear error with install guidance.
+- Closing the tab terminates the underlying shell process.
+
+Why This Shape
+--------------
+- `mongosh` is interactive and expects terminal semantics such as prompt control, line editing, history, Ctrl+C, and resize events.
+- A plain spawned child process without PTY semantics is likely to behave badly or incompletely.
+- The feature belongs in the desktop app because it depends on local process execution and OS terminal behavior.
+
+Architecture
+------------
+1. React terminal surface
+   - Add an embedded terminal component in `apps/desktop` using `xterm.js`.
+   - The component owns terminal rendering, input forwarding, output rendering, resize notifications, and session teardown.
+
+2. Tauri PTY bridge
+   - Add Tauri commands to create, write to, resize, and terminate a Mongo shell session.
+   - Back the session with a PTY-capable Rust crate so `mongosh` sees a real terminal.
+   - Track live sessions in Tauri state keyed by a generated session ID.
+
+3. Session wiring
+   - React opens a session through Tauri, receives a session ID, and subscribes to terminal output events.
+   - User keystrokes are forwarded to the Tauri PTY writer.
+   - Terminal resize events are forwarded to the PTY so wrapping and prompt layout stay correct.
+
+4. Connection bootstrap
+   - When opening the shell, pass the selected MongoDB connection string to `mongosh`.
+   - Prefer passing the full connection string directly rather than reconstructing flags from discrete fields.
+
+5. Failure handling
+   - Detect "command not found" and startup failures early.
+   - Surface a readable error state in the tab instead of silent failure.
+
+Implementation Outline
+----------------------
+Step 1: Shared tab/state model
+- Add a new workspace tab type for `mongo-shell`.
+- Store enough metadata to reopen or label the tab consistently:
+  - `connectionId`
+  - display title
+  - optional session status metadata
+- Add store helpers to open and close Mongo shell tabs.
+
+Verify:
+- A Mongo shell tab can be added to the workspace state and rendered by the tab bar.
+
+Step 2: Desktop terminal UI
+- Add a `mongo-shell.tsx` component under `apps/desktop/src/components/`.
+- Integrate `xterm` and `xterm-addon-fit`.
+- Show loading, connected, exited, and error states around the terminal surface.
+- Use existing shadcn components for any supporting controls or status UI.
+
+Verify:
+- The component mounts cleanly and terminal layout fits the panel size.
+
+Step 3: Tauri shell session backend
+- Add Rust commands for:
+  - `start_mongo_shell`
+  - `write_mongo_shell`
+  - `resize_mongo_shell`
+  - `stop_mongo_shell`
+- Introduce a PTY-backed process manager in `apps/desktop/src-tauri`.
+- Emit output and lifecycle events back to the frontend.
+
+Verify:
+- A local `mongosh` process can be started, accepts input, emits output, and is terminated cleanly.
+
+Step 4: Frontend/backend bridge
+- Add desktop API helpers that wrap the Tauri commands and event subscriptions.
+- Bind terminal input/output and session lifecycle to the React component.
+- Clean up subscriptions and stop the session when the tab unmounts or closes.
+
+Verify:
+- Typing in the embedded terminal reaches `mongosh` and output streams back live.
+
+Step 5: MongoDB entry points
+- Add `Open Mongo Shell` actions in Mongo-relevant UI surfaces:
+  - connection sidebar actions
+  - Mongo view toolbar or header
+- Scope the action to MongoDB connections only.
+
+Verify:
+- Users can open the shell from the Mongo workflow without touching unrelated database flows.
+
+Step 6: Error UX and safeguards
+- Detect missing `mongosh`.
+- Detect immediate process exit and show stderr or a normalized failure message.
+- Ensure tab close kills the process to avoid orphan sessions.
+
+Verify:
+- Failure states are visible and closing the tab leaves no running shell process behind.
+
+Technical Decisions To Confirm
+------------------------------
+1. PTY crate choice
+- Candidate options include `portable-pty` or `tokio-pty-process`.
+- Selection criteria:
+  - cross-platform behavior for macOS, Linux, and Windows
+  - simple lifecycle control
+  - compatibility with Tauri async/event model
+
+2. How to resolve credentials
+- Preferred: use the saved MongoDB connection string already stored in the profile.
+- Avoid rebuilding CLI flags unless the connection string is missing.
+
+3. Session persistence
+- MVP recommendation: do not persist live shell sessions across app restart.
+- If a saved tab is restored, reopen the tab UI in a disconnected state instead of trying to restore the old PTY.
+
+4. One tab per click vs reuse
+- MVP recommendation: open a fresh shell tab per click.
+- Reuse logic can be added later if users want one pinned shell per connection.
+
+Risks
+-----
+- PTY support is the main integration risk, especially on Windows.
+- `mongosh` may not exist on many systems, so install guidance matters.
+- Saved tab restore may conflict with ephemeral local processes unless handled explicitly.
+- Passing secrets into a child process must avoid accidental logging.
+
+Open Questions
+--------------
+- Do we want the shell tab title to use the connection name instead of a numeric counter?
+- Should shell tabs restore after restart as empty/disconnected placeholders, or be omitted entirely from restored tabs?
+- Is Windows parity required for the first version, or is macOS/Linux-first acceptable?
+
+MVP Recommendation
+------------------
+Build the feature as a desktop-only `mongo-shell` tab backed by a PTY-managed `mongosh` process and an `xterm.js` frontend. Keep scope tight: open, interact, resize, and close. Skip persistence and advanced session management in the first pass.

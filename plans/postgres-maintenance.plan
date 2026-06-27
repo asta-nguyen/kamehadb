@@ -1,0 +1,64 @@
+PostgreSQL Maintenance Tools Plan
+=================================
+
+Goal
+----
+Add guided PostgreSQL maintenance actions such as `VACUUM`, `ANALYZE`, `REINDEX`, and related operations.
+
+Scope
+-----
+- Connection/table-level maintenance actions
+- Readable warnings and result reporting
+- PostgreSQL-only UI
+
+Non-Goals
+---------
+- No full DBA tuning advisor
+- No auto-scheduling in v1
+
+User Experience
+---------------
+- PostgreSQL tables and connections expose a `Maintenance` action.
+- The user picks an operation and scope from a guided dialog.
+- The app shows progress, result messages, and errors.
+
+Implementation Outline
+----------------------
+Step 1: Supported operation matrix
+- Start with:
+  - `VACUUM`
+  - `ANALYZE`
+  - `VACUUM ANALYZE`
+  - `REINDEX`
+- Add table vs database scope where safe.
+
+Verify:
+- The supported operations are explicit and not inferred ad hoc in the UI.
+
+Step 2: Sidecar execution path
+- Add validated maintenance endpoints or reuse the SQL adapter with guarded command builders.
+
+Verify:
+- Only allowed maintenance statements can be triggered from the guided UI.
+
+Step 3: Maintenance dialog
+- Add scope, operation, and confirmation UX.
+- Mark heavier operations clearly.
+
+Verify:
+- Destructive/high-impact tasks require deliberate confirmation.
+
+Step 4: Result and error reporting
+- Show command result, duration, and normalized errors.
+
+Verify:
+- Lock/contention/permission failures are understandable.
+
+Open Questions
+--------------
+- Should `CLUSTER` be in v1 or deferred because of higher operational risk?
+- Should maintenance be blocked for read-only profiles?
+
+MVP Recommendation
+------------------
+Ship `VACUUM`, `ANALYZE`, and `REINDEX` first with tight validation and explicit warnings.

@@ -1,0 +1,61 @@
+PostgreSQL Grants And Object Admin Plan
+=======================================
+
+Goal
+----
+Add guided PostgreSQL admin workflows for common privilege and object-management tasks that currently require raw SQL.
+
+Scope
+-----
+- Grant/revoke privileges
+- Common role/object admin flows
+- PostgreSQL-only dialogs
+
+Non-Goals
+---------
+- No full pgAdmin-level object coverage in v1
+- No attempt to replace every DDL statement with a form
+
+User Experience
+---------------
+- Users can open a `Grant Access` flow from tables/schemas.
+- The dialog lets them pick:
+  - target role
+  - object
+  - privileges
+  - grant/revoke mode
+
+Implementation Outline
+----------------------
+Step 1: Narrow v1 scope
+- Start with table and schema privilege management only.
+
+Verify:
+- Scope is small enough to implement safely.
+
+Step 2: Metadata discovery
+- Add PostgreSQL metadata queries for roles and current grants.
+
+Verify:
+- The UI is driven by live metadata, not manual text entry only.
+
+Step 3: Grant dialog
+- Build a guided privilege editor for common object types.
+
+Verify:
+- Generated SQL matches the selections exactly.
+
+Step 4: Safe execution
+- Execute generated SQL through the existing SQL path with explicit confirmation.
+
+Verify:
+- The app never runs arbitrary admin SQL from hidden form state.
+
+Open Questions
+--------------
+- Should role creation/editing be part of this plan or a separate follow-up?
+- Which object types beyond tables/schemas are worth including first?
+
+MVP Recommendation
+------------------
+Ship a narrow grant/revoke workflow for tables and schemas before expanding into broader role admin.

@@ -1,0 +1,287 @@
+PostgreSQL pgvector Full Support Plan
+====================================
+
+Goal
+----
+Add first-class PostgreSQL vector support to KamehaDB so users can inspect vector columns, run similarity search workflows, and work with `pgvector` data through dedicated UI instead of hand-writing raw SQL for every task.
+
+Why This Matters
+----------------
+Today PostgreSQL connections are treated as generic SQL connections:
+- users can manually type vector SQL if their database already has `pgvector`
+- the app does not detect vector columns or `pgvector` indexes
+- there is no semantic/vector search workflow for PostgreSQL
+- there is no vector-aware autocomplete, stats, or visualization path
+
+The product already has a strong vector UX for Qdrant. PostgreSQL `pgvector` is the obvious next step because:
+- many teams store embeddings directly in Postgres
+- users expect vector support without moving to a separate vector database
+- the app already has reusable pieces for search UI, AI embeddings, and vector visualization
+
+Non-Goals
+---------
+- No automatic extension installation in the first version.
+- No cross-database sync between PostgreSQL and Qdrant.
+- No generic vector support for every SQL engine in this phase.
+- No attempt to support every possible PostgreSQL vector extension beyond `pgvector`.
+
+Definition Of "Full" For This Project
+-------------------------------------
+`Full` support here means:
+- detect `pgvector` capabilities in PostgreSQL
+- identify vector columns and vector indexes
+- provide a dedicated vector search workflow in the desktop UI
+- generate query vectors from text using the existing AI embedding endpoint
+- support raw vector input for advanced users
+- surface basic vector metadata and stats
+- optionally visualize nearest-neighbor results or vector samples when feasible
+
+It does not mean:
+- full ANN tuning advisor
+- automated embedding pipeline management
+- write-heavy vector ingestion UI
+
+Current Starting Point
+----------------------
+Existing building blocks already in the repo:
+- PostgreSQL adapter and SQL routes:
+  - `apps/sidecar/src/adapters/postgres.ts`
+  - `apps/sidecar/src/routes/sql.ts`
+- generic SQL editor and autocomplete:
+  - `apps/desktop/src/components/sql-editor.tsx`
+- existing embedding API:
+  - `apps/sidecar/src/routes/ai.ts`
+- mature Qdrant vector workflows we can borrow from:
+  - `apps/desktop/src/components/qdrant-query.tsx`
+  - `apps/desktop/src/components/qdrant-view.tsx`
+  - `apps/desktop/src/components/qdrant-vector-map.tsx`
+  - `apps/sidecar/src/routes/qdrant.ts`
+
+Recommended User Experience
+---------------------------
+1. PostgreSQL connection with `pgvector`
+- If the database has the `vector` extension and vector columns, show vector-specific actions.
+
+2. Vector-aware schema browsing
+- Vector columns are visibly marked in the schema/table UI.
+- Vector indexes such as `ivfflat` or `hnsw` are visible in stats/index views.
+
+3. Dedicated vector search tab
+- User opens a `Postgres Vector Search` tab for a table.
+- User chooses:
+  - target table
+  - vector column
+  - optional id/label columns to display
+  - distance metric if applicable
+  - top K
+
+4. Query modes
+- Text-to-vector mode:
+  - enter text
+  - app calls `/ai/embed`
+  - app runs similarity search against the vector column
+- Raw vector mode:
+  - paste numeric vector directly
+- Find similar to row mode:
+  - click a row action to use that row's vector as the query vector
+
+5. Results
+- Show ranked neighbors with distance score.
+- Let users inspect the source row payload.
+- Support export/copy like existing table results.
+
+6. Optional visualization
+- If vector dimensionality and dataset size are practical, support a sampled vector map similar to Qdrant.
+- This should be a second-pass enhancement, not required for MVP.
+
+Architecture
+------------
+1. Shared contracts
+- Add explicit shared types for PostgreSQL vector capability, column metadata, stats, and search inputs/results.
+
+2. Sidecar PostgreSQL capability detection
+- Detect whether `pgvector` is installed.
+- Detect vector columns from PostgreSQL catalogs.
+- Detect vector indexes and index methods.
+
+3. Sidecar vector search endpoints
+- Add PostgreSQL-specific endpoints under the SQL route group or a dedicated postgres-vector group.
+- Server should generate safe SQL for similarity search instead of trusting arbitrary client SQL for the guided workflow.
+
+4. Desktop vector workflow UI
+- Add a dedicated vector search tab/component for PostgreSQL.
+- Reuse patterns from the Qdrant search UI where it helps, without forcing PostgreSQL into Qdrant-specific abstractions.
+
+5. AI embedding integration
+- Reuse `/ai/embed` to convert text to vectors.
+- Keep raw-vector mode available when no embedding provider is configured.
+
+Key Product Decisions
+---------------------
+1. Capability gating
+- Recommended: only show vector UI when:
+  - connection kind is `postgres`
+  - extension `vector` exists
+  - at least one vector column is detected
+
+2. Search abstraction
+- Recommended: do not overload the generic SQL editor with hidden vector behavior.
+- Add a dedicated `postgres-vector-search` tab instead.
+
+3. Supported distance operators
+- Start with the core `pgvector` operators:
+  - `<->` for L2
+  - `<#>` for inner product
+  - `<=>` for cosine distance
+- Expose only the operators that match the user's column/index setup if possible.
+
+4. Dimension handling
+- Validate query vector dimension against the selected column before running the search.
+- Fail fast in the UI with a clear mismatch message.
+
+Implementation Outline
+----------------------
+Step 1: Shared type additions
+- Extend `packages/shared/src/index.ts` with:
+  - `PostgresVectorColumn`
+  - `PostgresVectorIndex`
+  - `PostgresVectorCapability`
+  - `PostgresVectorSearchInput`
+  - `PostgresVectorSearchResult`
+  - optional `PostgresVectorSamplePoint` if visualization is included later
+
+Verify:
+- Desktop and sidecar can share one explicit contract for vector metadata and search results.
+
+Step 2: Sidecar capability detection
+- Extend `apps/sidecar/src/adapters/postgres.ts` to detect:
+  - whether extension `vector` is installed
+  - which tables/columns use the `vector` type
+  - dimensions when discoverable
+  - index methods (`ivfflat`, `hnsw`) and operator classes when present
+- Add comments explaining catalog assumptions and fallbacks.
+
+Verify:
+- A PostgreSQL database with `pgvector` returns vector capability metadata accurately.
+
+Step 3: Sidecar endpoints
+- Add endpoints for:
+  - list vector capabilities / columns
+  - run guided vector similarity search
+  - fetch vector-aware table stats if needed
+  - optionally sample vectors for visualization
+- Build server-side SQL using validated identifiers, not free-form client string concatenation.
+
+Verify:
+- Vector search works from API input without requiring raw SQL from the client.
+
+Step 4: Desktop tab/state model
+- Add a new workspace tab type for PostgreSQL vector search.
+- Add store helpers to open vector search tabs from relevant PostgreSQL tables.
+
+Verify:
+- Vector tabs can be opened, labeled, persisted, and restored like other workspace tabs.
+
+Step 5: Desktop search UI
+- Add a component such as `postgres-vector-query.tsx`.
+- UI should include:
+  - table selector
+  - vector column selector
+  - query mode selector: text / raw vector / similar-to-row
+  - top K input
+  - metric selector when valid
+  - optional filter or projection controls
+- Use shadcn components for controls.
+
+Verify:
+- User can configure and run vector queries without touching raw SQL.
+
+Step 6: Embedding integration
+- When in text mode, call the existing `/ai/embed` endpoint.
+- Handle disabled/misconfigured provider states cleanly.
+- Keep raw-vector mode available as the no-provider fallback.
+
+Verify:
+- Text search works when embeddings are configured, and raw-vector mode still works without AI setup.
+
+Step 7: Results and row actions
+- Display neighbors in a table with:
+  - distance score
+  - selected label/id columns
+  - row detail viewer
+- Add "find similar" actions from normal table browsing when the row contains a vector column.
+
+Verify:
+- Similarity search can start from both free-form query input and an existing row.
+
+Step 8: Schema/stats integration
+- Mark vector columns in schema/table views.
+- Extend index stats or table stats UI to surface vector indexes.
+- Optionally add a small capability badge at the connection or table level.
+
+Verify:
+- Users can discover vector-enabled tables without guesswork.
+
+Step 9: Optional sampled visualization
+- If the scope still fits, add a second-pass vector map using sampled rows and PCA projection.
+- Reuse lessons from Qdrant's vector map, but keep this behind a clear size guardrail.
+
+Verify:
+- Visualization does not overload the sidecar or freeze the desktop UI.
+
+Suggested API Surface
+---------------------
+Recommended endpoints:
+- `GET /sql/:connectionId/vector-capabilities`
+- `POST /sql/:connectionId/vector-search`
+- optional `GET /sql/:connectionId/tables/:tableId/vector-stats`
+- optional `POST /sql/:connectionId/vector-sample`
+
+Search input should include:
+- table identifier
+- vector column
+- query vector
+- metric
+- top K
+- optional filter clause shape
+- optional list of display columns
+
+Technical Risks
+---------------
+- PostgreSQL catalog detection for `pgvector` details is the trickiest backend part.
+- Identifier-safe SQL generation is mandatory; table/column names cannot be interpolated casually.
+- Large vectors or large result payloads can bloat responses if the app returns full vector arrays by default.
+- Embedding dimension mismatch will be common if users mix models.
+- Visualization can get expensive quickly on large tables.
+
+Safety And Performance Rules
+----------------------------
+- Never return full stored vectors in normal search results unless explicitly requested.
+- Cap result size and sample size aggressively.
+- Validate table and column identifiers against discovered metadata before generating SQL.
+- Default to read-only operations only.
+
+Open Questions
+--------------
+- Do we want to support only `vector(n)` or also `halfvec`/future pgvector types if present?
+- Should filters be exposed in the first version, or should MVP search only rank globally within a table?
+- Should sampled vector visualization be included in the first release or shipped after the search workflow is stable?
+- Do we want AI to generate native pgvector SQL snippets when the active PostgreSQL schema contains vector columns?
+
+MVP Recommendation
+------------------
+Ship in two passes.
+
+Pass 1:
+- vector capability detection
+- vector column/index discovery
+- dedicated PostgreSQL vector search tab
+- text-to-vector and raw-vector modes
+- result table with distance score
+- find-similar row action
+
+Pass 2:
+- richer filters/projections
+- vector-aware stats polish
+- optional sampled vector map
+- AI prompt improvements for native pgvector SQL generation
