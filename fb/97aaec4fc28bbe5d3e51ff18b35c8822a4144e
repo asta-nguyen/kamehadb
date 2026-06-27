@@ -1,0 +1,32 @@
+.planning/codebase/STRUCTURE.md
+  s_418f301d7582ef::t_b6cb96dfe82a4c 1-248
+.planning/codebase/ARCHITECTURE.md
+  s_418f301d7582ef::t_92b714cec6a4df 1-250
+.planning/codebase/INTEGRATIONS.md
+  s_418f301d7582ef::t_27e9348423422c 1-131
+.planning/codebase/STACK.md
+  s_418f301d7582ef::t_924c92003ce298 1-154
+.planning/codebase/TESTING.md
+  s_418f301d7582ef::t_c26fa51d62beaa 1-100
+.planning/codebase/CONVENTIONS.md
+  s_418f301d7582ef::t_22d00c63adacbe 1-174
+.planning/codebase/CONCERNS.md
+  s_418f301d7582ef::t_6f1f0a374df674 1-190
+  s_418f301d7582ef::t_633515c7c2a8cf 191-194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "fb97aaec4fc28bbe5d3e51ff18b35c8822a4144e",
+  "prompts": {},
+  "sessions": {
+    "s_418f301d7582ef": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "d3bb843d-be03-4a7e-a97e-c912a874be2d",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
