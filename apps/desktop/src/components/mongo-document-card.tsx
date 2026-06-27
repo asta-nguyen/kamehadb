@@ -2,8 +2,7 @@ import { useCallback, useState } from 'react';
 import { ChevronDown, ChevronRight, Copy, Check, Trash2, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { api } from '@/lib/api';
-import { appendFrontendLog } from '@/lib/app-logs';
+import { useMongoFieldEdit } from '@/hooks/use-mongo-field-edit';
 
 interface DocumentCardProps {
   doc: Record<string, unknown>;
@@ -30,8 +29,15 @@ export function DocumentCard({
 }: DocumentCardProps) {
   const [copied, setCopied] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [saving, setSaving] = useState(false);
+
+  const { editValue, setEditValue, saving, startEditValue, clearEditValue, saveFieldEdit, handleEditKeyDown } =
+    useMongoFieldEdit({
+      connectionId,
+      collection,
+      database,
+      onUpdate,
+      logScope: 'mongo-document-card.update',
+    });
 
   const handleCopy = useCallback(
     async (e: React.MouseEvent) => {
@@ -55,63 +61,33 @@ export function DocumentCard({
     [onDelete],
   );
 
-  const startEdit = useCallback((key: string, value: unknown) => {
-    setEditingKey(key);
-    setEditValue(value === null ? 'null' : JSON.stringify(value));
-  }, []);
+  const startEdit = useCallback(
+    (key: string, value: unknown) => {
+      setEditingKey(key);
+      startEditValue(value);
+    },
+    [startEditValue],
+  );
 
   const cancelEdit = useCallback(() => {
     setEditingKey(null);
-    setEditValue('');
-  }, []);
+    clearEditValue();
+  }, [clearEditValue]);
 
   const saveEdit = useCallback(async () => {
-    if (!editingKey || !doc._id) return;
-    setSaving(true);
-    try {
-      let parsedValue: unknown;
-      if (editValue === 'null') {
-        parsedValue = null;
-      } else {
-        try {
-          parsedValue = JSON.parse(editValue);
-        } catch {
-          parsedValue = editValue;
-        }
-      }
-      await api.updateMongoDocument(connectionId, {
-        collection,
-        database,
-        filter: { _id: doc._id },
-        update: { [editingKey]: parsedValue },
-      });
+    if (!editingKey) return;
+    const success = await saveFieldEdit(doc._id, editingKey);
+    if (success) {
       setEditingKey(null);
-      setEditValue('');
-      onUpdate();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      alert(`Update failed: ${message}`);
-      void appendFrontendLog({
-        level: 'error',
-        scope: 'mongo-document-card.update',
-        message: `MongoDB document update failed: ${message}`,
-        stack: err instanceof Error ? err.stack : undefined,
-      });
-    } finally {
-      setSaving(false);
+      clearEditValue();
     }
-  }, [editingKey, editValue, doc._id, connectionId, collection, database, onUpdate]);
+  }, [editingKey, doc._id, saveFieldEdit, clearEditValue]);
 
-  const handleEditKeyDown = useCallback(
+  const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        saveEdit();
-      } else if (e.key === 'Escape') {
-        cancelEdit();
-      }
+      handleEditKeyDown(e, saveEdit, cancelEdit);
     },
-    [saveEdit, cancelEdit],
+    [handleEditKeyDown, saveEdit, cancelEdit],
   );
 
   const handleKeyDown = useCallback(
@@ -183,7 +159,7 @@ export function DocumentCard({
                       type="text"
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={handleEditKeyDown}
+                      onKeyDown={onKeyDown}
                       className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
                       autoFocus
                     />
