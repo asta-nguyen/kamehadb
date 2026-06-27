@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator';
 import {
   isQuerySafe,
+  safeErrorMessage,
   type AIChatMessage,
   type AIProvider,
   type ConnectionProfile,
@@ -412,7 +413,7 @@ aiRouter.post(
                 controller.enqueue(encoder.encode(chunk));
               }
             } catch (err) {
-              const message = err instanceof Error ? err.message : 'Stream error';
+              const message = safeErrorMessage(err, 'Stream error');
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message })}\n\n`));
             } finally {
               controller.close();
@@ -431,7 +432,7 @@ aiRouter.post(
         },
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'AI chat failed';
+      const message = safeErrorMessage(err, 'AI chat failed');
       log.error({ err }, 'AI chat error');
       return c.json({ error: 'AI_ERROR', message }, 500);
     }
@@ -468,7 +469,7 @@ aiRouter.post(
       const vector = await createEmbedding(body.text, providerName, providerConfig, body.model);
       return c.json({ vector, dimensions: vector.length });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create embedding';
+      const message = safeErrorMessage(err, 'Failed to create embedding');
       return c.json({ error: 'EMBED_ERROR', message }, 500);
     }
   },
@@ -521,7 +522,7 @@ aiRouter.get('/models', async (c) => {
     const models = (data.data ?? []).flatMap((m) => (m.id ? [m.id] : []));
     return c.json({ models });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch models';
+    const message = safeErrorMessage(err, 'Failed to fetch models');
     return c.json({ error: message }, 502);
   }
 });
@@ -560,7 +561,7 @@ aiRouter.post(
       return c.json({ success: true });
     } catch (err) {
       log.error({ err }, 'AI save settings error');
-      const message = err instanceof Error ? err.message : 'Failed to save AI settings';
+      const message = safeErrorMessage(err, 'Failed to save AI settings');
       return c.json({ error: 'CONFIG_ERROR', message }, 500);
     }
   },

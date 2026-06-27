@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { api } from '@/lib/api';
 import { appendFrontendLog } from '@/lib/app-logs';
 
@@ -80,7 +81,7 @@ export function useMongoFieldEdit({
         onUpdate();
         return true;
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = safeErrorMessage(err, String(err));
         alert(`Update failed: ${message}`);
         void appendFrontendLog({
           level: 'error',

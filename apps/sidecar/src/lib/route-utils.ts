@@ -1,7 +1,9 @@
 import { log } from '../lib/logger.js';
-import { quoteSqlIdentifier as sharedQuoteSqlIdentifier } from '@kamehadb/shared';
+import { quoteSqlIdentifier as sharedQuoteSqlIdentifier, safeErrorMessage } from '@kamehadb/shared';
 import type { ConnectionProfile } from '@kamehadb/shared';
 import * as metadataStore from '../db/metadata-store.js';
+
+export { safeErrorMessage };
 
 /**
  * Create an HTTP error with a statusCode for the Hono error handler chain.
@@ -9,14 +11,6 @@ import * as metadataStore from '../db/metadata-store.js';
  */
 export function httpError(message: string, statusCode: number): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode });
-}
-
-/**
- * Safely extract a message from an unknown error value.
- * Returns the fallback string when the error is not an Error instance.
- */
-export function safeErrorMessage(err: unknown, fallback = 'Unknown error'): string {
-  return err instanceof Error ? err.message : fallback;
 }
 
 /**

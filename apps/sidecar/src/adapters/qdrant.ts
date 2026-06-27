@@ -11,6 +11,7 @@ import type {
   QdrantSearchInput,
   RecommendInput,
 } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 
 // Qdrant client 1.18.0 omits `using` from the search() parameter type, but
 // the runtime forwards it for named-vector queries. Extend the parameter
@@ -61,7 +62,7 @@ export function createQdrantAdapter(config: QdrantConfig): QdrantAdapter {
       } catch (err) {
         return {
           success: false,
-          message: err instanceof Error ? err.message : 'Connection failed',
+          message: safeErrorMessage(err, 'Connection failed'),
         };
       }
     },

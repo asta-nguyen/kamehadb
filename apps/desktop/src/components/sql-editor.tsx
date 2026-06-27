@@ -278,6 +278,7 @@ import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autoc
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
 import {
   AlertCircle,
@@ -670,7 +671,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           setActiveResultIndex(0);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Query failed';
+        const message = safeErrorMessage(err, 'Query failed');
         setError(message);
         void appendFrontendLog({
           level: 'error',

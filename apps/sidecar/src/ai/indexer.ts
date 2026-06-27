@@ -2,7 +2,7 @@ import { listProfiles, getAISettings } from '../db/metadata-store.js';
 import { getSqlAdapter } from '../routes/sql.js';
 import { buildSchemaIndex } from './vec-store.js';
 import { log } from '../lib/logger.js';
-import { isSqlKind } from '@kamehadb/shared';
+import { isSqlKind, safeErrorMessage } from '@kamehadb/shared';
 
 export async function indexAllConnections(): Promise<void> {
   const settings = getAISettings();
@@ -32,7 +32,7 @@ export async function indexAllConnections(): Promise<void> {
         log.info({ profile: profile.name }, '[AI Indexer] Schema unchanged');
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
+      const errMsg = safeErrorMessage(err, String(err));
       if (errMsg.includes('ECONNREFUSED') || errMsg.includes('ENOTFOUND') || errMsg.includes('fetch failed')) {
         log.warn({ profile: profile.name, err: errMsg }, '[AI Indexer] Skipping — provider unavailable');
       } else {

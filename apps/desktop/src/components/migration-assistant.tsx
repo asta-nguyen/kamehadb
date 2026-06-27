@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -54,7 +55,7 @@ export function MigrationAssistant({
       const r = await api.generateMigration(connectionId, { fromSnapshotId: fromId, toSnapshotId: toId });
       setResult(r);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to generate migration';
+      const message = safeErrorMessage(err, 'Failed to generate migration');
       toast.error(message);
       void appendFrontendLog({
         level: 'error',
