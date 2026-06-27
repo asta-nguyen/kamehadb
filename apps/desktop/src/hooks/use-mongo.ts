@@ -1,13 +1,13 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { get, post } from '@/lib/api-client';
+import { api } from '@/lib/api';
 import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
 import { QUERY_KEYS } from '@/lib/query-keys';
-import type { CollectionInfo, DatabaseInfo, DocumentResult, FindDocumentsInput } from '@kamehadb/shared';
+import type { FindDocumentsInput } from '@kamehadb/shared';
 
 export function useMongoDatabases(connectionId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.MONGO_DATABASES(connectionId),
-    queryFn: () => get<DatabaseInfo[]>(`/mongo/${connectionId}/databases`),
+    queryFn: () => api.listMongoDatabases(connectionId!),
     enabled: !!connectionId,
     staleTime: SCHEMA_CACHE_TIME,
   });
@@ -16,8 +16,7 @@ export function useMongoDatabases(connectionId: string | null) {
 export function useMongoCollections(connectionId: string | null, database: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.MONGO_COLLECTIONS(connectionId, database),
-    queryFn: () =>
-      get<CollectionInfo[]>(`/mongo/${connectionId}/collections?database=${encodeURIComponent(database ?? '')}`),
+    queryFn: () => api.listMongoCollections(connectionId!, database ?? undefined),
     enabled: !!connectionId && !!database,
     staleTime: SCHEMA_CACHE_TIME,
   });
@@ -45,7 +44,7 @@ export function useMongoDocuments(
         skip,
         search,
       };
-      return post<DocumentResult>(`/mongo/${connectionId}/find`, input);
+      return api.findMongoDocuments(connectionId!, input);
     },
     enabled: !!connectionId && !!database && !!collection,
     staleTime: STATS_CACHE_TIME,
@@ -60,10 +59,7 @@ export function useMongoCollectionStats(
 ) {
   return useQuery({
     queryKey: QUERY_KEYS.MONGO_STATS(connectionId, database, collection),
-    queryFn: () =>
-      get<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
-        `/mongo/${connectionId}/stats?database=${encodeURIComponent(database ?? '')}&collection=${encodeURIComponent(collection ?? '')}`,
-      ),
+    queryFn: () => api.getMongoCollectionStats(connectionId!, database!, collection!),
     enabled: !!connectionId && !!database && !!collection,
     staleTime: STATS_CACHE_TIME,
   });
