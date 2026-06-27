@@ -11,6 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **MCP server** — v1.4.
 
+### Changed
+
+- **Sidecar SQL routes** — split `sql.ts` (975 lines) into focused sub-routers: `sql-vector-pg.ts` for pgvector routes and `sql-vector-sqlite.ts` for sqlite-vec routes, matching the existing `sql-schema.ts` pattern.
+
 ## [v1.3.3] — 2026-06-25
 
 ### Added
