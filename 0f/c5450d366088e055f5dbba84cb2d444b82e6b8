@@ -1,0 +1,25 @@
+apps/desktop/src/components/mongo-document-table-view.tsx
+  s_01a83d1dbdfd95::t_b0316eb475bdd6 123
+  s_01a83d1dbdfd95::t_b399980e778583 143
+  s_01a83d1dbdfd95::t_3279b53fd294e5 77-78,81
+apps/sidecar/src/adapters/clickhouse.ts
+  s_01a83d1dbdfd95::t_e0d82c744878b8 69
+apps/sidecar/src/lib/filter-parser.ts
+  s_01a83d1dbdfd95::t_026c3b5f03a936 41-42,54-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "0fc5450d366088e055f5dbba84cb2d444b82e6b8",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
