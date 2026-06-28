@@ -312,6 +312,12 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
             name: string;
           }[];
           const colNames = colInfo.map((c) => c.name);
+          if (!colNames.includes(input.column)) {
+            return c.json(
+              { error: 'INVALID_COLUMN', message: `Column "${input.column}" not found in table "${input.table}"` },
+              400,
+            );
+          }
           // Always include rowid for the id field
           const selectCols = ['rowid', ...colNames.map((n) => `"${n}"`)];
           const selectExpr = selectCols.join(', ');
