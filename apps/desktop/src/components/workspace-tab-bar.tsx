@@ -61,12 +61,12 @@ export function WorkspaceTabBar() {
         const status = connectionStatus[tab.connectionId];
         const signalColor =
           status === 'connected' || status === 'slow'
-            ? '#22c55e'
+            ? 'var(--success)'
             : status === 'reconnecting'
-              ? '#f97316'
+              ? 'var(--warning)'
               : status === 'disconnected'
-                ? '#ef4444'
-                : '#6b7280';
+                ? 'var(--destructive)'
+                : 'var(--muted-foreground)';
 
         return (
           <div
@@ -121,7 +121,7 @@ export function WorkspaceTabBar() {
               }}
               aria-label={`Close ${tab.title} tab`}
             >
-              <X className="size-2.5" />
+              <X className="size-3" />
             </Button>
           </div>
         );

@@ -4,10 +4,10 @@ import { RefreshCw } from 'lucide-react';
 export type ConnectionStatus = 'connected' | 'slow' | 'reconnecting' | 'disconnected';
 
 export function getIndicatorColor(conn: ConnectionProfile, status: ConnectionStatus) {
-  if (status === 'connected') return conn.color || '#22c55e';
-  if (status === 'slow') return '#eab308';
-  if (status === 'reconnecting') return '#f97316';
-  return '#ef4444';
+  if (status === 'connected') return conn.color || 'var(--success)';
+  if (status === 'slow') return 'var(--warning)';
+  if (status === 'reconnecting') return 'var(--warning)';
+  return 'var(--destructive)';
 }
 
 export function getStatusLabel(status: ConnectionStatus, latency?: number) {

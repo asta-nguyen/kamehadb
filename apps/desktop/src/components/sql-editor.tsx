@@ -531,14 +531,13 @@ function QueryResultTable({
         </div>
         <div className="flex items-center gap-1">
           <div className="flex items-center gap-0.5 mr-1">
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={offset === 0} onClick={onPrevPage}>
+            <Button variant="ghost" size="sm" disabled={offset === 0} onClick={onPrevPage}>
               <ChevronLeft className="size-3.5" />
               Prev
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs"
               disabled={queryLimit === 0 || result.rowCount < queryLimit}
               onClick={onNextPage}
             >
@@ -560,8 +559,8 @@ function QueryResultTable({
             </SelectContent>
           </Select>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
-              <Download className="size-3" />
+            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" title="Export" />}>
+              <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
@@ -900,10 +899,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           )}
           Run
         </Button>
-        <span className="text-xs text-muted-foreground">
-          {runQuery.isPending || isExecutingBatch ? 'Running...' : 'Ctrl+Enter to run'}
-        </span>
+        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[10px] font-mono text-muted-foreground/50">
+          {runQuery.isPending || isExecutingBatch ? 'Esc' : 'Ctrl+Enter'}
+        </kbd>
         <div className="flex-1" />
+        <div className="w-px h-4 bg-border mx-0.5" />
         {result && (
           <Button
             variant="ghost"

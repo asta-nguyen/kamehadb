@@ -119,13 +119,13 @@ const ConnectionItem = memo(function ConnectionItem({
 
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-xs"
           onClick={(e) => {
             e.stopPropagation();
             refreshConnection.mutate(conn.id);
           }}
           disabled={refreshConnection.isPending}
-          className="opacity-0 size-6 disabled:opacity-100 group-hover:opacity-100"
+          className="opacity-0 disabled:opacity-100 group-hover:opacity-100"
           title="Reload connection"
           aria-label="Reload connection"
         >
