@@ -1,0 +1,30 @@
+AGENTS.md
+  s_01a83d1dbdfd95::t_2955631c177516 138-139
+apps/desktop/DESIGN-SYSTEM.md
+  s_01a83d1dbdfd95::t_059900e20092d0 1-215
+  s_01a83d1dbdfd95::t_8dd0337838467e 216-225
+apps/desktop/src/index.css
+  s_01a83d1dbdfd95::t_b1a090b9ec2ef9 44-52,100-105,145-150
+.planning/phases/01-design-token-foundation/01-SUMMARY.md
+  s_01a83d1dbdfd95::t_67dacd0a2f0be3 1-66
+  s_01a83d1dbdfd95::t_e350723d41775d 67-70
+.planning/phases/01-design-token-foundation/01-AUDIT.md
+  s_01a83d1dbdfd95::t_357b49f18b96c8 1-121
+  s_01a83d1dbdfd95::t_0c279e68327860 122-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "5c93baeb62c500a8953ed3295a90dfc3734ab482",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
