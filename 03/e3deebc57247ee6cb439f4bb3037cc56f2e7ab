@@ -1,0 +1,22 @@
+.planning/phases/04-non-sql-explorer-consistency/04-PLAN.md
+  s_01a83d1dbdfd95::t_f0bc0562e96256 1-150
+  s_01a83d1dbdfd95::t_b8c3e74f9e5e44 151-159
+.planning/phases/04-non-sql-explorer-consistency/04-RESEARCH.md
+  s_01a83d1dbdfd95::t_187f214ca0e1de 1-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "03e3deebc57247ee6cb439f4bb3037cc56f2e7ab",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
