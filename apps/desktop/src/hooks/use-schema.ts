@@ -56,7 +56,7 @@ export function usePreviewRows(connectionId: string | null, input: import('@kame
 
 export function useTableStats(connectionId: string | null, tableId: string | null) {
   return useQuery({
-    queryKey: QUERY_KEYS.TABLES(connectionId, tableId),
+    queryKey: QUERY_KEYS.TABLE_STATS(connectionId, tableId),
     queryFn: () =>
       api.request<import('@kamehadb/shared').TableStats>('GET', `/sql/${connectionId}/tables/${tableId}/stats`),
     enabled: !!connectionId && !!tableId,
@@ -66,7 +66,7 @@ export function useTableStats(connectionId: string | null, tableId: string | nul
 
 export function useIndexStats(connectionId: string | null, tableId: string | null) {
   return useQuery({
-    queryKey: QUERY_KEYS.INDEXES(connectionId, tableId),
+    queryKey: QUERY_KEYS.INDEX_STATS(connectionId, tableId),
     queryFn: () =>
       api.request<import('@kamehadb/shared').IndexStats[]>(
         'GET',
