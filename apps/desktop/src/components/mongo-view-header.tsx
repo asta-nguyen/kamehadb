@@ -82,7 +82,7 @@ export function MongoViewHeader({
             className={viewMode === 'list' ? 'bg-muted' : ''}
             title="List view"
           >
-            <List className="!size-3.5" />
+            <List className="size-3.5" />
           </Button>
           <Button
             variant="outline"
@@ -91,7 +91,7 @@ export function MongoViewHeader({
             className={viewMode === 'table' ? 'bg-muted' : ''}
             title="Table view"
           >
-            <Table2 className="!size-3.5" />
+            <Table2 className="size-3.5" />
           </Button>
           <Button
             variant="outline"
@@ -100,10 +100,10 @@ export function MongoViewHeader({
             className={viewMode === 'chart' ? 'bg-muted' : ''}
             title="Chart view"
           >
-            <BarChart3 className="!size-3.5" />
+            <BarChart3 className="size-3.5" />
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" size="icon" title="Export" />}>
+            <DropdownMenuTrigger render={<Button variant="outline" size="icon-sm" title="Export" />}>
               <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

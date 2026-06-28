@@ -4,6 +4,8 @@ import { Search, Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Use
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   string: Type,
@@ -107,13 +109,9 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
         </div>
         <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
           {loadingKeys ? (
-            <div className="flex items-center justify-center py-4">
-              <Spinner size="md" />
-            </div>
+            <LoadingState compact />
           ) : filteredKeys.length === 0 ? (
-            <div className="px-2 py-4 text-xs text-muted-foreground text-center">
-              {keysResult?.keys?.length === 0 ? 'No keys found' : 'No matches'}
-            </div>
+            <EmptyState compact title={keysResult?.keys?.length === 0 ? 'No keys found' : 'No matches'} />
           ) : (
             filteredKeys.map((entry) => {
               const Icon = typeIcons[entry.type] || Box;
@@ -139,7 +137,7 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
           <span className="text-xs text-muted-foreground">{filteredKeys.length} keys</span>
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-xs"
             onClick={() => setShowStats(!showStats)}
             className={showStats ? 'text-primary' : 'text-muted-foreground'}
             title="Show stats"

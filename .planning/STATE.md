@@ -7,12 +7,12 @@
 See: .planning/PROJECT.md (updated 2026-06-28)
 
 **Core value:** Every supported database engine should feel equally first-class in the UI.
-**Current focus:** Phase 4 — Non-SQL Explorer Consistency (Pending)
+**Current focus:** Phase 5 — Vector Search UI Unification (Pending)
 
 ## Current Phase
 
-- **Phase:** 4
-- **Name:** Non-SQL Explorer Consistency
+- **Phase:** 5
+- **Name:** Vector Search UI Unification
 - **Status:** Pending
 - **Plans:** 0
 - **Summaries:** 0
@@ -24,11 +24,12 @@ See: .planning/PROJECT.md (updated 2026-06-28)
 | 1     | Design Token Foundation      | Complete | 4/4   | 100%     |
 | 2     | Shared Component Patterns    | Complete | 4/4   | 100%     |
 | 3     | SQL Editor, Results & Chrome | Complete | 4/4   | 100%     |
-| 4     | Non-SQL Explorer Consistency | Pending  | 0/0   | 0%       |
+| 4     | Non-SQL Explorer Consistency | Complete | 4/4   | 100%     |
 | 5     | Vector Search UI Unification | Pending  | 0/0   | 0%       |
 
 ## Recent Activity
 
+- 2026-06-28: Phase 4 executed — button sizing fixes, TigerBeetle color tokens, JsonValue component, shared states in explorers
 - 2026-06-28: Phase 3 executed — SQL editor toolbar, results table, status color tokens, dialog audit
 - 2026-06-28: Phase 2 executed — EmptyState, LoadingState, ErrorState, ExplorerToolbar, FilterBar, toast wrapper, button sizing fixes
 - 2026-06-28: Phase 1 executed — design tokens, status colors, shadow tokens, DESIGN-SYSTEM.md

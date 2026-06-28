@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { ChevronLeft, ChevronRight, Network, Search, Sparkles } from 'lucide-react';
+import { LoadingState } from '@/components/ui/loading-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { Spinner } from '@/components/ui/spinner';
 
 interface QdrantViewProps {
@@ -186,12 +188,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
           <span className="font-mono text-sm truncate" title={collection}>
             {collection}
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => dispatch({ type: 'toggleStats' })}
-            className="text-xs px-1.5 py-0.5"
-          >
+          <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'toggleStats' })} className="text-xs">
             {state.showStats ? 'Hide stats' : 'Stats'}
           </Button>
         </div>
@@ -254,13 +251,9 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
 
       <div className="flex-1 overflow-auto min-h-0">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Spinner size="lg" />
-          </div>
+          <LoadingState />
         ) : error ? (
-          <div className="p-4 text-sm text-destructive">
-            {error instanceof Error ? error.message : 'Failed to load points'}
-          </div>
+          <ErrorState error={error} />
         ) : (
           <DataTable
             rows={page?.points ?? []}
@@ -275,7 +268,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
             prefix={(p) => (
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: String(p.id) });

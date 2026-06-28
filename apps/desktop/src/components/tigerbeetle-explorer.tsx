@@ -3,6 +3,8 @@ import { useTbAccounts, useTbTransfers, useTbBalances } from '@/hooks/use-tigerb
 import type { TigerBeetleAccount, TigerBeetleTransfer, TigerBeetleAccountBalance } from '@kamehadb/shared';
 import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useState } from 'react';
 
 interface TigerBeetleExplorerProps {
@@ -16,11 +18,7 @@ export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) 
   const accounts = data?.accounts ?? [];
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <Spinner size="md" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
@@ -34,7 +32,7 @@ export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) 
         </Button>
       </div>
       {accounts.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-2">No accounts found</p>
+        <EmptyState compact title="No accounts found" />
       ) : (
         accounts.map((account) => (
           <AccountNode
@@ -87,7 +85,7 @@ function AccountNode({
           <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
         )}
         <span className="font-mono text-[11px] truncate flex-1">{account.id.slice(0, 16)}</span>
-        <span className={`text-[10px] font-medium ${posted >= 0n ? 'text-emerald-500' : 'text-red-500'}`}>
+        <span className={`text-[10px] font-medium ${posted >= 0n ? 'text-success' : 'text-destructive'}`}>
           {posted.toString()}
         </span>
       </Button>
@@ -144,7 +142,7 @@ function TransferRow({ transfer, selectedAccountId }: { transfer: TigerBeetleTra
 
   return (
     <div className="flex items-center gap-1.5 py-0.5 text-[10px]">
-      <div className={`size-1.5 rounded-full shrink-0 ${isDebit ? 'bg-red-400' : 'bg-emerald-400'}`} />
+      <div className={`size-1.5 rounded-full shrink-0 ${isDebit ? 'bg-destructive' : 'bg-success'}`} />
       <span className="font-mono text-[9px] text-muted-foreground w-14 truncate">{transfer.id.slice(0, 8)}</span>
       <span className="font-mono flex-1">{isDebit ? `-${amount.toString()}` : `+${amount.toString()}`}</span>
       <span className="text-muted-foreground">{ts.toLocaleDateString()}</span>
