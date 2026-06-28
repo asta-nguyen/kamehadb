@@ -65,8 +65,10 @@ export const QUERY_KEYS = {
   SQLITE_VEC_CAPABILITIES: (connectionId: string | null) => ['sqlite-vec-capabilities', connectionId] as const,
   CONNECTION_HEALTH: (connectionId: string | null) => ['connection-health', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,
-  TABLE_STATS: (connectionId: string) => ['table-stats', connectionId] as const,
-  INDEX_STATS: (connectionId: string) => ['index-stats', connectionId] as const,
+  TABLE_STATS: (connectionId: string | null, tableId?: string | null) =>
+    tableId ? (['table-stats', connectionId, tableId] as const) : (['table-stats', connectionId] as const),
+  INDEX_STATS: (connectionId: string | null, tableId?: string | null) =>
+    tableId ? (['index-stats', connectionId, tableId] as const) : (['index-stats', connectionId] as const),
   DB_SIZES: (connectionId: string) => ['db-sizes', connectionId] as const,
   SCHEMA_SNAPSHOTS: (connectionId: string | null) => ['schema-snapshots', connectionId] as const,
   SCHEMA_CHANGELOG: (connectionId: string | null) => ['schema-changelog', connectionId] as const,

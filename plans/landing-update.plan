@@ -1,0 +1,272 @@
+Landing Page Update Plan
+========================
+
+Goal
+----
+Refresh the marketing/docs landing page so it accurately reflects the current KamehaDB product surface, new database support, and the major workflow improvements added after the original landing copy shipped.
+
+Expanded Scope
+--------------
+This plan now covers the broader public-facing alignment work that should ship with the landing refresh:
+- landing homepage copy and structure
+- landing metadata and OG assets
+- screenshot/image refresh
+- README positioning alignment
+- a lightweight maintenance checklist so these surfaces do not drift again
+
+Why This Needs Work
+-------------------
+The current landing page is materially out of sync with the product:
+- It still markets only PostgreSQL, MySQL, SQLite, MongoDB, and Redis.
+- It does not mention newer engines: SQL Server, Oracle, ClickHouse, DuckDB, MariaDB, TigerBeetle, and Qdrant.
+- It does not surface major workflows now present in the app:
+  - global search
+  - query history with favorites
+  - charts / visualization
+  - connection health monitoring
+  - pinned connections
+  - workspace tab persistence
+  - migration assistant
+  - schema timeline
+  - Qdrant exploration and vector search
+- Some hero/supporting copy still describes the product as primarily "AI SQL generation" instead of a broader multi-engine desktop database workspace.
+
+Objectives
+----------
+1. Make the landing page factually current.
+2. Reposition the product around the strongest real workflows, not only AI.
+3. Update visuals/screenshots so the page shows the current UI instead of older product states.
+4. Keep the landing page focused on buyer/user comprehension, not an exhaustive changelog dump.
+
+Non-Goals
+---------
+- No full redesign of the docs/changelog pages unless a landing change requires a small supporting update.
+- No speculative marketing for features that are not shipped.
+- No major brand rewrite if the current visual identity is still acceptable.
+- No rewrite of all internal docs.
+
+Current Mismatch Summary
+------------------------
+Product reality today:
+- Desktop Tauri app with local sidecar architecture.
+- Support for PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB, TigerBeetle, and Qdrant.
+- AI chat with schema context across SQL and MongoDB, plus Redis command help.
+- Dedicated Qdrant explorer and vector search workflows.
+- Migration assistant and schema timeline.
+- Global search, saved tabs, pinned connections, health badges, charts, richer table/document browsing.
+
+Landing today:
+- Feature framing is older and narrower.
+- Engine matrix is outdated.
+- Visual emphasis appears centered on older SQL/chat screenshots only.
+- Feature sections under-represent current differentiation.
+
+Other public-facing drift:
+- Landing metadata still repeats the outdated 5-engine product description.
+- OG image source text still advertises only PostgreSQL, MySQL, SQLite, MongoDB, and Redis.
+- README is in better shape than landing, but should still be reviewed in the same pass so public positioning stays coherent.
+
+Recommended Messaging Shift
+---------------------------
+Old framing:
+- "AI SQL tool with a few databases"
+
+New framing:
+- "Local-first desktop database workspace for SQL, document, cache, vector, and ledger systems, with AI built in."
+
+This shift matters because the product now wins on:
+- breadth of engines
+- local-first privacy
+- workflow density in one desktop app
+- AI that is useful but not the only story
+
+Content Strategy
+----------------
+1. Hero
+- Expand the headline/subheadline to reflect the broader product surface.
+- Mention multi-engine coverage explicitly.
+- Keep AI in the hero, but subordinate it to the main product value.
+- Add a product proof strip near the hero with the most persuasive shipped capabilities:
+  - 12+ engines
+  - local-first
+  - AI with schema context
+  - desktop app
+
+2. Database support section
+- Replace the current short engine list with a fuller support matrix or grouped badges.
+- Group by category so the list stays readable:
+  - SQL: PostgreSQL, MySQL, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB
+  - Document / cache: MongoDB, Redis
+  - Vector / ledger: Qdrant, TigerBeetle
+
+3. Workflow sections
+- Rebuild the feature narrative around real workflows instead of generic cards.
+- Suggested sections:
+  - Explore any database quickly
+  - Ask AI with real schema context
+  - Move faster with search, history, and saved tabs
+  - Debug and evolve schemas with timeline + migration assistant
+  - Work across SQL, MongoDB, Redis, Qdrant, and TigerBeetle in one place
+
+4. Visual proof
+- Refresh screenshots and compare panels to current product UI.
+- Prioritize visuals for:
+  - SQL editor + results
+  - AI chat
+  - Mongo explorer or aggregation view
+  - Qdrant/vector search
+  - migration assistant or schema timeline
+
+5. Install / platform section
+- Keep this concise.
+- Clarify that the main product is the desktop app for macOS, Windows, and Linux.
+- Reduce dev-centric wording on the main homepage; move overly technical setup detail lower on the page or to docs.
+
+6. Social proof / trust
+- Strengthen local-first and open-source messaging.
+- Make "no hosted proxy / your data stays local" clearer if that remains accurate.
+
+7. Public-surface consistency
+- Use one canonical product framing across homepage, README, metadata, and OG text.
+- Treat the landing refresh as the main execution track for all outward-facing messaging updates, not as an isolated page rewrite.
+
+Implementation Outline
+----------------------
+Step 1: Audit current landing content against shipped features
+- Map each current landing section to:
+  - still accurate
+  - outdated
+  - missing critical product value
+- Produce a concise content inventory before editing visuals or layout.
+
+Verify:
+- We have a clear list of sections to keep, rewrite, remove, or add.
+
+Step 2: Rewrite information architecture
+- Reorder the homepage around:
+  - hero
+  - support matrix
+  - product workflows
+  - AI section
+  - trust/install CTA
+- Remove or compress sections that repeat the same point.
+
+Verify:
+- The page tells a coherent product story in top-to-bottom order without relying on changelog knowledge.
+
+Step 3: Refresh copy
+- Update hero copy, feature headings, CTA text, and comparison copy.
+- Ensure every claim is backed by a shipped feature in the repo today.
+- Avoid vague claims like "understand any database instantly" unless backed by the actual workflow shown.
+
+Verify:
+- Copy matches current functionality and avoids product overstatement.
+
+Step 4: Refresh screenshots/assets
+- Replace old screenshots with current desktop UI captures.
+- Generate new compare images if that section remains.
+- Add at least one non-SQL visual so the page reflects MongoDB/Qdrant breadth.
+
+Verify:
+- Visuals match current app styling and visible feature set.
+
+Step 5: Update SEO/metadata if needed
+- Revisit page title, description, OG image text, and structured metadata if they still reflect the narrower product scope.
+- Keep the messaging consistent with the new homepage headline.
+- Review and update:
+  - `landing/src/app/layout.tsx`
+  - `landing/public/og-image.svg`
+
+Verify:
+- Metadata and visible copy describe the same product.
+
+Step 6: Align README messaging
+- Review the README intro, feature framing, and support positioning against the refreshed landing copy.
+- Keep the README and homepage aligned on:
+  - one-line product description
+  - engine support grouping
+  - major differentiators
+
+Verify:
+- A user reading GitHub first and homepage second gets the same understanding of the product.
+
+Step 7: Validate mobile and desktop presentation
+- Check section density, screenshot legibility, and CTA visibility on smaller screens.
+- Ensure longer engine lists do not collapse into noisy unreadable blocks.
+
+Verify:
+- The updated page reads clearly on both mobile and desktop.
+
+Step 8: Add drift-prevention checklist
+- Add a small maintenance note so future feature waves trigger a public-surface review.
+- Checklist should cover:
+  - `CHANGELOG.md`
+  - landing hero/support matrix/screenshots
+  - README feature/support copy
+  - metadata and OG text when scope changes materially
+
+Verify:
+- The repo contains one obvious reminder to keep public-facing surfaces in sync after major product changes.
+
+Suggested Section Changes
+-------------------------
+Keep, but rewrite:
+- Hero
+- Features section
+- Install section
+- "Why KamehaDB" trust section
+
+Add:
+- Database support matrix
+- Workflow-focused section for search/history/persistence
+- Advanced workflows section for migration assistant, schema timeline, and Qdrant
+
+Remove or de-emphasize:
+- Copy that implies only 5 engines are supported
+- Sections that frame the product as mostly an AI SQL generator
+- Overly dev-tool-oriented install text near the top of the page
+
+Asset Plan
+----------
+Likely assets to regenerate:
+- `landing/public/images/sql-panel.png`
+- `landing/public/images/chat-panel.png`
+- Additional MongoDB/Qdrant/migration images if the homepage expands beyond the current two-panel compare
+- `landing/public/og-image.png` if it is derived from updated OG copy
+
+If needed:
+- Add a small image capture/update script for the newer panels so the landing visuals are easier to maintain.
+
+Metadata And Copy Surfaces To Align
+-----------------------------------
+- `landing/src/app/layout.tsx`
+- `landing/public/og-image.svg`
+- `landing/public/og-image.png` if regenerated from the SVG/copy update
+- `README.md`
+
+Risks
+-----
+- Overloading the landing page with every feature will make it read like a changelog.
+- A long engine list can weaken the message unless grouped clearly.
+- Older screenshots will undermine trust even if the copy is fixed.
+- If the current homepage layout is tightly coupled to the old copy, a partial rewrite may still require meaningful section restructuring.
+
+Open Questions
+--------------
+- Do we want the landing page to position Qdrant and TigerBeetle as first-class supported engines, or mention them lower as advanced/specialized support?
+- Should MongoDB shell support wait to appear on the landing page until the feature is shipped?
+- Do we want a lightweight "What's new since v1.0" strip, or should all recency stay confined to the changelog?
+- Where should the maintenance checklist live so it is actually used?
+
+MVP Recommendation
+------------------
+Update the landing page in two passes.
+
+Pass 1:
+- Fix factual accuracy, engine list, hero copy, and top-level workflow framing.
+- Replace obviously outdated screenshots.
+- Update metadata, OG text, and README intro/support framing in the same pass.
+
+Pass 2:
+- Improve deeper storytelling around Qdrant, schema evolution, and workspace productivity once the new asset set is ready.
+- Add the small maintenance checklist once the updated messaging direction is approved.

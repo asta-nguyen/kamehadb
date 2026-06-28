@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { ErrorBoundary } from './components/error-boundary';
+import { appendFrontendLog } from './lib/app-logs';
 import './index.css';
 
 interface QueryErrorMeta {
@@ -33,18 +34,34 @@ function toError(error: unknown): Error {
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
+      const normalized = toError(error);
       const onError = (query.meta as QueryErrorMeta | undefined)?.onError;
       if (typeof onError === 'function') {
         const queryId = typeof query.queryKey[1] === 'string' ? query.queryKey[1] : undefined;
-        onError(toError(error), queryId);
+        onError(normalized, queryId);
+      } else {
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'tanstack-query',
+          message: `Query error [${String(query.queryKey[0] ?? 'unknown')}]: ${normalized.message}`,
+          stack: normalized.stack,
+        });
       }
     },
   }),
   mutationCache: new MutationCache({
-    onError: (error, _data, _variables, _context, mutation) => {
+    onError: (error, _variables, _onMutateResult, mutation) => {
+      const normalized = toError(error);
       const onError = (mutation.meta as MutationErrorMeta | undefined)?.onError;
       if (typeof onError === 'function') {
-        onError(toError(error));
+        onError(normalized);
+      } else {
+        void appendFrontendLog({
+          level: 'error',
+          scope: 'tanstack-mutation',
+          message: `Mutation error: ${normalized.message}`,
+          stack: normalized.stack,
+        });
       }
     },
   }),

@@ -8,6 +8,7 @@ import type {
   AggregateInput,
   DocumentResult,
 } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 
 interface MongoConfig {
   connectionString: string;
@@ -57,7 +58,7 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       } catch (err) {
         return {
           success: false,
-          message: err instanceof Error ? err.message : 'Connection failed',
+          message: safeErrorMessage(err, 'Connection failed'),
         };
       } finally {
         await tempClient.close();

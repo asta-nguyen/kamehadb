@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useConnections } from '@/hooks/use-connections';
@@ -151,9 +152,7 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
         );
       } catch (err) {
         if (!abort.signal.aborted) {
-          term.write(
-            `\r\n\x1b[31mFailed to start mongosh: ${err instanceof Error ? err.message : String(err)}\x1b[0m\r\n`,
-          );
+          term.write(`\r\n\x1b[31mFailed to start mongosh: ${safeErrorMessage(err, String(err))}\x1b[0m\r\n`);
         }
       }
     })();

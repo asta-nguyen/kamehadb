@@ -65,8 +65,8 @@ export function createClickHouseAdapter(connection: {
     return '`' + id.replace(/`/g, '\\`') + '`';
   }
 
-  function escapeVal(val: string): string {
-    return "'" + val.replace(/'/g, "\\'") + "'";
+  function escapeClickHouseVal(val: string): string {
+    return "'" + val.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
   }
 
   async function q<T>(query: string): Promise<T[]> {
@@ -97,7 +97,7 @@ export function createClickHouseAdapter(connection: {
     async listTables(schema?: string): Promise<TableInfo[]> {
       if (schema) {
         const rows = await q<{ name: string; database: string }>(
-          `SELECT name, database FROM system.tables WHERE database = ${escapeVal(schema)} AND database NOT IN ('INFORMATION_SCHEMA', 'information_schema', 'system') AND engine NOT IN ('SystemTable', 'SystemLog') ORDER BY name`,
+          `SELECT name, database FROM system.tables WHERE database = ${escapeClickHouseVal(schema)} AND database NOT IN ('INFORMATION_SCHEMA', 'information_schema', 'system') AND engine NOT IN ('SystemTable', 'SystemLog') ORDER BY name`,
         );
         return rows.map((r) => ({
           id: `${r.database}.${r.name}`,
@@ -126,7 +126,7 @@ export function createClickHouseAdapter(connection: {
         default_kind: string;
         default_expression: string;
       }>(
-        `SELECT name, type, default_kind, default_expression FROM system.columns WHERE database = '${db}' AND table = '${table}' ORDER BY position`,
+        `SELECT name, type, default_kind, default_expression FROM system.columns WHERE database = ${escapeClickHouseVal(db)} AND table = ${escapeClickHouseVal(table)} ORDER BY position`,
       );
       return rows.map((r) => ({
         name: r.name,
@@ -143,7 +143,7 @@ export function createClickHouseAdapter(connection: {
       const db = parts.length > 1 ? parts[0] : connection.database || 'default';
       const table = parts.length > 1 ? parts[1] : tableId;
       const rows = await q<{ name: string; type: string; expr: string; granularity: number }>(
-        `SELECT name, type, expr, granularity FROM system.data_skipping_indices WHERE database = ${escapeVal(db)} AND table = ${escapeVal(table)} ORDER BY name`,
+        `SELECT name, type, expr, granularity FROM system.data_skipping_indices WHERE database = ${escapeClickHouseVal(db)} AND table = ${escapeClickHouseVal(table)} ORDER BY name`,
       );
       return rows.map((r) => ({
         name: r.name,
@@ -166,7 +166,7 @@ export function createClickHouseAdapter(connection: {
       }>(
         `SELECT name, total_rows, total_bytes, metadata_modification_time
          FROM system.tables
-         WHERE database = ${escapeVal(db)} AND name = ${escapeVal(table)}`,
+         WHERE database = ${escapeClickHouseVal(db)} AND name = ${escapeClickHouseVal(table)}`,
       );
       const row = rows[0];
       const rowEstimate = row ? Number(row.total_rows) || 0 : 0;
@@ -205,7 +205,7 @@ export function createClickHouseAdapter(connection: {
         `SELECT c.table AS "table", c.name, c.type, c.default_kind, c.default_expression
          FROM system.columns c
          JOIN system.tables t ON c.database = t.database AND c.table = t.name
-         WHERE c.database = '${db}' AND t.engine NOT IN ('SystemTable', 'SystemLog')
+         WHERE c.database = ${escapeClickHouseVal(db)} AND t.engine NOT IN ('SystemTable', 'SystemLog')
          ORDER BY c.table, c.position`,
       );
       const tableMap = new Map<string, TableCompletions>();

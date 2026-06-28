@@ -10,20 +10,13 @@ import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
 import { KIND } from '@kamehadb/shared';
-import { handleError } from '../lib/route-utils.js';
+import { handleError, safeErrorMessage, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
 import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
 
 async function getAdapter(connectionId: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw new Error('Connection not found');
-
-  if (profile.kind !== KIND.MONGODB) {
-    throw new Error('This endpoint is for MongoDB connections only');
-  }
-
-  return createMongoDbAdapter(profile);
+  return getNonSqlAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter);
 }
 
 // GET /mongo/:connectionId/collections
@@ -35,14 +28,11 @@ mongoRouter.get('/:connectionId/collections', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const collections = await adapter.listCollections(database || undefined);
-      setCache(cacheKey, collections);
-      return c.json(collections);
-    } finally {
-      await adapter.close();
-    }
+    const collections = await withAdapter(getAdapter, connectionId, (adapter) =>
+      adapter.listCollections(database || undefined),
+    );
+    setCache(cacheKey, collections);
+    return c.json(collections);
   } catch (err) {
     return handleError(c, err, 'listCollections');
   }
@@ -56,14 +46,9 @@ mongoRouter.get('/:connectionId/databases', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const databases = await adapter.listDatabases();
-      setCache(cacheKey, databases);
-      return c.json(databases);
-    } finally {
-      await adapter.close();
-    }
+    const databases = await withAdapter(getAdapter, connectionId, (adapter) => adapter.listDatabases());
+    setCache(cacheKey, databases);
+    return c.json(databases);
   } catch (err) {
     return handleError(c, err, 'listDatabases');
   }
@@ -87,13 +72,10 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.findDocuments(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close();
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.findDocuments(c.req.valid('json')),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'findDocuments');
     }
@@ -114,13 +96,10 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.aggregate(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close();
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.aggregate(c.req.valid('json')),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'aggregate');
     }
@@ -145,14 +124,11 @@ mongoRouter.post(
       const connectionId = c.req.param('connectionId');
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
-      const adapter = await getAdapter(connectionId);
-      try {
-        const { collection, database, filter } = c.req.valid('json');
-        const result = await adapter.deleteDocument(database || '', collection, filter);
-        return c.json(result);
-      } finally {
-        await adapter.close();
-      }
+      const { collection, database, filter } = c.req.valid('json');
+      const result = await withAdapter(getAdapter, connectionId, (adapter) =>
+        adapter.deleteDocument(database || '', collection, filter),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'deleteDocument');
     }
@@ -178,14 +154,11 @@ mongoRouter.post(
       const connectionId = c.req.param('connectionId');
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
-      const adapter = await getAdapter(connectionId);
-      try {
-        const { collection, database, filter, update } = c.req.valid('json');
-        const result = await adapter.updateDocument(database || '', collection, filter, update);
-        return c.json(result);
-      } finally {
-        await adapter.close();
-      }
+      const { collection, database, filter, update } = c.req.valid('json');
+      const result = await withAdapter(getAdapter, connectionId, (adapter) =>
+        adapter.updateDocument(database || '', collection, filter, update),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'updateDocument');
     }
@@ -195,18 +168,15 @@ mongoRouter.post(
 // GET /mongo/:connectionId/stats
 mongoRouter.get('/:connectionId/stats', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
-    try {
-      const database = c.req.query('database');
-      const collection = c.req.query('collection');
-      if (!database || !collection) {
-        return c.json({ error: 'MISSING_PARAMS', message: 'database and collection are required' }, 400);
-      }
-      const result = await adapter.getCollectionStats(database, collection);
-      return c.json(result);
-    } finally {
-      await adapter.close();
+    const database = c.req.query('database');
+    const collection = c.req.query('collection');
+    if (!database || !collection) {
+      return c.json({ error: 'MISSING_PARAMS', message: 'database and collection are required' }, 400);
     }
+    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      adapter.getCollectionStats(database, collection),
+    );
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'getCollectionStats');
   }
@@ -224,14 +194,11 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const { database, command } = c.req.valid('json');
-        const result = await adapter.runCommand(database || '', command);
-        return c.json(result);
-      } finally {
-        await adapter.close();
-      }
+      const { database, command } = c.req.valid('json');
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.runCommand(database || '', command),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'runCommand');
     }
@@ -248,8 +215,7 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
+    const data = await withAdapter(getAdapter, connectionId, async (adapter) => {
       const collections = await adapter.listCollections(database || undefined);
       // Sample one document from each collection to extract field names
       const result = [];
@@ -269,12 +235,10 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
         }
         result.push({ name: coll.name, fields });
       }
-      const data = { collections: result };
-      setCache(cacheKey, data);
-      return c.json(data);
-    } finally {
-      await adapter.close();
-    }
+      return { collections: result };
+    });
+    setCache(cacheKey, data);
+    return c.json(data);
   } catch (err) {
     return handleError(c, err, 'completions');
   }
@@ -283,13 +247,8 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
 // GET /mongo/:connectionId/test
 mongoRouter.get('/:connectionId/test', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
-    try {
-      const result = await adapter.testConnection();
-      return c.json(result);
-    } finally {
-      await adapter.close();
-    }
+    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.testConnection());
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'testConnection');
   }
@@ -366,7 +325,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
     });
   } catch (err) {
     log.error({ mongoshCommand, err }, 'mongosh pty.spawn failed');
-    throw new Error(`mongosh failed to start: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`mongosh failed to start: ${safeErrorMessage(err, String(err))}`);
   }
 
   shellSessions.set(sessionId, { pty: ptyProcess, createdAt: Date.now(), buffer: '' });

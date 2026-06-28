@@ -1,34 +1,29 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import * as metadataStore from '../db/metadata-store.js';
 import { createTigerBeetleDbAdapter } from '../adapters/factory.js';
 import { KIND } from '@kamehadb/shared';
-import { handleError } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
 
 export const tigerbeetleRouter = new Hono();
 
+function safeLimit(raw: string | undefined, fallback = 100): number {
+  const n = Number(raw ?? String(fallback));
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(Math.floor(n), 1000);
+}
+
 async function getAdapter(connectionId: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw new Error('Connection not found');
-  if (profile.kind !== KIND.TIGERBEETLE) {
-    throw new Error('This endpoint is for TigerBeetle connections only');
-  }
-  return createTigerBeetleDbAdapter(profile);
+  return getNonSqlAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter);
 }
 
 // GET /tigerbeetle/:connectionId/accounts
 tigerbeetleRouter.get('/:connectionId/accounts', async (c) => {
   const connectionId = c.req.param('connectionId');
-  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 1000);
+  const limit = safeLimit(c.req.query('limit'));
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const accounts = await adapter.queryAccounts(limit);
-      return c.json({ accounts });
-    } finally {
-      await adapter.close();
-    }
+    const accounts = await withAdapter(getAdapter, connectionId, (adapter) => adapter.queryAccounts(limit));
+    return c.json({ accounts });
   } catch (err) {
     return handleError(c, err, 'listAccounts');
   }
@@ -39,14 +34,11 @@ tigerbeetleRouter.get('/:connectionId/accounts/:id', async (c) => {
   const connectionId = c.req.param('connectionId');
   const id = c.req.param('id');
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
+    return await withAdapter(getAdapter, connectionId, async (adapter) => {
       const accounts = await adapter.lookupAccounts([id]);
       if (accounts.length === 0) return c.json({ error: 'NOT_FOUND', message: 'Account not found' }, 404);
       return c.json(accounts[0]);
-    } finally {
-      await adapter.close();
-    }
+    });
   } catch (err) {
     return handleError(c, err, 'lookupAccount');
   }
@@ -72,13 +64,8 @@ tigerbeetleRouter.post('/:connectionId/accounts', zValidator('json', CreateAccou
   const connectionId = c.req.param('connectionId');
   const { accounts } = c.req.valid('json');
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const results = await adapter.createAccounts(accounts);
-      return c.json({ results });
-    } finally {
-      await adapter.close();
-    }
+    const results = await withAdapter(getAdapter, connectionId, (adapter) => adapter.createAccounts(accounts));
+    return c.json({ results });
   } catch (err) {
     return handleError(c, err, 'createAccounts');
   }
@@ -88,15 +75,12 @@ tigerbeetleRouter.post('/:connectionId/accounts', zValidator('json', CreateAccou
 tigerbeetleRouter.get('/:connectionId/transfers/:accountId', async (c) => {
   const connectionId = c.req.param('connectionId');
   const accountId = c.req.param('accountId');
-  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 1000);
+  const limit = safeLimit(c.req.query('limit'));
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const transfers = await adapter.getAccountTransfers(accountId, limit);
-      return c.json({ transfers });
-    } finally {
-      await adapter.close();
-    }
+    const transfers = await withAdapter(getAdapter, connectionId, (adapter) =>
+      adapter.getAccountTransfers(accountId, limit),
+    );
+    return c.json({ transfers });
   } catch (err) {
     return handleError(c, err, 'getAccountTransfers');
   }
@@ -107,13 +91,8 @@ tigerbeetleRouter.get('/:connectionId/balances/:accountId', async (c) => {
   const connectionId = c.req.param('connectionId');
   const accountId = c.req.param('accountId');
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const balances = await adapter.getAccountBalances(accountId);
-      return c.json({ balances });
-    } finally {
-      await adapter.close();
-    }
+    const balances = await withAdapter(getAdapter, connectionId, (adapter) => adapter.getAccountBalances(accountId));
+    return c.json({ balances });
   } catch (err) {
     return handleError(c, err, 'getAccountBalances');
   }
@@ -143,13 +122,8 @@ tigerbeetleRouter.post('/:connectionId/transfers', zValidator('json', CreateTran
   const connectionId = c.req.param('connectionId');
   const { transfers } = c.req.valid('json');
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const results = await adapter.createTransfers(transfers);
-      return c.json({ results });
-    } finally {
-      await adapter.close();
-    }
+    const results = await withAdapter(getAdapter, connectionId, (adapter) => adapter.createTransfers(transfers));
+    return c.json({ results });
   } catch (err) {
     return handleError(c, err, 'createTransfers');
   }

@@ -5,6 +5,7 @@ export * from './types.js';
 // Schema diff/term expansion tools
 export * from './schema-tools.js';
 export * from './constants.js';
+export * from './utils.js';
 
 // FE-only input types (not used by the sidecar)
 export type PostgresVectorSearchInput = {

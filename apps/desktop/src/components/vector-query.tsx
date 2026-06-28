@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer } from 'react';
 import type { WorkspaceTab } from '@/lib/types';
 import type { PostgresVectorSearchResult } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { usePostgresVectorCapabilities, usePostgresVectorSearch } from '@/hooks/use-postgres-vector';
 import { useSqliteVecCapabilities, useSqliteVecSearch, useSqliteVecSample } from '@/hooks/use-sqlite-vec';
 import { parseVectorText } from '@/lib/postgres-vector';
@@ -410,7 +411,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
                 } catch (err) {
                   dispatch({
                     type: 'setError',
-                    value: err instanceof Error ? err.message : 'Failed to sample vector',
+                    value: safeErrorMessage(err, 'Failed to sample vector'),
                   });
                 }
               }}

@@ -11,6 +11,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **MCP server** — v1.4.
 
+## [v1.3.4] — 2026-06-28
+
+### Changed
+
+- **Sidecar SQL routes** — split `sql.ts` (975 lines) into focused sub-routers: `sql-vector-pg.ts` for pgvector routes and `sql-vector-sqlite.ts` for sqlite-vec routes, matching the existing `sql-schema.ts` pattern.
+- **Shared filter parser** — extracted duplicated filter parsing logic from `postgres-vector-sql.ts` and `sqlite-vector-sql.ts` into `filter-parser.ts`, leaving only engine-specific SQL generation (`$N` vs `?`, `t.` prefix) in each file.
+
+### Fixed
+
+- **TigerBeetle limit validation** — `safeLimit()` helper rejects non-numeric, NaN, zero, and negative values, falling back to default 100 (capped at 1000). Applied to both `/accounts` and `/transfers/:accountId` routes.
+- **Redis password propagation** — `getAdapter` now fetches the saved password from `metadataStore.getProfilePassword()` instead of always passing `undefined` to `createRedisDbAdapter`.
+- **pgvector sample validation** — `/vectors/sample` now validates table/column existence and vector type before querying, matching the search endpoint's validation.
+- **pgvector composite PK** — primary-key selection uses `ctid` fallback for composite primary keys instead of taking only the first column (which is not unique).
+- **sqlite-vec sample validation** — both `/sqlite-vec/sample` and `/sqlite-vec/vectors/sample` now validate vec0 table and column existence via shared `validateVec0Table()` helper before querying.
+- **sqlite-vec vec0 detection** — replaced fragile `includes('vec0')` substring match with case-insensitive `USING vec0(` regex, preventing false positives/negatives.
+- **sqlite-vec column escaping** — `selectCols` now uses `quoteSqlIdentifier()` instead of raw `"${n}"` interpolation.
+- **sqlite-vec rowid in search** — `SELECT *` replaced with `SELECT rowid, *` so `SqliteVecSearchHit.id` is always populated.
+- **sqlite-vec ILIKE support** — `ILIKE` operator translated to `LIKE ... COLLATE NOCASE` for SQLite compatibility.
+- **ClickHouse escaping** — `getTableColumns()` and `getCompletions()` now use `escapeClickHouseVal()` instead of raw string interpolation, matching other catalog queries.
+- **MongoDB table cell editing** — `editCell` stores document `_id` instead of row index, preventing wrong-document saves after sorting or refetching.
+- **MongoDB field edit guard** — `docId` check changed from falsy (`!docId`) to explicit `null/undefined` check, allowing valid falsy `_id` values (`0`, `false`).
+- **MongoDB update matchedCount** — `saveFieldEdit` now checks `result.matchedCount` before calling `onUpdate()`, returning `false` when no document was matched.
+- **TanStack Query error logging** — unhandled `QueryCache` and `MutationCache` errors now log to the frontend Logs page via `appendFrontendLog`.
+- **MutationCache.onError signature** — fixed parameter order to match TanStack Query v5 (`error, variables, onMutateResult, mutation`), so `mutation.meta` is correctly accessible.
+
 ## [v1.3.3] — 2026-06-25
 
 ### Added

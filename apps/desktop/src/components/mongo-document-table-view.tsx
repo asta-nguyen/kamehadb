@@ -3,8 +3,6 @@ import { Copy, Eye, Trash2, Ellipsis } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type ColumnDef } from '@/components/data-table';
-import { api } from '@/lib/api';
-import { appendFrontendLog } from '@/lib/app-logs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +13,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import { collectRecordFields, useFieldVisibility } from '@/hooks/use-field-visibility';
+import { useMongoFieldEdit } from '@/hooks/use-mongo-field-edit';
 
 function formatCellValue(value: unknown): string {
   if (value === null) return 'null';
@@ -44,10 +43,18 @@ export function DocumentTableView({
   sortStr,
   onSortChange,
 }: DocumentTableViewProps) {
-  const [editCell, setEditCell] = useState<{ row: number; key: string } | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [editCell, setEditCell] = useState<{ docId: unknown; key: string } | null>(null);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
+
+  const { editValue, setEditValue, saving, startEditValue, clearEditValue, saveFieldEdit, handleEditKeyDown } =
+    useMongoFieldEdit({
+      connectionId,
+      collection,
+      database,
+      onUpdate,
+      logScope: 'mongo-document-table.update',
+    });
+
   const columns = useMemo(() => collectRecordFields(documents), [documents]);
   const { visibleFields } = useFieldVisibility(columns, `${connectionId}:${database}:${collection}`);
 
@@ -66,67 +73,34 @@ export function DocumentTableView({
     return null;
   }, [sortStr]);
 
-  const startEdit = useCallback((row: number, key: string, currentValue: unknown) => {
-    setEditCell({ row, key });
-    setEditValue(currentValue === null ? 'null' : JSON.stringify(currentValue));
-  }, []);
+  const startEdit = useCallback(
+    (docId: unknown, key: string, currentValue: unknown) => {
+      setEditCell({ docId, key });
+      startEditValue(currentValue);
+    },
+    [startEditValue],
+  );
 
   const cancelEdit = useCallback(() => {
     setEditCell(null);
-    setEditValue('');
-  }, []);
+    clearEditValue();
+  }, [clearEditValue]);
 
   const saveEdit = useCallback(async () => {
     if (!editCell) return;
-    const doc = documents[editCell.row];
-    if (!doc._id) return;
-
-    setSaving(true);
-    try {
-      let parsedValue: unknown;
-      if (editValue === 'null') {
-        parsedValue = null;
-      } else {
-        try {
-          parsedValue = JSON.parse(editValue);
-        } catch (error) {
-          if (!(error instanceof SyntaxError)) throw error;
-          parsedValue = editValue;
-        }
-      }
-      await api.updateMongoDocument(connectionId, {
-        collection,
-        database,
-        filter: { _id: doc._id },
-        update: { [editCell.key]: parsedValue },
-      });
+    if (editCell.docId == null) return;
+    const success = await saveFieldEdit(editCell.docId, editCell.key);
+    if (success) {
       setEditCell(null);
-      setEditValue('');
-      onUpdate();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      alert(`Update failed: ${message}`);
-      void appendFrontendLog({
-        level: 'error',
-        scope: 'mongo-document-table.update',
-        message: `MongoDB document update failed: ${message}`,
-        details: err instanceof Error ? err.stack : String(err),
-      });
-    } finally {
-      setSaving(false);
+      clearEditValue();
     }
-  }, [editCell, editValue, documents, connectionId, collection, database, onUpdate]);
+  }, [editCell, saveFieldEdit, clearEditValue]);
 
-  const handleKeyDown = useCallback(
+  const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        saveEdit();
-      } else if (e.key === 'Escape') {
-        cancelEdit();
-      }
+      handleEditKeyDown(e, saveEdit, cancelEdit);
     },
-    [saveEdit, cancelEdit],
+    [handleEditKeyDown, saveEdit, cancelEdit],
   );
 
   const handleCopyRow = async (doc: Record<string, unknown>) => {
@@ -146,15 +120,15 @@ export function DocumentTableView({
         header: col,
         accessor: (row) => row[col],
         sortable: true,
-        render: (value, _row, rowIndex) => {
-          const isEditing = editCell?.row === rowIndex && editCell?.key === col;
+        render: (value, row) => {
+          const isEditing = editCell?.docId === row?._id && editCell?.key === col;
           if (isEditing) {
             return (
               <Input
                 type="text"
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={handleKeyDown}
+                onKeyDown={onKeyDown}
                 onBlur={() => setTimeout(() => saveEdit(), 150)}
                 className="h-5 min-w-0 rounded border bg-background px-1 font-mono text-xs focus:ring-1 focus:ring-primary"
                 autoFocus
@@ -166,7 +140,7 @@ export function DocumentTableView({
               variant="ghost"
               size="sm"
               className="block w-full truncate justify-start font-normal text-left h-auto px-1"
-              onClick={() => startEdit(rowIndex, col, value)}
+              onClick={() => startEdit(row?._id, col, value)}
               title={formatCellValue(value)}
             >
               {value === null ? (
@@ -178,7 +152,7 @@ export function DocumentTableView({
           );
         },
       })),
-    [visibleFields, editCell, editValue, handleKeyDown, saveEdit, saving, cancelEdit, startEdit],
+    [visibleFields, editCell, editValue, onKeyDown, saveEdit, saving, cancelEdit, startEdit],
   );
 
   return (

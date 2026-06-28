@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { safeErrorMessage } from '@kamehadb/shared';
 import type { ChatMessage } from '@/lib/ai-chat-helpers';
 import { getApiBase } from '@/lib/api-client';
 import { appendFrontendLog } from '@/lib/app-logs';
@@ -89,7 +90,7 @@ export function useChat(options: UseChatOptions) {
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = safeErrorMessage(err, String(err));
         void appendFrontendLog({
           level: 'error',
           scope: 'use-chat',

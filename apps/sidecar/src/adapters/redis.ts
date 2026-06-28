@@ -11,6 +11,7 @@ import type {
   RedisStats,
   RedisCommandResult,
 } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 
 interface RedisConfig {
   host?: string;
@@ -43,7 +44,7 @@ export async function testRedisConnection(config: RedisConfig): Promise<TestConn
   } catch (err) {
     return {
       success: false,
-      message: err instanceof Error ? err.message : 'Connection failed',
+      message: safeErrorMessage(err, 'Connection failed'),
     };
   } finally {
     await client.quit().catch(() => {});
@@ -117,7 +118,7 @@ export function createRedisAdapter(config: RedisConfig): RedisAdapter {
       } catch (err) {
         return {
           success: false,
-          message: err instanceof Error ? err.message : 'Connection failed',
+          message: safeErrorMessage(err, 'Connection failed'),
         };
       }
     },

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartView } from '@/components/chart-view';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { DocumentCard } from '@/components/mongo-document-card';
 import { DocumentTableView } from '@/components/mongo-document-table-view';
 import { MongoViewHeader } from '@/components/mongo-view-header';
@@ -241,7 +242,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
           queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown error';
+        const message = safeErrorMessage(err);
         alert(`Delete failed: ${message}`);
         void appendFrontendLog({
           level: 'error',

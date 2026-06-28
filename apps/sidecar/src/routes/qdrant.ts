@@ -6,31 +6,19 @@ import { createQdrantDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { QdrantStats } from '@kamehadb/shared';
 import { KIND } from '@kamehadb/shared';
-import { handleError, httpError } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
 
 export const qdrantRouter = new Hono();
 
 async function getAdapter(connectionId: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw httpError('Connection not found', 404);
-
-  if (profile.kind !== KIND.QDRANT) {
-    throw httpError('This endpoint is for Qdrant connections only', 400);
-  }
-
-  return createQdrantDbAdapter(profile);
+  return getNonSqlAdapter(connectionId, KIND.QDRANT, createQdrantDbAdapter);
 }
 
 // GET /qdrant/:connectionId/test
 qdrantRouter.get('/:connectionId/test', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
-    try {
-      const result = await adapter.testConnection();
-      return c.json(result);
-    } finally {
-      await adapter.close().catch(() => {});
-    }
+    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.testConnection());
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'testConnection');
   }
@@ -39,13 +27,8 @@ qdrantRouter.get('/:connectionId/test', async (c) => {
 // GET /qdrant/:connectionId/collections
 qdrantRouter.get('/:connectionId/collections', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
-    try {
-      const result = await adapter.listCollections();
-      return c.json(result);
-    } finally {
-      await adapter.close().catch(() => {});
-    }
+    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.listCollections());
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'listCollections');
   }
@@ -67,13 +50,10 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.scrollPoints(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close().catch(() => {});
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.scrollPoints(c.req.valid('json')),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'scrollPoints');
     }
@@ -96,13 +76,10 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.search(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close().catch(() => {});
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.search(c.req.valid('json')),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'search');
     }
@@ -125,13 +102,10 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.recommend(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close().catch(() => {});
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.recommend(c.req.valid('json')),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'recommend');
     }
@@ -152,14 +126,9 @@ qdrantRouter.get('/:connectionId/stats', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const result = await adapter.getStats(collection);
-      setCache(cacheKey, result);
-      return c.json(result);
-    } finally {
-      await adapter.close().catch(() => {});
-    }
+    const result = await withAdapter(getAdapter, connectionId, (adapter) => adapter.getStats(collection));
+    setCache(cacheKey, result);
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'getStats');
   }

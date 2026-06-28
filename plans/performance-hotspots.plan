@@ -1,0 +1,145 @@
+Performance Hotspots Plan
+=========================
+
+Goal
+----
+Reduce the most obvious latency and scalability bottlenecks in the current KamehaDB architecture without rewriting major subsystems.
+
+Why This Plan Exists
+--------------------
+The current codebase has a few hot paths that are likely to become noticeably slow even at moderate usage:
+- SQL adapters are created and torn down per request
+- PostgreSQL preview search performs expensive full-row text scans
+- SQL query success invalidates broad frontend metadata caches too aggressively
+
+These issues hurt perceived responsiveness more than isolated micro-optimizations would.
+
+Confirmed Hotspots
+------------------
+1. Connection churn in SQL routes
+- SQL routes construct a fresh adapter for each request and close it in `finally`.
+- PostgreSQL adapters create a new `pg.Pool`, then close it with `pool.end()`.
+- Files:
+  - `apps/sidecar/src/routes/sql.ts`
+  - `apps/sidecar/src/adapters/postgres.ts`
+
+2. Expensive PostgreSQL preview search
+- `previewRows()` fetches all column names, then builds an `ILIKE` OR clause across every column cast to text.
+- File:
+  - `apps/sidecar/src/adapters/postgres.ts`
+
+3. Over-broad query invalidation
+- Any successful SQL query invalidates schema/table/column/index/completion families even if the query was read-only.
+- File:
+  - `apps/desktop/src/hooks/use-query.ts`
+
+Non-Goals
+---------
+- No premature micro-optimization of every component.
+- No broad architectural rewrite of all adapters in one pass.
+- No change to user-facing features unless needed to support performance fixes.
+
+Implementation Outline
+----------------------
+Step 1: Add lightweight measurement points
+- Add timing logs or internal instrumentation around:
+  - adapter creation
+  - metadata endpoints
+  - preview search
+  - frontend query invalidation/refetch cascades
+- Keep this low-noise and removable.
+
+Verify:
+- We can compare before/after latency on the identified hot paths.
+
+Step 2: Reuse SQL adapters or pools per connection
+- Replace per-request pool creation for long-lived SQL connections with a small adapter/pool cache keyed by connection profile identity.
+- Ensure cache invalidates when connection settings change.
+- Keep lifecycle explicit so dead connections can still be evicted cleanly.
+
+Verify:
+- Repeated schema/table/index/completion requests on the same connection no longer recreate and destroy DB pools each time.
+
+Step 3: Tighten adapter close semantics
+- Distinguish between:
+  - releasing a borrowed client
+  - destroying an entire pool
+- Route handlers should not tear down reusable pools after each request once pooling is centralized.
+
+Verify:
+- Request-level cleanup does not destroy connection-level reuse.
+
+Step 4: Rework PostgreSQL preview search
+- Stop defaulting to `ILIKE` across every column cast to text.
+- Options for v1:
+  - search only a limited subset of columns
+  - only search text-like columns
+  - cap searchable column count
+  - make broad search an explicit advanced mode
+- Preserve current UX where possible, but prioritize bounded query cost.
+
+Verify:
+- Search latency on wide tables improves materially and query plans avoid worst-case full text-cast scans across every column.
+
+Step 5: Narrow frontend invalidation
+- In `useRunQuery`, invalidate metadata/query families conditionally.
+- Recommended rule:
+  - read-only `SELECT` does not invalidate schema metadata
+  - writes invalidate only the affected families
+- Reuse existing query-safety knowledge where possible instead of duplicating ad hoc parsing.
+
+Verify:
+- Running read-only queries no longer triggers unnecessary schema/completion/table refetches.
+
+Step 6: Review large payload defaults
+- Audit endpoints that may return larger-than-needed payloads by default:
+  - preview rows
+  - autocomplete/completions
+  - Qdrant point payloads
+- Reduce payload shape where the UI does not need the full object eagerly.
+
+Verify:
+- Response sizes for common browsing flows stay bounded.
+
+Step 7: Add regression checks
+- Add focused tests or benchmark-style verification for:
+  - pool reuse behavior
+  - invalidation behavior
+  - preview search constraints
+
+Verify:
+- Future changes do not silently reintroduce the same hotspots.
+
+Priority Order
+--------------
+P1
+- Reuse SQL pools/adapters per connection
+- Narrow frontend invalidation
+
+P2
+- Rework PostgreSQL preview search
+
+P3
+- Audit payload sizes and secondary hotspots
+
+Risks
+-----
+- Connection reuse needs careful invalidation when a connection profile changes.
+- Pool caching can mask stale credentials if cache eviction is sloppy.
+- Narrowing preview search too aggressively may reduce usability if not messaged clearly.
+- Query classification for invalidation must not miss real write side effects.
+
+Open Questions
+--------------
+- Should adapter caching live in the sidecar route layer or in adapter/factory infrastructure?
+- Do we want a generic connection manager across SQL adapters, or fix PostgreSQL first?
+- Is broad table search an important enough UX feature to justify a more advanced PostgreSQL search implementation later?
+
+MVP Recommendation
+------------------
+Fix the high-leverage issues first:
+- connection/pool reuse
+- read-query invalidation scope
+- bounded PostgreSQL preview search
+
+That sequence should improve perceived performance more than any isolated UI tuning.
