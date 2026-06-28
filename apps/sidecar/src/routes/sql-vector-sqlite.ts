@@ -35,6 +35,32 @@ function parseVec0ColumnNames(createSql: string): string[] {
   return names;
 }
 
+type Database = import('better-sqlite3').Database;
+
+/** Validate that a table is a vec0 virtual table and that the column exists in it. */
+function validateVec0Table(db: Database, table: string, column: string): Response | null {
+  const tableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?").get(table) as
+    | { sql: string }
+    | undefined;
+
+  if (!tableSql || !tableSql.sql.includes('vec0')) {
+    return Response.json(
+      { error: 'INVALID_TABLE', message: `Table "${table}" is not a vec0 virtual table` },
+      { status: 400 },
+    );
+  }
+
+  const columnNames = parseVec0ColumnNames(tableSql.sql);
+  if (!columnNames.includes(column)) {
+    return Response.json(
+      { error: 'INVALID_COLUMN', message: `Column "${column}" not found in vec0 table "${table}"` },
+      { status: 400 },
+    );
+  }
+
+  return null;
+}
+
 export function createSqlVectorSqliteRouter(options: { readonly handleError: ErrorHandler }): Hono {
   const router = new Hono();
 
@@ -166,25 +192,8 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
             metric === 'cosine' ? 'vec_distance_cosine' : metric === 'l2' ? 'vec_distance_L2' : 'vec_distance_L2';
 
           // Validate table and column exist in vec0 tables
-          const tableSql = db
-            .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?")
-            .get(input.table) as { sql: string } | undefined;
-
-          if (!tableSql || !tableSql.sql.includes('vec0')) {
-            return c.json(
-              { error: 'INVALID_TABLE', message: `Table "${input.table}" is not a vec0 virtual table` },
-              400,
-            );
-          }
-
-          // Check if the column exists in the vec0 table definition
-          const columnNames = parseVec0ColumnNames(tableSql.sql);
-          if (!columnNames.includes(input.column)) {
-            return c.json(
-              { error: 'INVALID_COLUMN', message: `Column "${input.column}" not found in vec0 table"${input.table}"` },
-              400,
-            );
-          }
+          const validationError = validateVec0Table(db, input.table, input.column);
+          if (validationError) return validationError;
 
           // For vec0 virtual tables, we query with vec_distance functions
           // The rowid is the primary key, and we can select all columns
@@ -196,10 +205,10 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
           const params: unknown[] = [float32];
 
           if (filterClause) {
-            sql = `SELECT *, ${distanceOp}(${quotedColumn}, ?) AS distance FROM ${quotedTable} WHERE ${filterClause.sql} ORDER BY distance ASC LIMIT ?`;
+            sql = `SELECT rowid, *, ${distanceOp}(${quotedColumn}, ?) AS distance FROM ${quotedTable} WHERE ${filterClause.sql} ORDER BY distance ASC LIMIT ?`;
             params.push(...filterClause.params, limit);
           } else {
-            sql = `SELECT *, ${distanceOp}(${quotedColumn}, ?) AS distance FROM ${quotedTable} ORDER BY distance ASC LIMIT ?`;
+            sql = `SELECT rowid, *, ${distanceOp}(${quotedColumn}, ?) AS distance FROM ${quotedTable} ORDER BY distance ASC LIMIT ?`;
             params.push(limit);
           }
 
@@ -255,6 +264,10 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
         try {
           sqliteVec.load(db);
 
+          // Validate table is vec0 and column exists
+          const validationError = validateVec0Table(db, input.table, input.column);
+          if (validationError) return validationError;
+
           // Get a random row's vector
           const row = db
             .prepare(
@@ -305,6 +318,10 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
         try {
           sqliteVec.load(db);
 
+          // Validate table is vec0 and column exists
+          const validationError = validateVec0Table(db, input.table, input.column);
+          if (validationError) return validationError;
+
           // Discover the table columns — vec0 virtual tables don't support SELECT *
           // reliably, so we need to enumerate columns from pragma_table_info and
           // select them explicitly.
@@ -312,14 +329,8 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
             name: string;
           }[];
           const colNames = colInfo.map((c) => c.name);
-          if (!colNames.includes(input.column)) {
-            return c.json(
-              { error: 'INVALID_COLUMN', message: `Column "${input.column}" not found in table "${input.table}"` },
-              400,
-            );
-          }
           // Always include rowid for the id field
-          const selectCols = ['rowid', ...colNames.map((n) => `"${n}"`)];
+          const selectCols = ['rowid', ...colNames.map((n) => quoteSqlIdentifier(n))];
           const selectExpr = selectCols.join(', ');
 
           const rows = db

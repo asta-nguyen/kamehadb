@@ -6,11 +6,14 @@ import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { RedisStats } from '@kamehadb/shared';
 import { KIND } from '@kamehadb/shared';
 import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
+import * as metadataStore from '../db/metadata-store.js';
 
 export const redisRouter = new Hono();
 
-async function getAdapter(connectionId: string, password?: string) {
-  return getNonSqlAdapter(connectionId, KIND.REDIS, (profile) => createRedisDbAdapter(profile, password));
+async function getAdapter(connectionId: string) {
+  return getNonSqlAdapter(connectionId, KIND.REDIS, (profile) =>
+    createRedisDbAdapter(profile, metadataStore.getProfilePassword(connectionId) ?? undefined),
+  );
 }
 
 // GET /redis/:connectionId/test

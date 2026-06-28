@@ -254,6 +254,42 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
           connectionTimeoutMillis: ADAPTER_TIMEOUTS.CONNECT_LONG,
         });
 
+        // Validate that the table/column exist and are vector type
+        const validateResult = await pool.query(
+          `SELECT
+            a.attname,
+            t.typname,
+            a.atttypmod
+          FROM pg_class c
+          JOIN pg_namespace n ON c.relnamespace = n.oid
+          JOIN pg_attribute a ON a.attrelid = c.oid
+          JOIN pg_type t ON a.atttypid = t.oid
+          WHERE n.nspname = $1 AND c.relname = $2 AND a.attname = $3
+            AND a.attnum > 0 AND NOT a.attisdropped`,
+          [body.schema, body.table, body.column],
+        );
+
+        if (validateResult.rows.length === 0) {
+          return c.json(
+            {
+              error: 'BAD_REQUEST',
+              message: `Column "${body.schema}"."${body.table}"."${body.column}" not found or is not a vector column`,
+            },
+            400,
+          );
+        }
+
+        const validateRow = validateResult.rows[0];
+        if (validateRow.typname !== 'vector') {
+          return c.json(
+            {
+              error: 'BAD_REQUEST',
+              message: `Column "${body.column}" has type "${validateRow.typname}", not "vector"`,
+            },
+            400,
+          );
+        }
+
         // Find a unique identifier column for this table
         const pkResult = await pool.query(
           `SELECT a.attname

@@ -7,6 +7,12 @@ import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.j
 
 export const tigerbeetleRouter = new Hono();
 
+function safeLimit(raw: string | undefined, fallback = 100): number {
+  const n = Number(raw ?? String(fallback));
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(Math.floor(n), 1000);
+}
+
 async function getAdapter(connectionId: string) {
   return getNonSqlAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter);
 }
@@ -14,7 +20,7 @@ async function getAdapter(connectionId: string) {
 // GET /tigerbeetle/:connectionId/accounts
 tigerbeetleRouter.get('/:connectionId/accounts', async (c) => {
   const connectionId = c.req.param('connectionId');
-  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 1000);
+  const limit = safeLimit(c.req.query('limit'));
   try {
     const accounts = await withAdapter(getAdapter, connectionId, (adapter) => adapter.queryAccounts(limit));
     return c.json({ accounts });
@@ -69,7 +75,7 @@ tigerbeetleRouter.post('/:connectionId/accounts', zValidator('json', CreateAccou
 tigerbeetleRouter.get('/:connectionId/transfers/:accountId', async (c) => {
   const connectionId = c.req.param('connectionId');
   const accountId = c.req.param('accountId');
-  const limit = Math.min(Number(c.req.query('limit') ?? '100'), 1000);
+  const limit = safeLimit(c.req.query('limit'));
   try {
     const transfers = await withAdapter(getAdapter, connectionId, (adapter) =>
       adapter.getAccountTransfers(accountId, limit),
