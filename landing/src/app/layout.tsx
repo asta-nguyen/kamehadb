@@ -51,6 +51,14 @@ export async function generateMetadata(): Promise<Metadata> {
       title: 'KamehaDB — Local-first desktop database workspace',
       description:
         'One local-first desktop GUI for PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle, with AI built in.',
+      images: [
+        {
+          url: '/og-animated',
+          width: 1200,
+          height: 630,
+          alt: 'KamehaDB — Local-first desktop database workspace',
+        },
+      ],
     },
     alternates: {
       canonical: '/',
@@ -60,7 +68,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: 'KamehaDB — Local-first desktop database workspace',
       description:
         'One local-first desktop GUI for SQL, document, cache, vector, and ledger systems, with AI built in.',
-      images: [`${baseUrl}/opengraph-image`],
+      images: [`${baseUrl}/og-animated`],
     },
     robots: {
       index: true,
