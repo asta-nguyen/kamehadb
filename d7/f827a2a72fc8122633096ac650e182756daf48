@@ -1,0 +1,27 @@
+apps/sidecar/src/routes/sql-vector-sqlite.ts
+  s_01a83d1dbdfd95::t_2b845e2e733a23 315-320
+apps/sidecar/src/lib/sqlite-vector-sql.ts
+  s_01a83d1dbdfd95::t_3017f11f6dea4c 43,52,56,67,84,91
+  s_01a83d1dbdfd95::t_2aa8adc5a6930f 33
+  s_01a83d1dbdfd95::t_52e1927ab0344a 2
+apps/desktop/src/hooks/use-mongo.ts
+  s_01a83d1dbdfd95::t_c001f0558d4788 10-13,22-25,44,46,54,69-72
+apps/desktop/src/main.tsx
+  s_01a83d1dbdfd95::t_e45a90ef49097c 6,37,41-48,54,57-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "d7f827a2a72fc8122633096ac650e182756daf48",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
