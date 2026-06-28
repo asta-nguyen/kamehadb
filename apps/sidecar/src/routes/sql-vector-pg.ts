@@ -156,7 +156,8 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
           );
         }
 
-        // Find a unique identifier column for this table
+        // Find a unique identifier for this table — use the PK column when it's
+        // a single-column key, otherwise fall back to ctid for composite PKs.
         const pkResult = await pool.query(
           `SELECT a.attname
           FROM pg_index ix
@@ -164,12 +165,11 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
           JOIN pg_namespace n ON c.relnamespace = n.oid
           JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(ix.indkey)
           WHERE n.nspname = $1 AND c.relname = $2 AND ix.indisprimary
-          ORDER BY a.attnum
-          LIMIT 1`,
+          ORDER BY a.attnum`,
           [body.schema, body.table],
         );
-        const idColumn = pkResult.rows.length > 0 ? (pkResult.rows[0].attname as string) : 'ctid';
-        const idSelect = idColumn === 'ctid' ? 't.ctid::text' : `t.${quoteSqlIdentifier(idColumn)}`;
+        const idSelect =
+          pkResult.rows.length === 1 ? `t.${quoteSqlIdentifier(pkResult.rows[0].attname as string)}` : 't.ctid::text';
         const filter = buildSafeFilterClause(body.filter ?? '', 4);
         const whereClause = filter ? `WHERE ${filter.sql}` : '';
 
@@ -258,8 +258,7 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
         const validateResult = await pool.query(
           `SELECT
             a.attname,
-            t.typname,
-            a.atttypmod
+            t.typname
           FROM pg_class c
           JOIN pg_namespace n ON c.relnamespace = n.oid
           JOIN pg_attribute a ON a.attrelid = c.oid
@@ -290,7 +289,8 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
           );
         }
 
-        // Find a unique identifier column for this table
+        // Find a unique identifier for this table — use the PK column when it's
+        // a single-column key, otherwise fall back to ctid for composite PKs.
         const pkResult = await pool.query(
           `SELECT a.attname
           FROM pg_index ix
@@ -298,12 +298,11 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
           JOIN pg_namespace n ON c.relnamespace = n.oid
           JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(ix.indkey)
           WHERE n.nspname = $1 AND c.relname = $2 AND ix.indisprimary
-          ORDER BY a.attnum
-          LIMIT 1`,
+          ORDER BY a.attnum`,
           [body.schema, body.table],
         );
-        const idColumn = pkResult.rows.length > 0 ? (pkResult.rows[0].attname as string) : 'ctid';
-        const idSelect = idColumn === 'ctid' ? 't.ctid::text' : `t.${quoteSqlIdentifier(idColumn)}`;
+        const idSelect =
+          pkResult.rows.length === 1 ? `t.${quoteSqlIdentifier(pkResult.rows[0].attname as string)}` : 't.ctid::text';
 
         const sampleResult = await pool.query(
           `SELECT

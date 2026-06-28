@@ -126,7 +126,7 @@ export function createClickHouseAdapter(connection: {
         default_kind: string;
         default_expression: string;
       }>(
-        `SELECT name, type, default_kind, default_expression FROM system.columns WHERE database = '${db}' AND table = '${table}' ORDER BY position`,
+        `SELECT name, type, default_kind, default_expression FROM system.columns WHERE database = ${escapeClickHouseVal(db)} AND table = ${escapeClickHouseVal(table)} ORDER BY position`,
       );
       return rows.map((r) => ({
         name: r.name,
@@ -205,7 +205,7 @@ export function createClickHouseAdapter(connection: {
         `SELECT c.table AS "table", c.name, c.type, c.default_kind, c.default_expression
          FROM system.columns c
          JOIN system.tables t ON c.database = t.database AND c.table = t.name
-         WHERE c.database = '${db}' AND t.engine NOT IN ('SystemTable', 'SystemLog')
+         WHERE c.database = ${escapeClickHouseVal(db)} AND t.engine NOT IN ('SystemTable', 'SystemLog')
          ORDER BY c.table, c.position`,
       );
       const tableMap = new Map<string, TableCompletions>();

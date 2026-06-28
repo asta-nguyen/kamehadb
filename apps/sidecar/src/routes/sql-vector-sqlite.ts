@@ -43,7 +43,7 @@ function validateVec0Table(db: Database, table: string, column: string): Respons
     | { sql: string }
     | undefined;
 
-  if (!tableSql || !tableSql.sql.includes('vec0')) {
+  if (!tableSql || !/USING\s+vec0\s*\(/i.test(tableSql.sql)) {
     return Response.json(
       { error: 'INVALID_TABLE', message: `Table "${table}" is not a vec0 virtual table` },
       { status: 400 },

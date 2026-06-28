@@ -43,7 +43,7 @@ export function DocumentTableView({
   sortStr,
   onSortChange,
 }: DocumentTableViewProps) {
-  const [editCell, setEditCell] = useState<{ row: number; key: string } | null>(null);
+  const [editCell, setEditCell] = useState<{ docId: unknown; key: string } | null>(null);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
 
   const { editValue, setEditValue, saving, startEditValue, clearEditValue, saveFieldEdit, handleEditKeyDown } =
@@ -75,10 +75,11 @@ export function DocumentTableView({
 
   const startEdit = useCallback(
     (row: number, key: string, currentValue: unknown) => {
-      setEditCell({ row, key });
+      const doc = documents[row];
+      setEditCell({ docId: doc?._id, key });
       startEditValue(currentValue);
     },
-    [startEditValue],
+    [documents, startEditValue],
   );
 
   const cancelEdit = useCallback(() => {
@@ -88,14 +89,13 @@ export function DocumentTableView({
 
   const saveEdit = useCallback(async () => {
     if (!editCell) return;
-    const doc = documents[editCell.row];
-    if (!doc._id) return;
-    const success = await saveFieldEdit(doc._id, editCell.key);
+    if (!editCell.docId) return;
+    const success = await saveFieldEdit(editCell.docId, editCell.key);
     if (success) {
       setEditCell(null);
       clearEditValue();
     }
-  }, [editCell, documents, saveFieldEdit, clearEditValue]);
+  }, [editCell, saveFieldEdit, clearEditValue]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -121,8 +121,8 @@ export function DocumentTableView({
         header: col,
         accessor: (row) => row[col],
         sortable: true,
-        render: (value, _row, rowIndex) => {
-          const isEditing = editCell?.row === rowIndex && editCell?.key === col;
+        render: (value, row, rowIndex) => {
+          const isEditing = editCell?.docId === row?._id && editCell?.key === col;
           if (isEditing) {
             return (
               <Input

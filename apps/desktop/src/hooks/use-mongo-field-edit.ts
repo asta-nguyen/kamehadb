@@ -68,16 +68,25 @@ export function useMongoFieldEdit({
    */
   const saveFieldEdit = useCallback(
     async (docId: unknown, fieldKey: string): Promise<boolean> => {
-      if (!docId) return false;
+      if (docId === null || docId === undefined) return false;
       setSaving(true);
       try {
         const parsedValue = parseEditValue(editValue);
-        await api.updateMongoDocument(connectionId, {
+        const result = await api.updateMongoDocument(connectionId, {
           collection,
           database,
           filter: { _id: docId },
           update: { [fieldKey]: parsedValue },
         });
+        if (result.matchedCount === 0) {
+          alert('Update failed: no document matched the filter');
+          void appendFrontendLog({
+            level: 'warn',
+            scope: logScope,
+            message: `MongoDB update matched 0 documents for _id: ${JSON.stringify(docId)}`,
+          });
+          return false;
+        }
         onUpdate();
         return true;
       } catch (err) {

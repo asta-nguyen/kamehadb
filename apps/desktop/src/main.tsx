@@ -50,7 +50,7 @@ const queryClient = new QueryClient({
     },
   }),
   mutationCache: new MutationCache({
-    onError: (error, _data, _variables, _context, mutation) => {
+    onError: (error, _variables, _onMutateResult, mutation) => {
       const normalized = toError(error);
       const onError = (mutation.meta as MutationErrorMeta | undefined)?.onError;
       if (typeof onError === 'function') {
