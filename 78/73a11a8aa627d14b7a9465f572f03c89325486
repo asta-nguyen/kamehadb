@@ -1,0 +1,31 @@
+apps/sidecar/src/routes/tigerbeetle.ts
+  s_01a83d1dbdfd95::t_5ea5d066e228ca 78
+  s_01a83d1dbdfd95::t_6f68ce5c1df15b 10-15,23
+apps/sidecar/src/routes/sql-vector-sqlite.ts
+  s_01a83d1dbdfd95::t_95c921160e6e96 38-63
+  s_01a83d1dbdfd95::t_a08e824ea9c16d 195-196
+  s_01a83d1dbdfd95::t_30ed007438acad 267-270
+  s_01a83d1dbdfd95::t_c83f4f107b57f1 321-324
+  s_01a83d1dbdfd95::t_5b758cd17294e6 333
+  s_01a83d1dbdfd95::t_d3c72030f8f8b6 208,211
+apps/sidecar/src/routes/sql-vector-pg.ts
+  s_01a83d1dbdfd95::t_1581a417dc52d5 257-292
+apps/sidecar/src/routes/redis.ts
+  s_01a83d1dbdfd95::t_2e1735aa0dc9e1 9,13-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "7873a11a8aa627d14b7a9465f572f03c89325486",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
