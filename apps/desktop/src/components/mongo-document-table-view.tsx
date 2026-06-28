@@ -74,12 +74,11 @@ export function DocumentTableView({
   }, [sortStr]);
 
   const startEdit = useCallback(
-    (row: number, key: string, currentValue: unknown) => {
-      const doc = documents[row];
-      setEditCell({ docId: doc?._id, key });
+    (docId: unknown, key: string, currentValue: unknown) => {
+      setEditCell({ docId, key });
       startEditValue(currentValue);
     },
-    [documents, startEditValue],
+    [startEditValue],
   );
 
   const cancelEdit = useCallback(() => {
@@ -121,7 +120,7 @@ export function DocumentTableView({
         header: col,
         accessor: (row) => row[col],
         sortable: true,
-        render: (value, row, rowIndex) => {
+        render: (value, row) => {
           const isEditing = editCell?.docId === row?._id && editCell?.key === col;
           if (isEditing) {
             return (
@@ -141,7 +140,7 @@ export function DocumentTableView({
               variant="ghost"
               size="sm"
               className="block w-full truncate justify-start font-normal text-left h-auto px-1"
-              onClick={() => startEdit(rowIndex, col, value)}
+              onClick={() => startEdit(row?._id, col, value)}
               title={formatCellValue(value)}
             >
               {value === null ? (

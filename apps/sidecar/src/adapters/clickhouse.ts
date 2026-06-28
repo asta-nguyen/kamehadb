@@ -66,7 +66,7 @@ export function createClickHouseAdapter(connection: {
   }
 
   function escapeClickHouseVal(val: string): string {
-    return "'" + val.replace(/'/g, "\\'") + "'";
+    return "'" + val.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
   }
 
   async function q<T>(query: string): Promise<T[]> {

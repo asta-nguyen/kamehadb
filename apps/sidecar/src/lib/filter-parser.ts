@@ -38,6 +38,8 @@ export function splitFilterClauses(filter: string): string[] {
     if (!inString && isStandaloneAnd(filter, i)) {
       if (current.trim()) {
         clauses.push(current.trim());
+      } else {
+        throw httpError('Filter has an empty clause around AND', 400);
       }
       current = '';
       i += 2;
@@ -49,6 +51,8 @@ export function splitFilterClauses(filter: string): string[] {
 
   if (current.trim()) {
     clauses.push(current.trim());
+  } else if (clauses.length > 0) {
+    throw httpError('Filter has an empty clause after AND', 400);
   }
 
   return clauses;
