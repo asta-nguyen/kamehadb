@@ -1,0 +1,38 @@
+apps/sidecar/src/adapters/clickhouse.ts
+  s_01a83d1dbdfd95::t_b3ca10c1bb096a 129,208
+apps/sidecar/src/lib/postgres-vector-sql.ts
+  s_01a83d1dbdfd95::t_81f549644f5e4c 2-3,5,26-36
+apps/sidecar/src/lib/filter-parser.ts
+  s_01a83d1dbdfd95::t_dc2dbfeac616ca 1-139
+apps/sidecar/src/routes/sql-vector-sqlite.ts
+  s_01a83d1dbdfd95::t_3d45e0d14da7cb 46
+apps/desktop/src/hooks/use-mongo-field-edit.ts
+  s_01a83d1dbdfd95::t_ead16cf0d4ee1b 71,75,81-89
+apps/sidecar/src/routes/sql-vector-pg.ts
+  s_01a83d1dbdfd95::t_0e16de5a24aed5 159-160,168,171-172,292-293,301,304-305
+  s_01a83d1dbdfd95::t_fa1258a7e3769b 261
+apps/sidecar/src/lib/sqlite-vector-sql.ts
+  s_01a83d1dbdfd95::t_26273380a6f6a7 1,3,16-24
+  s_01a83d1dbdfd95::t_f65f54838ee146 25-27
+apps/desktop/src/main.tsx
+  s_01a83d1dbdfd95::t_9d153a7e1bc896 53
+apps/desktop/src/components/mongo-document-table-view.tsx
+  s_01a83d1dbdfd95::t_8abe28e38d3d1f 124-125
+  s_01a83d1dbdfd95::t_f0937fee23c364 46,78-79,82,92-93,98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "1a6029466a3395e05d85bb78ea818fa51d333f22",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
