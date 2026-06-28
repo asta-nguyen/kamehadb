@@ -29,7 +29,7 @@ export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) 
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Accounts ({accounts.length})
         </span>
-        <Button variant="ghost" size="icon" className="size-5" onClick={() => refetch()} title="Refresh accounts">
+        <Button variant="ghost" size="icon-xs" onClick={() => refetch()} title="Refresh accounts">
           <RefreshCw className="size-3" />
         </Button>
       </div>

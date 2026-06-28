@@ -70,14 +70,14 @@ export function MongoViewHeader({
               </SelectContent>
             </Select>
             {showSortClear && (
-              <Button variant="ghost" size="icon" onClick={onClearSort} className="h-7 w-7" title="Clear sort">
+              <Button variant="ghost" size="icon-sm" onClick={onClearSort} title="Clear sort">
                 <X className="size-3" />
               </Button>
             )}
           </div>
           <Button
             variant="outline"
-            size="icon"
+            size="icon-sm"
             onClick={() => onViewModeChange('list')}
             className={viewMode === 'list' ? 'bg-muted' : ''}
             title="List view"
@@ -86,7 +86,7 @@ export function MongoViewHeader({
           </Button>
           <Button
             variant="outline"
-            size="icon"
+            size="icon-sm"
             onClick={() => onViewModeChange('table')}
             className={viewMode === 'table' ? 'bg-muted' : ''}
             title="Table view"
@@ -95,7 +95,7 @@ export function MongoViewHeader({
           </Button>
           <Button
             variant="outline"
-            size="icon"
+            size="icon-sm"
             onClick={() => onViewModeChange('chart')}
             className={viewMode === 'chart' ? 'bg-muted' : ''}
             title="Chart view"
@@ -103,7 +103,7 @@ export function MongoViewHeader({
             <BarChart3 className="!size-3.5" />
           </Button>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-muted hover:text-foreground size-8">
+            <DropdownMenuTrigger render={<Button variant="outline" size="icon" title="Export" />}>
               <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

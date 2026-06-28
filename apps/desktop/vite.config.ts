@@ -10,7 +10,7 @@ export default defineConfig({
   assetsInclude: ['**/*.svg'],
   plugins: [react(), tailwindcss()],
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
   },
   clearScreen: false,
   resolve: {
