@@ -1,0 +1,31 @@
+apps/desktop/src/components/sidebar.tsx
+  s_01a83d1dbdfd95::t_93323914c80ea7 122
+  s_01a83d1dbdfd95::t_a0725a5c829248 128
+apps/desktop/src/components/sql-editor.tsx
+  s_01a83d1dbdfd95::t_01ee2ec20a4056 902-904,906
+  s_01a83d1dbdfd95::t_0356f3402f4214 534,562-563
+apps/desktop/src/components/workspace-tab-bar.tsx
+  s_01a83d1dbdfd95::t_23790b6edd0624 64,66,68-69
+  s_01a83d1dbdfd95::t_8f4271ce8fd8f9 124
+apps/desktop/src/components/sidebar.helpers.tsx
+  s_01a83d1dbdfd95::t_9774f479041271 7-10
+.planning/phases/03-sql-editor-results-chrome-consistency/03-SUMMARY.md
+  s_01a83d1dbdfd95::t_7e9309214f3b01 10,16,21,28,36-41,51-60
+  s_01a83d1dbdfd95::t_9dc93bb6f1ba72 1-9,11-15,17-20,22-27,29-35,42-50,61-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "b80b2110cd6302a199c8d827c24edb0087862248",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
