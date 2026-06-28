@@ -1,0 +1,22 @@
+.planning/phases/05-vector-search-ui-unification/05-PLAN.md
+  s_01a83d1dbdfd95::t_23a40c87c43832 1-153
+  s_01a83d1dbdfd95::t_7ad1af84ad229c 154-162
+.planning/phases/05-vector-search-ui-unification/05-RESEARCH.md
+  s_01a83d1dbdfd95::t_caa618ac841311 1-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "3c2c06f153bdea0035d6fb0108602ea22255ea62",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
