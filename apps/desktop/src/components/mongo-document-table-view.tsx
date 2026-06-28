@@ -89,7 +89,7 @@ export function DocumentTableView({
 
   const saveEdit = useCallback(async () => {
     if (!editCell) return;
-    if (!editCell.docId) return;
+    if (editCell.docId == null) return;
     const success = await saveFieldEdit(editCell.docId, editCell.key);
     if (success) {
       setEditCell(null);
