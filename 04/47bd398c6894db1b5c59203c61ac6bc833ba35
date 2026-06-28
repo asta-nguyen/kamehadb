@@ -1,0 +1,25 @@
+apps/desktop/src/lib/query-keys.ts
+  s_27869c948e3e91::t_516b6842f70e3e 68-71
+apps/desktop/src/lib/utils.ts
+  s_27869c948e3e91::t_a44720afd3e260 12,21
+apps/desktop/src/lib/utils.test.ts
+  s_27869c948e3e91::t_4abe78c27e83c1 1-11
+apps/desktop/src/hooks/use-schema.ts
+  s_27869c948e3e91::t_96ae3611205e26 59,69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "0447bd398c6894db1b5c59203c61ac6bc833ba35",
+  "prompts": {},
+  "sessions": {
+    "s_27869c948e3e91": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f0c1c-4f80-7f13-8ae6-1ea1778acd57",
+        "model": "gpt-5.4"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
