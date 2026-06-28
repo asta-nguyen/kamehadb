@@ -9,6 +9,7 @@ import {
   ALL_KINDS,
   PROTOCOL_ALIASES,
   isFileDatabaseKind,
+  safeErrorMessage,
   type CreateConnectionProfileInput,
   type ConnectionProfile,
   type DbKind,
@@ -188,7 +189,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         toast.error(result.message || 'Connection failed');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Connection failed';
+      const message = safeErrorMessage(err, 'Connection failed');
       toast.error(message);
       void appendFrontendLog({
         level: 'error',
@@ -216,7 +217,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       form.reset();
     } catch (err) {
       // Don't close on error - let user see the error
-      const message = err instanceof Error ? err.message : 'Failed to save';
+      const message = safeErrorMessage(err, 'Failed to save');
       toast.error(message);
       void appendFrontendLog({
         level: 'error',

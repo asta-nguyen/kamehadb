@@ -3,6 +3,7 @@ import { useRedisCommand } from '@/hooks/use-redis-command';
 import { updateTabCommand } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { RedisCommandResult } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import type { Monaco, OnMount } from '@monaco-editor/react';
 import { AlertCircle, Clock, Play, Terminal } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
@@ -217,7 +218,7 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
       const res = await redisCommand.mutateAsync({ command });
       setResult(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Command failed');
+      setError(safeErrorMessage(err, 'Command failed'));
     }
   }, [command, redisCommand]);
 

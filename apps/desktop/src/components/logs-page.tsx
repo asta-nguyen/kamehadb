@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { ArrowLeft, ChevronRight, Copy, RefreshCw, ScrollText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -127,7 +128,7 @@ export function LogsPage() {
     } catch (loadError) {
       // Avoid writing back into the same log pipeline when the log reader is
       // failing, otherwise the page can spam new errors every 2 seconds.
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load logs');
+      setError(safeErrorMessage(loadError, 'Failed to load logs'));
     } finally {
       if (silent) {
         setIsRefreshing(false);
@@ -164,7 +165,7 @@ export function LogsPage() {
       setEntries([]);
       setError(null);
     } catch (err) {
-      setClearError(err instanceof Error ? err.message : 'Failed to clear logs');
+      setClearError(safeErrorMessage(err, 'Failed to clear logs'));
     }
   }, []);
 

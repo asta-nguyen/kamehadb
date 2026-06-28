@@ -1,36 +1,23 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import * as metadataStore from '../db/metadata-store.js';
 import { createRedisDbAdapter } from '../adapters/factory.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import type { RedisStats } from '@kamehadb/shared';
 import { KIND } from '@kamehadb/shared';
-import { handleError, httpError } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
 
 export const redisRouter = new Hono();
 
 async function getAdapter(connectionId: string, password?: string) {
-  const profile = metadataStore.getProfile(connectionId);
-  if (!profile) throw httpError('Connection not found', 404);
-
-  if (profile.kind !== KIND.REDIS) {
-    throw httpError('This endpoint is for Redis connections only', 400);
-  }
-
-  return createRedisDbAdapter(profile, password);
+  return getNonSqlAdapter(connectionId, KIND.REDIS, (profile) => createRedisDbAdapter(profile, password));
 }
 
 // GET /redis/:connectionId/test
 redisRouter.get('/:connectionId/test', async (c) => {
   try {
-    const adapter = await getAdapter(c.req.param('connectionId'));
-    try {
-      const result = await adapter.testConnection();
-      return c.json(result);
-    } finally {
-      await adapter.close().catch(() => {});
-    }
+    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.testConnection());
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'testConnection');
   }
@@ -49,13 +36,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.scanKeys(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close().catch(() => {});
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.scanKeys(c.req.valid('json')),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'scanKeys');
     }
@@ -73,13 +57,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.getKey(c.req.valid('json'));
-        return c.json(result);
-      } finally {
-        await adapter.close().catch(() => {});
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.getKey(c.req.valid('json')),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'getKey');
     }
@@ -97,13 +78,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const ttl = await adapter.getTtl(c.req.valid('json'));
-        return c.json({ ttl });
-      } finally {
-        await adapter.close().catch(() => {});
-      }
+      const ttl = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.getTtl(c.req.valid('json')),
+      );
+      return c.json({ ttl });
     } catch (err) {
       return handleError(c, err, 'getTtl');
     }
@@ -124,13 +102,10 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getAdapter(c.req.param('connectionId'));
-      try {
-        const result = await adapter.runCommand(c.req.valid('json').command);
-        return c.json(result);
-      } finally {
-        await adapter.close().catch(() => {});
-      }
+      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+        adapter.runCommand(c.req.valid('json').command),
+      );
+      return c.json(result);
     } catch (err) {
       return handleError(c, err, 'runCommand');
     }
@@ -145,14 +120,9 @@ redisRouter.get('/:connectionId/stats', async (c) => {
   if (cached) return c.json(cached);
 
   try {
-    const adapter = await getAdapter(connectionId);
-    try {
-      const result = await adapter.getStats();
-      setCache(cacheKey, result);
-      return c.json(result);
-    } finally {
-      await adapter.close().catch(() => {});
-    }
+    const result = await withAdapter(getAdapter, connectionId, (adapter) => adapter.getStats());
+    setCache(cacheKey, result);
+    return c.json(result);
   } catch (err) {
     return handleError(c, err, 'getStats');
   }

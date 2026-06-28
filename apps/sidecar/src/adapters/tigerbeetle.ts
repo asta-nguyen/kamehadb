@@ -2,6 +2,7 @@ import { createClient } from 'tigerbeetle-node';
 import type { Client } from 'tigerbeetle-node';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { TB_CREATED } from '../lib/constants.js';
+import { safeErrorMessage } from '@kamehadb/shared';
 
 export type TigerBeetleAdapter = {
   testConnection(): Promise<{ success: boolean; message?: string; serverVersion?: string }>;
@@ -232,7 +233,7 @@ export function createTigerBeetleAdapter(config: TBConfig): TigerBeetleAdapter {
       } catch (err) {
         return {
           success: false,
-          message: err instanceof Error ? err.message : 'Connection failed',
+          message: safeErrorMessage(err, 'Connection failed'),
         };
       }
     },

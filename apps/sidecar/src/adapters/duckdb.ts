@@ -12,6 +12,7 @@ import type {
   QueryColumn,
   TableStats,
 } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import type { DuckDBInstance as DuckDBInst, DuckDBConnection as DuckDBConn } from '@duckdb/node-api';
 
 export async function testDuckDBConnection(filePath: string): Promise<TestConnectionResult> {
@@ -32,7 +33,7 @@ export async function testDuckDBConnection(filePath: string): Promise<TestConnec
     });
     return { success: true, serverVersion: String(rows[0]?.version || '') };
   } catch (err) {
-    return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
+    return { success: false, message: safeErrorMessage(err, 'Connection failed') };
   } finally {
     conn?.closeSync();
     inst?.closeSync();
@@ -43,7 +44,7 @@ function escapeId(id: string): string {
   return '"' + id.replace(/"/g, '""') + '"';
 }
 
-function escapeVal(val: string): string {
+function escapeDuckDbVal(val: string): string {
   return "'" + val.replace(/'/g, "''") + "'";
 }
 
@@ -97,7 +98,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
         const rows = await q<Record<string, string>>('SELECT version() AS version');
         return { success: true, serverVersion: rows[0]?.version || '' };
       } catch (err) {
-        return { success: false, message: err instanceof Error ? err.message : 'Connection failed' };
+        return { success: false, message: safeErrorMessage(err, 'Connection failed') };
       }
     },
 
@@ -116,7 +117,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
     async listTables(schema?: string): Promise<TableInfo[]> {
       const s = schema || 'main';
       const rows = await q<Record<string, string>>(
-        `SELECT table_name AS name, table_schema AS schema_name FROM information_schema.tables WHERE table_schema = ${escapeVal(s)} AND table_type = 'BASE TABLE' ORDER BY table_name`,
+        `SELECT table_name AS name, table_schema AS schema_name FROM information_schema.tables WHERE table_schema = ${escapeDuckDbVal(s)} AND table_type = 'BASE TABLE' ORDER BY table_name`,
       );
       return rows.map((r) => ({
         id: `${r.schema_name}.${r.name}`,
@@ -133,11 +134,11 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
         `SELECT column_name AS name, data_type AS type, is_nullable AS nullable, column_default AS default,
           (SELECT true FROM information_schema.table_constraints tc
            JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-           WHERE tc.table_schema = ${escapeVal(schema)} AND tc.table_name = ${escapeVal(table)}
+           WHERE tc.table_schema = ${escapeDuckDbVal(schema)} AND tc.table_name = ${escapeDuckDbVal(table)}
              AND kcu.column_name = c.column_name AND tc.constraint_type = 'PRIMARY KEY'
            LIMIT 1) AS primary_key
          FROM information_schema.columns c
-         WHERE table_schema = ${escapeVal(schema)} AND table_name = ${escapeVal(table)}
+         WHERE table_schema = ${escapeDuckDbVal(schema)} AND table_name = ${escapeDuckDbVal(table)}
          ORDER BY ordinal_position`,
       );
       return rows.map((r) => ({
@@ -160,7 +161,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
            ON tc.constraint_catalog = kcu.constraint_catalog
           AND tc.constraint_schema = kcu.constraint_schema
           AND tc.constraint_name = kcu.constraint_name
-         WHERE tc.table_schema = ${escapeVal(schema)} AND tc.table_name = ${escapeVal(table)}
+         WHERE tc.table_schema = ${escapeDuckDbVal(schema)} AND tc.table_name = ${escapeDuckDbVal(table)}
            AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
          ORDER BY tc.constraint_name, kcu.ordinal_position`,
       );
@@ -185,7 +186,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
       const rows = await q<Record<string, unknown>>(
         `SELECT c.table_name, c.column_name, c.data_type AS type, c.is_nullable AS nullable, c.column_default AS default
          FROM information_schema.columns c
-         WHERE c.table_schema = ${escapeVal(s)}
+         WHERE c.table_schema = ${escapeDuckDbVal(s)}
          ORDER BY c.table_name, c.ordinal_position`,
       );
       const tableMap = new Map<string, import('@kamehadb/shared').TableCompletions>();
@@ -216,12 +217,12 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
 
       if (input.search) {
         const colRows = await q<Record<string, string>>(
-          `SELECT column_name FROM information_schema.columns WHERE table_schema = ${escapeVal(schema)} AND table_name = ${escapeVal(table)} ORDER BY ordinal_position`,
+          `SELECT column_name FROM information_schema.columns WHERE table_schema = ${escapeDuckDbVal(schema)} AND table_name = ${escapeDuckDbVal(table)} ORDER BY ordinal_position`,
         );
         const searchCols = colRows.map((r) => r.column_name);
         if (searchCols.length > 0) {
           const clauses = searchCols.map(
-            (col) => `CAST(${escapeId(col)} AS VARCHAR) ILIKE ${escapeVal(`%${input.search!}%`)}`,
+            (col) => `CAST(${escapeId(col)} AS VARCHAR) ILIKE ${escapeDuckDbVal(`%${input.search!}%`)}`,
           );
           sql += ` WHERE ${clauses.join(' OR ')}`;
         }

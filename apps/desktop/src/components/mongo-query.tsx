@@ -18,6 +18,7 @@ import { PAGE_LIMIT } from '@/lib/constants';
 import JSON5 from 'json5';
 import type { WorkspaceTab } from '@/lib/types';
 import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
 import { buildMongoCompletionEntries, type MongoCompletionsData } from '@/lib/mongo-autocomplete';
 
@@ -447,7 +448,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         });
         dispatch({ type: 'finishRun', result: res, page: currentPage });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Aggregation failed';
+        const message = safeErrorMessage(err, 'Aggregation failed');
         dispatch({ type: 'failRun', error: message });
         void appendFrontendLog({
           level: 'error',
