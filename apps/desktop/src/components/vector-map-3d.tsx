@@ -4,7 +4,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { projectVectorsTo3d } from '@/lib/pca3d';
 import { appStore } from '@/store';
-import { Loader2 } from 'lucide-react';
+import { LoadingState } from '@/components/ui/loading-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const BG_DARK = 0x0b0b0c;
 const BG_LIGHT = 0xf8fafc;
@@ -14,6 +18,21 @@ export type VectorPoint = {
   readonly vector: number[];
   readonly payload: Record<string, unknown>;
 };
+
+const PALETTE = [
+  '#3b82f6',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#84cc16',
+  '#f97316',
+  '#6366f1',
+];
+
+export type LegendItem = { readonly value: string; readonly color: string };
 
 type VectorMap3DProps = {
   readonly points: VectorPoint[];
@@ -26,6 +45,12 @@ type VectorMap3DProps = {
     readonly target: [number, number, number];
   }) => void;
   readonly initialCamera?: { readonly position?: [number, number, number]; readonly target?: [number, number, number] };
+  // Color-by support (optional — used by Qdrant vector map)
+  readonly colorBy?: string;
+  readonly onColorByChange?: (value: string) => void;
+  readonly payloadKeys?: readonly string[];
+  readonly colorValue?: (i: number) => string;
+  readonly legend?: readonly LegendItem[];
 };
 
 export function VectorMap3D({
@@ -36,12 +61,20 @@ export function VectorMap3D({
   onPointClick,
   onCameraChange,
   initialCamera,
+  colorBy,
+  onColorByChange,
+  payloadKeys,
+  colorValue,
+  legend,
 }: VectorMap3DProps) {
   const theme = useStore(appStore, (state) => state.theme);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const mountRef = useRef<HTMLDivElement>(null);
   const pointsRef = useRef<VectorPoint[]>([]);
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
+  const geometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const colorByRef = useRef(colorBy);
+  colorByRef.current = colorBy;
   // Capture initial camera on first render only, so camera saves don't re-create the scene
   const initialCameraRef = useRef(initialCamera);
 
@@ -113,7 +146,24 @@ export function VectorMap3D({
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const material = new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, color: '#3b82f6' });
+
+    const useVertexColors = !!colorByRef.current && !!colorValue;
+    const colors = useVertexColors ? new Float32Array(positions.length) : null;
+    if (colors && colorValue) {
+      const c = new THREE.Color();
+      for (let i = 0; i < pointsRef.current.length; i++) {
+        c.set(colorValue(i));
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+      }
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    }
+    geometryRef.current = geometry;
+
+    const material = useVertexColors
+      ? new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, vertexColors: true })
+      : new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, color: PALETTE[0] });
     const cloud = new THREE.Points(geometry, material);
     scene.add(cloud);
 
@@ -183,30 +233,32 @@ export function VectorMap3D({
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, [isDark, positions]);
+  }, [isDark, positions, colorValue]);
+
+  // Reactively re-tint the geometry when colorBy changes (no full scene rebuild).
+  useEffect(() => {
+    const geometry = geometryRef.current;
+    if (!geometry || !colorValue) return;
+    const attr = geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
+    if (!attr) return;
+    const c = new THREE.Color();
+    for (let i = 0; i < points.length; i++) {
+      c.set(colorBy ? colorValue(i) : PALETTE[0]);
+      attr.setXYZ(i, c.r, c.g, c.b);
+    }
+    attr.needsUpdate = true;
+  }, [colorBy, points, colorValue]);
 
   if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (error) {
-    return (
-      <div className="p-4 text-sm text-destructive">
-        {error instanceof Error ? error.message : 'Failed to load vectors'}
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
   if (!positions || points.length < 2) {
-    return (
-      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Need at least 2 vectors to visualize
-      </div>
-    );
+    return <EmptyState title="Need at least 2 vectors to visualize" />;
   }
 
   return (
@@ -214,7 +266,38 @@ export function VectorMap3D({
       <div className="px-3 py-2 border-b border-border flex items-center gap-3 text-xs">
         {header}
         <span className="text-muted-foreground ml-auto">{points.length} vectors (PCA → 3D)</span>
+        {onColorByChange && (
+          <Label className="flex items-center gap-1 text-muted-foreground">
+            Color by
+            <Select
+              value={colorBy || '_none'}
+              onValueChange={(v) => onColorByChange(v === '_none' || v == null ? '' : v)}
+            >
+              <SelectTrigger size="sm" className="h-6 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">none</SelectItem>
+                {payloadKeys?.map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {k}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Label>
+        )}
       </div>
+      {legend && legend.length > 0 && (
+        <div className="px-3 py-1.5 border-b border-border flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          {legend.map((l) => (
+            <span key={l.value} className="flex items-center gap-1 text-muted-foreground">
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: l.color }} />
+              {l.value}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex-1 min-h-0 relative">
         <div ref={mountRef} className="absolute inset-0" />
         {hover && pointsRef.current[hover.i] && (

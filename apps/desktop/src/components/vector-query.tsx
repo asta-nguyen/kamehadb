@@ -13,6 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dice5, Loader2, Network, Play } from 'lucide-react';
 import { openPostgresVectorMapTab, openSqliteVecMapTab } from '@/store';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // ── State type (superset of both PG and sqlite-vec fields) ────────────────
 
@@ -530,12 +532,12 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             value={state.filterText}
             onChange={(event) => dispatch({ type: 'setFilterText', value: event.target.value })}
             placeholder="Optional filter, e.g. category = 'docs' AND id > 10"
-            className="w-full h-9 px-2 text-sm bg-background border rounded"
+            className="w-full h-7 px-2 text-xs bg-background border rounded"
           />
         )}
 
         {/* Error / info display */}
-        {state.error && <div className="text-xs text-destructive">{state.error}</div>}
+        {state.error && <ErrorState compact error={new Error(state.error)} />}
         {state.info && !state.error && <div className="text-xs text-muted-foreground">{state.info}</div>}
       </div>
 
@@ -558,7 +560,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             }
           />
         ) : (
-          <div className="p-3 text-sm text-muted-foreground">{emptyMessage}</div>
+          <EmptyState title={emptyMessage} />
         )}
       </div>
     </div>
