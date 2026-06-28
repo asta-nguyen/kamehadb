@@ -1,0 +1,37 @@
+apps/desktop/src/components/vector-map-3d.tsx
+  s_01a83d1dbdfd95::t_4b618475d65b91 10-11,22-36,48-53,64-68,75-77,149-166,236-250,269-289,291-297
+  s_01a83d1dbdfd95::t_af04fe8bb732f4 7-9,253,257,261
+  s_01a83d1dbdfd95::t_2e93c482ee46b9 298-300
+apps/desktop/src/components/qdrant-query.tsx
+  s_01a83d1dbdfd95::t_e52f0bf84f5e3b 16-17,345,361-369
+  s_01a83d1dbdfd95::t_43a2baa827d9bb 310,325
+apps/desktop/src/components/postgres-vector-results.tsx
+  s_01a83d1dbdfd95::t_a045e3a10d96a5 123
+apps/desktop/src/components/qdrant-vector-map.tsx
+  s_01a83d1dbdfd95::t_ddbc9945bde624 1,6-7,21-29,69,73,82-83,93-103,105-110
+  s_01a83d1dbdfd95::t_3765e2980794ae 104
+.planning/phases/05-vector-search-ui-unification/05-SUMMARY.md
+  s_01a83d1dbdfd95::t_2b99ab19019db6 1-57
+  s_01a83d1dbdfd95::t_85bbdd16064ba7 58-60
+.planning/STATE.md
+  s_01a83d1dbdfd95::t_1898e0e91b6a0b 10,14-18,28,32
+apps/desktop/src/components/vector-query.tsx
+  s_01a83d1dbdfd95::t_e888c89d57c4a5 16-17,540,563
+  s_01a83d1dbdfd95::t_c5200d7405eab1 535
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "11713c8dba73616adc37137419942c4b162f52cb",
+  "prompts": {},
+  "sessions": {
+    "s_01a83d1dbdfd95": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "c069d7bc-a4ed-402a-8d5f-763bb55ad095",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
