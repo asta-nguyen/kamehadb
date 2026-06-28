@@ -41,6 +41,15 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.075);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -88,6 +97,12 @@
   --syntax-number: oklch(0.55 0.15 25);
   --syntax-comment: oklch(0.5 0 0);
   --syntax-function: oklch(0.55 0.15 250);
+  --success: oklch(0.6 0.15 145);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.75 0.15 85);
+  --warning-foreground: oklch(0.145 0 0);
+  --info: oklch(0.6 0.15 250);
+  --info-foreground: oklch(0.985 0 0);
 }
 
 .dark {
@@ -127,6 +142,12 @@
   --syntax-number: oklch(0.75 0.15 25);
   --syntax-comment: oklch(0.55 0 0);
   --syntax-function: oklch(0.7 0.15 250);
+  --success: oklch(0.7 0.18 145);
+  --success-foreground: oklch(0.145 0 0);
+  --warning: oklch(0.8 0.15 85);
+  --warning-foreground: oklch(0.145 0 0);
+  --info: oklch(0.7 0.15 250);
+  --info-foreground: oklch(0.145 0 0);
 }
 
 @layer base {
