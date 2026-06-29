@@ -1,4 +1,4 @@
-import type { AppView } from '@/lib/types';
+import type { AppView, PendingAiPrompt } from '@/lib/types';
 import { appStore } from './state';
 
 const LATENCY_SLOW_THRESHOLD = 500;
@@ -9,6 +9,18 @@ export function openAiChatPanel(connectionId: string): void {
 
 export function closeAiChatPanel(): void {
   appStore.setState((state) => ({ ...state, aiPanelConnectionId: null }));
+}
+
+/** Queue an AI prompt from a schema-tree right-click action. The AIChatPanel
+ * watches this field and sends the prompt via its useChat instance, then
+ * clears it. Using the store avoids prop-drilling through 4 component layers. */
+export function setPendingAiPrompt(value: PendingAiPrompt): void {
+  appStore.setState((state) => ({ ...state, pendingAiPrompt: value }));
+}
+
+/** Clear the pending AI prompt after the AIChatPanel has consumed it. */
+export function clearPendingAiPrompt(): void {
+  appStore.setState((state) => ({ ...state, pendingAiPrompt: null }));
 }
 
 export function navigateTo(view: AppView): void {

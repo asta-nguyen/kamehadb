@@ -10,6 +10,25 @@ import { appStore, closeAiChatPanel, openDatabaseStatsTab, openGraphTab, openNew
 import { useStore } from '@tanstack/react-store';
 import { BarChart3, Share2, Terminal } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
+import type { WorkspaceTab } from '@/lib/types';
+
+/** Render the active tab from openedTabs via WorkspaceContent. Shared by the
+ * federated-tab early return and the normal return path to avoid duplicating
+ * the openedTabs.map → filter → WorkspaceContent markup. */
+function renderActiveTab(openedTabs: readonly WorkspaceTab[], activeTab: WorkspaceTab) {
+  return (
+    <div className="h-full">
+      {openedTabs.map(
+        (tab) =>
+          tab.id === activeTab.id && (
+            <div key={tab.id} className="h-full">
+              <WorkspaceContent activeTab={tab} />
+            </div>
+          ),
+      )}
+    </div>
+  );
+}
 
 function pick<T>(items: readonly T[], last?: T): T {
   if (items.length === 0) throw new Error('pick: items must not be empty');
@@ -97,6 +116,12 @@ function Workspace() {
     }
   }, [activeTab, activeTabId, openedTabs]);
 
+  const isFederatedTab = activeTab?.type === 'federated-query';
+  // Federated tabs have no single connectionId — render the canvas directly,
+  // bypassing the connection-gated welcome screen and empty states.
+  if (isFederatedTab && activeTab) {
+    return renderActiveTab(openedTabs, activeTab);
+  }
   if (!activeConnectionId || !activeConnection) return <WelcomePage greeting={greeting[0]} prompt={greeting[1]} />;
   if (openedTabs.length === 0) {
     if (activeConnection.kind === 'mongodb' || activeConnection.kind === 'qdrant') {
@@ -134,18 +159,7 @@ function Workspace() {
   if (!activeTab)
     return <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading...</div>;
 
-  return (
-    <div className="h-full">
-      {openedTabs.map(
-        (tab) =>
-          tab.id === activeTab.id && (
-            <div key={tab.id} className="h-full">
-              <WorkspaceContent activeTab={tab} />
-            </div>
-          ),
-      )}
-    </div>
-  );
+  return renderActiveTab(openedTabs, activeTab);
 }
 
 export function MainLayout() {

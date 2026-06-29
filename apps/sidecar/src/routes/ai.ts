@@ -13,7 +13,7 @@ import { createMongoDbAdapter } from '../adapters/factory.js';
 import { detectPgVectorCapability } from '../adapters/postgres.js';
 import { createEmbedding, createProvider, validateProviderConfig } from '../ai/provider.js';
 import { searchRelevantSchema } from '../ai/vec-store.js';
-import { buildSchemaContext } from '../ai/schema-context.js';
+import { buildSchemaContext, buildTableSchemaContext } from '../ai/schema-context.js';
 import { log } from '../lib/logger.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { CACHE_TTL, clearSchemaCache, getCached, setCache } from '../lib/cache.js';
@@ -219,6 +219,7 @@ aiRouter.post(
     z.object({
       connectionId: z.string().optional(),
       mongoDatabase: z.string().optional(),
+      tableId: z.string().optional(),
       messages: z.array(z.object({ role: z.string(), content: z.string() }).passthrough()),
       provider: z.string().optional(),
       model: z.string().optional(),
@@ -227,7 +228,7 @@ aiRouter.post(
   async (c) => {
     try {
       const body = c.req.valid('json');
-      const { connectionId, mongoDatabase } = body;
+      const { connectionId, mongoDatabase, tableId } = body;
 
       const latestUserMsg = body.messages.filter((m) => m.role === 'user').at(-1)?.content;
       if (connectionId && latestUserMsg) {
@@ -286,19 +287,39 @@ aiRouter.post(
                 }
               } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle') {
                 const adapter = await getSqlAdapter(connectionId);
-                const userQuery = latestUserMsg;
-                if (userQuery) {
-                  const relevant = await searchRelevantSchema(connectionId, userQuery, providerName, config, 5).catch(
-                    () => [],
-                  );
-                  if (relevant.length > 0) {
-                    ddl = relevant.map((r) => r.ddl).join('\n\n');
+
+                // Table-scoped DDL: when a tableId is provided (schema-tree
+                // right-click AI action), build DDL for just that table instead
+                // of the full schema. This is more token-efficient and keeps
+                // the AI focused on the target table.
+                if (tableId) {
+                  const tableDdl = await buildTableSchemaContext(adapter, tableId);
+                  if (tableDdl) {
+                    ddl = tableDdl;
+                    // Cache under a tableId-specific key, not the shared
+                    // full-schema key, so scoped DDL doesn't poison the
+                    // unscoped cache entry.
+                    setCache(`ai-schema:${connectionId}:sql:${tableId}`, ddl);
                   }
                 }
+
+                // Fall back to full-schema DDL if table-scoped returned null
+                // or no tableId was provided.
                 if (!ddl) {
-                  ddl = await buildSchemaContext(adapter);
+                  const userQuery = latestUserMsg;
+                  if (userQuery) {
+                    const relevant = await searchRelevantSchema(connectionId, userQuery, providerName, config, 5).catch(
+                      () => [],
+                    );
+                    if (relevant.length > 0) {
+                      ddl = relevant.map((r) => r.ddl).join('\n\n');
+                    }
+                  }
+                  if (!ddl) {
+                    ddl = await buildSchemaContext(adapter);
+                  }
+                  setCache(cacheKey, ddl);
                 }
-                setCache(cacheKey, ddl);
 
                 if (profile.kind === 'postgres') {
                   postgresVectorPrompt = await resolvePostgresVectorPrompt(connectionId, profile);

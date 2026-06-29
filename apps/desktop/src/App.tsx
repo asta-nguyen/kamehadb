@@ -307,7 +307,7 @@ function App() {
         appStore.setState((s) => ({
           ...s,
           activeTabId: tabs[nextIdx].id,
-          activeConnectionId: tabs[nextIdx].connectionId,
+          activeConnectionId: 'connectionId' in tabs[nextIdx] ? tabs[nextIdx].connectionId : null,
         }));
         return;
       }
@@ -321,7 +321,7 @@ function App() {
           appStore.setState((s) => ({
             ...s,
             activeTabId: tabs[idx].id,
-            activeConnectionId: tabs[idx].connectionId,
+            activeConnectionId: 'connectionId' in tabs[idx] ? tabs[idx].connectionId : null,
           }));
         }
         return;

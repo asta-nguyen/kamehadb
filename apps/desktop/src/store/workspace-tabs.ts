@@ -11,13 +11,18 @@ export function openTab(tab: WorkspaceTab): void {
       const merged = { ...state.openedTabs[existsIndex], ...tab } as WorkspaceTab;
       const tabs = [...state.openedTabs];
       tabs[existsIndex] = merged;
-      return { ...state, openedTabs: tabs, activeTabId: tab.id, activeConnectionId: tab.connectionId };
+      return {
+        ...state,
+        openedTabs: tabs,
+        activeTabId: tab.id,
+        activeConnectionId: 'connectionId' in tab ? tab.connectionId : null,
+      };
     }
     return {
       ...state,
       openedTabs: [...state.openedTabs, tab],
       activeTabId: tab.id,
-      activeConnectionId: tab.connectionId,
+      activeConnectionId: 'connectionId' in tab ? tab.connectionId : null,
     };
   });
 }
@@ -80,6 +85,19 @@ export function openRedisQueryTab(connectionId: string): void {
     title: `Redis Query ${tabCount + 1}`,
     connectionId,
     command: '',
+  });
+}
+
+export function openTigerBeetleTab(connectionId: string): void {
+  openTab({ id: `${connectionId}:tigerbeetle`, type: 'tigerbeetle', title: 'TigerBeetle Explorer', connectionId });
+}
+
+export function openTigerBeetleStatsTab(connectionId: string): void {
+  openTab({
+    id: `${connectionId}:tigerbeetle-stats`,
+    type: 'tigerbeetle-stats',
+    title: 'TigerBeetle Stats',
+    connectionId,
   });
 }
 
@@ -265,7 +283,7 @@ export function closeTab(tabId: string): void {
       ...state,
       openedTabs: tabs,
       activeTabId: newActiveTabId,
-      activeConnectionId: newActiveTab?.connectionId ?? null,
+      activeConnectionId: newActiveTab && 'connectionId' in newActiveTab ? newActiveTab.connectionId : null,
     };
   });
 }
@@ -319,6 +337,28 @@ export function updateTabSqliteVecMapState(
     ...state,
     openedTabs: state.openedTabs.map((tab) =>
       tab.id === tabId && tab.type === 'sqlite-vec-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
+export function openFederatedQueryTab(): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'federated-query').length;
+  openTab({
+    id: `federated-query-${nanoid()}`,
+    type: 'federated-query',
+    title: `Federated Query ${tabCount + 1}`,
+    connectionIds: [],
+  });
+  // Switch to workspace view in case the tab was opened from global search
+  // while the app was on the Logs or API Settings view.
+  appStore.setState((state) => ({ ...state, view: 'workspace' }));
+}
+
+export function updateTabFederatedConnections(tabId: string, connectionIds: readonly string[]): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'federated-query' ? { ...tab, connectionIds } : tab,
     ),
   }));
 }

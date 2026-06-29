@@ -1,18 +1,29 @@
-import { useSchemaChangelog, useCaptureSchemaSnapshot } from '@/hooks/use-schema-changelog';
+import {
+  useSchemaChangelog,
+  useCaptureSchemaSnapshot,
+  useSchemaSnapshots,
+  useSchemaWatcherStatus,
+  useStartSchemaWatcher,
+  useStopSchemaWatcher,
+  useStartSchemaNotifyWatcher,
+  useStopSchemaNotifyWatcher,
+} from '@/hooks/use-schema-changelog';
 import { useConnections } from '@/hooks/use-connections';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { isSqlKind } from '@/lib/constants';
-import { Camera, GitCompare, History, Plus, Minus, Pencil } from 'lucide-react';
+import { Camera, Clock, GitCompare, History, Plus, Minus, Pencil, Radio } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import type { SchemaChangeDescriptor } from '@kamehadb/shared';
-import { safeErrorMessage } from '@kamehadb/shared';
+import { useState } from 'react';
+import { KIND, type SchemaChangeDescriptor, type SchemaSnapshotSource, safeErrorMessage } from '@kamehadb/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { openSchemaDiffTab } from '@/store';
 import { toast } from 'sonner';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { useAutoCaptureInvalidation } from '@/hooks/use-auto-capture-invalidation';
 
 const CHANGE_ICONS: Record<SchemaChangeDescriptor['type'], typeof Plus> = {
   table_added: Plus,
@@ -33,6 +44,14 @@ const CHANGE_COLORS: Record<SchemaChangeDescriptor['type'], string> = {
   index_added: 'text-blue-600',
   index_removed: 'text-orange-600',
 };
+
+const INTERVAL_PRESETS = [
+  { label: '5 minutes', value: 5 * 60 * 1000 },
+  { label: '15 minutes', value: 15 * 60 * 1000 },
+  { label: '30 minutes', value: 30 * 60 * 1000 },
+  { label: '1 hour', value: 60 * 60 * 1000 },
+  { label: '6 hours', value: 6 * 60 * 60 * 1000 },
+] as const;
 
 function DescribeChange({ change }: { change: SchemaChangeDescriptor }) {
   switch (change.type) {
@@ -107,13 +126,65 @@ function ChangeBadge({ type }: { type: SchemaChangeDescriptor['type'] }) {
   );
 }
 
+function SourceBadge({ source }: { source?: SchemaSnapshotSource }) {
+  if (!source || source === 'manual') return null;
+  const label = source === 'auto-cadence' ? 'auto' : 'notify';
+  const variant = source === 'auto-cadence' ? 'secondary' : 'outline';
+  return (
+    <Badge variant={variant} className="text-[10px] h-4 px-1.5">
+      {label}
+    </Badge>
+  );
+}
+
 export function SchemaTimeline({ connectionId }: { connectionId: string }) {
   const { data, isLoading, error } = useSchemaChangelog(connectionId);
   const { data: connections } = useConnections();
   const { mutateAsync: capture, isPending: capturing } = useCaptureSchemaSnapshot();
+  const { data: snapshotsData } = useSchemaSnapshots(connectionId);
+  const { data: watcherStatus } = useSchemaWatcherStatus(connectionId);
+  const { mutateAsync: startWatcher, isPending: startingWatcher } = useStartSchemaWatcher();
+  const { mutateAsync: stopWatcher, isPending: stoppingWatcher } = useStopSchemaWatcher();
+  const { mutateAsync: startNotify, isPending: startingNotify } = useStartSchemaNotifyWatcher();
+  const { mutateAsync: stopNotify, isPending: stoppingNotify } = useStopSchemaNotifyWatcher();
+  const [selectedInterval, setSelectedInterval] = useState(INTERVAL_PRESETS[3].value);
   const queryClient = useQueryClient();
   const connection = connections?.find((item) => item.id === connectionId);
   const canCompare = isSqlKind(connection?.kind);
+  const isPostgres = connection?.kind === KIND.POSTGRES;
+
+  const snapshotSources = new Map((snapshotsData?.snapshots ?? []).map((s) => [s.id, s.source]));
+
+  // Detect auto-capture events and invalidate changelog/snapshots + toast.
+  useAutoCaptureInvalidation(connectionId);
+
+  const handleToggleCadence = async () => {
+    try {
+      if (watcherStatus?.cadenceRunning) {
+        await stopWatcher(connectionId);
+      } else {
+        await startWatcher({ connectionId, intervalMs: selectedInterval });
+      }
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_WATCHER(connectionId) });
+    } catch (err) {
+      const message = safeErrorMessage(err, 'Watcher toggle failed');
+      toast.error(message);
+    }
+  };
+
+  const handleToggleNotify = async () => {
+    try {
+      if (watcherStatus?.notifyRunning) {
+        await stopNotify(connectionId);
+      } else {
+        await startNotify(connectionId);
+      }
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_WATCHER(connectionId) });
+    } catch (err) {
+      const message = safeErrorMessage(err, 'Notify watcher toggle failed');
+      toast.error(message);
+    }
+  };
 
   const handleCapture = async () => {
     try {
@@ -169,6 +240,80 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
         </div>
       </div>
 
+      {/* Auto-Snapshot controls — opt-in cadence watcher */}
+      <Card>
+        <CardContent className="py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Clock className="size-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium">Auto-Snapshot</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={watcherStatus?.cadenceRunning ? 'default' : 'outline'}
+              size="sm"
+              className="h-6 text-xs"
+              onClick={handleToggleCadence}
+              disabled={startingWatcher || stoppingWatcher}
+            >
+              {watcherStatus?.cadenceRunning ? 'Cadence: On' : 'Cadence: Off'}
+            </Button>
+            <Select
+              value={String(selectedInterval)}
+              onValueChange={(val) => setSelectedInterval(Number(val))}
+              disabled={watcherStatus?.cadenceRunning}
+            >
+              <SelectTrigger className="h-6 w-32 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVAL_PRESETS.map((preset) => (
+                  <SelectItem key={preset.value} value={String(preset.value)} className="text-xs">
+                    {preset.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {watcherStatus?.lastCaptureAt && (
+              <span className="text-[10px] text-muted-foreground">
+                Last: {new Date(watcherStatus.lastCaptureAt).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+          {isPostgres && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant={watcherStatus?.notifyRunning ? 'default' : 'outline'}
+                size="sm"
+                className="h-6 text-xs"
+                onClick={handleToggleNotify}
+                disabled={startingNotify || stoppingNotify}
+              >
+                <Radio className="size-3 mr-1" />
+                {watcherStatus?.notifyRunning ? 'pg_notify: On' : 'pg_notify: Off'}
+              </Button>
+              {watcherStatus?.notifyRunning && (
+                <span className="text-[10px] text-muted-foreground">Listening for schema changes</span>
+              )}
+            </div>
+          )}
+          {isPostgres && !watcherStatus?.notifyRunning && (
+            <details className="text-[10px] text-muted-foreground">
+              <summary className="cursor-pointer hover:text-foreground">Setup trigger SQL</summary>
+              <pre className="mt-1 p-2 bg-muted rounded text-[10px] overflow-x-auto">{`CREATE OR REPLACE FUNCTION notify_schema_change()
+RETURNS event_trigger AS $$
+BEGIN
+  PERFORM pg_notify('kamehadb_schema_change', '');
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE EVENT TRIGGER kamehadb_schema_watch
+ON ddl_command_end
+EXECUTE FUNCTION notify_schema_change();`}</pre>
+            </details>
+          )}
+        </CardContent>
+      </Card>
+
       {error && (
         <div className="text-sm text-destructive">
           {error instanceof Error ? error.message : 'Failed to load changelog'}
@@ -208,6 +353,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
                         initial
                       </Badge>
                     )}
+                    <SourceBadge source={snapshotSources.get(entry.snapshotId)} />
                     <span className="text-muted-foreground/60">
                       {entry.changes.length} change{entry.changes.length !== 1 ? 's' : ''}
                     </span>

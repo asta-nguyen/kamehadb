@@ -14,6 +14,7 @@ import { aiRouter } from './routes/ai.js';
 import { queryHistoryRouter } from './routes/query-history.js';
 import { indexAllConnections } from './ai/indexer.js';
 import { log } from './lib/logger.js';
+import { schemaWatcher } from './lib/schema-watcher.js';
 
 const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
 const sidecarDir = dirname(fileURLToPath(import.meta.url));
@@ -113,17 +114,22 @@ async function start() {
 
   // Proactively index schemas for all SQL connections in the background
   indexAllConnections().catch((err) => log.error(err, 'Schema indexing failed'));
+
+  // Resume any enabled schema watchers from persisted config
+  schemaWatcher.resumeAll();
 }
 
 // Graceful shutdown
 process.on('SIGINT', () => {
   log.info('Shutting down...');
+  schemaWatcher.stopAll();
   killAllMongoShells();
   closeMetadataStore();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
+  schemaWatcher.stopAll();
   killAllMongoShells();
   closeMetadataStore();
   process.exit(0);

@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **Landing Engine Matrix** — the landing page now includes an interactive engine matrix section with 12 engine cards. Each card shows a type badge (SQL / document / cache / vector / ledger), a supported-features checklist, and a one-click "Try in Docker" snippet with copy-to-clipboard. A filter row lets visitors filter engines by type. Engine data is vendored from `packages/shared` (landing is not in the pnpm workspace) and documented as a manual-sync copy.
+- **Landing Schema Graph Demo** — the landing page now embeds an interactive read-only ER diagram (ReactFlow + dagre) that loads instantly from bundled static sample data (5-table e-commerce schema). Nodes are draggable but edges cannot be created — a read-only demo of the desktop app's schema visualization feature.
+- **Screenshot Refresh CI** — a new GitHub Actions workflow (`.github/workflows/screenshot-refresh.yml`) runs a Playwright-based capture script (`landing/scripts/capture-images.mjs`) on every release tag (`v*`), refreshing the AI Compare panel screenshots in `landing/public/images/` and committing them back to the repo.
+- **Slow-Query Insights** — the query history panel now has a "Slow queries" tab showing the top-10 query patterns by p95 duration. Queries are grouped by a normalized pattern (literals stripped, `IN`-lists collapsed) so semantically equivalent queries with different bind values share a hotspot. Each slow-query row exposes "Suggest index" and "Explain" buttons that pre-seed the AI chat panel (reusing the Phase 4 `pendingAiPrompt` flow) with the normalized pattern, a raw query sample, the p95, and the call count. Normalization and p95 live in a new testable `apps/desktop/src/lib/query-normalize.ts` module (15 vitest cases).
+- **AI Chat Schema-Tree Actions** — right-click a table in the schema tree to trigger AI actions: "Explain this schema", "Generate test data", and "Suggest index". Each action opens the AI chat panel with a pre-seeded prompt scoped to the right-clicked table. The sidecar builds table-scoped DDL (via `buildTableSchemaContext`) instead of full-schema DDL for token-efficient, focused AI responses.
 - **MCP server** — v1.4.
 
 ## [v1.3.4] — 2026-06-28

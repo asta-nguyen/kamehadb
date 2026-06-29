@@ -2,7 +2,13 @@ import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
-import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
+import type {
+  ConnectionProfile,
+  AIProvider,
+  AISettings,
+  AIProviderConfig,
+  SchemaWatcherConfig,
+} from '@kamehadb/shared';
 import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
 
@@ -294,6 +300,17 @@ export function initMetadataStore(dbPath: string): void {
   `);
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_schema_snaps_conn ON schema_snapshots(connection_id);
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_watchers (
+      connection_id TEXT PRIMARY KEY,
+      cadence_enabled INTEGER NOT NULL DEFAULT 0,
+      notify_enabled INTEGER NOT NULL DEFAULT 0,
+      interval_ms INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   // Migration: Add mongo_database column if it doesn't exist
@@ -791,4 +808,54 @@ export function deleteOldSchemaSnapshots(connectionId: string, keep: number): vo
       )`,
     )
     .run(connectionId, connectionId, keep);
+}
+
+export function getSchemaWatcher(connectionId: string): SchemaWatcherConfig | null {
+  const row = getDb().prepare('SELECT * FROM schema_watchers WHERE connection_id = ?').get(connectionId) as
+    | { connection_id: string; cadence_enabled: number; notify_enabled: number; interval_ms: number }
+    | undefined;
+  if (!row) return null;
+  return {
+    connectionId: row.connection_id,
+    cadenceEnabled: row.cadence_enabled === 1,
+    notifyEnabled: row.notify_enabled === 1,
+    intervalMs: row.interval_ms,
+  };
+}
+
+export function upsertSchemaWatcher(config: SchemaWatcherConfig): void {
+  getDb()
+    .prepare(
+      `INSERT INTO schema_watchers (connection_id, cadence_enabled, notify_enabled, interval_ms, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(connection_id) DO UPDATE SET
+         cadence_enabled = excluded.cadence_enabled,
+         notify_enabled = excluded.notify_enabled,
+         interval_ms = excluded.interval_ms,
+         updated_at = excluded.updated_at`,
+    )
+    .run(
+      config.connectionId,
+      config.cadenceEnabled ? 1 : 0,
+      config.notifyEnabled ? 1 : 0,
+      config.intervalMs,
+      new Date().toISOString(),
+      new Date().toISOString(),
+    );
+}
+
+export function deleteSchemaWatcher(connectionId: string): void {
+  getDb().prepare('DELETE FROM schema_watchers WHERE connection_id = ?').run(connectionId);
+}
+
+export function listEnabledSchemaWatchers(): SchemaWatcherConfig[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM schema_watchers WHERE cadence_enabled = 1 OR notify_enabled = 1')
+    .all() as { connection_id: string; cadence_enabled: number; notify_enabled: number; interval_ms: number }[];
+  return rows.map((row) => ({
+    connectionId: row.connection_id,
+    cadenceEnabled: row.cadence_enabled === 1,
+    notifyEnabled: row.notify_enabled === 1,
+    intervalMs: row.interval_ms,
+  }));
 }
