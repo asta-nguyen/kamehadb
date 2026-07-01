@@ -9,6 +9,7 @@ import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
 import type { ConnectionProfile } from '@kamehadb/shared';
+import { isFileDatabaseKind, KIND } from '@kamehadb/shared';
 import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
 
 function activate(connId: string, action: (id: string) => void) {
@@ -59,7 +60,7 @@ export function ConnectionDropdownMenu({
           AI Chat
         </DropdownMenuItem>
 
-        {conn.kind === 'postgres' && isTauriRuntime() && (
+        {conn.kind === KIND.POSTGRES && isTauriRuntime() && (
           <>
             <DropdownMenuItem
               onClick={() => {
@@ -70,6 +71,72 @@ export function ConnectionDropdownMenu({
               <Terminal className="mr-2 size-3.5" />
               Open PSQL
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                onBackup();
+              }}
+            >
+              <Download className="mr-2 size-3.5" />
+              Backup
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                onRestore();
+              }}
+            >
+              <Upload className="mr-2 size-3.5" />
+              Restore
+            </DropdownMenuItem>
+          </>
+        )}
+        {isFileDatabaseKind(conn.kind) && isTauriRuntime() && (
+          <>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                onBackup();
+              }}
+            >
+              <Download className="mr-2 size-3.5" />
+              Backup
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                onRestore();
+              }}
+            >
+              <Upload className="mr-2 size-3.5" />
+              Restore
+            </DropdownMenuItem>
+          </>
+        )}
+        {conn.kind === KIND.CLICKHOUSE && (
+          <>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                onBackup();
+              }}
+            >
+              <Download className="mr-2 size-3.5" />
+              Backup
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setActiveConnection(conn.id);
+                onRestore();
+              }}
+            >
+              <Upload className="mr-2 size-3.5" />
+              Restore
+            </DropdownMenuItem>
+          </>
+        )}
+        {conn.kind === KIND.ORACLE && isTauriRuntime() && (
+          <>
             <DropdownMenuItem
               onClick={() => {
                 setActiveConnection(conn.id);

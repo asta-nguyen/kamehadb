@@ -75,6 +75,34 @@ export type WorkspaceTab =
       readonly toSnapshotId?: string;
     }
   | { readonly id: string; readonly type: 'postgres-psql'; readonly title: string; readonly connectionId: string }
+  | { readonly id: string; readonly type: 'oracle-sqlplus'; readonly title: string; readonly connectionId: string }
+  | {
+      readonly id: string;
+      readonly type: 'oracle-vec-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table?: string;
+      readonly schema?: string;
+      readonly column?: string;
+    }
+  | { readonly id: string; readonly type: 'clickhouse-client'; readonly title: string; readonly connectionId: string }
+  | { readonly id: string; readonly type: 'duckdb-cli'; readonly title: string; readonly connectionId: string }
+  | {
+      readonly id: string;
+      readonly type: 'duckdb-vec-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table?: string;
+      readonly column?: string;
+    }
+  | {
+      readonly id: string;
+      readonly type: 'clickhouse-vec-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table?: string;
+      readonly column?: string;
+    }
   | { readonly id: string; readonly type: 'tigerbeetle'; readonly title: string; readonly connectionId: string }
   | {
       readonly id: string;

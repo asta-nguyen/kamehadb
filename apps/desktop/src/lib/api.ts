@@ -118,6 +118,13 @@ export const api = {
   generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
     request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/schema/migrations`, input),
 
+  // ClickHouse backup / restore API
+  backupClickHouseDatabase: (connectionId: string, input: { outputPath: string }) =>
+    request<{ path: string; database: string }>('POST', `/sql/${connectionId}/clickhouse-backup/backup`, input, true),
+
+  restoreClickHouseDatabase: (connectionId: string, input: { inputPath: string; targetDatabase: string }) =>
+    request<{ database: string }>('POST', `/sql/${connectionId}/clickhouse-backup/restore`, input, true),
+
   // PostgreSQL pgvector API
   getPostgresVectorCapabilities: (connectionId: string) =>
     request<import('@kamehadb/shared').PostgresVectorCapability>(
@@ -139,6 +146,22 @@ export const api = {
     request<import('@kamehadb/shared').PostgresVectorSampleResult>(
       'POST',
       `/sql/${connectionId}/vectors/sample`,
+      input,
+      true,
+    ),
+
+  getOracleVectorCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').OracleVectorCapability>(
+      'GET',
+      `/sql/${connectionId}/oracle-vec/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchOracleVector: (connectionId: string, input: import('@kamehadb/shared').OracleVectorSearchInput) =>
+    request<import('@kamehadb/shared').OracleVectorSearchResult>(
+      'POST',
+      `/sql/${connectionId}/oracle-vec/search`,
       input,
       true,
     ),
@@ -168,6 +191,59 @@ export const api = {
       points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
       dimensions: number;
     }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input, true),
+
+  // DuckDB vector (vss) API
+  getDuckDbVectorCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').DuckDbVectorCapability>(
+      'GET',
+      `/sql/${connectionId}/duckdb-vec/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchDuckDbVector: (
+    connectionId: string,
+    input: {
+      schema?: string;
+      table: string;
+      column: string;
+      vector: number[];
+      metric?: 'cosine' | 'l2' | 'inner_product';
+      limit?: number;
+    },
+  ) =>
+    request<import('@kamehadb/shared').DuckDbVectorSearchResult>(
+      'POST',
+      `/sql/${connectionId}/duckdb-vec/search`,
+      input,
+      true,
+    ),
+
+  // ClickHouse vector API
+  getClickHouseVectorCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').ClickHouseVectorCapability>(
+      'GET',
+      `/sql/${connectionId}/clickhouse-vec/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchClickHouseVector: (
+    connectionId: string,
+    input: {
+      table: string;
+      column: string;
+      vector: number[];
+      metric?: 'cosine' | 'l2' | 'inner_product';
+      limit?: number;
+    },
+  ) =>
+    request<import('@kamehadb/shared').ClickHouseVectorSearchResult>(
+      'POST',
+      `/sql/${connectionId}/clickhouse-vec/search`,
+      input,
+      true,
+    ),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>

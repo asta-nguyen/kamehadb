@@ -5,6 +5,12 @@ import { MigrationAssistant } from '@/components/migration-assistant';
 import { MongoQuery } from '@/components/mongo-query';
 import { MongoShell } from '@/components/mongo-shell';
 import { MongoView } from '@/components/mongo-view';
+import { ClickhouseClientTab } from '@/components/clickhouse-client-tab';
+import { ClickHouseVecQuery } from '@/components/clickhouse-vec-query';
+import { DuckdbCliTab } from '@/components/duckdb-cli-tab';
+import { DuckDbVecQuery } from '@/components/duckdb-vec-query';
+import { OracleVecQuery } from '@/components/oracle-vec-query';
+import { OracleSqlplusTab } from '@/components/oracle-sqlplus-tab';
 import { PostgresPsqlTab } from '@/components/postgres-psql-tab';
 import { PostgresVectorMap } from '@/components/postgres-vector-map';
 import { VectorQuery } from '@/components/vector-query';
@@ -48,6 +54,24 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   }
   if (activeTab.type === 'postgres-psql') {
     return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
+  }
+  if (activeTab.type === 'oracle-sqlplus') {
+    return <OracleSqlplusTab key={activeTab.id} active tab={activeTab} />;
+  }
+  if (activeTab.type === 'oracle-vec-search') {
+    return <OracleVecQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'clickhouse-client') {
+    return <ClickhouseClientTab key={activeTab.id} active tab={activeTab} />;
+  }
+  if (activeTab.type === 'duckdb-cli') {
+    return <DuckdbCliTab key={activeTab.id} active tab={activeTab} />;
+  }
+  if (activeTab.type === 'duckdb-vec-search') {
+    return <DuckDbVecQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'clickhouse-vec-search') {
+    return <ClickHouseVecQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'postgres-vector-search') {
     return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;

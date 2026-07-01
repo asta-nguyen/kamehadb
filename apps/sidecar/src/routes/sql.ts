@@ -5,7 +5,11 @@ import { z } from 'zod';
 import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
+import { createSqlClickHouseBackupRouter } from './sql-clickhouse-backup.js';
 import { createSqlSchemaRouter } from './sql-schema.js';
+import { createSqlVectorClickHouseRouter } from './sql-vector-clickhouse.js';
+import { createSqlVectorDuckDbRouter } from './sql-vector-duckdb.js';
+import { createSqlVectorOracleRouter } from './sql-vector-oracle.js';
 import { createSqlVectorPgRouter } from './sql-vector-pg.js';
 import { createSqlVectorSqliteRouter } from './sql-vector-sqlite.js';
 import { handleError } from '../lib/route-utils.js';
@@ -79,7 +83,11 @@ async function getMongoAdapter(connectionId: string) {
 
 sqlRouter.route('/:connectionId', createSqlSchemaRouter({ getSqlAdapter, handleError }));
 sqlRouter.route('/:connectionId', createSqlVectorPgRouter({ handleError }));
+sqlRouter.route('/:connectionId', createSqlVectorOracleRouter({ handleError }));
 sqlRouter.route('/:connectionId', createSqlVectorSqliteRouter({ handleError }));
+sqlRouter.route('/:connectionId', createSqlVectorDuckDbRouter({ handleError, getSqlAdapter }));
+sqlRouter.route('/:connectionId', createSqlVectorClickHouseRouter({ handleError }));
+sqlRouter.route('/:connectionId', createSqlClickHouseBackupRouter({ handleError }));
 
 // Databases
 sqlRouter.get('/:connectionId/databases', async (c) => {

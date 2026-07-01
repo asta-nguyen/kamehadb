@@ -47,17 +47,31 @@ pub fn spawn_session(
     let child = pair
         .slave
         .spawn_command(command)
-        .map_err(|error| anyhow!(spawn_error_message(&spec.program, error)))?;
+        .map_err(|error| {
+            anyhow!(spawn_error_message(
+                &spec.program,
+                &spec.missing_program_hint,
+                error,
+            ))
+        })?;
     let killer = Arc::new(Mutex::new(child.clone_killer()));
     let reader = pair
         .master
         .try_clone_reader()
         .context("Failed to attach a PTY reader")?;
-    let writer = Arc::new(Mutex::new(
-        pair.master
-            .take_writer()
-            .context("Failed to attach a PTY writer")?,
-    ));
+    let mut pty_writer = pair
+        .master
+        .take_writer()
+        .context("Failed to attach a PTY writer")?;
+    if let Some(initial_input) = &spec.initial_input {
+        pty_writer
+            .write_all(initial_input.as_bytes())
+            .context("Failed to write the initial PTY input")?;
+        pty_writer
+            .flush()
+            .context("Failed to flush the initial PTY input")?;
+    }
+    let writer = Arc::new(Mutex::new(pty_writer));
     let master = Arc::new(Mutex::new(pair.master));
     let session_id = Uuid::new_v4().to_string();
 
@@ -240,14 +254,16 @@ fn exit_message(program: &str, exit_code: u32) -> String {
     format!("{program} exited with code {exit_code}")
 }
 
-fn spawn_error_message(program: &str, error: anyhow::Error) -> String {
+fn spawn_error_message(
+    program: &str,
+    missing_program_hint: &str,
+    error: anyhow::Error,
+) -> String {
     if error
         .chain()
         .any(|cause| matches!(cause.downcast_ref::<std::io::Error>(), Some(io_error) if io_error.kind() == ErrorKind::NotFound))
     {
-        return format!(
-            "{program} was not found in PATH. Install the PostgreSQL client tools and try again."
-        );
+        return format!("{program} was not found in PATH. {missing_program_hint}");
     }
     error.to_string()
 }
@@ -263,7 +279,11 @@ mod tests {
         let error = anyhow!(Error::from(ErrorKind::NotFound));
 
         assert_eq!(
-            spawn_error_message("psql", error),
+            spawn_error_message(
+                "psql",
+                "Install the PostgreSQL client tools and try again.",
+                error,
+            ),
             "psql was not found in PATH. Install the PostgreSQL client tools and try again."
         );
     }

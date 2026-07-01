@@ -27,6 +27,7 @@ import {
   toggleExpandedConnection,
 } from '@/store';
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
+import { isFileDatabaseKind } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
 import type { ConnectionStatus } from './sidebar.helpers';
@@ -34,6 +35,12 @@ import type { ConnectionStatus } from './sidebar.helpers';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
+import { ClickHouseBackupDialog } from './clickhouse-backup-dialog';
+import { ClickHouseRestoreDialog } from './clickhouse-restore-dialog';
+import { FileDatabaseBackupDialog } from './file-database-backup-dialog';
+import { FileDatabaseRestoreDialog } from './file-database-restore-dialog';
+import { OracleBackupDialog } from './oracle-backup-dialog';
+import { OracleRestoreDialog } from './oracle-restore-dialog';
 import { PostgresBackupDialog } from './postgres-backup-dialog';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { DeleteConfirmDialog } from './sidebar-delete-dialog';
@@ -156,6 +163,24 @@ const ConnectionItem = memo(function ConnectionItem({
         <>
           <PostgresBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
           <PostgresRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
+        </>
+      )}
+      {isFileDatabaseKind(conn.kind) && isTauriRuntime() && (
+        <>
+          <FileDatabaseBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
+          <FileDatabaseRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
+        </>
+      )}
+      {conn.kind === 'clickhouse' && (
+        <>
+          <ClickHouseBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
+          <ClickHouseRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
+        </>
+      )}
+      {conn.kind === 'oracle' && isTauriRuntime() && (
+        <>
+          <OracleBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
+          <OracleRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
         </>
       )}
       <DeleteConfirmDialog

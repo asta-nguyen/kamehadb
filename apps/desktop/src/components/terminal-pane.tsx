@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { TerminalSize } from '@/lib/terminal-session';
 
-type TerminalPaneApi = {
+export type TerminalPaneApi = {
   readonly focus: () => void;
   readonly getSize: () => TerminalSize;
   readonly reset: () => void;

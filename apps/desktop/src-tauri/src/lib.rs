@@ -5,11 +5,22 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 mod app_logs;
+mod clickhouse_client;
+mod connection_profile;
+mod duckdb_cli;
+mod oracle_sqlplus;
+mod oracle_tools;
 mod postgres_psql;
 mod postgres_tools;
 mod terminal_sessions;
 
 use app_logs::{append_frontend_log, append_tauri_log, clear_app_logs, read_app_logs};
+use clickhouse_client::start_clickhouse_client_session;
+use duckdb_cli::start_duckdb_cli_session;
+use oracle_sqlplus::start_oracle_sqlplus_session;
+use oracle_tools::{
+    cancel_oracle_job, start_oracle_backup, start_oracle_restore, OracleJobState,
+};
 use postgres_psql::start_postgres_psql_session;
 use terminal_sessions::{
     resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
@@ -124,6 +135,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
         .manage(TerminalSessionState::default())
+        .manage(OracleJobState::default())
         .manage(PostgresJobState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_data_dir,
@@ -133,9 +145,15 @@ pub fn run() {
             get_credential,
             delete_credential,
             start_postgres_psql_session,
+            start_oracle_sqlplus_session,
+            start_clickhouse_client_session,
+            start_duckdb_cli_session,
             write_terminal_session,
             resize_terminal_session,
             stop_terminal_session,
+            start_oracle_backup,
+            start_oracle_restore,
+            cancel_oracle_job,
             start_postgres_backup,
             start_postgres_restore,
             cancel_postgres_job,

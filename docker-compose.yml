@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   postgres:
     image: pgvector/pgvector:0.8.0-pg17
@@ -40,6 +39,19 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./docker-init/mariadb:/docker-entrypoint-initdb.d
+
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: kameha
+      APP_USER_PASSWORD: kameha
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      - ./docker-init/oracle:/container-entrypoint-initdb.d
 
   redis:
     image: redis:7-alpine
@@ -94,6 +106,7 @@ volumes:
   postgres_data:
   mysql_data:
   mariadb_data:
+  oracle_data:
   redis_data:
   duckdb_data:
   tigerbeetle_data:

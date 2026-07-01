@@ -10,6 +10,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **MCP server** — v1.4.
+- **Oracle Free 23 dev database** — `docker compose up -d` now starts a local Oracle service with the `FREEPDB1` pluggable database and a seeded `kameha` app user.
+- **Oracle vector search** — Oracle connections can now detect `VECTOR` columns, open a dedicated vector-search tab in the desktop app, and run nearest-neighbor queries through the sidecar.
+- **Oracle backup and restore** — the desktop app now exposes Oracle Data Pump backup/restore dialogs and streams `expdp` / `impdp` job output from Tauri.
+
+### Changed
+
+- **Oracle defaults** — the repo now targets Oracle Free 23 / `FREEPDB1` instead of legacy XE-era service names, aligning Docker, docs, the sidecar adapter, and the desktop SQL\*Plus shell.
 
 ## [v1.3.4] — 2026-06-28
 

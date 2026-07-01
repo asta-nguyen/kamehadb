@@ -14,6 +14,9 @@ pub const TERMINAL_SESSION_EVENT: &str = "terminal-session-event";
 #[serde(rename_all = "camelCase")]
 pub enum TerminalSessionKind {
     PostgresPsql,
+    OracleSqlplus,
+    ClickhouseClient,
+    DuckdbCli,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -57,7 +60,9 @@ pub enum TerminalSessionEvent {
 pub struct PtyCommandSpec {
     pub args: Vec<String>,
     pub env: Vec<(String, String)>,
+    pub initial_input: Option<String>,
     pub program: String,
+    pub missing_program_hint: String,
     pub started_message: String,
 }
 

@@ -247,6 +247,66 @@ export function openPostgresPsqlTab(connectionId: string): void {
   });
 }
 
+export function openOracleSqlplusTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'oracle-sqlplus').length;
+  openTab({
+    id: `oracle-sqlplus-${nanoid()}`,
+    type: 'oracle-sqlplus',
+    title: `SQL*Plus ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openOracleVecSearchTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'oracle-vec-search').length;
+  openTab({
+    id: `oracle-vec-search-${nanoid()}`,
+    type: 'oracle-vec-search',
+    title: `Oracle Vector ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openClickhouseClientTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'clickhouse-client').length;
+  openTab({
+    id: `clickhouse-client-${nanoid()}`,
+    type: 'clickhouse-client',
+    title: `CH Client ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openDuckdbCliTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'duckdb-cli').length;
+  openTab({
+    id: `duckdb-cli-${nanoid()}`,
+    type: 'duckdb-cli',
+    title: `DuckDB CLI ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openDuckdbVecSearchTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'duckdb-vec-search').length;
+  openTab({
+    id: `duckdb-vec-search-${nanoid()}`,
+    type: 'duckdb-vec-search',
+    title: `DuckDB Vector ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openClickhouseVecSearchTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'clickhouse-vec-search').length;
+  openTab({
+    id: `clickhouse-vec-search-${nanoid()}`,
+    type: 'clickhouse-vec-search',
+    title: `CH Vector ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
 export function updateTabShellSessionId(tabId: string, sessionId: string): void {
   appStore.setState((state) => ({
     ...state,
