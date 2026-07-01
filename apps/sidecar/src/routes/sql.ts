@@ -8,6 +8,7 @@ import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import { createSqlSchemaRouter } from './sql-schema.js';
 import { createSqlVectorPgRouter } from './sql-vector-pg.js';
 import { createSqlVectorSqliteRouter } from './sql-vector-sqlite.js';
+import { createSqlVectorMysqlRouter } from './sql-vector-mysql.js';
 import { handleError } from '../lib/route-utils.js';
 import { log } from '../lib/logger.js';
 
@@ -80,6 +81,7 @@ async function getMongoAdapter(connectionId: string) {
 sqlRouter.route('/:connectionId', createSqlSchemaRouter({ getSqlAdapter, handleError }));
 sqlRouter.route('/:connectionId', createSqlVectorPgRouter({ handleError }));
 sqlRouter.route('/:connectionId', createSqlVectorSqliteRouter({ handleError }));
+sqlRouter.route('/:connectionId', createSqlVectorMysqlRouter({ handleError }));
 
 // Databases
 sqlRouter.get('/:connectionId/databases', async (c) => {

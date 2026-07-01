@@ -33,3 +33,12 @@ export type SqliteVecSearchInput = {
   metric?: 'cosine' | 'l2' | 'inner_product';
   limit?: number;
 };
+
+export type MysqlVectorSearchInput = {
+  table: string;
+  column: string;
+  vector: number[];
+  filter?: string;
+  metric?: 'cosine' | 'l2';
+  limit?: number;
+};

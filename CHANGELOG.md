@@ -10,6 +10,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **MCP server** — v1.4.
+- **MySQL/MariaDB embedded shell** — open a `mysql`/`mariadb` client session in a terminal tab, mirroring the existing PostgreSQL `psql` flow. Credentials are passed via the `MYSQL_PWD` environment variable (never on the command line).
+- **MySQL/MariaDB backup & restore** — `mysqldump`/`mariadb-dump` backup (database or table scope) and `mysql`/`mariadb` restore via Tauri-managed jobs, with cancellation support. MariaDB connections prefer `mariadb-dump`/`mariadb` binaries and fall back to the MySQL client tools. Backup supports Plain SQL (.sql) and XML (.xml) output formats.
+- **MySQL/MariaDB vector search** — vector similarity search over JSON-array columns with JS-side distance computation (cosine and L2). Includes capabilities discovery, vector sampling, and structured filtering. Reuses the `vector-query.tsx` UI via a new `isTableOnly` abstraction shared with sqlite-vec.
+- **MySQL/MariaDB vector sample data** — seed files now include a `documents` table with 4-dimensional JSON-array embeddings so the vector search Sample button works out of the box.
+- **Client Tools status page** — read-only dashboard showing detected database client binaries (`psql`, `pg_dump`, `pg_restore`, `mysql`, `mysqldump`, `mongosh`) with their paths, versions, and OS-specific install/uninstall command hints. Detects the package manager (pacman, apt, dnf, brew, choco) and shows the correct command for each tool. Accessible via the "Client Tools" button in the header.
+
+### Fixed
+
+- **Desktop shell tabs** — PostgreSQL `psql` and MySQL/MariaDB shell tabs now share one terminal lifecycle component so focus, lazy start, and reset behavior stay aligned, and both shell tab types render terminal icons in the tab bar.
+- **Desktop maintenance jobs** — PostgreSQL and MySQL backup/restore hooks now share one Tauri job runner so listener ordering, cancellation, and status/log handling cannot drift between engines.
+- **Connection menu maintenance actions** — PostgreSQL and MySQL/MariaDB shell, backup, and restore menu items now render from one shared action map instead of duplicated blocks.
+- **MySQL shell missing-client guidance** — missing `mysql`/`mariadb` binaries now prompt users to install MySQL or MariaDB client tools instead of PostgreSQL client tools.
 
 ## [v1.3.4] — 2026-06-28
 

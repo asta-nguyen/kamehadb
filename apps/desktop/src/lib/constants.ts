@@ -33,6 +33,7 @@ import {
   openRedisTab,
   openSqliteVecSearchTab,
   openPostgresVectorSearchTab,
+  openMysqlVectorSearchTab,
   appStore,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
@@ -223,8 +224,10 @@ export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAc
   [KIND.POSTGRES]: [{ label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab }],
   qdrant: [{ label: 'Vector Search', icon: Search, open: openQdrantSearchTab }],
   sqlite: [{ label: 'Vector Search', icon: Search, open: openSqliteVecSearchTab }],
+  [KIND.MYSQL]: [{ label: 'Vector Search', icon: Search, open: openMysqlVectorSearchTab }],
+  [KIND.MARIADB]: [{ label: 'Vector Search', icon: Search, open: openMysqlVectorSearchTab }],
   mongodb: [
-    { label: 'Mongo Shell', icon: Terminal, open: openMongoShellTab },
+    { label: 'Shell', icon: Terminal, open: openMongoShellTab },
     {
       label: 'Aggregation',
       icon: Terminal,

@@ -1,4 +1,5 @@
 import { ApiSettingsPage } from '@/components/api-settings-page';
+import { ClientToolsPage } from '@/components/client-tools-page';
 import { GlobalSearch } from '@/components/global-search';
 import { ShortcutsDialog } from '@/components/shortcuts-dialog';
 import { LogsPage } from '@/components/logs-page';
@@ -20,7 +21,7 @@ import {
   setTheme,
 } from '@/store';
 import { useStore } from '@tanstack/react-store';
-import { Monitor, Moon, Search, Sun, TriangleAlert, Keyboard } from 'lucide-react';
+import { Monitor, Moon, Search, Sun, Terminal, TriangleAlert, Keyboard } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { isSqlKind } from '@/lib/constants';
 import { toast } from 'sonner';
@@ -129,6 +130,10 @@ function Header({
           <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>/
           </kbd>
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigateTo('client-tools')} className="gap-1.5 text-xs">
+          <Terminal className="size-3.5" />
+          <span className="hidden sm:inline">Client Tools</span>
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigateTo('logs')} className="gap-1.5 text-xs">
           <TriangleAlert className="size-3.5" />
@@ -364,7 +369,15 @@ function App() {
         <Header onSearchOpen={() => setSearchOpen(true)} onShortcutsOpen={() => setShortcutsOpen(true)} />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar />
-          {view === 'api-settings' ? <ApiSettingsPage /> : view === 'logs' ? <LogsPage /> : <MainLayout />}
+          {view === 'api-settings' ? (
+            <ApiSettingsPage />
+          ) : view === 'client-tools' ? (
+            <ClientToolsPage />
+          ) : view === 'logs' ? (
+            <LogsPage />
+          ) : (
+            <MainLayout />
+          )}
         </div>
       </div>
     </TooltipProvider>

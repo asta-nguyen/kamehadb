@@ -5,6 +5,7 @@ import { MigrationAssistant } from '@/components/migration-assistant';
 import { MongoQuery } from '@/components/mongo-query';
 import { MongoShell } from '@/components/mongo-shell';
 import { MongoView } from '@/components/mongo-view';
+import { MysqlShellTab } from '@/components/mysql-shell-tab';
 import { PostgresPsqlTab } from '@/components/postgres-psql-tab';
 import { PostgresVectorMap } from '@/components/postgres-vector-map';
 import { VectorQuery } from '@/components/vector-query';
@@ -17,6 +18,7 @@ import { SchemaGraph } from '@/components/schema-graph';
 import { SchemaTimeline } from '@/components/schema-timeline';
 import { SqlEditor } from '@/components/sql-editor';
 import { SqliteVecMap } from '@/components/sqlite-vec-map';
+import { MysqlVecMap } from '@/components/mysql-vec-map';
 import { TableStats } from '@/components/table-stats';
 import { TableView } from '@/components/table-view';
 
@@ -49,6 +51,9 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   if (activeTab.type === 'postgres-psql') {
     return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
   }
+  if (activeTab.type === 'mysql-shell') {
+    return <MysqlShellTab key={activeTab.id} active tab={activeTab} />;
+  }
   if (activeTab.type === 'postgres-vector-search') {
     return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
@@ -60,6 +65,12 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   }
   if (activeTab.type === 'sqlite-vec-map') {
     return <SqliteVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'mysql-vec-search') {
+    return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'mysql-vec-map') {
+    return <MysqlVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis') {
     return <RedisView key={activeTab.id} connectionId={activeTab.connectionId} />;

@@ -8,12 +8,46 @@ import { isTauriRuntime } from '@/lib/tauri';
 import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
-import type { ConnectionProfile } from '@kamehadb/shared';
+import { KIND, type ConnectionProfile } from '@kamehadb/shared';
 import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
 
 function activate(connId: string, action: (id: string) => void) {
   setActiveConnection(connId);
   action(connId);
+}
+
+type MaintenanceAction = {
+  readonly icon: typeof Terminal;
+  readonly label: string;
+  readonly onSelect: () => void;
+};
+
+function getMaintenanceActions(args: {
+  readonly kind: ConnectionProfile['kind'];
+  readonly onBackup: () => void;
+  readonly onMysqlBackup: () => void;
+  readonly onMysqlRestore: () => void;
+  readonly onOpenMysqlShell: () => void;
+  readonly onOpenPsql: () => void;
+  readonly onRestore: () => void;
+}): readonly MaintenanceAction[] {
+  if (args.kind === KIND.POSTGRES) {
+    return [
+      { icon: Terminal, label: 'Open Shell', onSelect: args.onOpenPsql },
+      { icon: Download, label: 'Backup', onSelect: args.onBackup },
+      { icon: Upload, label: 'Restore', onSelect: args.onRestore },
+    ];
+  }
+
+  if (args.kind === KIND.MYSQL || args.kind === KIND.MARIADB) {
+    return [
+      { icon: Terminal, label: 'Open Shell', onSelect: args.onOpenMysqlShell },
+      { icon: Download, label: 'Backup', onSelect: args.onMysqlBackup },
+      { icon: Upload, label: 'Restore', onSelect: args.onMysqlRestore },
+    ];
+  }
+
+  return [];
 }
 
 export function ConnectionDropdownMenu({
@@ -25,6 +59,9 @@ export function ConnectionDropdownMenu({
   onOpenPsql,
   onBackup,
   onRestore,
+  onOpenMysqlShell,
+  onMysqlBackup,
+  onMysqlRestore,
 }: {
   conn: ConnectionProfile;
   refreshConnection: { mutate: (id: string) => void; isPending: boolean };
@@ -34,7 +71,20 @@ export function ConnectionDropdownMenu({
   onOpenPsql: () => void;
   onBackup: () => void;
   onRestore: () => void;
+  onOpenMysqlShell: () => void;
+  onMysqlBackup: () => void;
+  onMysqlRestore: () => void;
 }) {
+  const maintenanceActions = getMaintenanceActions({
+    kind: conn.kind,
+    onBackup,
+    onMysqlBackup,
+    onMysqlRestore,
+    onOpenMysqlShell,
+    onOpenPsql,
+    onRestore,
+  });
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -59,35 +109,20 @@ export function ConnectionDropdownMenu({
           AI Chat
         </DropdownMenuItem>
 
-        {conn.kind === 'postgres' && isTauriRuntime() && (
+        {isTauriRuntime() && maintenanceActions.length > 0 && (
           <>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onOpenPsql();
-              }}
-            >
-              <Terminal className="mr-2 size-3.5" />
-              Open PSQL
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onBackup();
-              }}
-            >
-              <Download className="mr-2 size-3.5" />
-              Backup
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onRestore();
-              }}
-            >
-              <Upload className="mr-2 size-3.5" />
-              Restore
-            </DropdownMenuItem>
+            {maintenanceActions.map((action) => (
+              <DropdownMenuItem
+                key={action.label}
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  action.onSelect();
+                }}
+              >
+                <action.icon className="mr-2 size-3.5" />
+                {action.label}
+              </DropdownMenuItem>
+            ))}
           </>
         )}
 

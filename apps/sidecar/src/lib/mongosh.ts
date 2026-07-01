@@ -1,13 +1,10 @@
 import { accessSync, constants as fsConstants, readdirSync } from 'fs';
-import { access, mkdir } from 'fs/promises';
-import { delimiter, dirname, join, resolve } from 'path';
-import { promisify } from 'util';
-import { execFile } from 'child_process';
+import { access } from 'fs/promises';
+import { delimiter, join, resolve } from 'path';
 import os from 'os';
 import { log } from './logger.js';
+import { getClientToolPath } from '../db/metadata-store.js';
 
-const execFileAsync = promisify(execFile);
-const MONGOSH_INSTALL_DIR = 'tools/mongosh';
 const isWindows = os.platform() === 'win32';
 const exeSuffixes = isWindows ? ['', '.exe', '.cmd'] : [''];
 
@@ -16,35 +13,37 @@ export interface MongoshCommand {
   readonly argsPrefix: string[];
 }
 
-let mongoshInstallPromise: Promise<MongoshCommand> | null = null;
-
 export async function resolveMongoshCommand(): Promise<MongoshCommand> {
+  // 1. Check user-configured path from the metadata store.
+  const configuredPath = getClientToolPath('mongosh');
+  if (configuredPath) {
+    if (await existsAsync(configuredPath)) {
+      log.debug({ command: configuredPath }, 'mongosh resolved from user-configured path');
+      return { program: configuredPath, argsPrefix: [] };
+    }
+    log.debug({ configuredPath }, 'mongosh user-configured path not found, falling back');
+  }
+
+  // 2. Search PATH.
   const localCommand = findMongoshOnPath();
   if (localCommand) {
     log.debug({ command: localCommand }, 'mongosh resolved from PATH');
     return localCommand;
   }
-  log.debug('mongosh not found on PATH, trying bundled...');
 
-  const installedCommand = await findBundledMongosh();
-  if (installedCommand) {
-    log.debug({ command: installedCommand }, 'mongosh resolved from bundled install');
-    return installedCommand;
-  }
-  log.debug('mongosh no bundled install found, attempting auto-install...');
-
-  const installed = await installBundledMongosh();
-  log.debug({ command: installed }, 'mongosh auto-install resolved');
-  return installed;
+  throw new Error(
+    'mongosh is not installed. Install it from https://www.mongodb.com/docs/mongodb-shell/install/ and try again.',
+  );
 }
+
 function findMongoshOnPath(): MongoshCommand | null {
   const pathValue = process.env.PATH;
-  if (!pathValue) return null;
-
-  for (const dir of pathValue.split(delimiter)) {
-    for (const suffix of exeSuffixes) {
-      const candidate = join(dir, `mongosh${suffix}`);
-      if (exists(candidate)) return { program: candidate, argsPrefix: [] };
+  if (pathValue) {
+    for (const dir of pathValue.split(delimiter)) {
+      for (const suffix of exeSuffixes) {
+        const candidate = join(dir, `mongosh${suffix}`);
+        if (exists(candidate)) return { program: candidate, argsPrefix: [] };
+      }
     }
   }
 
@@ -59,68 +58,6 @@ function findMongoshOnPath(): MongoshCommand | null {
   return candidate ? { program: candidate, argsPrefix: [] } : null;
 }
 
-async function findBundledMongosh(): Promise<MongoshCommand | null> {
-  const baseDir = getBundledInstallDir();
-  const directCandidates = [
-    join(baseDir, 'node_modules/.bin/mongosh'),
-    join(baseDir, 'node_modules/.bin/mongosh.cmd'),
-    join(baseDir, 'node_modules/mongosh/bin/mongosh'),
-  ];
-
-  for (const candidate of directCandidates) {
-    if (await existsAsync(candidate)) {
-      return { program: candidate, argsPrefix: [] };
-    }
-  }
-
-  const jsCandidate = join(baseDir, 'node_modules/mongosh/bin/mongosh.js');
-  if (await existsAsync(jsCandidate)) {
-    return { program: process.execPath, argsPrefix: [jsCandidate] };
-  }
-
-  return null;
-}
-
-async function installBundledMongosh(): Promise<MongoshCommand> {
-  if (!mongoshInstallPromise) {
-    mongoshInstallPromise = (async () => {
-      const baseDir = getBundledInstallDir();
-      await mkdir(baseDir, { recursive: true });
-      const npmCommand = resolveNpmCommand();
-      await execFileAsync(
-        npmCommand.program,
-        [...npmCommand.argsPrefix, 'install', 'mongosh', '--prefix', baseDir, '--no-package-lock', '--silent'],
-        {
-          env: {
-            ...process.env,
-            npm_config_cache: join(baseDir, '.npm-cache'),
-          },
-        },
-      );
-
-      const installedCommand = await findBundledMongosh();
-      if (!installedCommand) {
-        throw new Error('mongosh installed, but the binary could not be located');
-      }
-      return installedCommand;
-    })().finally(() => {
-      mongoshInstallPromise = null;
-    });
-  }
-
-  try {
-    return await mongoshInstallPromise;
-  } catch (error) {
-    throw new Error(
-      `mongosh is not installed and automatic install failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-}
-
-function getBundledInstallDir(): string {
-  return resolve(process.env.KAMEHADB_DATA_DIR || os.tmpdir(), MONGOSH_INSTALL_DIR);
-}
-
 function versionedMongoBinCandidates(root: string): string[] {
   try {
     return readdirSync(root)
@@ -130,46 +67,6 @@ function versionedMongoBinCandidates(root: string): string[] {
   } catch {
     return [];
   }
-}
-
-function resolveNpmCommand(): { program: string; argsPrefix: string[] } {
-  const npmOnPath = findExecutable('npm');
-  if (npmOnPath) {
-    return { program: npmOnPath, argsPrefix: [] };
-  }
-
-  const npmCli = findNpmCliScript();
-  if (npmCli) {
-    return { program: process.execPath, argsPrefix: [npmCli] };
-  }
-
-  throw new Error('npm was not found. Install Node.js/npm or install mongosh manually.');
-}
-
-function findExecutable(name: string): string | null {
-  const pathValue = process.env.PATH;
-  if (pathValue) {
-    for (const dir of pathValue.split(delimiter)) {
-      for (const suffix of exeSuffixes) {
-        const candidate = join(dir, `${name}${suffix}`);
-        if (exists(candidate)) return candidate;
-      }
-    }
-  }
-
-  const candidates = [`/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`];
-
-  return candidates.find((candidate) => exists(candidate)) ?? null;
-}
-
-function findNpmCliScript(): string | null {
-  const candidates = [
-    resolve(dirname(process.execPath), '..', 'lib/node_modules/npm/bin/npm-cli.js'),
-    '/opt/homebrew/lib/node_modules/npm/bin/npm-cli.js',
-    '/usr/local/lib/node_modules/npm/bin/npm-cli.js',
-  ];
-
-  return candidates.find((candidate) => exists(candidate)) ?? null;
 }
 
 function exists(candidate: string): boolean {

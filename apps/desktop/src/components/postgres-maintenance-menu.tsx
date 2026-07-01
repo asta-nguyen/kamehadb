@@ -18,7 +18,7 @@ export function PostgresMaintenanceMenu({ onOpenPsql, onOpenBackup, onOpenRestor
     <>
       <DropdownMenuItem onClick={onOpenPsql}>
         <Terminal className="mr-2 size-3.5" />
-        Open PSQL
+        Open Shell
       </DropdownMenuItem>
       <DropdownMenuItem onClick={onOpenBackup}>
         <Download className="mr-2 size-3.5" />

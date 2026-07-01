@@ -47,7 +47,13 @@ pub fn spawn_session(
     let child = pair
         .slave
         .spawn_command(command)
-        .map_err(|error| anyhow!(spawn_error_message(&spec.program, error)))?;
+        .map_err(|error| {
+            anyhow!(spawn_error_message(
+                &spec.program,
+                &spec.missing_program_hint,
+                error
+            ))
+        })?;
     let killer = Arc::new(Mutex::new(child.clone_killer()));
     let reader = pair
         .master
@@ -240,14 +246,16 @@ fn exit_message(program: &str, exit_code: u32) -> String {
     format!("{program} exited with code {exit_code}")
 }
 
-fn spawn_error_message(program: &str, error: anyhow::Error) -> String {
+fn spawn_error_message(
+    program: &str,
+    missing_program_hint: &str,
+    error: anyhow::Error,
+) -> String {
     if error
         .chain()
         .any(|cause| matches!(cause.downcast_ref::<std::io::Error>(), Some(io_error) if io_error.kind() == ErrorKind::NotFound))
     {
-        return format!(
-            "{program} was not found in PATH. Install the PostgreSQL client tools and try again."
-        );
+        return format!("{program} was not found in PATH. {missing_program_hint}");
     }
     error.to_string()
 }
@@ -263,8 +271,26 @@ mod tests {
         let error = anyhow!(Error::from(ErrorKind::NotFound));
 
         assert_eq!(
-            spawn_error_message("psql", error),
-            "psql was not found in PATH. Install the PostgreSQL client tools and try again."
+            spawn_error_message(
+                "psql",
+                "Install PostgreSQL client tools and try again.",
+                error
+            ),
+            "psql was not found in PATH. Install PostgreSQL client tools and try again."
+        );
+    }
+
+    #[test]
+    fn spawn_error_message_keeps_engine_specific_install_hint() {
+        let error = anyhow!(Error::from(ErrorKind::NotFound));
+
+        assert_eq!(
+            spawn_error_message(
+                "mysql",
+                "Install MySQL or MariaDB client tools and try again.",
+                error
+            ),
+            "mysql was not found in PATH. Install MySQL or MariaDB client tools and try again."
         );
     }
 }
