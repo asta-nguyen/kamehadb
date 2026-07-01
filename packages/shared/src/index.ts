@@ -33,3 +33,13 @@ export type SqliteVecSearchInput = {
   metric?: 'cosine' | 'l2' | 'inner_product';
   limit?: number;
 };
+
+export type SqlServerVecSearchInput = {
+  schema: string;
+  table: string;
+  column: string;
+  vector: number[];
+  filter?: string;
+  metric?: 'cosine' | 'euclidean' | 'dot';
+  limit?: number;
+};

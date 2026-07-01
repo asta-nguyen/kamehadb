@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
 import { useRunQuery } from '@/hooks/use-query';
 import { useFieldVisibility } from '@/hooks/use-field-visibility';
@@ -43,6 +42,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { buildRowUpdateQuery } from '@/lib/table-editability';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
+
+function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): (...args: Parameters<T>) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
 
 type TableViewProps = {
   connectionId: string;
@@ -109,14 +116,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     sortColumn: '',
     sortDirection: 'asc',
   });
-  const debouncedSetSearch = useRef<ReturnType<typeof debounce<(v: string) => void>> | null>(null);
+  const debouncedSetSearch = useRef<((v: string) => void) | null>(null);
   if (debouncedSetSearch.current === null) {
-    debouncedSetSearch.current = debounce(
-      (v: string) => {
-        dispatch({ type: 'setQuerySearch', value: v });
-      },
-      { wait: 300 },
-    );
+    debouncedSetSearch.current = debounce((v: string) => {
+      dispatch({ type: 'setQuerySearch', value: v });
+    }, 300);
   }
   const debouncedSearchFn = debouncedSetSearch.current;
 

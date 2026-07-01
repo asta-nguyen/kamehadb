@@ -33,6 +33,9 @@ import {
   openRedisTab,
   openSqliteVecSearchTab,
   openPostgresVectorSearchTab,
+  openSqlServerVecSearchTab,
+  openSqlite3Tab,
+  openSqlcmdTab,
   appStore,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
@@ -222,9 +225,16 @@ export const SQL_TAB_ACTIONS: TabAction[] = [
 export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAction[]>> = {
   [KIND.POSTGRES]: [{ label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab }],
   qdrant: [{ label: 'Vector Search', icon: Search, open: openQdrantSearchTab }],
-  sqlite: [{ label: 'Vector Search', icon: Search, open: openSqliteVecSearchTab }],
+  sqlite: [
+    { label: 'Vector Search', icon: Search, open: openSqliteVecSearchTab },
+    { label: 'Shell', icon: Terminal, open: openSqlite3Tab },
+  ],
+  sqlserver: [
+    { label: 'Vector Search', icon: Search, open: openSqlServerVecSearchTab },
+    { label: 'Shell', icon: Terminal, open: openSqlcmdTab },
+  ],
   mongodb: [
-    { label: 'Mongo Shell', icon: Terminal, open: openMongoShellTab },
+    { label: 'Shell', icon: Terminal, open: openMongoShellTab },
     {
       label: 'Aggregation',
       icon: Terminal,

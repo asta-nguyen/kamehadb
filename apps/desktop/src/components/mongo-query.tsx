@@ -15,7 +15,6 @@ import { Play, AlertCircle, ChevronLeft, ChevronRight, Database, Table2, BarChar
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { appendFrontendLog } from '@/lib/app-logs';
 import { PAGE_LIMIT } from '@/lib/constants';
-import JSON5 from 'json5';
 import type { WorkspaceTab } from '@/lib/types';
 import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
@@ -433,7 +432,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
       try {
         let parsed: Record<string, unknown>[];
         try {
-          parsed = JSON5.parse(state.pipeline);
+          parsed = JSON.parse(state.pipeline);
           if (!Array.isArray(parsed)) throw new Error();
         } catch {
           throw new Error('Invalid aggregation pipeline — check syntax');
@@ -539,14 +538,14 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         onFormat={() => {
           const parsed = (() => {
             try {
-              return JSON5.parse(state.pipeline);
+              return JSON.parse(state.pipeline);
             } catch (error) {
               if (error instanceof SyntaxError) return null;
               throw error;
             }
           })();
           if (parsed === null) return;
-          dispatch({ type: 'setPipeline', value: JSON5.stringify(parsed, null, 2) });
+          dispatch({ type: 'setPipeline', value: JSON.stringify(parsed, null, 2) });
         }}
       />
 

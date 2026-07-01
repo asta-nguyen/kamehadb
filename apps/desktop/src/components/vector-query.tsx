@@ -2,8 +2,13 @@ import { useEffect, useMemo, useReducer } from 'react';
 import type { WorkspaceTab } from '@/lib/types';
 import type { PostgresVectorSearchResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
-import { usePostgresVectorCapabilities, usePostgresVectorSearch } from '@/hooks/use-postgres-vector';
+import {
+  usePostgresVectorCapabilities,
+  usePostgresVectorSearch,
+  usePostgresVectorSampleMutation,
+} from '@/hooks/use-postgres-vector';
 import { useSqliteVecCapabilities, useSqliteVecSearch, useSqliteVecSample } from '@/hooks/use-sqlite-vec';
+import { useSqlServerVecCapabilities, useSqlServerVecSearch, useSqlServerVecSample } from '@/hooks/use-sqlserver-vec';
 import { parseVectorText } from '@/lib/postgres-vector';
 import { PostgresVectorResults } from '@/components/postgres-vector-results';
 import { Button } from '@/components/ui/button';
@@ -11,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dice5, Loader2, Network, Play } from 'lucide-react';
-import { openPostgresVectorMapTab, openSqliteVecMapTab } from '@/store';
+import { openPostgresVectorMapTab, openSqliteVecMapTab, openSqlServerVecMapTab } from '@/store';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 // ── State type (superset of both PG and sqlite-vec fields) ────────────────
@@ -89,38 +94,60 @@ function vectorQueryReducer(state: VectorQueryState, action: VectorQueryAction):
   }
 }
 
-// ── Helpers to read PG-specific fields from the tab ──────────────────────
+// ── Helpers to read engine-specific fields from the tab ─────────────────
 
 function getPgSchema(tab: WorkspaceTab): string {
-  return tab.type === 'postgres-vector-search' ? (tab.schema ?? '') : '';
+  if (tab.type === 'postgres-vector-search') return tab.schema ?? '';
+  if (tab.type === 'sqlserver-vec-search') return tab.schema ?? '';
+  return '';
+}
+
+type VectorQueryTab = Extract<
+  WorkspaceTab,
+  { type: 'postgres-vector-search' | 'sqlite-vec-search' | 'sqlserver-vec-search' }
+>;
+
+function getInitialTable(tab: VectorQueryTab): string {
+  if (tab.type !== 'sqlserver-vec-search') {
+    return tab.table ?? '';
+  }
+  return tab.table?.split('.').pop() ?? '';
 }
 
 function tabDisplayName(tab: WorkspaceTab): string {
-  return tab.type === 'postgres-vector-search' ? 'pgvector' : 'sqlite-vec';
+  if (tab.type === 'postgres-vector-search') return 'pgvector';
+  if (tab.type === 'sqlserver-vec-search') return 'SQL Server vector';
+  return 'sqlite-vec';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
 
 interface VectorQueryProps {
-  readonly tab: Extract<WorkspaceTab, { type: 'postgres-vector-search' | 'sqlite-vec-search' }>;
+  readonly tab: VectorQueryTab;
   readonly connectionId: string;
 }
 
 export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
   const isSqlite = tab.type === 'sqlite-vec-search';
+  const isSqlServer = tab.type === 'sqlserver-vec-search';
+  const isPostgres = tab.type === 'postgres-vector-search';
 
   // Hooks — only the active engine's hooks are enabled
-  const { data: pgCapabilities } = usePostgresVectorCapabilities(isSqlite ? null : connectionId);
-  const pgSearch = usePostgresVectorSearch(isSqlite ? null : connectionId);
+  const { data: pgCapabilities } = usePostgresVectorCapabilities(isPostgres ? connectionId : null);
+  const pgSearch = usePostgresVectorSearch(isPostgres ? connectionId : null);
+  const pgSample = usePostgresVectorSampleMutation(isPostgres ? connectionId : null);
   const { data: sqliteCapabilities } = useSqliteVecCapabilities(isSqlite ? connectionId : null);
   const sqliteSearch = useSqliteVecSearch(isSqlite ? connectionId : null);
   const sqliteSample = useSqliteVecSample(isSqlite ? connectionId : null);
+  const { data: sqlserverCapabilities } = useSqlServerVecCapabilities(isSqlServer ? connectionId : null);
+  const sqlserverSearch = useSqlServerVecSearch(isSqlServer ? connectionId : null);
+  const sqlserverSample = useSqlServerVecSample(isSqlServer ? connectionId : null);
 
-  const capabilities = isSqlite ? sqliteCapabilities : pgCapabilities;
+  const capabilities = isSqlite ? sqliteCapabilities : isSqlServer ? sqlserverCapabilities : pgCapabilities;
 
   const [state, dispatch] = useReducer(vectorQueryReducer, {
     schema: getPgSchema(tab),
-    table: tab.table ?? '',
+    table: getInitialTable(tab),
     column: tab.column ?? '',
     vectorText: tab.vectorText ?? '',
     sampledVector: null,
@@ -140,20 +167,32 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
   const schemas = useMemo(() => {
     if (isSqlite || !capabilities?.columns) return [];
-    return [...new Set(capabilities.columns.map((c) => (c as { tableSchema: string }).tableSchema))].sort();
-  }, [capabilities, isSqlite]);
-
-  const vectorTables = useMemo(() => {
-    if (!capabilities?.columns) return [];
     return [
       ...new Set(
         capabilities.columns.map((c) => {
-          const col = c as { tableName: string; tableSchema?: string };
-          return isSqlite ? col.tableName : `${col.tableName}`;
+          const col = c as { tableSchema?: string; schemaName?: string };
+          return isSqlServer ? (col.schemaName ?? '') : (col.tableSchema ?? '');
         }),
       ),
     ].sort();
-  }, [capabilities, isSqlite]);
+  }, [capabilities, isSqlite, isSqlServer]);
+
+  const vectorTables = useMemo(() => {
+    if (!capabilities?.columns) return [];
+    const tableNames = capabilities.columns
+      .map((c) => {
+        const col = c as { tableName: string; tableSchema?: string; schemaName?: string };
+        if (isSqlServer) {
+          if (state.schema && (col.schemaName ?? '') !== state.schema) {
+            return null;
+          }
+          return col.tableName;
+        }
+        return col.tableName;
+      })
+      .filter((value): value is string => typeof value === 'string' && value.length > 0);
+    return [...new Set(tableNames)].sort();
+  }, [capabilities, isSqlServer, state.schema]);
 
   const vectorColumns = useMemo(() => {
     if (!capabilities?.columns || !state.table) return [];
@@ -163,13 +202,18 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
         dimensions: number;
         tableName: string;
         tableSchema?: string;
+        schemaName?: string;
       }>
     )
-      .filter((col) =>
-        isSqlite ? col.tableName === state.table : col.tableName === state.table && col.tableSchema === state.schema,
-      )
+      .filter((col) => {
+        if (isSqlite) return col.tableName === state.table;
+        if (isSqlServer) {
+          return col.tableName === state.table && (col.schemaName ?? '') === (state.schema ?? '');
+        }
+        return col.tableName === state.table && col.tableSchema === state.schema;
+      })
       .sort((a, b) => a.columnName.localeCompare(b.columnName));
-  }, [capabilities, state.schema, state.table, isSqlite]);
+  }, [capabilities, state.schema, state.table, isSqlite, isSqlServer]);
 
   const metadataColumns = useMemo(() => {
     if (!isSqlite || !capabilities) return [];
@@ -180,7 +224,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
   // ── Auto-select effects ───────────────────────────────────────────
 
-  // PG: auto-select first schema
+  // PG/SQL Server: auto-select first schema
   useEffect(() => {
     if (!isSqlite && !state.schema && schemas.length > 0) {
       dispatch({ type: 'setSchema', value: schemas[0] });
@@ -212,9 +256,11 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
     dispatch({ type: 'startRun' });
     try {
-      // Resolve vector — sampled (sqlite-vec) or parsed from text
+      // Resolve vector — sampled (sqlite-vec/sqlserver) or parsed from text
       let vector: number[];
       if (isSqlite && state.sampledVector) {
+        vector = state.sampledVector;
+      } else if (isSqlServer && state.sampledVector) {
         vector = state.sampledVector;
       } else {
         try {
@@ -251,11 +297,19 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
           filter = `"${state.filterColumn}" ${state.filterOp} ${val}`;
         }
       } else {
-        // Free-text SQL WHERE clause
+        // Free-text SQL WHERE clause (PG and SQL Server)
         filter = state.filterText.trim() || undefined;
       }
 
       // Execute search — input shapes differ between engines
+      const metric = isSqlServer
+        ? state.metric === 'l2'
+          ? 'euclidean'
+          : state.metric === 'inner_product'
+            ? 'dot'
+            : 'cosine'
+        : state.metric;
+
       const result: PostgresVectorSearchResult = isSqlite
         ? await sqliteSearch.mutateAsync({
             table: state.table,
@@ -265,15 +319,25 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             metric: state.metric,
             limit: state.limit,
           })
-        : await pgSearch.mutateAsync({
-            schema: state.schema || undefined,
-            table: state.table,
-            column: state.column,
-            vector,
-            filter,
-            metric: state.metric,
-            limit: state.limit,
-          });
+        : isSqlServer
+          ? await sqlserverSearch.mutateAsync({
+              schema: state.schema || '',
+              table: state.table,
+              column: state.column,
+              vector,
+              filter,
+              metric: metric as 'cosine' | 'euclidean' | 'dot',
+              limit: state.limit,
+            })
+          : await pgSearch.mutateAsync({
+              schema: state.schema || undefined,
+              table: state.table,
+              column: state.column,
+              vector,
+              filter,
+              metric: state.metric,
+              limit: state.limit,
+            });
 
       dispatch({ type: 'finishRun', result });
     } catch (error) {
@@ -292,7 +356,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
   const emptyMessage =
     capabilities && !capabilities.available
-      ? `${tabDisplayName(tab)} extension is not ${isSqlite ? 'loaded in' : 'installed on'} this database.`
+      ? `${tabDisplayName(tab)} is not available on this database.`
       : capabilities && capabilities.columns.length === 0
         ? isSqlite
           ? 'No vec0 virtual tables found in this database.'
@@ -306,7 +370,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
       <div className="p-3 border-b border-border space-y-2">
         {/* Engine-agnostic control row: schema (PG), table, column, metric, limit, sample (SQLite), search, map */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Schema selector — PG only */}
+          {/* Schema selector — PG and SQL Server */}
           {!isSqlite && (
             <Select
               value={state.schema || ''}
@@ -391,41 +455,71 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             </SelectContent>
           </Select>
 
-          {/* Sample vector button — SQLite only */}
-          {isSqlite && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                if (!state.table || !state.column) return;
-                dispatch({ type: 'setError', value: null });
-                try {
-                  const result = await sqliteSample.mutateAsync({ table: state.table, column: state.column });
-                  const preview = result.vector.slice(0, 8);
-                  const display =
-                    preview.length < result.vector.length
-                      ? `[${preview.join(', ')}, ...] // ${result.dimensions}d`
-                      : `[${preview.join(', ')}]`;
-                  dispatch({ type: 'setSampledVector', vector: result.vector, display });
-                  dispatch({ type: 'setError', value: null });
-                } catch (err) {
-                  dispatch({
-                    type: 'setError',
-                    value: safeErrorMessage(err, 'Failed to sample vector'),
-                  });
+          {/* Sample vector button — all engines */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (!state.table || !state.column) return;
+              dispatch({ type: 'setError', value: null });
+              try {
+                const result = isSqlite
+                  ? await sqliteSample.mutateAsync({ table: state.table, column: state.column })
+                  : isSqlServer
+                    ? await sqlserverSample.mutateAsync({
+                        schema: state.schema || '',
+                        table: state.table,
+                        column: state.column,
+                      })
+                    : await pgSample.mutateAsync({
+                        schema: state.schema || 'public',
+                        table: state.table,
+                        column: state.column,
+                        limit: 1,
+                      });
+                // pg sample returns { points, dimensions }, take first point
+                const vector = isPostgres
+                  ? ((result as { points: { vector: number[] }[] }).points[0]?.vector ?? [])
+                  : (result as { vector: number[] }).vector;
+                const dimensions = isPostgres
+                  ? (result as { dimensions: number }).dimensions
+                  : (result as { dimensions: number }).dimensions;
+                if (!vector.length) {
+                  dispatch({ type: 'setError', value: 'No vectors found in this table' });
+                  return;
                 }
-              }}
-              disabled={sqliteSample.isPending || !state.table || !state.column}
-              className="ml-auto"
-            >
-              {sqliteSample.isPending ? (
-                <Loader2 className="size-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Dice5 className="size-3.5 mr-1.5" />
-              )}
-              Sample
-            </Button>
-          )}
+                const preview = vector.slice(0, 8);
+                const display =
+                  preview.length < vector.length
+                    ? `[${preview.join(', ')}, ...] // ${dimensions}d`
+                    : `[${preview.join(', ')}]`;
+                dispatch({ type: 'setSampledVector', vector, display });
+                dispatch({ type: 'setError', value: null });
+              } catch (err) {
+                dispatch({
+                  type: 'setError',
+                  value: safeErrorMessage(err, 'Failed to sample vector'),
+                });
+              }
+            }}
+            disabled={
+              (isSqlite ? sqliteSample.isPending : isSqlServer ? sqlserverSample.isPending : pgSample.isPending) ||
+              !state.table ||
+              !state.column
+            }
+            className="ml-auto"
+          >
+            {isSqlite && sqliteSample.isPending ? (
+              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+            ) : isSqlServer && sqlserverSample.isPending ? (
+              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+            ) : isPostgres && pgSample.isPending ? (
+              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Dice5 className="size-3.5 mr-1.5" />
+            )}
+            Sample
+          </Button>
 
           {/* Search button */}
           <Button size="sm" onClick={run} disabled={state.running}>
@@ -445,6 +539,12 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
               if (!state.table || !state.column) return;
               if (isSqlite) {
                 openSqliteVecMapTab(connectionId, { table: state.table, column: state.column });
+              } else if (isSqlServer) {
+                openSqlServerVecMapTab(connectionId, {
+                  schema: state.schema,
+                  table: state.table,
+                  column: state.column,
+                });
               } else {
                 openPostgresVectorMapTab(connectionId, {
                   schema: state.schema,
@@ -547,14 +647,23 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             onViewMap={
               isSqlite
                 ? undefined
-                : () => {
-                    if (!state.schema || !state.table || !state.column) return;
-                    openPostgresVectorMapTab(connectionId, {
-                      schema: state.schema,
-                      table: state.table,
-                      column: state.column,
-                    });
-                  }
+                : isSqlServer
+                  ? () => {
+                      if (!state.schema || !state.table || !state.column) return;
+                      openSqlServerVecMapTab(connectionId, {
+                        schema: state.schema,
+                        table: state.table.split('.').pop() ?? state.table,
+                        column: state.column,
+                      });
+                    }
+                  : () => {
+                      if (!state.schema || !state.table || !state.column) return;
+                      openPostgresVectorMapTab(connectionId, {
+                        schema: state.schema,
+                        table: state.table,
+                        column: state.column,
+                      });
+                    }
             }
           />
         ) : (

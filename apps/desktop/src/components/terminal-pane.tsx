@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { TerminalSize } from '@/lib/terminal-session';
 
-type TerminalPaneApi = {
+export type TerminalPaneApi = {
   readonly focus: () => void;
   readonly getSize: () => TerminalSize;
   readonly reset: () => void;
@@ -88,6 +88,24 @@ export function TerminalPane({ active, dark, onInput, onReady, onResize }: Termi
         minimumContrastRatio: 7,
         scrollback: 5000,
         theme: makeTheme(darkRef.current),
+      });
+
+      // Allow copy-to-clipboard via keyboard shortcut:
+      // Cmd+C on macOS, Ctrl+Shift+C on Linux/Windows.
+      // When there is a selection, copy it and swallow the event so the
+      // terminal does not also send SIGINT (Ctrl+C) or insert a character.
+      terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+        const isMac = navigator.platform.toLowerCase().includes('mac');
+        const isCopyShortcut =
+          (isMac && event.metaKey && event.key === 'c') ||
+          (!isMac && event.ctrlKey && event.shiftKey && (event.key === 'c' || event.key === 'C'));
+        if (!isCopyShortcut) return true;
+        const selection = terminal.getSelection();
+        if (selection) {
+          navigator.clipboard.writeText(selection).catch(() => {});
+          return false;
+        }
+        return true;
       });
       const fitAddon = new FitAddon();
       terminal.loadAddon(fitAddon);

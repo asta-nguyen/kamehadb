@@ -22,3 +22,18 @@ export async function resizeTerminalSession(sessionId: string, size: TerminalSiz
 export async function stopTerminalSession(sessionId: string): Promise<void> {
   await invokeTauri('stop_terminal_session', { sessionId });
 }
+
+export type StartPostgresPsqlRequest = { readonly connectionId: string; readonly cols: number; readonly rows: number };
+export async function startPostgresPsqlSession(request: StartPostgresPsqlRequest): Promise<TerminalSessionStarted> {
+  return invokeTauri<TerminalSessionStarted>('start_postgres_psql_session', { request });
+}
+
+export type StartSqlite3Request = { readonly connectionId: string; readonly cols: number; readonly rows: number };
+export async function startSqlite3Session(request: StartSqlite3Request): Promise<TerminalSessionStarted> {
+  return invokeTauri<TerminalSessionStarted>('start_sqlite3_session', { request });
+}
+
+export type StartSqlcmdRequest = { readonly connectionId: string; readonly cols: number; readonly rows: number };
+export async function startSqlcmdSession(request: StartSqlcmdRequest): Promise<TerminalSessionStarted> {
+  return invokeTauri<TerminalSessionStarted>('start_sqlcmd_session', { request });
+}

@@ -232,7 +232,7 @@ export function openMongoShellTab(connectionId: string): void {
   openTab({
     id: `mongo-shell-${nanoid()}`,
     type: 'mongo-shell',
-    title: `Mongo Shell ${tabCount + 1}`,
+    title: `Shell ${tabCount + 1}`,
     connectionId,
   });
 }
@@ -242,7 +242,27 @@ export function openPostgresPsqlTab(connectionId: string): void {
   openTab({
     id: `postgres-psql-${nanoid()}`,
     type: 'postgres-psql',
-    title: `PSQL ${tabCount + 1}`,
+    title: `Shell ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openSqlite3Tab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'sqlite3').length;
+  openTab({
+    id: `sqlite3-${nanoid()}`,
+    type: 'sqlite3',
+    title: `Shell ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openSqlcmdTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'sqlcmd').length;
+  openTab({
+    id: `sqlcmd-${nanoid()}`,
+    type: 'sqlcmd',
+    title: `Shell ${tabCount + 1}`,
     connectionId,
   });
 }
@@ -319,6 +339,63 @@ export function updateTabSqliteVecMapState(
     ...state,
     openedTabs: state.openedTabs.map((tab) =>
       tab.id === tabId && tab.type === 'sqlite-vec-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
+export function openSqlServerVecSearchTab(
+  connectionId: string,
+  options?: {
+    readonly schema?: string;
+    readonly table?: string;
+    readonly column?: string;
+    readonly vectorText?: string;
+    readonly mode?: 'similar' | 'raw';
+  },
+): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'sqlserver-vec-search').length;
+  openTab({
+    id: `sqlserver-vec-search-${nanoid()}`,
+    type: 'sqlserver-vec-search',
+    title: options?.table ? `Vector Search ${options.table}` : `Vector Search ${tabCount + 1}`,
+    connectionId,
+    schema: options?.schema,
+    table: options?.table,
+    column: options?.column,
+    vectorText: options?.vectorText,
+    mode: options?.mode,
+  });
+}
+
+export function openSqlServerVecMapTab(
+  connectionId: string,
+  options: {
+    readonly schema: string;
+    readonly table: string;
+    readonly column: string;
+  },
+): void {
+  openTab({
+    id: `${connectionId}:sqlserver-vec-map:${options.schema}.${options.table}.${options.column}`,
+    type: 'sqlserver-vec-map',
+    title: `Vector Map ${options.table}`,
+    connectionId,
+    schema: options.schema,
+    table: options.table,
+    column: options.column,
+  });
+}
+
+export function updateTabSqlServerVecMapState(
+  tabId: string,
+  updates: {
+    readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+  },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'sqlserver-vec-map' ? { ...tab, ...updates } : tab,
     ),
   }));
 }

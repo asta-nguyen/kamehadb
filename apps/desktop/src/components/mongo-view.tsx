@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo, useReducer } from 'react';
-import { debounce } from '@tanstack/pacer';
 import { useMongoDocuments } from '@/hooks/use-mongo';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
@@ -40,6 +39,14 @@ function parseJsonSafe(text: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): (...args: Parameters<T>) => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
 }
 
 interface MongoViewProps {
@@ -102,13 +109,10 @@ function useDebouncedSearchQuery(dispatch: React.Dispatch<MongoAction>) {
   // expensive fetch isn't triggered on every keypress.
   return useMemo(
     () =>
-      debounce(
-        (v: string) => {
-          dispatch({ type: 'querySearch', value: v });
-          dispatch({ type: 'page', value: 0 });
-        },
-        { wait: 300 },
-      ),
+      debounce((v: string) => {
+        dispatch({ type: 'querySearch', value: v });
+        dispatch({ type: 'page', value: 0 });
+      }, 300),
     [dispatch],
   );
 }

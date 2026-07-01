@@ -31,5 +31,7 @@ export const ADAPTER_TIMEOUTS = {
   BUSY: 5_000,
 } as const;
 
+export const SQLSERVER_MAINTENANCE_TIMEOUT_MS = 10 * 60 * 1000;
+
 /** Timeout for a single connection test probe (ms). */
 export const CONNECTION_TEST_TIMEOUT_MS = 5_000;

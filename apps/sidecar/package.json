@@ -20,7 +20,6 @@
     "better-sqlite3": "^11",
     "hono": "^4",
     "ioredis": "^5.4.2",
-    "lru-cache": "^11.5.0",
     "mongodb": "^7.2.0",
     "mssql": "^12.5.5",
     "mysql2": "^3.22.3",

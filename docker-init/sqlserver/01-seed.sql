@@ -87,3 +87,24 @@ INSERT INTO dbo.comments (id, post_id, user_id, body) VALUES
   (13, 13, 2, 'This should be required reading.'),
   (14, 14, 3, 'Perfect timing, we just hired two people.');
 
+-- Vector sample data for SQL Server 2025 VECTOR type
+DROP TABLE IF EXISTS dbo.documents;
+CREATE TABLE dbo.documents (
+  id INT NOT NULL PRIMARY KEY,
+  title NVARCHAR(255) NOT NULL,
+  body NVARCHAR(MAX) NULL,
+  embedding VECTOR(4) NOT NULL
+);
+
+INSERT INTO dbo.documents (id, title, body, embedding) VALUES
+  (1, 'Intro to Vectors', 'Understanding vector embeddings.', '[0.1, 0.2, 0.3, 0.4]'),
+  (2, 'Similarity Search', 'How cosine distance works.', '[0.15, 0.25, 0.35, 0.45]'),
+  (3, 'Database Indexing', 'B-tree vs vector index.', '[0.9, 0.1, 0.05, 0.2]'),
+  (4, 'Machine Learning', 'Training neural networks.', '[0.2, 0.4, 0.6, 0.8]'),
+  (5, 'Data Pipelines', 'ETL best practices.', '[0.3, 0.1, 0.5, 0.7]'),
+  (6, 'Cloud Native', 'Containers and orchestration.', '[0.8, 0.7, 0.1, 0.3]'),
+  (7, 'Security Basics', 'Authentication patterns.', '[0.1, 0.9, 0.2, 0.1]'),
+  (8, 'REST API Design', 'Building robust APIs.', '[0.4, 0.3, 0.2, 0.1]'),
+  (9, 'GraphQL Patterns', 'Schema design tips.', '[0.45, 0.35, 0.25, 0.15]'),
+  (10, 'Observability', 'Logs, metrics, and traces.', '[0.6, 0.5, 0.4, 0.3]');
+

@@ -16,6 +16,9 @@ import { SchemaDiffView } from '@/components/schema-diff-view';
 import { SchemaGraph } from '@/components/schema-graph';
 import { SchemaTimeline } from '@/components/schema-timeline';
 import { SqlEditor } from '@/components/sql-editor';
+import { SqlcmdTab } from '@/components/sqlcmd-tab';
+import { SqlServerVecMap } from '@/components/sqlserver-vec-map';
+import { Sqlite3Tab } from '@/components/sqlite3-tab';
 import { SqliteVecMap } from '@/components/sqlite-vec-map';
 import { TableStats } from '@/components/table-stats';
 import { TableView } from '@/components/table-view';
@@ -49,6 +52,12 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   if (activeTab.type === 'postgres-psql') {
     return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
   }
+  if (activeTab.type === 'sqlite3') {
+    return <Sqlite3Tab key={activeTab.id} active tab={activeTab} />;
+  }
+  if (activeTab.type === 'sqlcmd') {
+    return <SqlcmdTab key={activeTab.id} active tab={activeTab} />;
+  }
   if (activeTab.type === 'postgres-vector-search') {
     return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
@@ -60,6 +69,12 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   }
   if (activeTab.type === 'sqlite-vec-map') {
     return <SqliteVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'sqlserver-vec-search') {
+    return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'sqlserver-vec-map') {
+    return <SqlServerVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis') {
     return <RedisView key={activeTab.id} connectionId={activeTab.connectionId} />;

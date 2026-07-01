@@ -87,6 +87,7 @@ fn build_psql_spec(profile: &PostgresProfile) -> PtyCommandSpec {
         args,
         env,
         program: resolve_postgres_program("psql"),
+        missing_program_hint: "Install the PostgreSQL client tools and try again.".into(),
         started_message: format!("Connected to {}", profile.database),
     }
 }

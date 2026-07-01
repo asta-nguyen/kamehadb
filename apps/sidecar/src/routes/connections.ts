@@ -30,6 +30,7 @@ import {
   FileDatabaseMaintenanceError,
   restoreFileDatabase,
 } from '../lib/file-database-maintenance.js';
+import { backupSqlServerDatabase, restoreSqlServerDatabase } from '../lib/sqlserver-maintenance.js';
 import { invalidateAdapterCache } from './sql.js';
 import { log } from '../lib/logger.js';
 import { safeErrorMessage } from '../lib/route-utils.js';
@@ -308,6 +309,51 @@ connectionsRouter.post('/:id/restore', zValidator('json', FileDatabaseRestoreReq
   } catch (error) {
     const response = fileDatabaseErrorResponse(error);
     return c.json({ error: 'FILE_DB_RESTORE_FAILED', message: response.message }, { status: response.statusCode });
+  }
+});
+
+const SqlServerBackupRequestSchema = z.object({
+  outputPath: z.string().min(1),
+});
+
+const SqlServerRestoreRequestSchema = z.object({
+  inputPath: z.string().min(1),
+  targetDatabase: z.string().min(1),
+});
+
+connectionsRouter.post('/:id/sqlserver-backup', zValidator('json', SqlServerBackupRequestSchema), async (c) => {
+  const connectionId = c.req.param('id');
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+
+  try {
+    const result = await backupSqlServerDatabase(profile, c.req.valid('json'));
+    if (!result.success) {
+      return c.json({ error: 'SQLSERVER_BACKUP_FAILED', message: result.message }, { status: 400 });
+    }
+    return c.json(result);
+  } catch (error) {
+    log.error({ connectionId, err: error }, 'SQL Server backup route failed');
+    return c.json({ error: 'SQLSERVER_BACKUP_FAILED', message: safeErrorMessage(error) }, { status: 500 });
+  }
+});
+
+connectionsRouter.post('/:id/sqlserver-restore', zValidator('json', SqlServerRestoreRequestSchema), async (c) => {
+  const connectionId = c.req.param('id');
+  const profile = metadataStore.getProfile(connectionId);
+  if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+
+  try {
+    const result = await restoreSqlServerDatabase(profile, c.req.valid('json'));
+    if (!result.success) {
+      return c.json({ error: 'SQLSERVER_RESTORE_FAILED', message: result.message }, { status: 400 });
+    }
+    invalidateAdapterCache(connectionId);
+    clearConnectionCache(connectionId);
+    return c.json(result);
+  } catch (error) {
+    log.error({ connectionId, err: error }, 'SQL Server restore route failed');
+    return c.json({ error: 'SQLSERVER_RESTORE_FAILED', message: safeErrorMessage(error) }, { status: 500 });
   }
 });
 
