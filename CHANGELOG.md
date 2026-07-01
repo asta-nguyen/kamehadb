@@ -10,6 +10,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **MCP server** — v1.4.
+- **Qdrant AI system prompt** — Qdrant connections now get a Qdrant-specific system prompt (REST API / Node client syntax) instead of the generic SQL prompt, so the model no longer emits `sql` code blocks for a vector engine.
+
+### Fixed
+
+- **AI schema index cleanup on empty schemas** — `indexSchemaItems` now clears existing embeddings for a connection when the schema-item list is empty, instead of returning early and leaving stale AI context for deleted/emptied Mongo, Qdrant, or Redis schemas.
+- **AI indexer close-error masking** — non-SQL indexer `finally` blocks now swallow and log `adapter.close()` failures (matching `withAdapter`), so a cleanup error can no longer override a successful indexing result.
+- **Non-SQL schema hash collisions** — `hashText` now writes a `\x00` delimiter after each part, preventing component-boundary collisions (e.g. `('ab','c')` vs `('a','bc')`) that could skip needed re-embedding.
+- **Qdrant collection discovery errors** — `buildQdrantSchemaIndex` no longer swallows `listCollections` failures as an empty schema; the error propagates so operators see indexing failed instead of silently losing AI context.
+- **Redis key privacy in AI embeddings** — raw Redis key names (which may contain user IDs, emails, session tokens, or other tenant data) are no longer sent to the embedding provider. Keys are reduced to structural patterns with dynamic segments masked (`<uuid>`, `<n>`, `<email>`, etc.) and only sampled counts/patterns are embedded.
+- **TigerBeetle account ID privacy in AI embeddings** — live TigerBeetle account IDs are no longer embedded or sent to the provider. The fixed schema is indexed with only a boolean `Accounts present` indicator.
 
 ## [v1.3.4] — 2026-06-28
 

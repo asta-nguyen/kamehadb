@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator';
 import {
   isQuerySafe,
+  KIND,
   safeErrorMessage,
   type AIChatMessage,
   type AIProvider,
@@ -180,6 +181,14 @@ Rules:
 - Do NOT use SQL syntax.
 - Write the query using direct shell syntax: \`db.collectionName.find(...)\` or \`db.collectionName.aggregate([...])\`.
 - Prefix the query with a comment explaining what it does.`;
+  } else if (connectionKind === KIND.QDRANT) {
+    prompt += `\n\nCurrent connection: Qdrant (vector search engine).
+- Do NOT use SQL, MongoDB, Redis, or TigerBeetle syntax.
+- Qdrant stores points (each with a vector + optional payload) grouped into collections.
+- Use the Qdrant REST API in \`\`\`bash\`\`\` blocks (curl) or the Node.js client in \`\`\`javascript\`\`\` blocks.
+- Key operations: search (POST /collections/{name}/points/search), recommend, scroll, query.
+- Read-only preferences: scroll, search, recommend, get collection info.
+- Filters use structured conditions on payload fields (match, range, geo, values count).`;
   } else if (connectionKind === 'tigerbeetle') {
     prompt += `\n\nCurrent connection: TigerBeetle (financial transaction database).
 - Do NOT use SQL, MongoDB, or Redis syntax.
@@ -284,7 +293,27 @@ aiRouter.post(
                 } finally {
                   await adapter.close();
                 }
-              } else if (profile.kind !== 'redis' && profile.kind !== 'tigerbeetle') {
+              } else if (
+                profile.kind === KIND.QDRANT ||
+                profile.kind === KIND.REDIS ||
+                profile.kind === KIND.TIGERBEETLE
+              ) {
+                // Non-SQL engines without a full-schema builder: pull
+                // relevant schema items from the vec0 store (indexed by
+                // the AI indexer) so the AI has context for these engines.
+                if (latestUserMsg) {
+                  const relevant = await searchRelevantSchema(
+                    connectionId,
+                    latestUserMsg,
+                    providerName,
+                    config,
+                    5,
+                  ).catch(() => []);
+                  if (relevant.length > 0) {
+                    ddl = relevant.map((r) => r.ddl).join('\n\n');
+                  }
+                }
+              } else {
                 const adapter = await getSqlAdapter(connectionId);
                 const userQuery = latestUserMsg;
                 if (userQuery) {
