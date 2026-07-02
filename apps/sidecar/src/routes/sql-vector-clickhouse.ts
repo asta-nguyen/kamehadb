@@ -1,6 +1,11 @@
 import { zValidator } from '@hono/zod-validator';
 import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
-import type { ClickHouseVectorCapability, ClickHouseVectorColumn, ClickHouseVectorSearchResult, ClickHouseVectorSearchHit } from '@kamehadb/shared';
+import type {
+  ClickHouseVectorCapability,
+  ClickHouseVectorColumn,
+  ClickHouseVectorSearchResult,
+  ClickHouseVectorSearchHit,
+} from '@kamehadb/shared';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import * as metadataStore from '../db/metadata-store.js';
@@ -144,9 +149,10 @@ export function createSqlVectorClickHouseRouter(options: { readonly handleError:
 
           const hits: ClickHouseVectorSearchHit[] = rows.map((r, idx) => {
             const { _vec_score, [input.column]: _vec, ...row } = r;
+            const parsedScore = Number(_vec_score);
             return {
               id: idx,
-              score: Number(_vec_score) ?? 0,
+              score: Number.isNaN(parsedScore) ? 0 : parsedScore,
               row,
             };
           });
@@ -161,6 +167,114 @@ export function createSqlVectorClickHouseRouter(options: { readonly handleError:
         }
       } catch (err) {
         return options.handleError(c, err, 'clickhouseVecSearch');
+      }
+    },
+  );
+
+  // POST /clickhouse-vec/sample
+  // Sample a single random vector from an Array(Float32) column for testing.
+  router.post(
+    '/clickhouse-vec/sample',
+    zValidator('json', z.object({ table: z.string().min(1), column: z.string().min(1) })),
+    async (c) => {
+      const connectionId = c.req.param('connectionId')!;
+      const input = c.req.valid('json');
+
+      try {
+        const profile = getClickHouseProfile(connectionId);
+        const password = metadataStore.getProfilePassword(connectionId);
+        const client = createClient({
+          host: `http://${profile.host || 'localhost'}:${profile.port || DEFAULT_PORTS[KIND.CLICKHOUSE]}`,
+          username: profile.username || 'default',
+          password: password ?? '',
+          database: profile.database || 'default',
+        });
+
+        try {
+          const quotedTable = `\`${input.table.replaceAll('`', '``')}\``;
+          const quotedColumn = `\`${input.column.replaceAll('`', '``')}\``;
+
+          const sql = `SELECT ${quotedColumn} AS vec_value FROM ${quotedTable} WHERE length(${quotedColumn}) > 0 LIMIT 1`;
+
+          const result = await client.query({ query: sql, format: 'JSONEachRow' });
+          const rows = (await result.json()) as Record<string, unknown>[];
+
+          if (rows.length === 0) {
+            return c.json({ error: 'NO_VECTORS', message: 'No vectors found in this table' }, 404);
+          }
+
+          const vecRaw = rows[0].vec_value;
+          let vector: number[] = [];
+          if (Array.isArray(vecRaw)) {
+            vector = vecRaw.map((v) => Number(v));
+          }
+
+          return c.json({ vector, dimensions: vector.length });
+        } finally {
+          await client.close();
+        }
+      } catch (err) {
+        return options.handleError(c, err, 'clickhouseVecSample');
+      }
+    },
+  );
+
+  // POST /clickhouse-vec/vectors/sample
+  // Sample multiple vectors with payloads for 3D map visualization.
+  router.post(
+    '/clickhouse-vec/vectors/sample',
+    zValidator(
+      'json',
+      z.object({
+        table: z.string().min(1),
+        column: z.string().min(1),
+        limit: z.number().min(1).max(1000).default(500),
+      }),
+    ),
+    async (c) => {
+      const connectionId = c.req.param('connectionId')!;
+      const input = c.req.valid('json');
+
+      try {
+        const profile = getClickHouseProfile(connectionId);
+        const password = metadataStore.getProfilePassword(connectionId);
+        const client = createClient({
+          host: `http://${profile.host || 'localhost'}:${profile.port || DEFAULT_PORTS[KIND.CLICKHOUSE]}`,
+          username: profile.username || 'default',
+          password: password ?? '',
+          database: profile.database || 'default',
+        });
+
+        try {
+          const quotedTable = `\`${input.table.replaceAll('`', '``')}\``;
+          const quotedColumn = `\`${input.column.replaceAll('`', '``')}\``;
+
+          const sql = `
+            SELECT *
+            FROM ${quotedTable}
+            WHERE length(${quotedColumn}) > 0
+            LIMIT ${input.limit}
+          `;
+
+          const result = await client.query({ query: sql, format: 'JSONEachRow' });
+          const rows = (await result.json()) as Record<string, unknown>[];
+
+          const points = rows.map((r, idx) => {
+            const { [input.column]: vecRaw, ...payload } = r;
+            let vector: number[] = [];
+            if (Array.isArray(vecRaw)) {
+              vector = vecRaw.map((v) => Number(v));
+            }
+            return { id: idx, vector, payload };
+          });
+
+          const dimensions = points.length > 0 ? points[0].vector.length : 0;
+          return c.json({ points, dimensions });
+        } finally {
+          await client.close();
+        }
+      } catch (err) {
+        return options.handleError(c, err, 'clickhouseVecSampleBulk');
       }
     },
   );

@@ -22,7 +22,10 @@ function tabIcon(tabType: string) {
     tabType === 'graph' ||
     tabType === 'qdrant-graph' ||
     tabType === 'postgres-vector-map' ||
-    tabType === 'sqlite-vec-map'
+    tabType === 'sqlite-vec-map' ||
+    tabType === 'oracle-vec-map' ||
+    tabType === 'duckdb-vec-map' ||
+    tabType === 'clickhouse-vec-map'
   )
     return <Share2 className="size-3" />;
   if (tabType === 'mongo' || tabType === 'mongo-query') return <Table2 className="size-3" />;

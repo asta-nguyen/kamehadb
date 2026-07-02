@@ -27,3 +27,28 @@ export function useDuckDbVectorSearch(connectionId: string | null) {
     },
   });
 }
+
+export function useDuckdbVecSample(connectionId: string | null) {
+  return useMutation({
+    mutationFn: (input: { table: string; column: string }) => {
+      if (!connectionId) return Promise.reject(new Error('No connectionId'));
+      return api.sampleDuckdbVec(connectionId, input);
+    },
+  });
+}
+
+export function useDuckdbVecVectorsSample(
+  connectionId: string | null,
+  input: { table: string; column: string; limit: number } | null,
+) {
+  return useQuery({
+    queryKey: ['duckdb-vec-vectors-sample', connectionId, input],
+    queryFn: () => {
+      if (!connectionId || !input) throw new Error('Missing vector sample input');
+      return api.sampleDuckdbVecVectors(connectionId, input);
+    },
+    enabled: !!connectionId && !!input,
+    staleTime: 30000,
+    retry: 1,
+  });
+}

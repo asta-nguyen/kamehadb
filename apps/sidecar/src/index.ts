@@ -12,6 +12,7 @@ import { qdrantRouter } from './routes/qdrant.js';
 import { tigerbeetleRouter } from './routes/tigerbeetle.js';
 import { aiRouter } from './routes/ai.js';
 import { queryHistoryRouter } from './routes/query-history.js';
+import { clientToolsRouter } from './routes/client-tools.js';
 import { indexAllConnections } from './ai/indexer.js';
 import { log } from './lib/logger.js';
 
@@ -88,6 +89,7 @@ app.route('/qdrant', qdrantRouter);
 app.route('/tigerbeetle', tigerbeetleRouter);
 app.route('/ai', aiRouter);
 app.route('/query-history', queryHistoryRouter);
+app.route('/client-tools', clientToolsRouter);
 
 // Start server
 async function start() {

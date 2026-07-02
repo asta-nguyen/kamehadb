@@ -53,4 +53,7 @@ dist/
 .serena/
 plans/data/
 
-.windsurf/
+.windsurf/data/
+
+# Local database files
+data/

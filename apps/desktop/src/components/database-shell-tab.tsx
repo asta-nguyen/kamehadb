@@ -68,6 +68,12 @@ export function DatabaseShellTab<TTab extends ShellTab>({
     }
   }, [activated, active, session.state.status, start, terminalReady]);
 
+  useEffect(() => {
+    if (connection) return;
+    void session.stop();
+    terminalRef.current?.reset();
+  }, [connection, session]);
+
   const handleReady = useCallback((api: TerminalPaneApi) => {
     terminalRef.current = api;
     setTerminalReady(true);

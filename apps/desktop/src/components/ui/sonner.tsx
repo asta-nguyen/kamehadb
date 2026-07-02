@@ -1,13 +1,14 @@
-import { useTheme } from 'next-themes';
+import { useStore } from '@tanstack/react-store';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from 'lucide-react';
+import { appStore } from '@/store';
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = 'system' } = useTheme();
+  const theme = useStore(appStore, (state) => state.theme);
 
   return (
     <Sonner
-      theme={theme as ToasterProps['theme']}
+      theme={theme}
       className="grow toaster"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

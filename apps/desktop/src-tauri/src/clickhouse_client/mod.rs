@@ -2,7 +2,7 @@ use serde::Deserialize;
 use tauri::AppHandle;
 
 use crate::app_logs::append_tauri_log;
-use crate::connection_profile::{load_connection_profile, ConnectionKind, ConnectionProfile};
+use crate::connection_profile::{load_connection_profile, resolve_client_tool, ConnectionKind, ConnectionProfile};
 use crate::terminal_sessions::{
     start_terminal_session, PtyCommandSpec, TerminalSessionKind, TerminalSessionStarted,
     TerminalSessionState, TerminalSize,
@@ -44,7 +44,7 @@ pub async fn start_clickhouse_client_session(
             cols: request.cols,
             rows: request.rows,
         },
-        build_client_spec(&profile),
+        build_client_spec(&resolve_client_tool(&app, "clickhouse-client"), &profile),
     )
     .map_err(|error| {
         let message = error.to_string();
@@ -59,9 +59,11 @@ pub async fn start_clickhouse_client_session(
     })
 }
 
-fn build_client_spec(profile: &ConnectionProfile) -> PtyCommandSpec {
+fn build_client_spec(program: &str, profile: &ConnectionProfile) -> PtyCommandSpec {
     let host = profile.host.as_deref().unwrap_or("localhost");
-    let port = profile.port.unwrap_or(9000);
+    // clickhouse-client uses the native protocol on port 9000, not the HTTP port 8123
+    // stored in the connection profile (which is for the sidecar's HTTP client).
+    let port = 9000;
     let database = profile.database.as_deref().unwrap_or("default");
     let username = profile.username.as_deref().unwrap_or("default");
 
@@ -81,12 +83,11 @@ fn build_client_spec(profile: &ConnectionProfile) -> PtyCommandSpec {
         env.push(("CLICKHOUSE_PASSWORD".into(), password.clone()));
     }
 
-    args.push("--multiline".into());
     args.push("--highlight".into());
     args.push("1".into());
 
     PtyCommandSpec {
-        program: "clickhouse-client".into(),
+        program: program.into(),
         args,
         env,
         initial_input: None,
@@ -101,6 +102,7 @@ mod tests {
     use super::build_client_spec;
     use crate::connection_profile::ConnectionProfile;
 
+
     fn profile() -> ConnectionProfile {
         ConnectionProfile {
             host: Some("localhost".into()),
@@ -114,7 +116,7 @@ mod tests {
 
     #[test]
     fn clickhouse_spec_passes_connection_args() {
-        let spec = build_client_spec(&profile());
+        let spec = build_client_spec("clickhouse-client", &profile());
         assert_eq!(spec.program, "clickhouse-client");
         assert!(spec.args.windows(2).any(|p| p == ["--host", "localhost"]));
         assert!(spec.args.windows(2).any(|p| p == ["--database", "kamehadb"]));
@@ -130,7 +132,7 @@ mod tests {
     fn clickhouse_spec_omits_password_arg_when_not_saved() {
         let mut p = profile();
         p.password = None;
-        let spec = build_client_spec(&p);
+        let spec = build_client_spec("clickhouse-client", &p);
         assert!(!spec.args.iter().any(|v| v == "--password"));
     }
 }

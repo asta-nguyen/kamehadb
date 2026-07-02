@@ -17,6 +17,10 @@ function getClickHouseProfile(connectionId: string) {
   return profile;
 }
 
+function escapeClickHouseFilePath(value: string): string {
+  return value.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+}
+
 export function createSqlClickHouseBackupRouter(options: { readonly handleError: ErrorHandler }): Hono {
   const router = new Hono();
 
@@ -45,7 +49,7 @@ export function createSqlClickHouseBackupRouter(options: { readonly handleError:
         const adapter = await getSqlAdapter(connectionId);
         // Run the BACKUP command — result is discarded (ClickHouse returns metadata)
         await adapter.runQuery({
-          query: `BACKUP DATABASE \`${database.replaceAll('`', '``')}\` TO File('${outputPath.replaceAll("'", "\\'")}') SETTINGS async=false`,
+          query: `BACKUP DATABASE \`${database.replaceAll('`', '``')}\` TO File('${escapeClickHouseFilePath(outputPath)}') SETTINGS async=false`,
         });
         return c.json({ path: outputPath, database });
       } catch (err) {
@@ -76,7 +80,7 @@ export function createSqlClickHouseBackupRouter(options: { readonly handleError:
         getClickHouseProfile(connectionId);
         const adapter = await getSqlAdapter(connectionId);
         await adapter.runQuery({
-          query: `RESTORE DATABASE \`${targetDatabase.replaceAll('`', '``')}\` FROM File('${inputPath.replaceAll("'", "\\'")}') SETTINGS async=false`,
+          query: `RESTORE DATABASE \`${targetDatabase.replaceAll('`', '``')}\` FROM File('${escapeClickHouseFilePath(inputPath)}') SETTINGS async=false`,
         });
         return c.json({ database: targetDatabase });
       } catch (err) {

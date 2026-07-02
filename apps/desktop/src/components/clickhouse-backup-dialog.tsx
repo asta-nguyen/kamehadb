@@ -14,6 +14,10 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { useClickHouseBackup } from '@/hooks/use-clickhouse-backup';
 
+function isAbsoluteServerPath(value: string): boolean {
+  return value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value);
+}
+
 type ClickHouseBackupDialogProps = {
   readonly connection: ConnectionProfile;
   readonly open: boolean;
@@ -39,6 +43,10 @@ export function ClickHouseBackupDialog({ connection, open, onOpenChange }: Click
     setFormError(null);
     if (!outputPath.trim()) {
       setFormError('Enter a destination path on the ClickHouse server');
+      return;
+    }
+    if (!isAbsoluteServerPath(outputPath.trim())) {
+      setFormError('Enter an absolute path on the ClickHouse server');
       return;
     }
     try {
@@ -72,9 +80,6 @@ export function ClickHouseBackupDialog({ connection, open, onOpenChange }: Click
           </div>
 
           {formError ? <p className="text-xs text-destructive">{formError}</p> : null}
-          {backup.isSuccess ? (
-            <p className="text-xs text-muted-foreground">Backup written to: {backup.data.path}</p>
-          ) : null}
         </div>
 
         <DialogFooter>

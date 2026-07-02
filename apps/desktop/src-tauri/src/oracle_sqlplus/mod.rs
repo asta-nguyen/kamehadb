@@ -2,7 +2,8 @@ use serde::Deserialize;
 use tauri::AppHandle;
 
 use crate::app_logs::append_tauri_log;
-use crate::connection_profile::{load_connection_profile, ConnectionKind, ConnectionProfile};
+use crate::connection_profile::{load_connection_profile, resolve_client_tool, ConnectionKind, ConnectionProfile};
+use crate::oracle_tools::resolve_oracle_program;
 use crate::terminal_sessions::{
     start_terminal_session, PtyCommandSpec, TerminalSessionKind, TerminalSessionStarted,
     TerminalSessionState, TerminalSize,
@@ -47,7 +48,17 @@ pub async fn start_oracle_sqlplus_session(
             cols: request.cols,
             rows: request.rows,
         },
-        build_sqlplus_spec(&profile),
+        build_sqlplus_spec(
+            &{
+                let configured = resolve_client_tool(&app, "sqlplus");
+                if configured != "sqlplus" {
+                    configured
+                } else {
+                    resolve_oracle_program("sqlplus")
+                }
+            },
+            &profile,
+        ),
     )
     .map_err(|error| {
         let message = error.to_string();
@@ -62,20 +73,21 @@ pub async fn start_oracle_sqlplus_session(
     })
 }
 
-fn build_sqlplus_spec(profile: &ConnectionProfile) -> PtyCommandSpec {
+fn build_sqlplus_spec(program: &str, profile: &ConnectionProfile) -> PtyCommandSpec {
     let host = profile.host.as_deref().unwrap_or(DEFAULT_ORACLE_HOST);
     let port = profile.port.unwrap_or(DEFAULT_ORACLE_PORT);
     let service = profile.database.as_deref().unwrap_or(DEFAULT_ORACLE_SERVICE);
     let username = profile.username.as_deref().unwrap_or(DEFAULT_ORACLE_USERNAME);
 
     let connect_string = if let Some(password) = &profile.password {
-        format!("CONNECT {username}/{password}@//{host}:{port}/{service}\n")
+        let escaped_password = password.replace('"', "\"\"");
+        format!("CONNECT {username}/\"{escaped_password}\"@//{host}:{port}/{service}\n")
     } else {
         format!("CONNECT {username}@//{host}:{port}/{service}\n")
     };
 
     PtyCommandSpec {
-        program: "sqlplus".into(),
+        program: program.into(),
         args: vec!["-L".into(), "/NOLOG".into()],
         env: vec![],
         initial_input: Some(connect_string),
@@ -90,6 +102,7 @@ mod tests {
     use super::build_sqlplus_spec;
     use crate::connection_profile::ConnectionProfile;
 
+
     fn profile() -> ConnectionProfile {
         ConnectionProfile {
             host: Some("localhost".into()),
@@ -103,20 +116,25 @@ mod tests {
 
     #[test]
     fn sqlplus_spec_embeds_credentials_in_connect_string() {
-        let spec = build_sqlplus_spec(&profile());
-        assert_eq!(spec.program, "sqlplus");
+        let spec = build_sqlplus_spec("sqlplus", &profile());
+        assert_eq!(
+            std::path::Path::new(&spec.program)
+                .file_name()
+                .and_then(|value| value.to_str()),
+            Some("sqlplus")
+        );
         assert_eq!(spec.args, vec!["-L".to_string(), "/NOLOG".to_string()]);
         assert!(spec
             .initial_input
             .as_deref()
-            .is_some_and(|value| value.contains("CONNECT SYS/oracle@//localhost:1521/FREEPDB1")));
+            .is_some_and(|value| value.contains("CONNECT SYS/\"oracle\"@//localhost:1521/FREEPDB1")));
     }
 
     #[test]
     fn sqlplus_spec_omits_password_when_not_saved() {
         let mut p = profile();
         p.password = None;
-        let spec = build_sqlplus_spec(&p);
+        let spec = build_sqlplus_spec("sqlplus", &p);
         assert!(spec
             .initial_input
             .as_deref()
@@ -124,6 +142,17 @@ mod tests {
         assert!(spec
             .initial_input
             .as_deref()
-            .is_some_and(|value| !value.contains("SYS/oracle")));
+            .is_some_and(|value| !value.contains("SYS/\"oracle\"")));
+    }
+
+    #[test]
+    fn sqlplus_spec_quotes_special_character_passwords() {
+        let mut p = profile();
+        p.password = Some("or/a@cle".into());
+        let spec = build_sqlplus_spec("sqlplus", &p);
+        assert!(spec
+            .initial_input
+            .as_deref()
+            .is_some_and(|value| value.contains("CONNECT SYS/\"or/a@cle\"@//localhost:1521/FREEPDB1")));
     }
 }

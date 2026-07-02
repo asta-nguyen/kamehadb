@@ -17,6 +17,39 @@ function activate(connId: string, action: (id: string) => void) {
   action(connId);
 }
 
+function MaintenanceActions({
+  connId,
+  onBackup,
+  onRestore,
+}: {
+  readonly connId: string;
+  readonly onBackup: () => void;
+  readonly onRestore: () => void;
+}) {
+  return (
+    <>
+      <DropdownMenuItem
+        onClick={() => {
+          setActiveConnection(connId);
+          onBackup();
+        }}
+      >
+        <Download className="mr-2 size-3.5" />
+        Backup
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => {
+          setActiveConnection(connId);
+          onRestore();
+        }}
+      >
+        <Upload className="mr-2 size-3.5" />
+        Restore
+      </DropdownMenuItem>
+    </>
+  );
+}
+
 export function ConnectionDropdownMenu({
   conn,
   refreshConnection,
@@ -69,93 +102,19 @@ export function ConnectionDropdownMenu({
               }}
             >
               <Terminal className="mr-2 size-3.5" />
-              Open PSQL
+              Open Shell
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onBackup();
-              }}
-            >
-              <Download className="mr-2 size-3.5" />
-              Backup
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onRestore();
-              }}
-            >
-              <Upload className="mr-2 size-3.5" />
-              Restore
-            </DropdownMenuItem>
+            <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
           </>
         )}
         {isFileDatabaseKind(conn.kind) && isTauriRuntime() && (
-          <>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onBackup();
-              }}
-            >
-              <Download className="mr-2 size-3.5" />
-              Backup
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onRestore();
-              }}
-            >
-              <Upload className="mr-2 size-3.5" />
-              Restore
-            </DropdownMenuItem>
-          </>
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
         )}
         {conn.kind === KIND.CLICKHOUSE && (
-          <>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onBackup();
-              }}
-            >
-              <Download className="mr-2 size-3.5" />
-              Backup
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onRestore();
-              }}
-            >
-              <Upload className="mr-2 size-3.5" />
-              Restore
-            </DropdownMenuItem>
-          </>
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
         )}
         {conn.kind === KIND.ORACLE && isTauriRuntime() && (
-          <>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onBackup();
-              }}
-            >
-              <Download className="mr-2 size-3.5" />
-              Backup
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onRestore();
-              }}
-            >
-              <Upload className="mr-2 size-3.5" />
-              Restore
-            </DropdownMenuItem>
-          </>
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
         )}
 
         {isSqlLike(conn.kind) &&

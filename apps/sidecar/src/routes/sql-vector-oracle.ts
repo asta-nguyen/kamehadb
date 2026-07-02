@@ -63,6 +63,21 @@ function buildOrderDirection(metric: 'cosine' | 'l2' | 'inner_product'): 'ASC' |
   return metric === 'inner_product' ? 'DESC' : 'ASC';
 }
 
+/**
+ * Parse the declared dimension count from an Oracle `VECTOR_INFO` value.
+ *
+ * `CHAR_LENGTH` is only populated for character types (CHAR/VARCHAR2/NCHAR/NVARCHAR2)
+ * and is NULL for VECTOR columns, so it cannot be used to validate vector length.
+ * `VECTOR_INFO` is formatted as `VECTOR(dimension,element_type)` (e.g. `VECTOR(768,float32)`).
+ * A wildcard dimension (`*`) or missing/unparseable info returns 0, which leaves vector
+ * length validation skipped (matching Oracle's behavior for unbounded VECTOR columns).
+ */
+function parseOracleVectorDimensions(vectorInfo: unknown): number {
+  if (typeof vectorInfo !== 'string' || vectorInfo.length === 0) return 0;
+  const match = vectorInfo.match(/VECTOR\s*\(\s*(\d+)\s*,/i);
+  return match ? Number(match[1]) : 0;
+}
+
 export function createSqlVectorOracleRouter(options: { readonly handleError: ErrorHandler }): Hono {
   const router = new Hono();
 
@@ -84,7 +99,7 @@ export function createSqlVectorOracleRouter(options: { readonly handleError: Err
       const version = (versionResult.rows?.[0] as Record<string, string> | undefined)?.BANNER ?? null;
 
       const columnsResult = await conn.execute(
-        `SELECT owner, table_name, column_name, char_length
+        `SELECT owner, table_name, column_name, vector_info
          FROM all_tab_cols
          WHERE data_type = 'VECTOR'
            AND owner = :owner
@@ -96,7 +111,7 @@ export function createSqlVectorOracleRouter(options: { readonly handleError: Err
         tableSchema: String(row.OWNER ?? ''),
         tableName: String(row.TABLE_NAME ?? ''),
         columnName: String(row.COLUMN_NAME ?? ''),
-        dimensions: Number(row.CHAR_LENGTH ?? 0),
+        dimensions: parseOracleVectorDimensions(row.VECTOR_INFO),
       }));
 
       const capability: OracleVectorCapability = {
@@ -138,7 +153,7 @@ export function createSqlVectorOracleRouter(options: { readonly handleError: Err
 
         const schema = (input.schema ?? profile.username ?? '').toUpperCase();
         const validateResult = await conn.execute(
-          `SELECT owner, table_name, column_name, char_length
+          `SELECT owner, table_name, column_name, vector_info
            FROM all_tab_cols
            WHERE owner = :owner
              AND table_name = :tableName
@@ -162,7 +177,7 @@ export function createSqlVectorOracleRouter(options: { readonly handleError: Err
         }
 
         const metadata = validateResult.rows?.[0] as Record<string, unknown>;
-        const dimensions = Number(metadata.CHAR_LENGTH ?? 0);
+        const dimensions = parseOracleVectorDimensions(metadata.VECTOR_INFO);
         if (dimensions > 0 && input.vector.length !== dimensions) {
           return c.json(
             {
@@ -217,6 +232,174 @@ export function createSqlVectorOracleRouter(options: { readonly handleError: Err
         return c.json(result);
       } catch (error) {
         return options.handleError(c, error, 'oracleVecSearch');
+      } finally {
+        await conn?.close().catch(() => {});
+      }
+    },
+  );
+
+  // POST /oracle-vec/sample
+  // Sample a single random vector from a VECTOR column for testing.
+  router.post(
+    '/oracle-vec/sample',
+    zValidator('json', z.object({ table: z.string().min(1), column: z.string().min(1) })),
+    async (c) => {
+      const connectionId = c.req.param('connectionId');
+      const input = c.req.valid('json');
+      let conn: oracledb.Connection | null = null;
+
+      try {
+        const profile = getOracleProfile(connectionId);
+        const password = metadataStore.getProfilePassword(connectionId!);
+        conn = await oracledb.getConnection(getOracleConnectOptions(profile, password ?? undefined));
+
+        const schema = (profile.username ?? '').toUpperCase();
+        const validateResult = await conn.execute(
+          `SELECT owner, table_name, column_name, vector_info
+           FROM all_tab_cols
+           WHERE owner = :owner
+             AND table_name = :tableName
+             AND column_name = :columnName
+             AND data_type = 'VECTOR'`,
+          {
+            owner: schema,
+            tableName: input.table.toUpperCase(),
+            columnName: input.column.toUpperCase(),
+          },
+        );
+
+        if ((validateResult.rows?.length ?? 0) === 0) {
+          return c.json(
+            {
+              error: 'BAD_REQUEST',
+              message: `Column "${schema}"."${input.table}"."${input.column}" was not found or is not a VECTOR column`,
+            },
+            400,
+          );
+        }
+
+        const metadata = validateResult.rows?.[0] as Record<string, unknown>;
+        const quotedSchema = quoteOracleIdentifier(String(metadata.OWNER));
+        const quotedTable = quoteOracleIdentifier(String(metadata.TABLE_NAME));
+        const quotedColumn = quoteOracleIdentifier(String(metadata.COLUMN_NAME));
+
+        const sampleSql = `SELECT t.${quotedColumn} AS VEC_VALUE
+          FROM ${quotedSchema}.${quotedTable} t
+          WHERE t.${quotedColumn} IS NOT NULL
+          FETCH FIRST 1 ROWS ONLY`;
+
+        const sampleResult = await conn.execute(sampleSql);
+        const row = (sampleResult.rows as Record<string, unknown>[])[0];
+        if (!row || row.VEC_VALUE == null) {
+          return c.json({ error: 'NO_VECTORS', message: 'No vectors found in this table' }, 404);
+        }
+
+        const vectorRaw = row.VEC_VALUE;
+        let vector: number[] = [];
+        if (typeof vectorRaw === 'string') {
+          try {
+            vector = JSON.parse(vectorRaw);
+          } catch {
+            vector = [];
+          }
+        } else if (vectorRaw instanceof Float32Array) {
+          vector = Array.from(vectorRaw);
+        }
+
+        return c.json({ vector, dimensions: vector.length });
+      } catch (error) {
+        return options.handleError(c, error, 'oracleVecSample');
+      } finally {
+        await conn?.close().catch(() => {});
+      }
+    },
+  );
+
+  // POST /oracle-vec/vectors/sample
+  // Sample multiple vectors with payloads for 3D map visualization.
+  router.post(
+    '/oracle-vec/vectors/sample',
+    zValidator(
+      'json',
+      z.object({
+        table: z.string().min(1),
+        column: z.string().min(1),
+        limit: z.number().min(1).max(1000).default(500),
+      }),
+    ),
+    async (c) => {
+      const connectionId = c.req.param('connectionId');
+      const input = c.req.valid('json');
+      let conn: oracledb.Connection | null = null;
+
+      try {
+        const profile = getOracleProfile(connectionId);
+        const password = metadataStore.getProfilePassword(connectionId!);
+        conn = await oracledb.getConnection(getOracleConnectOptions(profile, password ?? undefined));
+
+        const schema = (profile.username ?? '').toUpperCase();
+        const validateResult = await conn.execute(
+          `SELECT owner, table_name, column_name, vector_info
+           FROM all_tab_cols
+           WHERE owner = :owner
+             AND table_name = :tableName
+             AND column_name = :columnName
+             AND data_type = 'VECTOR'`,
+          {
+            owner: schema,
+            tableName: input.table.toUpperCase(),
+            columnName: input.column.toUpperCase(),
+          },
+        );
+
+        if ((validateResult.rows?.length ?? 0) === 0) {
+          return c.json(
+            {
+              error: 'BAD_REQUEST',
+              message: `Column "${schema}"."${input.table}"."${input.column}" was not found or is not a VECTOR column`,
+            },
+            400,
+          );
+        }
+
+        const metadata = validateResult.rows?.[0] as Record<string, unknown>;
+        const quotedSchema = quoteOracleIdentifier(String(metadata.OWNER));
+        const quotedTable = quoteOracleIdentifier(String(metadata.TABLE_NAME));
+        const quotedColumn = quoteOracleIdentifier(String(metadata.COLUMN_NAME));
+        const columnName = String(metadata.COLUMN_NAME);
+
+        const sampleSql = `SELECT t.*, ROWIDTOCHAR(t.ROWID) AS ROW_ID_VALUE
+          FROM ${quotedSchema}.${quotedTable} t
+          WHERE t.${quotedColumn} IS NOT NULL
+          FETCH FIRST ${input.limit} ROWS ONLY`;
+
+        const sampleResult = await conn.execute(sampleSql);
+
+        const points = (sampleResult.rows as Record<string, unknown>[]).map((row) => {
+          const id = String(row.ROW_ID_VALUE ?? '');
+          const vectorRaw = row[columnName];
+          let vector: number[] = [];
+          if (typeof vectorRaw === 'string') {
+            try {
+              vector = JSON.parse(vectorRaw);
+            } catch {
+              vector = [];
+            }
+          } else if (vectorRaw instanceof Float32Array) {
+            vector = Array.from(vectorRaw);
+          }
+          const payload: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(row)) {
+            if (key === 'ROW_ID_VALUE' || key === columnName) continue;
+            payload[key] = serializeOracleValue(value);
+          }
+          return { id, vector, payload };
+        });
+
+        const dimensions = points.length > 0 ? points[0].vector.length : 0;
+        return c.json({ points, dimensions });
+      } catch (error) {
+        return options.handleError(c, error, 'oracleVecSampleBulk');
       } finally {
         await conn?.close().catch(() => {});
       }

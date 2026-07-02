@@ -6,7 +6,27 @@ import { useConnections } from '@/hooks/use-connections';
 import { api } from '@/lib/api';
 import { updateTabShellSessionId } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
+import { appStore } from '@/store';
+import { useStore } from '@tanstack/react-store';
 import '@xterm/xterm/css/xterm.css';
+
+function makeTheme(dark: boolean) {
+  return dark
+    ? {
+        background: '#09090b',
+        foreground: '#f4f4f5',
+        cursor: '#f4f4f5',
+        cursorAccent: '#09090b',
+        selectionBackground: '#3f3f46',
+      }
+    : {
+        background: '#fafafa',
+        foreground: '#18181b',
+        cursor: '#18181b',
+        cursorAccent: '#fafafa',
+        selectionBackground: '#d4d4d8',
+      };
+}
 
 interface MongoShellProps {
   tab: Extract<WorkspaceTab, { type: 'mongo-shell' }>;
@@ -16,6 +36,7 @@ interface MongoShellProps {
 export function MongoShell({ tab, connectionId }: MongoShellProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string | null>(tab.sessionId ?? null);
+  const theme = useStore(appStore, (state) => state.theme);
 
   const { data: connections } = useConnections();
   const profile = connections?.find((c) => c.id === connectionId);
@@ -48,20 +69,49 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
     if (!terminalContainer || !connectionString) return;
 
     // ---- xterm.js terminal setup ----
+    const dark = theme === 'dark' || document.documentElement.classList.contains('dark');
     const term = new Terminal({
       cursorBlink: true,
       cursorStyle: 'block',
-      fontSize: 13,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+      fontSize: 14,
+      fontFamily:
+        '"Geist Mono Variable", "Geist Mono", "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+      letterSpacing: 0,
+      lineHeight: 1.15,
+      minimumContrastRatio: 7,
+      scrollback: 5000,
       allowProposedApi: true,
       cols: 80,
       rows: 24,
+      theme: makeTheme(dark),
     });
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalContainer);
     fitAddon.fit();
+
+    // Keyboard shortcuts: Ctrl+Shift+C copies, Ctrl+Shift+V pastes.
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== 'keydown' || !event.ctrlKey || !event.shiftKey) {
+        return true;
+      }
+      if (event.key === 'C' || event.key === 'c') {
+        const selection = term.getSelection();
+        if (selection) {
+          void navigator.clipboard.writeText(selection);
+          return false;
+        }
+        return true;
+      }
+      if (event.key === 'V' || event.key === 'v') {
+        void navigator.clipboard.readText().then((text) => {
+          if (text) handleData(text);
+        });
+        return false;
+      }
+      return true;
+    });
 
     term.onData(handleData);
     term.onResize(({ cols, rows }) => handleResize(cols, rows));
@@ -165,11 +215,13 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
       resizeObserver.disconnect();
       term.dispose();
     };
-  }, [connectionString, connectionId, tab.id, handleData, handleResize]);
+  }, [connectionString, connectionId, tab.id, handleData, handleResize, theme]);
+
+  const dark = theme === 'dark' || document.documentElement.classList.contains('dark');
 
   return (
-    <div className="h-full w-full overflow-hidden bg-black">
-      <div ref={terminalRef} className="h-full w-full" />
+    <div className={`h-full w-full overflow-hidden ${dark ? 'bg-zinc-950' : 'bg-zinc-50'}`}>
+      <div ref={terminalRef} className="h-full w-full px-3 py-2" />
     </div>
   );
 }

@@ -9,6 +9,7 @@ export type TerminalPaneApi = {
   readonly getSize: () => TerminalSize;
   readonly reset: () => void;
   readonly write: (data: Uint8Array | string) => void;
+  readonly getSelection: () => string;
 };
 
 type TerminalPaneProps = {
@@ -94,9 +95,33 @@ export function TerminalPane({ active, dark, onInput, onReady, onResize }: Termi
       terminal.open(containerRef.current);
       fitAddon.fit();
 
+      // Keyboard shortcuts: Ctrl+Shift+C copies the selection,
+      // Ctrl+Shift+V pastes from the clipboard into the terminal.
+      terminal.attachCustomKeyEventHandler((event) => {
+        if (event.type !== 'keydown' || !event.ctrlKey || !event.shiftKey) {
+          return true;
+        }
+        if (event.key === 'C' || event.key === 'c') {
+          const selection = terminal.getSelection();
+          if (selection) {
+            void navigator.clipboard.writeText(selection);
+            return false;
+          }
+          return true;
+        }
+        if (event.key === 'V' || event.key === 'v') {
+          void navigator.clipboard.readText().then((text) => {
+            if (text) inputRef.current(text);
+          });
+          return false;
+        }
+        return true;
+      });
+
       dataDisposable = terminal.onData((data) => {
         inputRef.current(data);
       });
+
       resizeObserver = new ResizeObserver(() => {
         if (!activeRef.current) return;
         fitAddon.fit();
@@ -111,6 +136,7 @@ export function TerminalPane({ active, dark, onInput, onReady, onResize }: Termi
         getSize: () => ({ cols: terminal.cols, rows: terminal.rows }),
         reset: () => terminal.reset(),
         write: (data) => terminal.write(data),
+        getSelection: () => terminal.getSelection(),
       });
       emitSize();
       if (activeRef.current) {
@@ -149,7 +175,7 @@ export function TerminalPane({ active, dark, onInput, onReady, onResize }: Termi
   }, [active, emitSize]);
 
   return (
-    <div className={`relative min-h-0 flex-1 ${dark ? 'bg-zinc-950' : 'bg-zinc-50'}`}>
+    <div className={`relative h-full w-full ${dark ? 'bg-zinc-950' : 'bg-zinc-50'}`}>
       <div ref={containerRef} className="h-full w-full px-3 py-2" />
       {booting ? (
         <div

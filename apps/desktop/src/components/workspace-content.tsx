@@ -7,10 +7,13 @@ import { MongoShell } from '@/components/mongo-shell';
 import { MongoView } from '@/components/mongo-view';
 import { ClickhouseClientTab } from '@/components/clickhouse-client-tab';
 import { ClickHouseVecQuery } from '@/components/clickhouse-vec-query';
+import { ClickhouseVecMap } from '@/components/clickhouse-vec-map';
 import { DuckdbCliTab } from '@/components/duckdb-cli-tab';
 import { DuckDbVecQuery } from '@/components/duckdb-vec-query';
+import { DuckdbVecMap } from '@/components/duckdb-vec-map';
 import { OracleVecQuery } from '@/components/oracle-vec-query';
 import { OracleSqlplusTab } from '@/components/oracle-sqlplus-tab';
+import { OracleVecMap } from '@/components/oracle-vec-map';
 import { PostgresPsqlTab } from '@/components/postgres-psql-tab';
 import { PostgresVectorMap } from '@/components/postgres-vector-map';
 import { VectorQuery } from '@/components/vector-query';
@@ -84,6 +87,15 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   }
   if (activeTab.type === 'sqlite-vec-map') {
     return <SqliteVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'oracle-vec-map') {
+    return <OracleVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'duckdb-vec-map') {
+    return <DuckdbVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'clickhouse-vec-map') {
+    return <ClickhouseVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis') {
     return <RedisView key={activeTab.id} connectionId={activeTab.connectionId} />;

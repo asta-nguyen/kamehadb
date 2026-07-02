@@ -1,4 +1,5 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use tauri::AppHandle;
@@ -170,6 +171,11 @@ fn validate_non_empty(value: &str, message: &str) -> Result<String, OracleToolEr
     if trimmed.is_empty() {
         return Err(OracleToolError::InvalidInput(message.into()));
     }
+    if trimmed.chars().any(char::is_control) {
+        return Err(OracleToolError::InvalidInput(format!(
+            "{message}. Control characters are not allowed"
+        )));
+    }
     Ok(trimmed.into())
 }
 
@@ -186,7 +192,18 @@ fn log_file_name(dump_file: &str, suffix: &str) -> String {
 fn write_parameter_file(lines: &[String]) -> Result<PathBuf, OracleToolError> {
     let path = std::env::temp_dir().join(format!("kamehadb-oracle-{}.par", Uuid::new_v4()));
     let contents = lines.join("\n");
-    fs::write(&path, contents).map_err(|error| OracleToolError::ParameterFile(error.to_string()))?;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options
+        .open(&path)
+        .map_err(|error| OracleToolError::ParameterFile(error.to_string()))?;
+    file.write_all(contents.as_bytes())
+        .map_err(|error| OracleToolError::ParameterFile(error.to_string()))?;
     Ok(path)
 }
 

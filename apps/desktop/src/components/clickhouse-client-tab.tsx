@@ -13,8 +13,8 @@ export function ClickhouseClientTab({ active, tab }: ClickhouseClientTabProps) {
       active={active}
       tab={tab}
       sessionKind="clickhouseClient"
-      inactiveMessage="Activate this tab to start the clickhouse-client session."
-      missingConnectionMessage="The ClickHouse connection for this tab was not found."
+      inactiveMessage="Activate this tab to start the shell session."
+      missingConnectionMessage="The connection for this tab was not found."
       startSession={(nextTab, size) =>
         startClickhouseClientSession({
           connectionId: nextTab.connectionId,

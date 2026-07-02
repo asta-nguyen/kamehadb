@@ -2,7 +2,7 @@ use serde::Deserialize;
 use tauri::AppHandle;
 
 use crate::app_logs::append_tauri_log;
-use crate::connection_profile::{load_connection_profile, ConnectionKind, ConnectionProfile};
+use crate::connection_profile::{load_connection_profile, resolve_client_tool, ConnectionKind, ConnectionProfile};
 use crate::terminal_sessions::{
     start_terminal_session, PtyCommandSpec, TerminalSessionKind, TerminalSessionStarted,
     TerminalSessionState, TerminalSize,
@@ -42,7 +42,7 @@ pub async fn start_duckdb_cli_session(
             cols: request.cols,
             rows: request.rows,
         },
-        build_cli_spec(&profile),
+        build_cli_spec(&resolve_client_tool(&app, "duckdb"), &profile),
     )
     .map_err(|error| {
         let message = error.to_string();
@@ -57,7 +57,7 @@ pub async fn start_duckdb_cli_session(
     })
 }
 
-fn build_cli_spec(profile: &ConnectionProfile) -> PtyCommandSpec {
+fn build_cli_spec(program: &str, profile: &ConnectionProfile) -> PtyCommandSpec {
     let mut args = Vec::new();
     if let Some(file_path) = &profile.file_path {
         args.push(file_path.clone());
@@ -75,7 +75,7 @@ fn build_cli_spec(profile: &ConnectionProfile) -> PtyCommandSpec {
         .unwrap_or("in-memory");
 
     PtyCommandSpec {
-        program: "duckdb".into(),
+        program: program.into(),
         args,
         env: vec![],
         initial_input: None,
@@ -88,6 +88,7 @@ fn build_cli_spec(profile: &ConnectionProfile) -> PtyCommandSpec {
 mod tests {
     use super::build_cli_spec;
     use crate::connection_profile::ConnectionProfile;
+
 
     fn profile_with_file() -> ConnectionProfile {
         ConnectionProfile {
@@ -113,14 +114,14 @@ mod tests {
 
     #[test]
     fn duckdb_spec_passes_file_path() {
-        let spec = build_cli_spec(&profile_with_file());
+        let spec = build_cli_spec("duckdb", &profile_with_file());
         assert_eq!(spec.program, "duckdb");
         assert_eq!(spec.args, vec!["/home/user/data.duckdb".to_string()]);
     }
 
     #[test]
     fn duckdb_spec_in_memory_has_no_args() {
-        let spec = build_cli_spec(&profile_in_memory());
+        let spec = build_cli_spec("duckdb", &profile_in_memory());
         assert!(spec.args.is_empty());
     }
 }

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OpenFlags};
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
 
@@ -81,7 +81,7 @@ fn load_from_path(
     connection_id: &str,
     expected_kind: ConnectionKind,
 ) -> Result<ConnectionProfile, ConnectionProfileError> {
-    let conn = Connection::open(path)?;
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let mut stmt = conn.prepare(
         "SELECT kind, host, port, database, username, password, file_path
          FROM connection_profiles
@@ -131,14 +131,52 @@ fn should_fallback(error: &ConnectionProfileError) -> bool {
     )
 }
 
-fn candidate_metadata_paths(app: &AppHandle) -> Result<Vec<PathBuf>, ConnectionProfileError> {
+pub fn resolve_metadata_paths(app: &AppHandle) -> Result<Vec<PathBuf>, String> {
     let app_data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|error| ConnectionProfileError::AppDataDir(error.to_string()))?;
+        .map_err(|error| error.to_string())?;
 
     Ok(vec![
         app_data_dir.join("kamehadb.db"),
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../sidecar/kamehadb.db"),
     ])
+}
+
+pub fn candidate_metadata_paths(app: &AppHandle) -> Result<Vec<PathBuf>, ConnectionProfileError> {
+    resolve_metadata_paths(app).map_err(ConnectionProfileError::AppDataDir)
+}
+
+/// Resolve a CLI tool binary path, checking the client_tool_paths table first,
+/// then falling back to PATH search and common install locations.
+pub fn resolve_client_tool(app: &AppHandle, tool: &str) -> String {
+    // 1. Check client_tool_paths table in metadata DB
+    if let Ok(paths) = candidate_metadata_paths(app) {
+        for db_path in &paths {
+            if let Ok(conn) = Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY) {
+                if let Ok(configured) = conn.query_row(
+                    "SELECT path FROM client_tool_paths WHERE tool = ?1",
+                    params![tool],
+                    |row| row.get::<_, String>(0),
+                ) {
+                    if !configured.is_empty() {
+                        return configured;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Search PATH
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            let candidate = dir.join(tool);
+            if candidate.is_file() {
+                return candidate.to_string_lossy().into_owned();
+            }
+        }
+    }
+
+    // 3. Fall back to bare name
+    tool.into()
 }

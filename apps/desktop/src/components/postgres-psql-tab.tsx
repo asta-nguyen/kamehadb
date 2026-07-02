@@ -13,8 +13,8 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
       active={active}
       tab={tab}
       sessionKind="postgresPsql"
-      inactiveMessage="Activate this tab to start the psql session."
-      missingConnectionMessage="The PostgreSQL connection for this tab was not found."
+      inactiveMessage="Activate this tab to start the shell session."
+      missingConnectionMessage="The connection for this tab was not found."
       startSession={(nextTab, size) =>
         startPostgresPsqlSession({
           connectionId: nextTab.connectionId,

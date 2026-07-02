@@ -13,10 +13,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Oracle Free 23 dev database** — `docker compose up -d` now starts a local Oracle service with the `FREEPDB1` pluggable database and a seeded `kameha` app user.
 - **Oracle vector search** — Oracle connections can now detect `VECTOR` columns, open a dedicated vector-search tab in the desktop app, and run nearest-neighbor queries through the sidecar.
 - **Oracle backup and restore** — the desktop app now exposes Oracle Data Pump backup/restore dialogs and streams `expdp` / `impdp` job output from Tauri.
+- **ClickHouse dev database** — `docker compose up -d clickhouse` starts a local ClickHouse server on port 8123 with `default` user/password and `kamehadb` database.
+- **ClickHouse vector search** — ClickHouse connections can detect vector columns, open a vector-search tab, and run nearest-neighbor queries.
+- **ClickHouse vector map** — 3D vector map view for ClickHouse, mirroring the SQLite/Postgres pattern.
+- **DuckDB vector search** — DuckDB connections can detect vector columns, open a vector-search tab, and run nearest-neighbor queries.
+- **DuckDB vector map** — 3D vector map view for DuckDB.
+- **Oracle vector map** — 3D vector map view for Oracle.
+- **Client Tools page** — detect, configure, and install database CLI tools (`psql`, `pg_dump`, `pg_restore`, `mysql`, `mysqldump`, `mongosh`, `sqlite3`, `sqlcmd`, `sqlplus`, `clickhouse-client`, `duckdb`) from the desktop app header.
+- **Shell restart** — all shell tabs (Mongo, PSQL, SQL\*Plus, ClickHouse, DuckDB) now show a "Start again" button overlay when the session exits or errors.
 
 ### Changed
 
 - **Oracle defaults** — the repo now targets Oracle Free 23 / `FREEPDB1` instead of legacy XE-era service names, aligning Docker, docs, the sidecar adapter, and the desktop SQL\*Plus shell.
+- **Shell tab labels** — all shell tabs now use generic "Shell N" titles instead of engine-specific names ("PSQL N", "SQL\*Plus N", "CH Client N", "DuckDB CLI N", "Mongo Shell N").
+- **Shell dialog messages** — shell tab dialogs now use generic "shell session" / "connection" wording instead of engine-specific names.
+- **Shell dropdown labels** — all sidebar/maintenance menu shell actions now say "Open Shell" instead of engine-specific names.
+- **Ponytail cuts** — removed 489 lines of dead `term-expansion.ts`, removed 6 unused npm deps (`html-to-image`, `next-themes`, `@tanstack/pacer`, `shadcn`, `shadcn-ui`, `@tauri-apps/plugin-opener`), removed 3 unused cargo deps (`keyring`, `tauri-plugin-opener`, `tauri-plugin-shell`), moved `tempfile` to dev-dependencies, replaced `next-themes` with `appStore`, replaced `@tanstack/pacer` with native `setTimeout` debounce, removed `shadcn/tailwind.css` import.
 
 ## [v1.3.4] — 2026-06-28
 

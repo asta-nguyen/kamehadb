@@ -1,5 +1,5 @@
 import type { ConnectionProfile } from '@kamehadb/shared';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -25,6 +25,11 @@ export function ClickHouseRestoreDialog({ connection, open, onOpenChange }: Clic
   const [targetDatabase, setTargetDatabase] = useState(connection.database ?? '');
   const [formError, setFormError] = useState<string | null>(null);
   const restore = useClickHouseRestore(connection.id);
+
+  useEffect(() => {
+    if (!open) return;
+    setTargetDatabase(connection.database ?? '');
+  }, [connection.database, open]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && restore.isPending) return;
@@ -87,9 +92,6 @@ export function ClickHouseRestoreDialog({ connection, open, onOpenChange }: Clic
           </div>
 
           {formError ? <p className="text-xs text-destructive">{formError}</p> : null}
-          {restore.isSuccess ? (
-            <p className="text-xs text-muted-foreground">Restore completed for database: {restore.data.database}</p>
-          ) : null}
         </div>
 
         <DialogFooter>

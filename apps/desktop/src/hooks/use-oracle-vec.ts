@@ -21,3 +21,28 @@ export function useOracleVectorSearch(connectionId: string | null) {
     },
   });
 }
+
+export function useOracleVecSample(connectionId: string | null) {
+  return useMutation({
+    mutationFn: (input: { table: string; column: string }) => {
+      if (!connectionId) return Promise.reject(new Error('No connectionId'));
+      return api.sampleOracleVec(connectionId, input);
+    },
+  });
+}
+
+export function useOracleVecVectorsSample(
+  connectionId: string | null,
+  input: { table: string; column: string; limit: number } | null,
+) {
+  return useQuery({
+    queryKey: ['oracle-vec-vectors-sample', connectionId, input],
+    queryFn: () => {
+      if (!connectionId || !input) throw new Error('Missing vector sample input');
+      return api.sampleOracleVecVectors(connectionId, input);
+    },
+    enabled: !!connectionId && !!input,
+    staleTime: 30000,
+    retry: 1,
+  });
+}

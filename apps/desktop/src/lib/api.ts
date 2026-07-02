@@ -166,6 +166,15 @@ export const api = {
       true,
     ),
 
+  sampleOracleVec: (connectionId: string, input: { table: string; column: string }) =>
+    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/oracle-vec/sample`, input, true),
+
+  sampleOracleVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
+    request<{
+      points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
+      dimensions: number;
+    }>('POST', `/sql/${connectionId}/oracle-vec/vectors/sample`, input, true),
+
   // sqlite-vec API
   getSqliteVecCapabilities: (connectionId: string) =>
     request<import('@kamehadb/shared').SqliteVecCapability>(
@@ -219,6 +228,15 @@ export const api = {
       true,
     ),
 
+  sampleDuckdbVec: (connectionId: string, input: { table: string; column: string }) =>
+    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/duckdb-vec/sample`, input, true),
+
+  sampleDuckdbVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
+    request<{
+      points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
+      dimensions: number;
+    }>('POST', `/sql/${connectionId}/duckdb-vec/vectors/sample`, input, true),
+
   // ClickHouse vector API
   getClickHouseVectorCapabilities: (connectionId: string) =>
     request<import('@kamehadb/shared').ClickHouseVectorCapability>(
@@ -244,6 +262,20 @@ export const api = {
       input,
       true,
     ),
+
+  sampleClickhouseVec: (connectionId: string, input: { table: string; column: string }) =>
+    request<{ vector: number[]; dimensions: number }>(
+      'POST',
+      `/sql/${connectionId}/clickhouse-vec/sample`,
+      input,
+      true,
+    ),
+
+  sampleClickhouseVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
+    request<{
+      points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
+      dimensions: number;
+    }>('POST', `/sql/${connectionId}/clickhouse-vec/vectors/sample`, input, true),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
@@ -417,4 +449,30 @@ export const api = {
       { transfers },
       true,
     ),
+
+  getClientToolPaths: () =>
+    request<
+      Record<
+        string,
+        {
+          configured: string | null;
+          detected: string | null;
+          version: string | null;
+          installCommand: string | null;
+          uninstallCommand: string | null;
+        }
+      >
+    >('GET', '/client-tools/paths'),
+
+  saveClientToolPaths: (paths: Record<string, string>) =>
+    request<{ success: boolean }>('POST', '/client-tools/paths', paths, true),
+
+  resolveClientTool: (tool: string) =>
+    request<{
+      tool: string;
+      configured: string | null;
+      detected: string | null;
+      version: string | null;
+      found: boolean;
+    }>('POST', `/client-tools/resolve/${tool}`),
 };

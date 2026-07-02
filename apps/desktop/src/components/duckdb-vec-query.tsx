@@ -2,21 +2,24 @@ import { useEffect, useMemo, useReducer } from 'react';
 import type { WorkspaceTab } from '@/lib/types';
 import type { DuckDbVectorSearchResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
-import { useDuckDbVectorCapabilities, useDuckDbVectorSearch } from '@/hooks/use-duckdb-vec';
+import { useDuckDbVectorCapabilities, useDuckDbVectorSearch, useDuckdbVecSample } from '@/hooks/use-duckdb-vec';
 import { parseVectorText } from '@/lib/postgres-vector';
 import { PostgresVectorResults } from '@/components/postgres-vector-results';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Play } from 'lucide-react';
+import { Dice5, Loader2, Network, Play } from 'lucide-react';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { openDuckdbVecMapTab } from '@/store';
 import type { PostgresVectorSearchResult } from '@kamehadb/shared';
 
 type DuckDbVecQueryState = {
+  readonly schema: string;
   readonly table: string;
   readonly column: string;
   readonly vectorText: string;
+  readonly sampledVector: number[] | null;
   readonly metric: 'cosine' | 'l2' | 'inner_product';
   readonly limit: number;
   readonly running: boolean;
@@ -26,9 +29,11 @@ type DuckDbVecQueryState = {
 };
 
 type DuckDbVecQueryAction =
+  | { type: 'setSchema'; value: string }
   | { type: 'setTable'; value: string }
   | { type: 'setColumn'; value: string }
   | { type: 'setVectorText'; value: string }
+  | { type: 'setSampledVector'; vector: number[]; display: string }
   | { type: 'setMetric'; value: DuckDbVecQueryState['metric'] }
   | { type: 'setLimit'; value: number }
   | { type: 'startRun' }
@@ -39,12 +44,16 @@ type DuckDbVecQueryAction =
 
 function reducer(state: DuckDbVecQueryState, action: DuckDbVecQueryAction): DuckDbVecQueryState {
   switch (action.type) {
+    case 'setSchema':
+      return { ...state, schema: action.value, table: '', column: '', result: null, info: null, error: null };
     case 'setTable':
       return { ...state, table: action.value, column: '', result: null, info: null, error: null };
     case 'setColumn':
       return { ...state, column: action.value, result: null, info: null, error: null };
     case 'setVectorText':
-      return { ...state, vectorText: action.value };
+      return { ...state, vectorText: action.value, sampledVector: null };
+    case 'setSampledVector':
+      return { ...state, vectorText: action.display, sampledVector: action.vector };
     case 'setMetric':
       return { ...state, metric: action.value };
     case 'setLimit':
@@ -70,13 +79,16 @@ interface DuckDbVecQueryProps {
 }
 
 export function DuckDbVecQuery({ tab, connectionId }: DuckDbVecQueryProps) {
-  const { data: capabilities } = useDuckDbVectorCapabilities(connectionId);
+  const { data: capabilities, isError, error } = useDuckDbVectorCapabilities(connectionId);
   const search = useDuckDbVectorSearch(connectionId);
+  const sample = useDuckdbVecSample(connectionId);
 
   const [state, dispatch] = useReducer(reducer, {
+    schema: tab.schema ?? '',
     table: tab.table ?? '',
     column: tab.column ?? '',
-    vectorText: '',
+    vectorText: tab.vectorText ?? '',
+    sampledVector: null,
     metric: 'cosine',
     limit: 10,
     running: false,
@@ -85,19 +97,33 @@ export function DuckDbVecQuery({ tab, connectionId }: DuckDbVecQueryProps) {
     result: null,
   });
 
-  const vectorTables = useMemo(() => {
+  const schemas = useMemo(() => {
     if (!capabilities?.columns) return [];
-    return [...new Set(capabilities.columns.map((c) => c.tableName))].sort();
+    return [...new Set(capabilities.columns.map((column) => column.tableSchema))].sort();
   }, [capabilities]);
 
-  const vectorColumns = useMemo(() => {
-    if (!capabilities?.columns || !state.table) return [];
-    return capabilities.columns.filter((c) => c.tableName === state.table).sort((a, b) =>
-      a.columnName.localeCompare(b.columnName),
-    );
-  }, [capabilities, state.table]);
+  const vectorTables = useMemo(() => {
+    if (!capabilities?.columns || !state.schema) return [];
+    return [
+      ...new Set(
+        capabilities.columns.filter((column) => column.tableSchema === state.schema).map((column) => column.tableName),
+      ),
+    ].sort();
+  }, [capabilities, state.schema]);
 
-  // Auto-select first table
+  const vectorColumns = useMemo(() => {
+    if (!capabilities?.columns || !state.schema || !state.table) return [];
+    return capabilities.columns
+      .filter((column) => column.tableSchema === state.schema && column.tableName === state.table)
+      .sort((left, right) => left.columnName.localeCompare(right.columnName));
+  }, [capabilities, state.schema, state.table]);
+
+  useEffect(() => {
+    if (!state.schema && schemas.length > 0) {
+      dispatch({ type: 'setSchema', value: schemas[0] });
+    }
+  }, [schemas, state.schema]);
+
   useEffect(() => {
     if (!state.table && vectorTables.length > 0) {
       dispatch({ type: 'setTable', value: vectorTables[0] });
@@ -118,15 +144,20 @@ export function DuckDbVecQuery({ tab, connectionId }: DuckDbVecQueryProps) {
       return;
     }
     let vector: number[];
-    try {
-      vector = parseVectorText(state.vectorText);
-    } catch (error) {
-      dispatch({ type: 'setError', value: error instanceof Error ? error.message : 'Invalid query vector' });
-      return;
+    if (state.sampledVector) {
+      vector = state.sampledVector;
+    } else {
+      try {
+        vector = parseVectorText(state.vectorText);
+      } catch (error) {
+        dispatch({ type: 'setError', value: error instanceof Error ? error.message : 'Invalid query vector' });
+        return;
+      }
     }
     dispatch({ type: 'startRun' });
     try {
       const raw: DuckDbVectorSearchResult = await search.mutateAsync({
+        schema: state.schema,
         table: state.table,
         column: state.column,
         vector,
@@ -157,11 +188,20 @@ export function DuckDbVecQuery({ tab, connectionId }: DuckDbVecQueryProps) {
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Table selector */}
-          <Select
-            value={state.table}
-            onValueChange={(v) => dispatch({ type: 'setTable', value: v ?? '' })}
-          >
+          <Select value={state.schema} onValueChange={(value) => dispatch({ type: 'setSchema', value: value ?? '' })}>
+            <SelectTrigger className="w-32 h-8 text-xs">
+              <SelectValue placeholder="Schema" />
+            </SelectTrigger>
+            <SelectContent>
+              {schemas.map((schema) => (
+                <SelectItem key={schema} value={schema}>
+                  {schema}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={state.table} onValueChange={(v) => dispatch({ type: 'setTable', value: v ?? '' })}>
             <SelectTrigger className="w-40 h-8 text-xs">
               <SelectValue placeholder="Table" />
             </SelectTrigger>
@@ -192,21 +232,6 @@ export function DuckDbVecQuery({ tab, connectionId }: DuckDbVecQueryProps) {
             </SelectContent>
           </Select>
 
-          {/* Metric selector */}
-          <Select
-            value={state.metric}
-            onValueChange={(v) => dispatch({ type: 'setMetric', value: v as DuckDbVecQueryState['metric'] })}
-          >
-            <SelectTrigger className="w-36 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cosine">Cosine</SelectItem>
-              <SelectItem value="l2">L2</SelectItem>
-              <SelectItem value="inner_product">Inner product</SelectItem>
-            </SelectContent>
-          </Select>
-
           {/* Limit */}
           <Input
             type="number"
@@ -217,9 +242,56 @@ export function DuckDbVecQuery({ tab, connectionId }: DuckDbVecQueryProps) {
             className="w-20 h-8 text-xs"
           />
 
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 ml-auto"
+            onClick={async () => {
+              if (!state.table || !state.column) return;
+              dispatch({ type: 'setError', value: null });
+              try {
+                const result = await sample.mutateAsync({ table: state.table, column: state.column });
+                const preview = result.vector.slice(0, 8);
+                const display =
+                  preview.length < result.vector.length
+                    ? `[${preview.join(', ')}, ...] // ${result.dimensions}d`
+                    : `[${preview.join(', ')}]`;
+                dispatch({ type: 'setSampledVector', vector: result.vector, display });
+              } catch (err) {
+                dispatch({ type: 'setError', value: safeErrorMessage(err, 'Failed to sample vector') });
+              }
+            }}
+            disabled={sample.isPending || !state.table || !state.column}
+          >
+            {sample.isPending ? (
+              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Dice5 className="size-3.5 mr-1.5" />
+            )}
+            Sample
+          </Button>
+
           <Button size="sm" className="h-8" onClick={() => void run()} disabled={state.running}>
-            {state.running ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <Play className="size-3.5 mr-1.5" />}
+            {state.running ? (
+              <Loader2 className="size-3.5 animate-spin mr-1.5" />
+            ) : (
+              <Play className="size-3.5 mr-1.5" />
+            )}
             Search
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => {
+              if (!state.table || !state.column) return;
+              openDuckdbVecMapTab(connectionId, { table: state.table, column: state.column });
+            }}
+            disabled={!state.table || !state.column}
+          >
+            <Network className="size-3.5 mr-1.5" />
+            Map
           </Button>
         </div>
 
@@ -232,12 +304,14 @@ export function DuckDbVecQuery({ tab, connectionId }: DuckDbVecQueryProps) {
         />
       </div>
 
-      {state.error ? (
-        <div className="p-3 text-xs text-destructive">{state.error}</div>
-      ) : null}
+      {state.error ? <div className="p-3 text-xs text-destructive">{state.error}</div> : null}
 
-      {!capabilities ? (
+      {!capabilities && !isError ? (
         <div className="p-6 text-center text-sm text-muted-foreground">Loading vector capabilities…</div>
+      ) : isError ? (
+        <div className="p-6 text-center text-sm text-destructive">
+          {safeErrorMessage(error, 'Failed to load vector capabilities')}
+        </div>
       ) : noColumns ? (
         <div className="p-6 text-center text-sm text-muted-foreground">
           No Array(Float) columns found in this DuckDB database. Create a table with a <code>FLOAT[]</code> column to

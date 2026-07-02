@@ -44,7 +44,7 @@ pub fn spawn_session(
         command.env(key, value);
     }
 
-    let child = pair
+    let mut child = pair
         .slave
         .spawn_command(command)
         .map_err(|error| {
@@ -64,12 +64,14 @@ pub fn spawn_session(
         .take_writer()
         .context("Failed to attach a PTY writer")?;
     if let Some(initial_input) = &spec.initial_input {
-        pty_writer
-            .write_all(initial_input.as_bytes())
-            .context("Failed to write the initial PTY input")?;
-        pty_writer
-            .flush()
-            .context("Failed to flush the initial PTY input")?;
+        if let Err(error) = pty_writer.write_all(initial_input.as_bytes()) {
+            let _ = child.kill();
+            return Err(anyhow!(error).context("Failed to write the initial PTY input"));
+        }
+        if let Err(error) = pty_writer.flush() {
+            let _ = child.kill();
+            return Err(anyhow!(error).context("Failed to flush the initial PTY input"));
+        }
     }
     let writer = Arc::new(Mutex::new(pty_writer));
     let master = Arc::new(Mutex::new(pair.master));

@@ -82,3 +82,16 @@ INSERT INTO comments VALUES
   (13, 13, 2, 'This should be required reading.', CURRENT_TIMESTAMP),
   (14, 14, 3, 'Perfect timing, we just hired two people.', CURRENT_TIMESTAMP);
 
+CREATE TABLE article_embeddings (
+  id INTEGER PRIMARY KEY,
+  title VARCHAR NOT NULL,
+  category VARCHAR NOT NULL,
+  embedding FLOAT[3] NOT NULL
+);
+
+INSERT INTO article_embeddings VALUES
+  (1, 'Vector basics', 'ml', [0.10, 0.20, 0.30]),
+  (2, 'Nearest neighbors', 'ml', [0.12, 0.18, 0.27]),
+  (3, 'Finance report', 'business', [0.80, 0.10, 0.05]),
+  (4, 'Marketing copy', 'content', [0.55, 0.42, 0.11]);
+

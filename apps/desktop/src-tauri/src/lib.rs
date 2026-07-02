@@ -1,4 +1,3 @@
-use keyring::Entry;
 use serde::Serialize;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -101,38 +100,10 @@ fn stop_sidecar(state: tauri::State<'_, SidecarState>) -> Result<(), String> {
     Ok(())
 }
 
-// Keychain operations using keyring crate
-#[tauri::command]
-async fn store_credential(
-    service: String,
-    account: String,
-    password: String,
-) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.set_password(&password).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_credential(service: String, account: String) -> Result<String, String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    let password = entry.get_password().map_err(|e| e.to_string())?;
-    Ok(password)
-}
-
-#[tauri::command]
-async fn delete_credential(service: String, account: String) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.delete_credential().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
         .manage(TerminalSessionState::default())
         .manage(OracleJobState::default())
@@ -141,9 +112,6 @@ pub fn run() {
             get_app_data_dir,
             start_sidecar,
             stop_sidecar,
-            store_credential,
-            get_credential,
-            delete_credential,
             start_postgres_psql_session,
             start_oracle_sqlplus_session,
             start_clickhouse_client_session,

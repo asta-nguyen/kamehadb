@@ -1,11 +1,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use rusqlite::{params, Connection};
-use tauri::{AppHandle, Manager};
+use rusqlite::{params, Connection, OpenFlags};
+use tauri::AppHandle;
 use thiserror::Error;
 
 use super::{BackupFormat, BackupScope, StartBackupRequest, StartRestoreRequest};
+use crate::connection_profile::resolve_metadata_paths;
 
 #[derive(Clone, Debug)]
 pub struct PostgresProfile {
@@ -53,7 +54,7 @@ pub fn load_postgres_profile(
 ) -> Result<PostgresProfile, PostgresToolError> {
     let mut last_error = PostgresToolError::MissingConnection;
 
-    for metadata_path in candidate_metadata_paths(app)? {
+    for metadata_path in resolve_metadata_paths(app).map_err(PostgresToolError::AppDataDir)? {
         match load_postgres_profile_from_path(&metadata_path, connection_id) {
             Ok(profile) => return Ok(profile),
             Err(error) if should_fallback(&error) => {
@@ -289,23 +290,11 @@ fn identifier_pattern(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
 
-fn candidate_metadata_paths(app: &AppHandle) -> Result<Vec<PathBuf>, PostgresToolError> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| PostgresToolError::AppDataDir(error.to_string()))?;
-
-    Ok(vec![
-        app_data_dir.join("kamehadb.db"),
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../sidecar/kamehadb.db"),
-    ])
-}
-
 fn load_postgres_profile_from_path(
     metadata_path: &Path,
     connection_id: &str,
 ) -> Result<PostgresProfile, PostgresToolError> {
-    let connection = Connection::open(metadata_path)?;
+    let connection = Connection::open_with_flags(metadata_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     let mut statement = connection.prepare(
         "SELECT kind, host, port, database, username, password, ssl
          FROM connection_profiles

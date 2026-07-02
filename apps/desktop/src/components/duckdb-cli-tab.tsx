@@ -13,8 +13,8 @@ export function DuckdbCliTab({ active, tab }: DuckdbCliTabProps) {
       active={active}
       tab={tab}
       sessionKind="duckdbCli"
-      inactiveMessage="Activate this tab to start the DuckDB CLI session."
-      missingConnectionMessage="The DuckDB connection for this tab was not found."
+      inactiveMessage="Activate this tab to start the shell session."
+      missingConnectionMessage="The connection for this tab was not found."
       startSession={(nextTab, size) =>
         startDuckdbCliSession({
           connectionId: nextTab.connectionId,

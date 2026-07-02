@@ -26,3 +26,28 @@ export function useClickHouseVectorSearch(connectionId: string | null) {
     },
   });
 }
+
+export function useClickhouseVecSample(connectionId: string | null) {
+  return useMutation({
+    mutationFn: (input: { table: string; column: string }) => {
+      if (!connectionId) return Promise.reject(new Error('No connectionId'));
+      return api.sampleClickhouseVec(connectionId, input);
+    },
+  });
+}
+
+export function useClickhouseVecVectorsSample(
+  connectionId: string | null,
+  input: { table: string; column: string; limit: number } | null,
+) {
+  return useQuery({
+    queryKey: ['clickhouse-vec-vectors-sample', connectionId, input],
+    queryFn: () => {
+      if (!connectionId || !input) throw new Error('Missing vector sample input');
+      return api.sampleClickhouseVecVectors(connectionId, input);
+    },
+    enabled: !!connectionId && !!input,
+    staleTime: 30000,
+    retry: 1,
+  });
+}

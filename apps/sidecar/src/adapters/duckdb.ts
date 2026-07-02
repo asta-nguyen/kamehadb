@@ -333,10 +333,14 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
          ORDER BY tc.constraint_name, kcu.ordinal_position`,
       );
       const constraintColMap = new Map<string, string[]>();
+      const primaryConstraintNames = new Set<string>();
       for (const r of constraintRows) {
         const name = r.constraint_name as string;
         if (!constraintColMap.has(name)) constraintColMap.set(name, []);
         constraintColMap.get(name)!.push(r.column_name as string);
+        if (r.constraint_type === 'PRIMARY KEY') {
+          primaryConstraintNames.add(name);
+        }
       }
 
       return rows.map((r) => {
@@ -346,7 +350,7 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
           table,
           columns: constraintColMap.get(name) ?? [],
           unique: !!r.is_unique,
-          primary: !!r.is_primary,
+          primary: primaryConstraintNames.has(name),
           sizeBytes: 0,
           scans: 0,
           reads: 0,
@@ -357,36 +361,20 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
 
     async getDatabaseSizes(schema?: string): Promise<DatabaseSize[]> {
       const s = schema || 'main';
-      // duckdb_tables() has estimated_size (bytes) and column_count; use COUNT(*) for row estimate
       const tableRows = await q<Record<string, unknown>>(
         `SELECT table_name, estimated_size
          FROM duckdb_tables()
          WHERE schema_name = ${escapeDuckDbVal(s)}
          ORDER BY estimated_size DESC NULLS LAST`,
       );
-      const result: DatabaseSize[] = [];
-      for (const r of tableRows) {
-        const table = r.table_name as string;
-        const estimatedSize = Number(r.estimated_size) || 0;
-        let rowEstimate = 0;
-        try {
-          const countRows = await q<Record<string, unknown>>(
-            `SELECT COUNT(*) AS cnt FROM ${escapeId(s)}.${escapeId(table)}`,
-          );
-          rowEstimate = Number(countRows[0]?.cnt) || 0;
-        } catch {
-          rowEstimate = 0;
-        }
-        result.push({
-          schema: s,
-          table,
-          sizeBytes: estimatedSize,
-          indexBytes: 0,
-          totalBytes: estimatedSize,
-          rowEstimate,
-        });
-      }
-      return result;
+      return tableRows.map((row) => ({
+        schema: s,
+        table: row.table_name as string,
+        sizeBytes: 0,
+        indexBytes: 0,
+        totalBytes: 0,
+        rowEstimate: Number(row.estimated_size) || 0,
+      }));
     },
 
     async getActiveConnections(): Promise<ConnectionInfo[]> {

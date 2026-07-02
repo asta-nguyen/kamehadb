@@ -380,7 +380,13 @@ export function createOracleAdapter(connection: {
             i.uniqueness,
             ic.column_name,
             ac.constraint_type,
-            NVL((SELECT SUM(bytes) FROM user_segments s WHERE s.segment_name = i.index_name AND s.segment_type = 'INDEX'), 0) AS index_bytes
+            NVL((
+              SELECT SUM(s.bytes)
+              FROM all_segments s
+              WHERE s.owner = i.owner
+                AND s.segment_name = i.index_name
+                AND s.segment_type = 'INDEX'
+            ), 0) AS index_bytes
           FROM all_indexes i
           JOIN all_ind_columns ic ON ic.index_name = i.index_name AND ic.table_owner = i.owner
           LEFT JOIN all_constraints ac ON ac.index_name = i.index_name AND ac.owner = i.owner AND ac.constraint_type = 'P'
@@ -420,10 +426,21 @@ export function createOracleAdapter(connection: {
           `SELECT
             t.table_name,
             NVL(t.num_rows, 0) AS num_rows,
-            NVL((SELECT SUM(bytes) FROM user_segments s WHERE s.segment_name = t.table_name AND s.segment_type = 'TABLE'), 0) AS table_bytes,
-            NVL((SELECT SUM(s2.bytes) FROM user_segments s2
-                 JOIN user_indexes ix ON s2.segment_name = ix.index_name
-                 WHERE ix.table_name = t.table_name), 0) AS index_bytes
+            NVL((
+              SELECT SUM(s.bytes)
+              FROM all_segments s
+              WHERE s.owner = t.owner
+                AND s.segment_name = t.table_name
+                AND s.segment_type = 'TABLE'
+            ), 0) AS table_bytes,
+            NVL((
+              SELECT SUM(s2.bytes)
+              FROM all_segments s2
+              JOIN all_indexes ix ON s2.owner = ix.owner AND s2.segment_name = ix.index_name
+              WHERE ix.owner = t.owner
+                AND ix.table_name = t.table_name
+                AND s2.segment_type = 'INDEX'
+            ), 0) AS index_bytes
           FROM all_tables t
           WHERE t.owner = :owner
           ORDER BY table_bytes DESC`,

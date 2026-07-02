@@ -309,19 +309,22 @@ export function createClickHouseAdapter(connection: {
          FROM system.processes
          ORDER BY elapsed DESC`,
       );
-      return rows.map((r, idx) => ({
-        pid: idx + 1,
-        usename: r.user || '',
-        applicationName: r.client_name || '',
-        clientAddr: r.client_hostname || null,
-        backendStart: new Date().toISOString(),
-        state: 'active',
-        query: r.query || null,
-        queryStart: null,
-        waitEventType: null,
-        waitEvent: null,
-        durationSeconds: Math.round(r.elapsed) || 0,
-      }));
+      return rows.map((r, idx) => {
+        const startedAt = new Date(Date.now() - Math.max(0, r.elapsed) * 1000).toISOString();
+        return {
+          pid: idx + 1,
+          usename: r.user || '',
+          applicationName: r.client_name || '',
+          clientAddr: r.client_hostname || null,
+          backendStart: startedAt,
+          state: 'active',
+          query: r.query || null,
+          queryStart: startedAt,
+          waitEventType: null,
+          waitEvent: null,
+          durationSeconds: Math.round(r.elapsed) || 0,
+        };
+      });
     },
 
     async close(): Promise<void> {

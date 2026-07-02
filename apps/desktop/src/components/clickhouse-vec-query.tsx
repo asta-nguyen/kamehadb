@@ -2,21 +2,31 @@ import { useEffect, useMemo, useReducer } from 'react';
 import type { WorkspaceTab } from '@/lib/types';
 import type { ClickHouseVectorSearchResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
-import { useClickHouseVectorCapabilities, useClickHouseVectorSearch } from '@/hooks/use-clickhouse-vec';
+import {
+  useClickHouseVectorCapabilities,
+  useClickHouseVectorSearch,
+  useClickhouseVecSample,
+} from '@/hooks/use-clickhouse-vec';
 import { parseVectorText } from '@/lib/postgres-vector';
 import { PostgresVectorResults } from '@/components/postgres-vector-results';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Play } from 'lucide-react';
+import { Dice5, Loader2, Network, Play } from 'lucide-react';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { openClickhouseVecMapTab } from '@/store';
 import type { PostgresVectorSearchResult } from '@kamehadb/shared';
+
+function clampLimit(value: number): number {
+  return Math.min(1000, Math.max(1, value));
+}
 
 type ClickHouseVecQueryState = {
   readonly table: string;
   readonly column: string;
   readonly vectorText: string;
+  readonly sampledVector: number[] | null;
   readonly metric: 'cosine' | 'l2' | 'inner_product';
   readonly limit: number;
   readonly running: boolean;
@@ -28,6 +38,7 @@ type ClickHouseVecQueryAction =
   | { type: 'setTable'; value: string }
   | { type: 'setColumn'; value: string }
   | { type: 'setVectorText'; value: string }
+  | { type: 'setSampledVector'; vector: number[]; display: string }
   | { type: 'setMetric'; value: ClickHouseVecQueryState['metric'] }
   | { type: 'setLimit'; value: number }
   | { type: 'startRun' }
@@ -42,11 +53,13 @@ function reducer(state: ClickHouseVecQueryState, action: ClickHouseVecQueryActio
     case 'setColumn':
       return { ...state, column: action.value, result: null, error: null };
     case 'setVectorText':
-      return { ...state, vectorText: action.value };
+      return { ...state, vectorText: action.value, sampledVector: null };
+    case 'setSampledVector':
+      return { ...state, vectorText: action.display, sampledVector: action.vector };
     case 'setMetric':
       return { ...state, metric: action.value };
     case 'setLimit':
-      return { ...state, limit: action.value };
+      return { ...state, limit: clampLimit(action.value) };
     case 'startRun':
       return { ...state, running: true, error: null };
     case 'finishRun':
@@ -68,11 +81,13 @@ interface ClickHouseVecQueryProps {
 export function ClickHouseVecQuery({ tab, connectionId }: ClickHouseVecQueryProps) {
   const { data: capabilities } = useClickHouseVectorCapabilities(connectionId);
   const search = useClickHouseVectorSearch(connectionId);
+  const sample = useClickhouseVecSample(connectionId);
 
   const [state, dispatch] = useReducer(reducer, {
     table: tab.table ?? '',
     column: tab.column ?? '',
-    vectorText: '',
+    vectorText: tab.vectorText ?? '',
+    sampledVector: null,
     metric: 'cosine',
     limit: 10,
     running: false,
@@ -113,11 +128,15 @@ export function ClickHouseVecQuery({ tab, connectionId }: ClickHouseVecQueryProp
       return;
     }
     let vector: number[];
-    try {
-      vector = parseVectorText(state.vectorText);
-    } catch (error) {
-      dispatch({ type: 'setError', value: error instanceof Error ? error.message : 'Invalid query vector' });
-      return;
+    if (state.sampledVector) {
+      vector = state.sampledVector;
+    } else {
+      try {
+        vector = parseVectorText(state.vectorText);
+      } catch (error) {
+        dispatch({ type: 'setError', value: error instanceof Error ? error.message : 'Invalid query vector' });
+        return;
+      }
     }
     dispatch({ type: 'startRun' });
     try {
@@ -184,34 +203,66 @@ export function ClickHouseVecQuery({ tab, connectionId }: ClickHouseVecQueryProp
             </SelectContent>
           </Select>
 
-          {/* Metric selector */}
-          <Select
-            value={state.metric}
-            onValueChange={(v) => dispatch({ type: 'setMetric', value: v as ClickHouseVecQueryState['metric'] })}
-          >
-            <SelectTrigger className="w-36 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cosine">Cosine distance</SelectItem>
-              <SelectItem value="l2">L2 distance</SelectItem>
-              <SelectItem value="inner_product">Dot product</SelectItem>
-            </SelectContent>
-          </Select>
-
           {/* Limit */}
           <Input
             type="number"
             min={1}
             max={1000}
             value={state.limit}
-            onChange={(e) => dispatch({ type: 'setLimit', value: parseInt(e.target.value) || 10 })}
+            onChange={(e) => dispatch({ type: 'setLimit', value: clampLimit(parseInt(e.target.value, 10) || 10) })}
             className="w-20 h-8 text-xs"
           />
 
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 ml-auto"
+            onClick={async () => {
+              if (!state.table || !state.column) return;
+              dispatch({ type: 'setError', value: null });
+              try {
+                const result = await sample.mutateAsync({ table: state.table, column: state.column });
+                const preview = result.vector.slice(0, 8);
+                const display =
+                  preview.length < result.vector.length
+                    ? `[${preview.join(', ')}, ...] // ${result.dimensions}d`
+                    : `[${preview.join(', ')}]`;
+                dispatch({ type: 'setSampledVector', vector: result.vector, display });
+              } catch (err) {
+                dispatch({ type: 'setError', value: safeErrorMessage(err, 'Failed to sample vector') });
+              }
+            }}
+            disabled={sample.isPending || !state.table || !state.column}
+          >
+            {sample.isPending ? (
+              <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Dice5 className="size-3.5 mr-1.5" />
+            )}
+            Sample
+          </Button>
+
           <Button size="sm" className="h-8" onClick={() => void run()} disabled={state.running}>
-            {state.running ? <Loader2 className="size-3.5 animate-spin mr-1.5" /> : <Play className="size-3.5 mr-1.5" />}
+            {state.running ? (
+              <Loader2 className="size-3.5 animate-spin mr-1.5" />
+            ) : (
+              <Play className="size-3.5 mr-1.5" />
+            )}
             Search
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => {
+              if (!state.table || !state.column) return;
+              openClickhouseVecMapTab(connectionId, { table: state.table, column: state.column });
+            }}
+            disabled={!state.table || !state.column}
+          >
+            <Network className="size-3.5 mr-1.5" />
+            Map
           </Button>
         </div>
 

@@ -51,13 +51,13 @@ pub async fn cancel_job(state: &OracleJobState, job_id: &str) -> Result<(), Orac
         (Arc::clone(&control.child), Arc::clone(&control.cancelled))
     };
 
+    cancelled.store(true, Ordering::SeqCst);
     child
         .lock()
         .await
         .kill()
         .await
         .map_err(|error| OracleToolError::Spawn(error.to_string()))?;
-    cancelled.store(true, Ordering::SeqCst);
     Ok(())
 }
 
