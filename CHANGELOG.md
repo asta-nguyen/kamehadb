@@ -10,6 +10,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **MCP server** — v1.4.
+- **DeepSeek AI provider** — direct DeepSeek API access for DeepSeek-V3 (`deepseek-chat`) and DeepSeek-R1 (`deepseek-reasoner`) models via OpenAI-compatible endpoint.
+- **Gemini AI provider** — Google AI Studio API access for Gemini models (`gemini-2.5-flash`, `gemini-2.5-pro`, etc.) via OpenAI-compatible endpoint.
 
 ## [v1.3.4] — 2026-06-28
 

@@ -447,7 +447,7 @@ aiRouter.post(
     z.object({
       text: z.string().min(1),
       model: z.string().optional(),
-      provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']).optional(),
+      provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini']).optional(),
     }),
   ),
   async (c) => {
@@ -538,12 +538,14 @@ aiRouter.post(
   zValidator(
     'json',
     z.object({
-      activeProvider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']),
+      activeProvider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini']),
       providers: z.object({
         'ollama-local': providerConfigSchema,
         'ollama-cloud': providerConfigSchema,
         openai: providerConfigSchema,
         '9router': providerConfigSchema,
+        deepseek: providerConfigSchema,
+        gemini: providerConfigSchema,
       }),
     }),
   ),
