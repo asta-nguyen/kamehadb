@@ -1,7 +1,7 @@
 {
   "name": "@kamehadb/desktop",
   "private": true,
-  "version": "1.4.0",
+  "version": "1.4.3",
   "type": "module",
   "scripts": {
     "dev": "vite",

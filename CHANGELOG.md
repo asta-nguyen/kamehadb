@@ -11,6 +11,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.4.3] — 2026-07-03
+
+### Fixed
+
+- **pnpm deploy compatibility** — removed unsupported `--legacy` flag from `pnpm deploy` in bundle script, fixing CI builds on pnpm 9+.
+- **Windows bundle script** — `pnpm deploy` now runs with `shell: true` on Windows so `pnpm.cmd` resolves correctly.
+- **Linux AppImage build** — added `libfuse2` to CI dependencies, fixing `linuxdeploy` failure on Ubuntu runners.
+
+---
+
 ## [v1.4.0] — 2026-07-03
 
 ### Added
