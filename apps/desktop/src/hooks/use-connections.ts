@@ -12,10 +12,11 @@ import { safeErrorMessage } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-export function useConnections() {
+export function useConnections(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: QUERY_KEYS.CONNECTIONS,
     queryFn: api.listConnections,
+    enabled: options?.enabled ?? true,
   });
 }
 
