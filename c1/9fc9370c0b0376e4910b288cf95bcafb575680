@@ -1,0 +1,19 @@
+apps/sidecar/scripts/bundle-for-tauri.mjs
+  s_6db619afb45f47::t_c0ecc584210c55 109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c19fc9370c0b0376e4910b288cf95bcafb575680",
+  "prompts": {},
+  "sessions": {
+    "s_6db619afb45f47": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "ab2245cd-12f1-49ce-beb6-82fca183a862",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
