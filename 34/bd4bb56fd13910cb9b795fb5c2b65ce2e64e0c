@@ -1,0 +1,33 @@
+CHANGELOG.md
+  s_6db619afb45f47::t_768829139fa771 14-21
+apps/desktop/src-tauri/Cargo.toml
+  s_6db619afb45f47::t_800f8745944b16 3
+package.json
+  s_6db619afb45f47::t_47d51c3027b971 4
+apps/desktop/package.json
+  s_6db619afb45f47::t_faa8c1e2497c52 4
+apps/desktop/src-tauri/src/lib.rs
+  s_6db619afb45f47::t_be41ec2e8d4639 30-32,247,249
+apps/sidecar/package.json
+  s_6db619afb45f47::t_6bef073be41ccf 4
+packages/shared/package.json
+  s_6db619afb45f47::t_2b5f0dc1ed4db9 4
+apps/desktop/src-tauri/tauri.conf.json
+  s_6db619afb45f47::t_98f089ab509ad8 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "34bd4bb56fd13910cb9b795fb5c2b65ce2e64e0c",
+  "prompts": {},
+  "sessions": {
+    "s_6db619afb45f47": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "ab2245cd-12f1-49ce-beb6-82fca183a862",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
