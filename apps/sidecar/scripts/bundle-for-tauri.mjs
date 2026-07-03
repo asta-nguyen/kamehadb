@@ -101,7 +101,6 @@ try {
     'deploy',
     '--filter', '@kamehadb/sidecar',
     '--prod',
-    '--legacy',
     outDir,
   ], {
     cwd: workspaceRoot,
