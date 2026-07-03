@@ -1,0 +1,118 @@
+apps/sidecar/package.json
+  s_0e33ddbd167119::t_ee0b75dc74ef6f 4
+  s_0e33ddbd167119::t_7ba2da4f9f56bb 9
+apps/desktop/package.json
+  s_0e33ddbd167119::t_0177931e85cd46 4
+apps/sidecar/scripts/bundle-for-tauri.mjs
+  s_0e53855c4d4521::t_24a0531c11f836 53-79,146
+  s_0e53855c4d4521::t_10bd9dbec0d21b 82-85,98,105,119,158
+  s_0e53855c4d4521::t_977a4793eeed0b 1-11,31-52,143-145
+  s_0e33ddbd167119::t_544ea87f9431a5 88,95-97,99-103,106-113,117-118,150-151
+  s_0e53855c4d4521::t_37fe0a3164b385 13,20,120-125
+  s_0e33ddbd167119::t_723954f80a3d42 14-19,21,80-81,86-87,89-92,114,116,152-157,159-160
+  s_0e53855c4d4521::t_d1ffef63454c5d 147-148
+  s_0e33ddbd167119::t_b87c62edad8a93 12
+  s_0e53855c4d4521::t_deb821a33925ef 22-30,126-129,131,133-135,140
+  s_0e33ddbd167119::t_9fa254ef9b2a3f 104
+  s_0e33ddbd167119::t_b10dc9a613a610 93-94,130
+  s_0e53855c4d4521::t_4e6bcc270b8686 115
+  s_0e53855c4d4521::t_3d2645d4098d0b 132,136-139,141-142,149
+apps/desktop/src-tauri/src/app_logs.rs
+  s_0e53855c4d4521::t_f4d482771e4fab 70-73,75-78,124-128,293-296
+package.json
+  s_0e33ddbd167119::t_54eeee3fcdb98a 13
+  s_0e33ddbd167119::t_f44d2c4dcc41a7 4
+apps/desktop/src-tauri/src/postgres_psql/mod.rs
+  s_0e53855c4d4521::t_f4d482771e4fab 25-35
+apps/desktop/src-tauri/Cargo.toml
+  s_0e33ddbd167119::t_f31c50b113d2be 30
+  s_0e33ddbd167119::t_d51e9fd4ee65d8 3
+apps/desktop/src-tauri/tauri.conf.json
+  s_0e33ddbd167119::t_70d70517c7339c 29-30
+  s_0e33ddbd167119::t_269e92b12d58ec 4
+  s_0e33ddbd167119::t_aeb386fb3d13f5 8
+apps/desktop/src-tauri/src/lib.rs
+  s_0e53855c4d4521::t_895b4297d4a34f 4,260,295-298,356-367
+  s_0e53855c4d4521::t_2baf7ebf9fd033 29,71-76,87-89,135-145,203-206,211,213,216,218
+  s_0e53855c4d4521::t_8aed92c4cf85e0 31-37,164-166,168-171,179-194,309,372-374,377,468-470
+  s_0e53855c4d4521::t_76b132c414b984 53-54,148-155,157-158,202
+  s_0e33ddbd167119::t_69e38a3463279b 67,126,146-147,167,195-197,219,227,244,258-259,261-262,264,277-278,281-285,302,306
+  s_0e53855c4d4521::t_f4d482771e4fab 156,201,207,214-215,330-337
+  s_0e53855c4d4521::t_6a45274dc16419 3,6,28,57-59,61-66,68-70,77-86,90-125,127-134,220-226
+  s_0e53855c4d4521::t_9a8d8e021dccea 265,279,293-294,299,303-305
+  s_0e53855c4d4521::t_001d2a1a2631f2 5,26-27,243,247,322-329,338-339
+  s_0e53855c4d4521::t_92c03465952cd6 22-23,172-178,228-241
+  s_0e53855c4d4521::t_6cac20be4497b6 217
+  s_0e53855c4d4521::t_c1055e69595de9 7,9,263,266-276,280,286-292,300-301,340-355
+  s_0e33ddbd167119::t_300d534ae105cc 417-444,463-467,471-475
+  s_0e53855c4d4521::t_7fd8ad465f9b92 30,52,55-56,60,209-210,212
+  s_0e53855c4d4521::t_91363775682fe4 24,208,368
+apps/desktop/src/hooks/use-sidecar.ts
+  s_0e33ddbd167119::t_7bc2c2cea17879 1-67
+AGENTS.md
+  s_6db619afb45f47::t_f5e60c77394433 480-486
+  s_6db619afb45f47::t_3936265240e471 487
+.agents/bump-version.md
+  s_6db619afb45f47::t_646f5ba737ccd9 1-130
+  s_6db619afb45f47::t_cdf7520b5986c9 131-133
+.gitignore
+  s_0e33ddbd167119::t_396f8af4c233b9 35-36,38
+  s_0e33ddbd167119::t_58974a5e5ff0a4 37
+packages/shared/package.json
+  s_0e33ddbd167119::t_8488e4765fc3b9 6-7,9
+  s_0e33ddbd167119::t_55ddf8cc8eb854 4
+apps/desktop/src/hooks/use-connections.ts
+  s_0e33ddbd167119::t_1665a539b1fdab 15,19
+apps/desktop/src/App.tsx
+  s_0e33ddbd167119::t_8ec9aa6066e741 28
+  s_0e33ddbd167119::t_73c3020a12cd15 369-376,378-392
+  s_0e33ddbd167119::t_7589a2fc6cc0c3 377
+  s_0e33ddbd167119::t_d5242a8d1c7ea2 149
+  s_0e33ddbd167119::t_e809521288eac2 170-172
+CHANGELOG.md
+  s_0e33ddbd167119::t_83f1c7008a9923 12-15
+  s_6db619afb45f47::t_d3ab5f4e706aba 18-20,24-26
+  s_0e53855c4d4521::t_8aed92c4cf85e0 22
+  s_0e33ddbd167119::t_6575971ea73fea 10-11
+apps/desktop/src-tauri/src/postgres_tools/config.rs
+  s_0e53855c4d4521::t_f4d482771e4fab 217-231
+apps/desktop/src-tauri/src/postgres_tools/mod.rs
+  s_0e53855c4d4521::t_f4d482771e4fab 11-15
+apps/desktop/src/lib/api-client.ts
+  s_0e33ddbd167119::t_e90ae3d7f5be25 6,12-14
+  s_0e33ddbd167119::t_4b9b80fd949ce8 15-16
+apps/desktop/src-tauri/Cargo.lock
+  s_0e53855c4d4521::t_8bba4fc09811e8 861-866,923-928,1918,1935,4607-4618,5087-5092
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a4904c8202e7e3be197d6fc2c588405dec57a059",
+  "prompts": {},
+  "sessions": {
+    "s_0e33ddbd167119": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "f0cdd81a-2700-4319-92b8-51f39d800659",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_0e53855c4d4521": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f2616-85d4-7403-b1bc-deab8d5eb59f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_6db619afb45f47": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "ab2245cd-12f1-49ce-beb6-82fca183a862",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
