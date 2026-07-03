@@ -106,6 +106,7 @@ try {
     cwd: workspaceRoot,
     stdio: 'pipe',
     encoding: 'utf-8',
+    shell: process.platform === 'win32',
   });
 } catch (err) {
   console.error('[bundle-sidecar] pnpm deploy failed:', err.stderr || err.message);
