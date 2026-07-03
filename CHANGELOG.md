@@ -11,13 +11,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.4.4] — 2026-07-03
+
+### Fixed
+
+- **Linux release bundles** — temporarily disabled AppImage packaging in CI while `linuxdeploy` is unreliable; Linux releases still publish `.deb` and `.rpm`. Issue tracked in [#14796](https://github.com/tauri-apps/tauri/issues/14796).
+
+---
+
 ## [v1.4.3] — 2026-07-03
 
 ### Fixed
 
 - **pnpm deploy compatibility** — removed unsupported `--legacy` flag from `pnpm deploy` in bundle script, fixing CI builds on pnpm 9+.
 - **Windows bundle script** — `pnpm deploy` now runs with `shell: true` on Windows so `pnpm.cmd` resolves correctly.
-- **Linux AppImage build** — added `libfuse2` to CI dependencies, fixing `linuxdeploy` failure on Ubuntu runners.
+- **Linux release bundles** — temporarily disabled AppImage packaging in CI while `linuxdeploy` is unreliable; Linux releases still publish `.deb` and `.rpm`.
 
 ---
 
