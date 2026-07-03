@@ -7,9 +7,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- **MCP server**
+
+---
+
+## [v1.4.0] — 2026-07-03
+
 ### Added
 
-- **MCP server** — v1.4.
+- **Bundled sidecar** — sidecar `dist/`, production `node_modules/`, and Node.js runtime are bundled into the Tauri app. The sidecar auto-starts on launch and is cleaned up on exit — no manual `pnpm dev:sidecar` needed.
+- **Shared package build** — `@kamehadb/shared` compiles to JS so the sidecar resolves it at runtime.
+- **Sidecar loading screen** — spinner while the sidecar starts, with an error screen if Node.js is missing or startup fails.
+
+### Fixed
+
+- **Sidecar port detection** — `start_sidecar` reads the runtime port from stdout instead of hardcoding 3170; Tauri allocates a concrete port before spawning instead of `PORT=0`.
+- **Packaged sidecar stability** — stdout/stderr are drained after port detection, pnpm symlinks are materialized before bundling, and stale sidecar handles are discarded before restart.
+- **Frontend query gating** — TanStack Query waits for the sidecar to be ready before firing requests, preventing "Load failed" errors on app launch.
 
 ## [v1.3.4] — 2026-06-28
 
