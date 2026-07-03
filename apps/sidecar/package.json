@@ -29,7 +29,6 @@
     "oracledb": "^7.0.0",
     "pg": "^8",
     "pino": "^9",
-    "pino-pretty": "^13",
     "sqlite-vec": "^0.1.9",
     "tigerbeetle-node": "0.17.4",
     "zod": "^3"

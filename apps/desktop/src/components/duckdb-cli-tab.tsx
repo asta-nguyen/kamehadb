@@ -1,6 +1,6 @@
 import type { WorkspaceTab } from '@/lib/types';
 import { DatabaseShellTab } from '@/components/database-shell-tab';
-import { startDuckdbCliSession } from '@/lib/duckdb-cli';
+import { startDuckdbCliSession } from '@/lib/terminal-clients';
 
 type DuckdbCliTabProps = {
   readonly active: boolean;

@@ -1,6 +1,6 @@
 import type { WorkspaceTab } from '@/lib/types';
 import { DatabaseShellTab } from '@/components/database-shell-tab';
-import { startClickhouseClientSession } from '@/lib/clickhouse-client';
+import { startClickhouseClientSession } from '@/lib/terminal-clients';
 
 type ClickhouseClientTabProps = {
   readonly active: boolean;

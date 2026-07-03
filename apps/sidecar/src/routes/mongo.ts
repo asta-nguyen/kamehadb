@@ -10,7 +10,8 @@ import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
 import { KIND } from '@kamehadb/shared';
-import { handleError, safeErrorMessage, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();

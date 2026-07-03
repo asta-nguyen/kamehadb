@@ -32,7 +32,7 @@ import {
 } from '../lib/file-database-maintenance.js';
 import { invalidateAdapterCache } from './sql.js';
 import { log } from '../lib/logger.js';
-import { safeErrorMessage } from '../lib/route-utils.js';
+import { safeErrorMessage } from '@kamehadb/shared';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({

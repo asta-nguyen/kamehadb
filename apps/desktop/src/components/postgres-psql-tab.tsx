@@ -1,6 +1,6 @@
 import type { WorkspaceTab } from '@/lib/types';
 import { DatabaseShellTab } from '@/components/database-shell-tab';
-import { startPostgresPsqlSession } from '@/lib/postgres-psql';
+import { startPostgresPsqlSession } from '@/lib/terminal-clients';
 
 type PostgresPsqlTabProps = {
   readonly active: boolean;

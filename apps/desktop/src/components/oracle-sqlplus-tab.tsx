@@ -1,6 +1,6 @@
 import type { WorkspaceTab } from '@/lib/types';
 import { DatabaseShellTab } from '@/components/database-shell-tab';
-import { startOracleSqlplusSession } from '@/lib/oracle-sqlplus';
+import { startOracleSqlplusSession } from '@/lib/terminal-clients';
 
 type OracleSqlplusTabProps = {
   readonly active: boolean;

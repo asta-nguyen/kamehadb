@@ -1,15 +1,6 @@
-import { httpError } from './route-utils.js';
-import { quoteSqlIdentifier as sharedQuoteSqlIdentifier } from '@kamehadb/shared';
 import { type CompiledFilter, type SafeFilterValue, splitFilterClauses, parseFilterClause } from './filter-parser.js';
 
 export { type CompiledFilter, type SafeFilterValue };
-
-export function quoteSqlIdentifier(identifier: string): string {
-  if (!identifier.trim()) {
-    throw httpError('SQL identifier cannot be empty', 400);
-  }
-  return sharedQuoteSqlIdentifier(identifier);
-}
 
 export function buildSafeFilterClause(filter: string, startIndex = 1): CompiledFilter | null {
   const trimmed = filter.trim();
