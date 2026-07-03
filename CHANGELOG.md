@@ -11,6 +11,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.4.5] — 2026-07-03
+
+### Fixed
+
+- **Windows sidecar startup** — bundled Node.js binary now resolves with `.exe` extension on Windows, and sidecar path uses forward slashes to prevent `realpathSync` truncation.
+
+---
+
 ## [v1.4.4] — 2026-07-03
 
 ### Fixed

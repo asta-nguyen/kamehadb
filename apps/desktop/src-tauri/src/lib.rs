@@ -27,6 +27,9 @@ const AUTO_ASSIGN_PORT: u16 = 0;
 const SIDECAR_HOST: &str = "127.0.0.1";
 const MAX_SUPPORTED_NODE_MAJOR: u32 = 22;
 const NODE_ABI_FILE: &str = "node-abi.txt";
+#[cfg(windows)]
+const BUNDLED_NODE_PATH: &str = "node/bin/node.exe";
+#[cfg(not(windows))]
 const BUNDLED_NODE_PATH: &str = "node/bin/node";
 
 struct SidecarProcess {
@@ -241,8 +244,9 @@ async fn start_sidecar(
     );
 
     let requested_port = allocate_sidecar_port(&app)?;
+    let sidecar_arg = sidecar_path.to_string_lossy().replace('\\', "/");
     let mut child = Command::new(&node_bin)
-        .arg(&sidecar_path)
+        .arg(&sidecar_arg)
         .env("KAMEHADB_DATA_DIR", data_dir.to_string_lossy().to_string())
         .env("PORT", requested_port.to_string())
         .stdout(std::process::Stdio::piped())
