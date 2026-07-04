@@ -34,6 +34,8 @@ import {
   openSqliteVecSearchTab,
   openPostgresVectorSearchTab,
   openMysqlVectorSearchTab,
+  openPostgresPsqlTab,
+  openMysqlShellTab,
   appStore,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
@@ -221,11 +223,20 @@ export const SQL_TAB_ACTIONS: TabAction[] = [
 ];
 
 export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAction[]>> = {
-  [KIND.POSTGRES]: [{ label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab }],
+  [KIND.POSTGRES]: [
+    { label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab },
+    { label: 'Shell', icon: Terminal, open: openPostgresPsqlTab },
+  ],
   qdrant: [{ label: 'Vector Search', icon: Search, open: openQdrantSearchTab }],
   sqlite: [{ label: 'Vector Search', icon: Search, open: openSqliteVecSearchTab }],
-  [KIND.MYSQL]: [{ label: 'Vector Search', icon: Search, open: openMysqlVectorSearchTab }],
-  [KIND.MARIADB]: [{ label: 'Vector Search', icon: Search, open: openMysqlVectorSearchTab }],
+  [KIND.MYSQL]: [
+    { label: 'Vector Search', icon: Search, open: openMysqlVectorSearchTab },
+    { label: 'Shell', icon: Terminal, open: openMysqlShellTab },
+  ],
+  [KIND.MARIADB]: [
+    { label: 'Vector Search', icon: Search, open: openMysqlVectorSearchTab },
+    { label: 'Shell', icon: Terminal, open: openMysqlShellTab },
+  ],
   mongodb: [
     { label: 'Shell', icon: Terminal, open: openMongoShellTab },
     {

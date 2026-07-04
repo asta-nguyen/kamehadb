@@ -23,6 +23,7 @@ use postgres_tools::{
 use mysql_tools::{
     cancel_mysql_job, start_mysql_backup, start_mysql_restore, MysqlJobState,
 };
+use tool_paths::check_tool_installed;
 
 struct SidecarState(Mutex<Option<Child>>);
 
@@ -122,6 +123,7 @@ pub fn run() {
             append_frontend_log,
             read_app_logs,
             clear_app_logs,
+            check_tool_installed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

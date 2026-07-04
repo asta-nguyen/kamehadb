@@ -21,7 +21,8 @@ function tabIcon(tabType: string) {
     tabType === 'redis-query' ||
     tabType === 'migration' ||
     tabType === 'postgres-psql' ||
-    tabType === 'mysql-shell'
+    tabType === 'mysql-shell' ||
+    tabType === 'mongo-shell'
   )
     return <Terminal className="size-3" />;
   if (

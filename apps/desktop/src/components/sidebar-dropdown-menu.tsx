@@ -9,7 +9,17 @@ import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
 import { KIND, type ConnectionProfile } from '@kamehadb/shared';
-import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
+import {
+  Download,
+  MoreVertical,
+  Pin,
+  PinOff,
+  Settings2,
+  Sparkles,
+  Trash2,
+  Upload,
+  type LucideIcon,
+} from 'lucide-react';
 
 function activate(connId: string, action: (id: string) => void) {
   setActiveConnection(connId);
@@ -17,7 +27,7 @@ function activate(connId: string, action: (id: string) => void) {
 }
 
 type MaintenanceAction = {
-  readonly icon: typeof Terminal;
+  readonly icon: LucideIcon;
   readonly label: string;
   readonly onSelect: () => void;
 };
@@ -27,13 +37,10 @@ function getMaintenanceActions(args: {
   readonly onBackup: () => void;
   readonly onMysqlBackup: () => void;
   readonly onMysqlRestore: () => void;
-  readonly onOpenMysqlShell: () => void;
-  readonly onOpenPsql: () => void;
   readonly onRestore: () => void;
 }): readonly MaintenanceAction[] {
   if (args.kind === KIND.POSTGRES) {
     return [
-      { icon: Terminal, label: 'Open Shell', onSelect: args.onOpenPsql },
       { icon: Download, label: 'Backup', onSelect: args.onBackup },
       { icon: Upload, label: 'Restore', onSelect: args.onRestore },
     ];
@@ -41,7 +48,6 @@ function getMaintenanceActions(args: {
 
   if (args.kind === KIND.MYSQL || args.kind === KIND.MARIADB) {
     return [
-      { icon: Terminal, label: 'Open Shell', onSelect: args.onOpenMysqlShell },
       { icon: Download, label: 'Backup', onSelect: args.onMysqlBackup },
       { icon: Upload, label: 'Restore', onSelect: args.onMysqlRestore },
     ];
@@ -56,10 +62,8 @@ export function ConnectionDropdownMenu({
   pinned,
   onEdit,
   onDelete,
-  onOpenPsql,
   onBackup,
   onRestore,
-  onOpenMysqlShell,
   onMysqlBackup,
   onMysqlRestore,
 }: {
@@ -68,10 +72,8 @@ export function ConnectionDropdownMenu({
   pinned: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onOpenPsql: () => void;
   onBackup: () => void;
   onRestore: () => void;
-  onOpenMysqlShell: () => void;
   onMysqlBackup: () => void;
   onMysqlRestore: () => void;
 }) {
@@ -80,8 +82,6 @@ export function ConnectionDropdownMenu({
     onBackup,
     onMysqlBackup,
     onMysqlRestore,
-    onOpenMysqlShell,
-    onOpenPsql,
     onRestore,
   });
 

@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **MySQL/MariaDB vector search** — vector similarity search over JSON-array columns with JS-side distance computation (cosine and L2). Includes capabilities discovery, vector sampling, and structured filtering. Reuses the `vector-query.tsx` UI via a new `isTableOnly` abstraction shared with sqlite-vec.
 - **MySQL/MariaDB vector sample data** — seed files now include a `documents` table with 4-dimensional JSON-array embeddings so the vector search Sample button works out of the box.
 - **Client Tools status page** — read-only dashboard showing detected database client binaries (`psql`, `pg_dump`, `pg_restore`, `mysql`, `mysqldump`, `mongosh`) with their paths, versions, and OS-specific install/uninstall command hints. Detects the package manager (pacman, apt, dnf, brew, choco) and shows the correct command for each tool. Accessible via the "Client Tools" button in the header.
+- **MySQL/MariaDB shell tool-not-installed reminder** — opening a MySQL or MariaDB shell tab now proactively checks (via a new `check_tool_installed` Tauri command) whether the `mysql`/`mariadb` CLI is installed before launching. If missing, a UI overlay shows the tool name, a platform-specific install command, and a "Try anyway" button to proceed with the launch attempt.
 
 ### Fixed
 
