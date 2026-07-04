@@ -5,25 +5,22 @@ import type {
   SchemaDiffResult,
   SchemaIndexSnapshot,
 } from '@kamehadb/shared';
-
-function quoteIdent(identifier: string): string {
-  return `"${identifier.replaceAll('"', '""')}"`;
-}
+import { quoteSqlIdentifier } from '@kamehadb/shared';
 
 function quoteTableId(tableId: string): string {
   return tableId
     .split('.')
     .filter((part) => part.length > 0)
-    .map((part) => quoteIdent(part))
+    .map((part) => quoteSqlIdentifier(part))
     .join('.');
 }
 
 function formatColumns(columns: readonly string[]): string {
-  return columns.map((column) => quoteIdent(column)).join(', ');
+  return columns.map((column) => quoteSqlIdentifier(column)).join(', ');
 }
 
 function formatColumnDefinition(column: SchemaColumnSnapshot, includePrimaryKey: boolean): string {
-  const parts = [quoteIdent(column.name), column.type];
+  const parts = [quoteSqlIdentifier(column.name), column.type];
   if (includePrimaryKey && column.primaryKey) parts.push('PRIMARY KEY');
   if (!column.nullable) parts.push('NOT NULL');
   if (column.default !== null) parts.push(`DEFAULT ${column.default}`);
@@ -32,15 +29,15 @@ function formatColumnDefinition(column: SchemaColumnSnapshot, includePrimaryKey:
 
 function buildCreateIndex(tableId: string, index: SchemaIndexSnapshot): string {
   const unique = index.unique ? 'UNIQUE ' : '';
-  return `CREATE ${unique}INDEX ${quoteIdent(index.name)} ON ${quoteTableId(tableId)} (${formatColumns(index.columns)});`;
+  return `CREATE ${unique}INDEX ${quoteSqlIdentifier(index.name)} ON ${quoteTableId(tableId)} (${formatColumns(index.columns)});`;
 }
 
 function buildDropIndex(tableId: string, _index: SchemaIndexSnapshot, dialect: string): string {
   // MySQL / MariaDB require "ON tableName" for DROP INDEX
   if (dialect === 'mysql') {
-    return `DROP INDEX ${quoteIdent(_index.name)} ON ${quoteTableId(tableId)};`;
+    return `DROP INDEX ${quoteSqlIdentifier(_index.name)} ON ${quoteTableId(tableId)};`;
   }
-  return `DROP INDEX IF EXISTS ${quoteIdent(_index.name)};`;
+  return `DROP INDEX IF EXISTS ${quoteSqlIdentifier(_index.name)};`;
 }
 
 function pushColumnChangeStatements(statements: string[], tableId: string, columnDiff: SchemaColumnDiff): void {
@@ -50,36 +47,36 @@ function pushColumnChangeStatements(statements: string[], tableId: string, colum
     );
     if (columnDiff.column.primaryKey)
       statements.push(
-        `-- Review primary key change for ${quoteTableId(tableId)}.${quoteIdent(columnDiff.column.name)} manually.`,
+        `-- Review primary key change for ${quoteTableId(tableId)}.${quoteSqlIdentifier(columnDiff.column.name)} manually.`,
       );
     return;
   }
   if (columnDiff.type === 'removed') {
-    statements.push(`ALTER TABLE ${quoteTableId(tableId)} DROP COLUMN ${quoteIdent(columnDiff.column.name)};`);
+    statements.push(`ALTER TABLE ${quoteTableId(tableId)} DROP COLUMN ${quoteSqlIdentifier(columnDiff.column.name)};`);
     return;
   }
 
   for (const change of columnDiff.changes) {
     if (change.field === 'type') {
       statements.push(
-        `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteIdent(columnDiff.columnName)} TYPE ${columnDiff.after.type};`,
+        `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteSqlIdentifier(columnDiff.columnName)} TYPE ${columnDiff.after.type};`,
       );
     }
     if (change.field === 'nullable') {
       statements.push(
-        `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteIdent(columnDiff.columnName)} ${columnDiff.after.nullable ? 'DROP' : 'SET'} NOT NULL;`,
+        `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteSqlIdentifier(columnDiff.columnName)} ${columnDiff.after.nullable ? 'DROP' : 'SET'} NOT NULL;`,
       );
     }
     if (change.field === 'default') {
       statements.push(
         columnDiff.after.default === null
-          ? `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteIdent(columnDiff.columnName)} DROP DEFAULT;`
-          : `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteIdent(columnDiff.columnName)} SET DEFAULT ${columnDiff.after.default};`,
+          ? `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteSqlIdentifier(columnDiff.columnName)} DROP DEFAULT;`
+          : `ALTER TABLE ${quoteTableId(tableId)} ALTER COLUMN ${quoteSqlIdentifier(columnDiff.columnName)} SET DEFAULT ${columnDiff.after.default};`,
       );
     }
     if (change.field === 'primaryKey') {
       statements.push(
-        `-- Review primary key change for ${quoteTableId(tableId)}.${quoteIdent(columnDiff.columnName)} manually.`,
+        `-- Review primary key change for ${quoteTableId(tableId)}.${quoteSqlIdentifier(columnDiff.columnName)} manually.`,
       );
     }
   }
@@ -96,7 +93,7 @@ export function generateMigrationFromDiff(diff: SchemaDiffResult, dialect = 'pos
         .map((column) => `  ${formatColumnDefinition(column, !hasCompositePk)}`)
         .join(',\n');
       const pkClause = hasCompositePk
-        ? `,\n  PRIMARY KEY (${pkColumns.map((c) => quoteIdent(c.name)).join(', ')})`
+        ? `,\n  PRIMARY KEY (${pkColumns.map((c) => quoteSqlIdentifier(c.name)).join(', ')})`
         : '';
       statements.push(`CREATE TABLE ${quoteTableId(tableDiff.tableId)} (\n${createColumns}${pkClause}\n);`);
       for (const index of tableDiff.table.indexes.filter((value) => !value.primary))

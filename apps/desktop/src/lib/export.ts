@@ -1,4 +1,5 @@
 import type { QueryResult } from '@kamehadb/shared';
+import { quoteSqlIdentifier } from '@kamehadb/shared';
 
 export type ExportFormat = 'csv' | 'json' | 'sql';
 
@@ -38,19 +39,15 @@ function exportToJSON(result: QueryResult): string {
   return JSON.stringify(data, null, 2);
 }
 
-function escapeIdentifier(id: string): string {
-  return `"${id.replace(/"/g, '""')}"`;
-}
-
 function exportToSQL(result: QueryResult, tableName = 'exported_data'): string {
   if (result.columns.length === 0 || result.rows.length === 0) {
     return `-- No data to export`;
   }
 
-  const columns = result.columns.map((col) => escapeIdentifier(col.name)).join(', ');
+  const columns = result.columns.map((col) => quoteSqlIdentifier(col.name)).join(', ');
   const statements = result.rows.map((row) => {
     const values = result.columns.map((col) => valueToSQL(row[col.name])).join(', ');
-    return `INSERT INTO ${escapeIdentifier(tableName)} (${columns}) VALUES (${values});`;
+    return `INSERT INTO ${quoteSqlIdentifier(tableName)} (${columns}) VALUES (${values});`;
   });
 
   return [`-- Export from ${tableName}`, `-- ${result.rows.length} rows`, '', ...statements].join('\n');

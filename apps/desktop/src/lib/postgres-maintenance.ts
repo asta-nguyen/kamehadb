@@ -72,13 +72,6 @@ const BACKUP_EXTENSION: Record<PostgresBackupFormat, string> = {
   tar: 'tar',
 };
 
-class PostgresMaintenanceError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'PostgresMaintenanceError';
-  }
-}
-
 export function defaultBackupPath(connection: ConnectionProfile, format: PostgresBackupFormat): string {
   const date = new Date().toISOString().slice(0, 10);
   const baseName = (connection.database || connection.name || 'postgres-backup').replace(/[^a-zA-Z0-9._-]+/g, '-');
@@ -90,7 +83,7 @@ export async function pickBackupDestination(
   format: PostgresBackupFormat,
 ): Promise<string | null> {
   if (!isTauriRuntime()) {
-    throw new PostgresMaintenanceError('Backup is only available in the Tauri desktop app');
+    throw new Error('Backup is only available in the Tauri desktop app');
   }
   const { save } = await import('@tauri-apps/plugin-dialog');
   const selected = await save({
@@ -108,7 +101,7 @@ export async function pickBackupDestination(
 
 export async function pickRestoreInput(): Promise<string | null> {
   if (!isTauriRuntime()) {
-    throw new PostgresMaintenanceError('Restore is only available in the Tauri desktop app');
+    throw new Error('Restore is only available in the Tauri desktop app');
   }
   const { open } = await import('@tauri-apps/plugin-dialog');
   const selected = await open({
