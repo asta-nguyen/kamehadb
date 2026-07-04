@@ -7,6 +7,15 @@ export type StartTerminalClientRequest = {
   readonly rows: number;
 };
 
+export type ToolCheckResult = {
+  readonly installed: boolean;
+  readonly hint: string;
+};
+
+export function checkToolInstalled(program: string, hint: string): Promise<ToolCheckResult> {
+  return invokeTauri<ToolCheckResult>('check_tool_installed', { program, hint });
+}
+
 export function startPostgresPsqlSession(request: StartTerminalClientRequest): Promise<TerminalSessionStarted> {
   return invokeTauri<TerminalSessionStarted>('start_postgres_psql_session', { request });
 }

@@ -22,6 +22,8 @@ export function OracleSqlplusTab({ active, tab }: OracleSqlplusTabProps) {
           rows: size.rows,
         })
       }
+      toolName="sqlplus"
+      toolInstallHint="Download Oracle Instant Client (Basic + SQL*Plus) and add its bin/ to PATH"
     />
   );
 }

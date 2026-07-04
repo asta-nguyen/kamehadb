@@ -22,6 +22,8 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
           rows: size.rows,
         })
       }
+      toolName="psql"
+      toolInstallHint="apt install postgresql-client  |  brew install libpq  |  dnf install postgresql  |  pacman -S postgresql"
     />
   );
 }

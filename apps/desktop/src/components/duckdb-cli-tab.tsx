@@ -22,6 +22,8 @@ export function DuckdbCliTab({ active, tab }: DuckdbCliTabProps) {
           rows: size.rows,
         })
       }
+      toolName="duckdb"
+      toolInstallHint="brew install duckdb  |  pacman -S duckdb  |  pip install duckdb"
     />
   );
 }

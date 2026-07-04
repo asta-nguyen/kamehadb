@@ -19,7 +19,6 @@ import { isTauriRuntime } from '@/lib/tauri';
 import {
   appStore,
   navigateTo,
-  openPostgresPsqlTab,
   openRedisTab,
   setActiveConnection,
   setConnectionLatency,
@@ -147,10 +146,6 @@ const ConnectionItem = memo(function ConnectionItem({
           pinned={pinned}
           onEdit={() => setShowEdit(true)}
           onDelete={() => setShowDeleteConfirm(true)}
-          onOpenPsql={() => {
-            setActiveConnection(conn.id);
-            openPostgresPsqlTab(conn.id);
-          }}
           onBackup={() => setShowBackup(true)}
           onRestore={() => setShowRestore(true)}
         />

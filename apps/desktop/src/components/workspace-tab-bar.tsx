@@ -19,6 +19,16 @@ function tabIcon(tabType: string) {
   if (tabType === 'query' || tabType === 'redis-query' || tabType === 'migration')
     return <Terminal className="size-3" />;
   if (
+    tabType === 'postgres-psql' ||
+    tabType === 'oracle-sqlplus' ||
+    tabType === 'clickhouse-client' ||
+    tabType === 'duckdb-cli' ||
+    tabType === 'mongo-shell' ||
+    tabType === 'sqlite3' ||
+    tabType === 'sqlcmd'
+  )
+    return <Terminal className="size-3" />;
+  if (
     tabType === 'graph' ||
     tabType === 'qdrant-graph' ||
     tabType === 'postgres-vector-map' ||

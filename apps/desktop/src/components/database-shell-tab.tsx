@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Wrench } from 'lucide-react';
 
 import { TerminalPane, type TerminalPaneApi } from '@/components/terminal-pane';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,9 @@ import { useConnections } from '@/hooks/use-connections';
 import { useTerminalSession } from '@/hooks/use-terminal-session';
 import type { TerminalSize } from '@/lib/terminal-session';
 import type { TerminalSessionKind } from '@/lib/terminal-session-state';
-import { appStore } from '@/store';
+import { checkToolInstalled } from '@/lib/terminal-clients';
+import { isTauriRuntime } from '@/lib/tauri';
+import { appStore, navigateTo } from '@/store';
 import { useStore } from '@tanstack/react-store';
 
 type ShellTab = {
@@ -20,6 +23,8 @@ type DatabaseShellTabProps<TTab extends ShellTab> = {
   readonly inactiveMessage: string;
   readonly missingConnectionMessage: string;
   readonly startSession: (tab: TTab, size: TerminalSize) => Promise<{ readonly sessionId: string }>;
+  readonly toolName?: string;
+  readonly toolInstallHint?: string;
 };
 
 export function DatabaseShellTab<TTab extends ShellTab>({
@@ -29,6 +34,8 @@ export function DatabaseShellTab<TTab extends ShellTab>({
   inactiveMessage,
   missingConnectionMessage,
   startSession,
+  toolName,
+  toolInstallHint,
 }: DatabaseShellTabProps<TTab>) {
   const theme = useStore(appStore, (state) => state.theme);
   const { data: connections } = useConnections();
@@ -39,6 +46,8 @@ export function DatabaseShellTab<TTab extends ShellTab>({
   const terminalRef = useRef<TerminalPaneApi | null>(null);
   const [activated, setActivated] = useState(active);
   const [terminalReady, setTerminalReady] = useState(false);
+  const [toolMissing, setToolMissing] = useState(false);
+  const [toolCheckDone, setToolCheckDone] = useState(false);
   const session = useTerminalSession({
     kind: sessionKind,
     onData: (data) => {
@@ -53,6 +62,21 @@ export function DatabaseShellTab<TTab extends ShellTab>({
     }
   }, [active]);
 
+  useEffect(() => {
+    if (!toolName || !isTauriRuntime() || toolCheckDone) return;
+    let cancelled = false;
+    void checkToolInstalled(toolName, toolInstallHint ?? '')
+      .then((result) => {
+        if (cancelled) return;
+        setToolCheckDone(true);
+        if (!result.installed) setToolMissing(true);
+      })
+      .catch(() => setToolCheckDone(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [toolName, toolInstallHint, toolCheckDone]);
+
   const start = useCallback(async () => {
     const api = terminalRef.current;
     if (!api) return;
@@ -61,12 +85,13 @@ export function DatabaseShellTab<TTab extends ShellTab>({
   }, [session]);
 
   useEffect(() => {
-    if (!active || !terminalReady) return;
+    if (!active || !terminalReady || toolMissing) return;
+    if (toolName && !toolCheckDone) return;
     terminalRef.current?.focus();
     if (activated && session.state.status === 'idle') {
       void start();
     }
-  }, [activated, active, session.state.status, start, terminalReady]);
+  }, [activated, active, session.state.status, start, terminalReady, toolMissing, toolName, toolCheckDone]);
 
   useEffect(() => {
     if (connection) return;
@@ -105,6 +130,23 @@ export function DatabaseShellTab<TTab extends ShellTab>({
               void session.resize(size);
             }}
           />
+          {toolMissing ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
+              <div className="max-w-md rounded-lg border border-zinc-800 bg-zinc-950/95 p-4 text-center text-sm text-zinc-200 shadow-lg">
+                <AlertTriangle className="mx-auto mb-2 size-6 text-amber-500" />
+                <p className="font-medium">{toolName} is not installed on your system</p>
+                {toolInstallHint ? (
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">{toolInstallHint}</p>
+                ) : null}
+                <div className="mt-3 flex justify-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => navigateTo('client-tools')}>
+                    <Wrench className="size-3.5" />
+                    Client Tools
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {hasTerminalFailure ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
               <div className="max-w-md rounded-lg border border-zinc-800 bg-zinc-950/95 p-4 text-center text-sm text-zinc-200 shadow-lg">

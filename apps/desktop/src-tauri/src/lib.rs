@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -34,6 +34,34 @@ struct SidecarState(Mutex<Option<Child>>);
 struct SidecarInfo {
     port: u16,
     pid: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ToolCheckResult {
+    installed: bool,
+    hint: String,
+}
+
+#[tauri::command]
+fn check_tool_installed(program: String, hint: String) -> ToolCheckResult {
+    let result = Command::new(&program)
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+
+    match result {
+        Ok(mut child) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            ToolCheckResult { installed: true, hint }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            ToolCheckResult { installed: false, hint }
+        }
+        Err(_) => ToolCheckResult { installed: true, hint },
+    }
 }
 
 #[tauri::command]
@@ -110,6 +138,7 @@ pub fn run() {
         .manage(PostgresJobState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_data_dir,
+            check_tool_installed,
             start_sidecar,
             stop_sidecar,
             start_postgres_psql_session,

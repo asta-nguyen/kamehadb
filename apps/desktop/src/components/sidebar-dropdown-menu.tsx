@@ -10,7 +10,7 @@ import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
 import type { ConnectionProfile } from '@kamehadb/shared';
 import { isFileDatabaseKind, KIND } from '@kamehadb/shared';
-import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
+import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Trash2, Upload } from 'lucide-react';
 
 function activate(connId: string, action: (id: string) => void) {
   setActiveConnection(connId);
@@ -56,7 +56,6 @@ export function ConnectionDropdownMenu({
   pinned,
   onEdit,
   onDelete,
-  onOpenPsql,
   onBackup,
   onRestore,
 }: {
@@ -65,7 +64,6 @@ export function ConnectionDropdownMenu({
   pinned: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onOpenPsql: () => void;
   onBackup: () => void;
   onRestore: () => void;
 }) {
@@ -94,18 +92,7 @@ export function ConnectionDropdownMenu({
         </DropdownMenuItem>
 
         {conn.kind === KIND.POSTGRES && isTauriRuntime() && (
-          <>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onOpenPsql();
-              }}
-            >
-              <Terminal className="mr-2 size-3.5" />
-              Open Shell
-            </DropdownMenuItem>
-            <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
-          </>
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
         )}
         {isFileDatabaseKind(conn.kind) && isTauriRuntime() && (
           <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />

@@ -328,6 +328,8 @@ export const api = {
   startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
     request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }, true),
 
+  checkMongoshAvailable: () => request<{ available: boolean }>('GET', '/mongo/shell/check', undefined, true),
+
   writeMongoShell: (sessionId: string, data: string) =>
     request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }, true),
 

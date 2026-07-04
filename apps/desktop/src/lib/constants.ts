@@ -33,6 +33,7 @@ import {
   openRedisTab,
   openSqliteVecSearchTab,
   openPostgresVectorSearchTab,
+  openPostgresPsqlTab,
   openOracleSqlplusTab,
   openOracleVecSearchTab,
   openClickhouseClientTab,
@@ -226,17 +227,20 @@ export const SQL_TAB_ACTIONS: TabAction[] = [
 ];
 
 export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAction[]>> = {
-  [KIND.POSTGRES]: [{ label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab }],
+  [KIND.POSTGRES]: [
+    { label: 'Shell', icon: Terminal, open: openPostgresPsqlTab },
+    { label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab },
+  ],
   [KIND.ORACLE]: [
-    { label: 'Open Shell', icon: Terminal, open: openOracleSqlplusTab },
+    { label: 'Shell', icon: Terminal, open: openOracleSqlplusTab },
     { label: 'Vector Search', icon: Search, open: openOracleVecSearchTab },
   ],
   [KIND.CLICKHOUSE]: [
-    { label: 'Open Shell', icon: Terminal, open: openClickhouseClientTab },
+    { label: 'Shell', icon: Terminal, open: openClickhouseClientTab },
     { label: 'Vector Search', icon: Search, open: openClickhouseVecSearchTab },
   ],
   [KIND.DUCKDB]: [
-    { label: 'Open Shell', icon: Terminal, open: openDuckdbCliTab },
+    { label: 'Shell', icon: Terminal, open: openDuckdbCliTab },
     { label: 'Vector Search', icon: Search, open: openDuckdbVecSearchTab },
   ],
   qdrant: [{ label: 'Vector Search', icon: Search, open: openQdrantSearchTab }],

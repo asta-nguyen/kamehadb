@@ -22,6 +22,8 @@ export function ClickhouseClientTab({ active, tab }: ClickhouseClientTabProps) {
           rows: size.rows,
         })
       }
+      toolName="clickhouse-client"
+      toolInstallHint="apt install clickhouse-client  |  brew install clickhouse  |  pacman -S clickhouse"
     />
   );
 }
