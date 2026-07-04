@@ -198,7 +198,7 @@ Notes:
 | MariaDB     | 3307 | kameha  | kameha   | kamehadb |
 | Redis       | 6379 | —       | —        | —        |
 | SQL Server  | 1433 | sa      | Kameha1! | kamehadb |
-| Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
+| Oracle      | 1521 | kameha  | kameha   | FREEPDB1 |
 | ClickHouse  | 8123 | default | default  | kamehadb |
 | DuckDB      | 5432 | —       | —        | —        |
 | TigerBeetle | 3001 | —       | —        | —        |

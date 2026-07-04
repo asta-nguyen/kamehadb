@@ -1,4 +1,5 @@
 import oracledb from 'oracledb';
+import { DEFAULT_PORTS, KIND } from '@kamehadb/shared';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -13,9 +14,15 @@ import type {
   QueryColumn,
   TableCompletions,
   TableStats,
+  IndexStats,
+  DatabaseSize,
+  ConnectionInfo,
 } from '@kamehadb/shared';
 
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
+
+const DEFAULT_ORACLE_HOST = 'localhost';
+const DEFAULT_ORACLE_SERVICE = 'FREEPDB1';
 
 export async function testOracleConnection(connection: {
   host?: string;
@@ -25,7 +32,7 @@ export async function testOracleConnection(connection: {
   password?: string;
 }): Promise<TestConnectionResult> {
   const conn = await oracledb.getConnection({
-    connectString: `${connection.host || 'localhost'}:${connection.port || 1521}/${connection.database || 'XE'}`,
+    connectString: `${connection.host || DEFAULT_ORACLE_HOST}:${connection.port || DEFAULT_PORTS[KIND.ORACLE]}/${connection.database || DEFAULT_ORACLE_SERVICE}`,
     user: connection.username,
     password: connection.password,
   });
@@ -45,7 +52,7 @@ export function createOracleAdapter(connection: {
   username?: string;
   password?: string;
 }): SqlAdapter {
-  const connectString = `${connection.host || 'localhost'}:${connection.port || 1521}/${connection.database || 'XE'}`;
+  const connectString = `${connection.host || DEFAULT_ORACLE_HOST}:${connection.port || DEFAULT_PORTS[KIND.ORACLE]}/${connection.database || DEFAULT_ORACLE_SERVICE}`;
 
   async function getConn() {
     return oracledb.getConnection({
@@ -356,6 +363,140 @@ export function createOracleAdapter(connection: {
           nLiveTup: numRows,
           nDeadTup: 0,
         };
+      } finally {
+        await conn.close();
+      }
+    },
+
+    async getIndexStats(tableId: string): Promise<IndexStats[]> {
+      const conn = await getConn();
+      try {
+        const parts = tableId.split('.');
+        const owner = (parts.length > 1 ? parts[0] : connection.username)!.toUpperCase();
+        const table = (parts.length > 1 ? parts[1] : tableId).toUpperCase();
+        const result = await conn.execute(
+          `SELECT
+            i.index_name,
+            i.uniqueness,
+            ic.column_name,
+            ac.constraint_type,
+            NVL((
+              SELECT SUM(s.bytes)
+              FROM all_segments s
+              WHERE s.owner = i.owner
+                AND s.segment_name = i.index_name
+                AND s.segment_type = 'INDEX'
+            ), 0) AS index_bytes
+          FROM all_indexes i
+          JOIN all_ind_columns ic ON ic.index_name = i.index_name AND ic.table_owner = i.owner
+          LEFT JOIN all_constraints ac ON ac.index_name = i.index_name AND ac.owner = i.owner AND ac.constraint_type = 'P'
+          WHERE i.owner = :owner AND i.table_name = :tbl
+          ORDER BY i.index_name, ic.column_position`,
+          { owner, tbl: table },
+        );
+        const indexMap = new Map<string, IndexStats>();
+        for (const row of result.rows as Record<string, unknown>[]) {
+          const name = row.INDEX_NAME as string;
+          if (!indexMap.has(name)) {
+            indexMap.set(name, {
+              name,
+              table,
+              columns: [],
+              unique: row.UNIQUENESS === 'UNIQUE',
+              primary: row.CONSTRAINT_TYPE === 'P',
+              sizeBytes: Number(row.INDEX_BYTES) || 0,
+              scans: 0,
+              reads: 0,
+              usagePercent: 0,
+            });
+          }
+          indexMap.get(name)!.columns.push(row.COLUMN_NAME as string);
+        }
+        return Array.from(indexMap.values());
+      } finally {
+        await conn.close();
+      }
+    },
+
+    async getDatabaseSizes(schema?: string): Promise<DatabaseSize[]> {
+      const conn = await getConn();
+      try {
+        const owner = (schema || connection.username)!.toUpperCase();
+        const result = await conn.execute(
+          `SELECT
+            t.table_name,
+            NVL(t.num_rows, 0) AS num_rows,
+            NVL((
+              SELECT SUM(s.bytes)
+              FROM all_segments s
+              WHERE s.owner = t.owner
+                AND s.segment_name = t.table_name
+                AND s.segment_type = 'TABLE'
+            ), 0) AS table_bytes,
+            NVL((
+              SELECT SUM(s2.bytes)
+              FROM all_segments s2
+              JOIN all_indexes ix ON s2.owner = ix.owner AND s2.segment_name = ix.index_name
+              WHERE ix.owner = t.owner
+                AND ix.table_name = t.table_name
+                AND s2.segment_type = 'INDEX'
+            ), 0) AS index_bytes
+          FROM all_tables t
+          WHERE t.owner = :owner
+          ORDER BY table_bytes DESC`,
+          { owner },
+        );
+        return (result.rows as Record<string, unknown>[]).map((r) => {
+          const tableBytes = Number(r.TABLE_BYTES) || 0;
+          const indexBytes = Number(r.INDEX_BYTES) || 0;
+          return {
+            schema: owner,
+            table: r.TABLE_NAME as string,
+            sizeBytes: tableBytes,
+            indexBytes,
+            totalBytes: tableBytes + indexBytes,
+            rowEstimate: Number(r.NUM_ROWS) || 0,
+          };
+        });
+      } finally {
+        await conn.close();
+      }
+    },
+
+    async getActiveConnections(): Promise<ConnectionInfo[]> {
+      const conn = await getConn();
+      try {
+        const result = await conn.execute(
+          `SELECT
+            s.sid AS pid,
+            s.username AS usename,
+            s.program AS application_name,
+            s.machine AS client_addr,
+            TO_CHAR(s.logon_time, 'YYYY-MM-DD"T"HH24:MI:SS') AS backend_start,
+            LOWER(s.status) AS state,
+            q.sql_text AS query,
+            NULL AS query_start,
+            s.wait_class AS wait_event_type,
+            s.event AS wait_event,
+            s.last_call_et AS duration_seconds
+          FROM v$session s
+          LEFT JOIN v$sql q ON q.sql_id = s.sql_id AND q.child_number = s.sql_child_number
+          WHERE s.type = 'USER' AND s.username IS NOT NULL
+          ORDER BY s.status, s.last_call_et DESC`,
+        );
+        return (result.rows as Record<string, unknown>[]).map((r) => ({
+          pid: Number(r.PID),
+          usename: (r.USENAME as string) || '',
+          applicationName: (r.APPLICATION_NAME as string) || '',
+          clientAddr: (r.CLIENT_ADDR as string) || null,
+          backendStart: (r.BACKEND_START as string) || '',
+          state: (r.STATE as string) || '',
+          query: (r.QUERY as string) || null,
+          queryStart: null,
+          waitEventType: (r.WAIT_EVENT_TYPE as string) || null,
+          waitEvent: (r.WAIT_EVENT as string) || null,
+          durationSeconds: Number(r.DURATION_SECONDS) || 0,
+        }));
       } finally {
         await conn.close();
       }

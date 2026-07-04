@@ -1,0 +1,166 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Wrench } from 'lucide-react';
+
+import { TerminalPane, type TerminalPaneApi } from '@/components/terminal-pane';
+import { Button } from '@/components/ui/button';
+import { useConnections } from '@/hooks/use-connections';
+import { useTerminalSession } from '@/hooks/use-terminal-session';
+import type { TerminalSize } from '@/lib/terminal-session';
+import type { TerminalSessionKind } from '@/lib/terminal-session-state';
+import { checkToolInstalled } from '@/lib/terminal-clients';
+import { isTauriRuntime } from '@/lib/tauri';
+import { appStore, navigateTo } from '@/store';
+import { useStore } from '@tanstack/react-store';
+
+type ShellTab = {
+  readonly connectionId: string;
+};
+
+type DatabaseShellTabProps<TTab extends ShellTab> = {
+  readonly active: boolean;
+  readonly tab: TTab;
+  readonly sessionKind: TerminalSessionKind;
+  readonly inactiveMessage: string;
+  readonly missingConnectionMessage: string;
+  readonly startSession: (tab: TTab, size: TerminalSize) => Promise<{ readonly sessionId: string }>;
+  readonly toolName?: string;
+  readonly toolInstallHint?: string;
+};
+
+export function DatabaseShellTab<TTab extends ShellTab>({
+  active,
+  tab,
+  sessionKind,
+  inactiveMessage,
+  missingConnectionMessage,
+  startSession,
+  toolName,
+  toolInstallHint,
+}: DatabaseShellTabProps<TTab>) {
+  const theme = useStore(appStore, (state) => state.theme);
+  const { data: connections } = useConnections();
+  const connection = useMemo(
+    () => connections?.find((item) => item.id === tab.connectionId) ?? null,
+    [connections, tab.connectionId],
+  );
+  const terminalRef = useRef<TerminalPaneApi | null>(null);
+  const [activated, setActivated] = useState(active);
+  const [terminalReady, setTerminalReady] = useState(false);
+  const [toolMissing, setToolMissing] = useState(false);
+  const [toolCheckDone, setToolCheckDone] = useState(false);
+  const session = useTerminalSession({
+    kind: sessionKind,
+    onData: (data) => {
+      terminalRef.current?.write(data);
+    },
+    startSession: (size) => startSession(tab, size),
+  });
+
+  useEffect(() => {
+    if (active) {
+      setActivated(true);
+    }
+  }, [active]);
+
+  useEffect(() => {
+    if (!toolName || !isTauriRuntime() || toolCheckDone) return;
+    let cancelled = false;
+    void checkToolInstalled(toolName, toolInstallHint ?? '')
+      .then((result) => {
+        if (cancelled) return;
+        setToolCheckDone(true);
+        if (!result.installed) setToolMissing(true);
+      })
+      .catch(() => setToolCheckDone(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [toolName, toolInstallHint, toolCheckDone]);
+
+  const start = useCallback(async () => {
+    const api = terminalRef.current;
+    if (!api) return;
+    api.reset();
+    await session.start(api.getSize());
+  }, [session]);
+
+  useEffect(() => {
+    if (!active || !terminalReady || toolMissing) return;
+    if (toolName && !toolCheckDone) return;
+    terminalRef.current?.focus();
+    if (activated && session.state.status === 'idle') {
+      void start();
+    }
+  }, [activated, active, session.state.status, start, terminalReady, toolMissing, toolName, toolCheckDone]);
+
+  useEffect(() => {
+    if (connection) return;
+    void session.stop();
+    terminalRef.current?.reset();
+  }, [connection, session]);
+
+  const handleReady = useCallback((api: TerminalPaneApi) => {
+    terminalRef.current = api;
+    setTerminalReady(true);
+  }, []);
+
+  const dark = theme === 'dark' || document.documentElement.classList.contains('dark');
+  const hasTerminalFailure = session.state.status === 'error' || session.state.status === 'exited';
+
+  if (!connection) {
+    return (
+      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+        {missingConnectionMessage}
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full overflow-hidden bg-black">
+      {activated ? (
+        <div className="relative h-full w-full">
+          <TerminalPane
+            active={active}
+            dark={dark}
+            onInput={(data) => {
+              void session.write(data);
+            }}
+            onReady={handleReady}
+            onResize={(size) => {
+              void session.resize(size);
+            }}
+          />
+          {toolMissing ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
+              <div className="max-w-md rounded-lg border border-zinc-800 bg-zinc-950/95 p-4 text-center text-sm text-zinc-200 shadow-lg">
+                <AlertTriangle className="mx-auto mb-2 size-6 text-amber-500" />
+                <p className="font-medium">{toolName} is not installed on your system</p>
+                {toolInstallHint ? (
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">{toolInstallHint}</p>
+                ) : null}
+                <div className="mt-3 flex justify-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => navigateTo('client-tools')}>
+                    <Wrench className="size-3.5" />
+                    Client Tools
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          {hasTerminalFailure ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
+              <div className="max-w-md rounded-lg border border-zinc-800 bg-zinc-950/95 p-4 text-center text-sm text-zinc-200 shadow-lg">
+                <p className="font-medium">{session.state.message ?? 'The terminal session ended.'}</p>
+                <Button className="mt-3" size="sm" onClick={() => void start()}>
+                  Start again
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">{inactiveMessage}</div>
+      )}
+    </div>
+  );
+}

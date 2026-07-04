@@ -1,15 +1,25 @@
-use keyring::Entry;
 use serde::Serialize;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::Manager;
 
 mod app_logs;
+mod clickhouse_client;
+mod connection_profile;
+mod duckdb_cli;
+mod oracle_sqlplus;
+mod oracle_tools;
 mod postgres_psql;
 mod postgres_tools;
 mod terminal_sessions;
 
 use app_logs::{append_frontend_log, append_tauri_log, clear_app_logs, read_app_logs};
+use clickhouse_client::start_clickhouse_client_session;
+use duckdb_cli::start_duckdb_cli_session;
+use oracle_sqlplus::start_oracle_sqlplus_session;
+use oracle_tools::{
+    cancel_oracle_job, start_oracle_backup, start_oracle_restore, OracleJobState,
+};
 use postgres_psql::start_postgres_psql_session;
 use terminal_sessions::{
     resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
@@ -24,6 +34,34 @@ struct SidecarState(Mutex<Option<Child>>);
 struct SidecarInfo {
     port: u16,
     pid: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ToolCheckResult {
+    installed: bool,
+    hint: String,
+}
+
+#[tauri::command]
+fn check_tool_installed(program: String, hint: String) -> ToolCheckResult {
+    let result = Command::new(&program)
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+
+    match result {
+        Ok(mut child) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            ToolCheckResult { installed: true, hint }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            ToolCheckResult { installed: false, hint }
+        }
+        Err(_) => ToolCheckResult { installed: true, hint },
+    }
 }
 
 #[tauri::command]
@@ -90,52 +128,29 @@ fn stop_sidecar(state: tauri::State<'_, SidecarState>) -> Result<(), String> {
     Ok(())
 }
 
-// Keychain operations using keyring crate
-#[tauri::command]
-async fn store_credential(
-    service: String,
-    account: String,
-    password: String,
-) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.set_password(&password).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_credential(service: String, account: String) -> Result<String, String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    let password = entry.get_password().map_err(|e| e.to_string())?;
-    Ok(password)
-}
-
-#[tauri::command]
-async fn delete_credential(service: String, account: String) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.delete_credential().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
         .manage(TerminalSessionState::default())
+        .manage(OracleJobState::default())
         .manage(PostgresJobState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_data_dir,
+            check_tool_installed,
             start_sidecar,
             stop_sidecar,
-            store_credential,
-            get_credential,
-            delete_credential,
             start_postgres_psql_session,
+            start_oracle_sqlplus_session,
+            start_clickhouse_client_session,
+            start_duckdb_cli_session,
             write_terminal_session,
             resize_terminal_session,
             stop_terminal_session,
+            start_oracle_backup,
+            start_oracle_restore,
+            cancel_oracle_job,
             start_postgres_backup,
             start_postgres_restore,
             cancel_postgres_job,

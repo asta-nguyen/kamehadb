@@ -75,6 +75,41 @@ export type WorkspaceTab =
       readonly toSnapshotId?: string;
     }
   | { readonly id: string; readonly type: 'postgres-psql'; readonly title: string; readonly connectionId: string }
+  | { readonly id: string; readonly type: 'oracle-sqlplus'; readonly title: string; readonly connectionId: string }
+  | {
+      readonly id: string;
+      readonly type: 'oracle-vec-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table?: string;
+      readonly schema?: string;
+      readonly column?: string;
+      readonly vectorText?: string;
+      readonly mode?: 'similar' | 'raw';
+    }
+  | { readonly id: string; readonly type: 'clickhouse-client'; readonly title: string; readonly connectionId: string }
+  | { readonly id: string; readonly type: 'duckdb-cli'; readonly title: string; readonly connectionId: string }
+  | {
+      readonly id: string;
+      readonly type: 'duckdb-vec-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly schema?: string;
+      readonly table?: string;
+      readonly column?: string;
+      readonly vectorText?: string;
+      readonly mode?: 'similar' | 'raw';
+    }
+  | {
+      readonly id: string;
+      readonly type: 'clickhouse-vec-search';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table?: string;
+      readonly column?: string;
+      readonly vectorText?: string;
+      readonly mode?: 'similar' | 'raw';
+    }
   | { readonly id: string; readonly type: 'tigerbeetle'; readonly title: string; readonly connectionId: string }
   | {
       readonly id: string;
@@ -122,9 +157,36 @@ export type WorkspaceTab =
       readonly table: string;
       readonly column: string;
       readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+    }
+  | {
+      readonly id: string;
+      readonly type: 'oracle-vec-map';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table: string;
+      readonly column: string;
+      readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+    }
+  | {
+      readonly id: string;
+      readonly type: 'duckdb-vec-map';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table: string;
+      readonly column: string;
+      readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+    }
+  | {
+      readonly id: string;
+      readonly type: 'clickhouse-vec-map';
+      readonly title: string;
+      readonly connectionId: string;
+      readonly table: string;
+      readonly column: string;
+      readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
     };
 
-export type AppView = 'workspace' | 'api-settings' | 'logs';
+export type AppView = 'workspace' | 'api-settings' | 'logs' | 'client-tools';
 
 export type AppStoreState = {
   readonly activeConnectionId: string | null;

@@ -62,7 +62,10 @@ export const QUERY_KEYS = {
     connectionId: string | null,
     input?: import('@kamehadb/shared').PostgresVectorSampleInput | null,
   ) => ['postgres-vector-sample', connectionId, input] as const,
+  ORACLE_VEC_CAPABILITIES: (connectionId: string | null) => ['oracle-vec-capabilities', connectionId] as const,
   SQLITE_VEC_CAPABILITIES: (connectionId: string | null) => ['sqlite-vec-capabilities', connectionId] as const,
+  DUCKDB_VEC_CAPABILITIES: (connectionId: string | null) => ['duckdb-vec-capabilities', connectionId] as const,
+  CLICKHOUSE_VEC_CAPABILITIES: (connectionId: string | null) => ['clickhouse-vec-capabilities', connectionId] as const,
   CONNECTION_HEALTH: (connectionId: string | null) => ['connection-health', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,
   TABLE_STATS: (connectionId: string | null, tableId?: string | null) =>

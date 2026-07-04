@@ -7,10 +7,11 @@ import { createMongoDbAdapter } from '../adapters/factory.js';
 import * as pty from 'node-pty';
 import { nanoid } from 'nanoid';
 import { streamSSE } from 'hono/streaming';
-import { resolveMongoshCommand } from '../lib/mongosh.js';
+import { resolveMongoshCommand, checkMongoshAvailable } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
 import { KIND } from '@kamehadb/shared';
-import { handleError, safeErrorMessage, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
+import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.js';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
@@ -292,6 +293,12 @@ export function killAllMongoShells(): void {
   shellSessions.clear();
   clearInterval(SHELL_CLEANUP);
 }
+
+// GET /mongo/shell/check — check if mongosh is available without auto-installing
+mongoRouter.get('/shell/check', async (c) => {
+  const available = await checkMongoshAvailable();
+  return c.json({ available });
+});
 
 // POST /mongo/:connectionId/shell — start a mongosh process with a real PTY
 mongoRouter.post('/:connectionId/shell', async (c) => {

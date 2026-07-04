@@ -1,3 +1,12 @@
+ALTER SESSION SET CONTAINER=FREEPDB1;
+CONNECT kameha/kameha@//localhost/FREEPDB1
+
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TABLE article_embeddings CASCADE CONSTRAINTS PURGE';
+EXCEPTION
+  WHEN OTHERS THEN NULL;
+END;
+/
 BEGIN
   EXECUTE IMMEDIATE 'DROP TABLE comments CASCADE CONSTRAINTS PURGE';
 EXCEPTION
@@ -55,6 +64,13 @@ CREATE TABLE comments (
   user_id NUMBER NOT NULL REFERENCES users(id),
   body CLOB NOT NULL,
   created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE TABLE article_embeddings (
+  id NUMBER NOT NULL PRIMARY KEY,
+  title VARCHAR2(255) NOT NULL,
+  category VARCHAR2(50) NOT NULL,
+  embedding VECTOR(3, FLOAT32) NOT NULL
 );
 
 INSERT INTO organizations (id, name, slug) VALUES
@@ -145,3 +161,11 @@ INSERT INTO comments (id, post_id, user_id, body) VALUES
 INSERT INTO comments (id, post_id, user_id, body) VALUES
   (14, 14, 3, 'Perfect timing, we just hired two people.');
 
+INSERT INTO article_embeddings (id, title, category, embedding) VALUES
+  (1, 'Vector basics', 'ml', '[0.10, 0.20, 0.30]');
+INSERT INTO article_embeddings (id, title, category, embedding) VALUES
+  (2, 'Nearest neighbors', 'ml', '[0.12, 0.18, 0.27]');
+INSERT INTO article_embeddings (id, title, category, embedding) VALUES
+  (3, 'Finance report', 'business', '[0.80, 0.10, 0.05]');
+INSERT INTO article_embeddings (id, title, category, embedding) VALUES
+  (4, 'Marketing copy', 'content', '[0.55, 0.42, 0.11]');

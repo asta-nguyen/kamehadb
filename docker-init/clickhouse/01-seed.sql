@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS article_embeddings;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS users;
@@ -94,4 +95,20 @@ INSERT INTO comments (id, post_id, user_id, body) VALUES
   (12, 11, 1, 'Can not wait for the launch!'),
   (13, 13, 2, 'This should be required reading.'),
   (14, 14, 3, 'Perfect timing, we just hired two people.');
+
+CREATE TABLE article_embeddings (
+  id UInt32,
+  title String,
+  category String,
+  embedding Array(Float32),
+  CONSTRAINT embedding_len CHECK length(embedding) = 3
+)
+ENGINE = MergeTree
+ORDER BY id;
+
+INSERT INTO article_embeddings (id, title, category, embedding) VALUES
+  (1, 'Vector basics', 'ml', [0.10, 0.20, 0.30]),
+  (2, 'Nearest neighbors', 'ml', [0.12, 0.18, 0.27]),
+  (3, 'Finance report', 'business', [0.80, 0.10, 0.05]),
+  (4, 'Marketing copy', 'content', [0.55, 0.42, 0.11]);
 

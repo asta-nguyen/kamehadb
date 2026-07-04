@@ -37,6 +37,12 @@ export async function resolveMongoshCommand(): Promise<MongoshCommand> {
   log.debug({ command: installed }, 'mongosh auto-install resolved');
   return installed;
 }
+
+export async function checkMongoshAvailable(): Promise<boolean> {
+  if (findMongoshOnPath()) return true;
+  const bundled = await findBundledMongosh();
+  return bundled !== null;
+}
 function findMongoshOnPath(): MongoshCommand | null {
   const pathValue = process.env.PATH;
   if (!pathValue) return null;

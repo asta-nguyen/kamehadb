@@ -7,7 +7,6 @@ import { useSqliteVecCapabilities, useSqliteVecSearch, useSqliteVecSample } from
 import { parseVectorText } from '@/lib/postgres-vector';
 import { PostgresVectorResults } from '@/components/postgres-vector-results';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dice5, Loader2, Network, Play } from 'lucide-react';
@@ -22,10 +21,6 @@ type VectorQueryState = {
   readonly column: string;
   readonly vectorText: string;
   readonly sampledVector: number[] | null;
-  readonly filterColumn: string;
-  readonly filterOp: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'LIKE';
-  readonly filterValue: string;
-  readonly filterText: string;
   readonly metric: 'cosine' | 'l2' | 'inner_product';
   readonly limit: number;
   readonly running: boolean;
@@ -40,10 +35,6 @@ type VectorQueryAction =
   | { type: 'setColumn'; value: string }
   | { type: 'setVectorText'; value: string }
   | { type: 'setSampledVector'; vector: number[]; display: string }
-  | { type: 'setFilterColumn'; value: string }
-  | { type: 'setFilterOp'; value: VectorQueryState['filterOp'] }
-  | { type: 'setFilterValue'; value: string }
-  | { type: 'setFilterText'; value: string }
   | { type: 'setMetric'; value: VectorQueryState['metric'] }
   | { type: 'setLimit'; value: number }
   | { type: 'startRun' }
@@ -64,14 +55,6 @@ function vectorQueryReducer(state: VectorQueryState, action: VectorQueryAction):
       return { ...state, vectorText: action.value, sampledVector: null };
     case 'setSampledVector':
       return { ...state, vectorText: action.display, sampledVector: action.vector };
-    case 'setFilterColumn':
-      return { ...state, filterColumn: action.value };
-    case 'setFilterOp':
-      return { ...state, filterOp: action.value };
-    case 'setFilterValue':
-      return { ...state, filterValue: action.value };
-    case 'setFilterText':
-      return { ...state, filterText: action.value };
     case 'setMetric':
       return { ...state, metric: action.value };
     case 'setLimit':
@@ -124,10 +107,6 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
     column: tab.column ?? '',
     vectorText: tab.vectorText ?? '',
     sampledVector: null,
-    filterColumn: '',
-    filterOp: '=',
-    filterValue: '',
-    filterText: '',
     metric: 'cosine',
     limit: 10,
     running: false,
@@ -170,13 +149,6 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
       )
       .sort((a, b) => a.columnName.localeCompare(b.columnName));
   }, [capabilities, state.schema, state.table, isSqlite]);
-
-  const metadataColumns = useMemo(() => {
-    if (!isSqlite || !capabilities) return [];
-    const sqliteCap = capabilities as { metadataColumns?: Record<string, string[]> };
-    if (!sqliteCap.metadataColumns || !state.table) return [];
-    return sqliteCap.metadataColumns[state.table] ?? [];
-  }, [capabilities, state.table, isSqlite]);
 
   // ── Auto-select effects ───────────────────────────────────────────
 
@@ -237,31 +209,12 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
         return;
       }
 
-      // Build filter clause
-      let filter: string | undefined;
-      if (isSqlite) {
-        // Structured filter — column + op + value
-        if (state.filterColumn && state.filterValue.trim()) {
-          const val =
-            state.filterOp === 'LIKE'
-              ? `'${state.filterValue.replace(/'/g, "''")}'`
-              : isNaN(Number(state.filterValue))
-                ? `'${state.filterValue.replace(/'/g, "''")}'`
-                : state.filterValue;
-          filter = `"${state.filterColumn}" ${state.filterOp} ${val}`;
-        }
-      } else {
-        // Free-text SQL WHERE clause
-        filter = state.filterText.trim() || undefined;
-      }
-
       // Execute search — input shapes differ between engines
       const result: PostgresVectorSearchResult = isSqlite
         ? await sqliteSearch.mutateAsync({
             table: state.table,
             column: state.column,
             vector,
-            filter,
             metric: state.metric,
             limit: state.limit,
           })
@@ -270,7 +223,6 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             table: state.table,
             column: state.column,
             vector,
-            filter,
             metric: state.metric,
             limit: state.limit,
           });
@@ -356,21 +308,6 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
                   {c.columnName} ({c.dimensions}d)
                 </SelectItem>
               ))}
-            </SelectContent>
-          </Select>
-
-          {/* Metric selector */}
-          <Select
-            value={state.metric}
-            onValueChange={(value) => dispatch({ type: 'setMetric', value: value as VectorQueryState['metric'] })}
-          >
-            <SelectTrigger size="sm" className="h-7 text-xs w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cosine">Cosine</SelectItem>
-              <SelectItem value="l2">L2 Distance</SelectItem>
-              <SelectItem value="inner_product">Inner Product</SelectItem>
             </SelectContent>
           </Select>
 
@@ -468,71 +405,6 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
           spellCheck={false}
           className="w-full min-h-20 px-2 py-1 text-xs font-mono bg-background border rounded resize-y"
         />
-
-        {/* Filter section — differs by engine */}
-        {isSqlite ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Select
-              value={state.filterColumn || '__none__'}
-              onValueChange={(value) =>
-                dispatch({
-                  type: 'setFilterColumn',
-                  value: (value ?? '') === '__none__' ? '' : (value ?? ''),
-                })
-              }
-            >
-              <SelectTrigger size="sm" className="h-7 text-xs w-32">
-                <SelectValue placeholder="No filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No filter</SelectItem>
-                {metadataColumns.map((col) => (
-                  <SelectItem key={col} value={col}>
-                    {col}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {state.filterColumn && (
-              <>
-                <Select
-                  value={state.filterOp}
-                  onValueChange={(value) =>
-                    dispatch({ type: 'setFilterOp', value: value as VectorQueryState['filterOp'] })
-                  }
-                >
-                  <SelectTrigger size="sm" className="h-7 text-xs w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="=">=</SelectItem>
-                    <SelectItem value="!=">&ne;</SelectItem>
-                    <SelectItem value=">">&gt;</SelectItem>
-                    <SelectItem value="<">&lt;</SelectItem>
-                    <SelectItem value=">=">&ge;</SelectItem>
-                    <SelectItem value="<=">&le;</SelectItem>
-                    <SelectItem value="LIKE">LIKE</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Input
-                  value={state.filterValue}
-                  onChange={(event) => dispatch({ type: 'setFilterValue', value: event.target.value })}
-                  placeholder="Value…"
-                  className="h-7 w-32 px-2 text-xs bg-background border rounded"
-                />
-              </>
-            )}
-          </div>
-        ) : (
-          <Input
-            value={state.filterText}
-            onChange={(event) => dispatch({ type: 'setFilterText', value: event.target.value })}
-            placeholder="Optional filter, e.g. category = 'docs' AND id > 10"
-            className="w-full h-9 px-2 text-sm bg-background border rounded"
-          />
-        )}
 
         {/* Error / info display */}
         {state.error && <div className="text-xs text-destructive">{state.error}</div>}

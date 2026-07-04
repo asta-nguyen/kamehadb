@@ -9,11 +9,45 @@ import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
 import type { ConnectionProfile } from '@kamehadb/shared';
-import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
+import { isFileDatabaseKind, KIND } from '@kamehadb/shared';
+import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Trash2, Upload } from 'lucide-react';
 
 function activate(connId: string, action: (id: string) => void) {
   setActiveConnection(connId);
   action(connId);
+}
+
+function MaintenanceActions({
+  connId,
+  onBackup,
+  onRestore,
+}: {
+  readonly connId: string;
+  readonly onBackup: () => void;
+  readonly onRestore: () => void;
+}) {
+  return (
+    <>
+      <DropdownMenuItem
+        onClick={() => {
+          setActiveConnection(connId);
+          onBackup();
+        }}
+      >
+        <Download className="mr-2 size-3.5" />
+        Backup
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => {
+          setActiveConnection(connId);
+          onRestore();
+        }}
+      >
+        <Upload className="mr-2 size-3.5" />
+        Restore
+      </DropdownMenuItem>
+    </>
+  );
 }
 
 export function ConnectionDropdownMenu({
@@ -22,7 +56,6 @@ export function ConnectionDropdownMenu({
   pinned,
   onEdit,
   onDelete,
-  onOpenPsql,
   onBackup,
   onRestore,
 }: {
@@ -31,7 +64,6 @@ export function ConnectionDropdownMenu({
   pinned: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onOpenPsql: () => void;
   onBackup: () => void;
   onRestore: () => void;
 }) {
@@ -59,36 +91,17 @@ export function ConnectionDropdownMenu({
           AI Chat
         </DropdownMenuItem>
 
-        {conn.kind === 'postgres' && isTauriRuntime() && (
-          <>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onOpenPsql();
-              }}
-            >
-              <Terminal className="mr-2 size-3.5" />
-              Open PSQL
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onBackup();
-              }}
-            >
-              <Download className="mr-2 size-3.5" />
-              Backup
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onRestore();
-              }}
-            >
-              <Upload className="mr-2 size-3.5" />
-              Restore
-            </DropdownMenuItem>
-          </>
+        {conn.kind === KIND.POSTGRES && isTauriRuntime() && (
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
+        )}
+        {isFileDatabaseKind(conn.kind) && isTauriRuntime() && (
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
+        )}
+        {conn.kind === KIND.CLICKHOUSE && (
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
+        )}
+        {conn.kind === KIND.ORACLE && isTauriRuntime() && (
+          <MaintenanceActions connId={conn.id} onBackup={onBackup} onRestore={onRestore} />
         )}
 
         {isSqlLike(conn.kind) &&

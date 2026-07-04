@@ -11,6 +11,9 @@ import type {
   RunQueryInput,
   QueryColumn,
   TableStats,
+  IndexStats,
+  DatabaseSize,
+  ConnectionInfo,
 } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
 import type { DuckDBInstance as DuckDBInst, DuckDBConnection as DuckDBConn } from '@duckdb/node-api';
@@ -304,6 +307,92 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
         nLiveTup: rowEstimate,
         nDeadTup: 0,
       };
+    },
+
+    async getIndexStats(tableId: string): Promise<IndexStats[]> {
+      const parts = tableId.split('.');
+      const schema = parts.length > 1 ? parts[0] : 'main';
+      const table = parts.length > 1 ? parts[1] : tableId;
+      // duckdb_indexes() exposes catalog index metadata
+      const rows = await q<Record<string, unknown>>(
+        `SELECT index_name, is_unique, is_primary
+         FROM duckdb_indexes()
+         WHERE schema_name = ${escapeDuckDbVal(schema)} AND table_name = ${escapeDuckDbVal(table)}
+         ORDER BY index_name`,
+      );
+      // DuckDB doesn't expose index column names via duckdb_indexes(); fall back to constraints
+      const constraintRows = await q<Record<string, unknown>>(
+        `SELECT tc.constraint_name, kcu.column_name, tc.constraint_type
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_catalog = kcu.constraint_catalog
+          AND tc.constraint_schema = kcu.constraint_schema
+          AND tc.constraint_name = kcu.constraint_name
+         WHERE tc.table_schema = ${escapeDuckDbVal(schema)} AND tc.table_name = ${escapeDuckDbVal(table)}
+           AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+         ORDER BY tc.constraint_name, kcu.ordinal_position`,
+      );
+      const constraintColMap = new Map<string, string[]>();
+      const primaryConstraintNames = new Set<string>();
+      for (const r of constraintRows) {
+        const name = r.constraint_name as string;
+        if (!constraintColMap.has(name)) constraintColMap.set(name, []);
+        constraintColMap.get(name)!.push(r.column_name as string);
+        if (r.constraint_type === 'PRIMARY KEY') {
+          primaryConstraintNames.add(name);
+        }
+      }
+
+      return rows.map((r) => {
+        const name = r.index_name as string;
+        return {
+          name,
+          table,
+          columns: constraintColMap.get(name) ?? [],
+          unique: !!r.is_unique,
+          primary: primaryConstraintNames.has(name),
+          sizeBytes: 0,
+          scans: 0,
+          reads: 0,
+          usagePercent: 0,
+        };
+      });
+    },
+
+    async getDatabaseSizes(schema?: string): Promise<DatabaseSize[]> {
+      const s = schema || 'main';
+      const tableRows = await q<Record<string, unknown>>(
+        `SELECT table_name, estimated_size
+         FROM duckdb_tables()
+         WHERE schema_name = ${escapeDuckDbVal(s)}
+         ORDER BY estimated_size DESC NULLS LAST`,
+      );
+      return tableRows.map((row) => ({
+        schema: s,
+        table: row.table_name as string,
+        sizeBytes: 0,
+        indexBytes: 0,
+        totalBytes: 0,
+        rowEstimate: Number(row.estimated_size) || 0,
+      }));
+    },
+
+    async getActiveConnections(): Promise<ConnectionInfo[]> {
+      return [
+        {
+          pid: 1,
+          usename: 'duckdb',
+          applicationName: 'kamehadb',
+          clientAddr: null,
+          backendStart: new Date().toISOString(),
+          state: 'active',
+          query: null,
+          queryStart: null,
+          waitEventType: null,
+          waitEvent: null,
+          durationSeconds: 0,
+        },
+      ];
     },
 
     async close(): Promise<void> {

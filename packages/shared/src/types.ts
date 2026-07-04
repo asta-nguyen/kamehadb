@@ -452,6 +452,79 @@ export type SqliteVecSearchResult = {
   durationMs: number;
 };
 
+// DuckDB vector (vss extension) types
+export type DuckDbVectorColumn = {
+  tableSchema: string;
+  tableName: string;
+  columnName: string;
+  dataType: string;
+};
+
+export type DuckDbVectorCapability = {
+  available: boolean;
+  vssVersion: string | null;
+  columns: DuckDbVectorColumn[];
+};
+
+export type DuckDbVectorSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type DuckDbVectorSearchResult = {
+  hits: DuckDbVectorSearchHit[];
+  durationMs: number;
+};
+
+// ClickHouse vector search types
+export type ClickHouseVectorColumn = {
+  tableName: string;
+  columnName: string;
+  dataType: string;
+};
+
+export type ClickHouseVectorCapability = {
+  available: boolean;
+  columns: ClickHouseVectorColumn[];
+};
+
+export type ClickHouseVectorSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type ClickHouseVectorSearchResult = {
+  hits: ClickHouseVectorSearchHit[];
+  durationMs: number;
+};
+
+// Oracle AI Vector Search types
+export type OracleVectorColumn = {
+  tableSchema: string;
+  tableName: string;
+  columnName: string;
+  dimensions: number;
+};
+
+export type OracleVectorCapability = {
+  available: boolean;
+  version: string | null;
+  columns: OracleVectorColumn[];
+};
+
+export type OracleVectorSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type OracleVectorSearchResult = {
+  hits: OracleVectorSearchHit[];
+  durationMs: number;
+};
+
 // TigerBeetle types
 export type TigerBeetleAccount = {
   id: string;

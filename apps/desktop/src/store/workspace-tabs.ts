@@ -232,7 +232,7 @@ export function openMongoShellTab(connectionId: string): void {
   openTab({
     id: `mongo-shell-${nanoid()}`,
     type: 'mongo-shell',
-    title: `Mongo Shell ${tabCount + 1}`,
+    title: `Shell ${tabCount + 1}`,
     connectionId,
   });
 }
@@ -242,8 +242,108 @@ export function openPostgresPsqlTab(connectionId: string): void {
   openTab({
     id: `postgres-psql-${nanoid()}`,
     type: 'postgres-psql',
-    title: `PSQL ${tabCount + 1}`,
+    title: `Shell ${tabCount + 1}`,
     connectionId,
+  });
+}
+
+export function openOracleSqlplusTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'oracle-sqlplus').length;
+  openTab({
+    id: `oracle-sqlplus-${nanoid()}`,
+    type: 'oracle-sqlplus',
+    title: `Shell ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openOracleVecSearchTab(
+  connectionId: string,
+  options?: {
+    readonly schema?: string;
+    readonly table?: string;
+    readonly column?: string;
+    readonly vectorText?: string;
+    readonly mode?: 'similar' | 'raw';
+  },
+): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'oracle-vec-search').length;
+  openTab({
+    id: `oracle-vec-search-${nanoid()}`,
+    type: 'oracle-vec-search',
+    title: options?.table ? `Oracle Vector ${options.table}` : `Oracle Vector ${tabCount + 1}`,
+    connectionId,
+    schema: options?.schema,
+    table: options?.table,
+    column: options?.column,
+    vectorText: options?.vectorText,
+    mode: options?.mode,
+  });
+}
+
+export function openClickhouseClientTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'clickhouse-client').length;
+  openTab({
+    id: `clickhouse-client-${nanoid()}`,
+    type: 'clickhouse-client',
+    title: `Shell ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openDuckdbCliTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'duckdb-cli').length;
+  openTab({
+    id: `duckdb-cli-${nanoid()}`,
+    type: 'duckdb-cli',
+    title: `Shell ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openDuckdbVecSearchTab(
+  connectionId: string,
+  options?: {
+    readonly schema?: string;
+    readonly table?: string;
+    readonly column?: string;
+    readonly vectorText?: string;
+    readonly mode?: 'similar' | 'raw';
+  },
+): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'duckdb-vec-search').length;
+  openTab({
+    id: `duckdb-vec-search-${nanoid()}`,
+    type: 'duckdb-vec-search',
+    title: options?.table ? `DuckDB Vector ${options.table}` : `DuckDB Vector ${tabCount + 1}`,
+    connectionId,
+    schema: options?.schema,
+    table: options?.table,
+    column: options?.column,
+    vectorText: options?.vectorText,
+    mode: options?.mode,
+  });
+}
+
+export function openClickhouseVecSearchTab(
+  connectionId: string,
+  options?: {
+    readonly table?: string;
+    readonly column?: string;
+    readonly vectorText?: string;
+    readonly mode?: 'similar' | 'raw';
+  },
+): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'clickhouse-vec-search').length;
+  openTab({
+    id: `clickhouse-vec-search-${nanoid()}`,
+    type: 'clickhouse-vec-search',
+    title: options?.table ? `CH Vector ${options.table}` : `CH Vector ${tabCount + 1}`,
+    connectionId,
+    table: options?.table,
+    column: options?.column,
+    vectorText: options?.vectorText,
+    mode: options?.mode,
   });
 }
 
@@ -319,6 +419,90 @@ export function updateTabSqliteVecMapState(
     ...state,
     openedTabs: state.openedTabs.map((tab) =>
       tab.id === tabId && tab.type === 'sqlite-vec-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
+export function openOracleVecMapTab(
+  connectionId: string,
+  options: { readonly table: string; readonly column: string },
+): void {
+  openTab({
+    id: `${connectionId}:oracle-vec-map:${options.table}.${options.column}`,
+    type: 'oracle-vec-map',
+    title: `Vector Map ${options.table}`,
+    connectionId,
+    table: options.table,
+    column: options.column,
+  });
+}
+
+export function updateTabOracleVecMapState(
+  tabId: string,
+  updates: {
+    readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+  },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'oracle-vec-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
+export function openDuckdbVecMapTab(
+  connectionId: string,
+  options: { readonly table: string; readonly column: string },
+): void {
+  openTab({
+    id: `${connectionId}:duckdb-vec-map:${options.table}.${options.column}`,
+    type: 'duckdb-vec-map',
+    title: `Vector Map ${options.table}`,
+    connectionId,
+    table: options.table,
+    column: options.column,
+  });
+}
+
+export function updateTabDuckdbVecMapState(
+  tabId: string,
+  updates: {
+    readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+  },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'duckdb-vec-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
+export function openClickhouseVecMapTab(
+  connectionId: string,
+  options: { readonly table: string; readonly column: string },
+): void {
+  openTab({
+    id: `${connectionId}:clickhouse-vec-map:${options.table}.${options.column}`,
+    type: 'clickhouse-vec-map',
+    title: `Vector Map ${options.table}`,
+    connectionId,
+    table: options.table,
+    column: options.column,
+  });
+}
+
+export function updateTabClickhouseVecMapState(
+  tabId: string,
+  updates: {
+    readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+  },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'clickhouse-vec-map' ? { ...tab, ...updates } : tab,
     ),
   }));
 }

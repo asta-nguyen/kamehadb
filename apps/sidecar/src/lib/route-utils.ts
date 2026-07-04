@@ -3,8 +3,6 @@ import { quoteSqlIdentifier as sharedQuoteSqlIdentifier, safeErrorMessage } from
 import type { ConnectionProfile } from '@kamehadb/shared';
 import * as metadataStore from '../db/metadata-store.js';
 
-export { safeErrorMessage };
-
 /**
  * Create an HTTP error with a statusCode for the Hono error handler chain.
  * The statusCode is extracted by handleError() to return appropriate HTTP status.

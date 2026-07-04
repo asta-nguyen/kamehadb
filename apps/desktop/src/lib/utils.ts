@@ -17,12 +17,11 @@ export function formatBytes(bytes: number, decimals = 2): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+const compactNumberFormatter = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+
 export function formatNumber(num: number): string {
   if (!Number.isFinite(num)) return '0';
-  if (num < 1000) return num.toString();
-  if (num < 1000000) return `${(num / 1000).toFixed(1)}K`;
-  if (num < 1000000000) return `${(num / 1000000).toFixed(1)}M`;
-  return `${(num / 1000000000).toFixed(1)}B`;
+  return compactNumberFormatter.format(num);
 }
 
 export function formatShortDateTime(date: Date | string | undefined | null): string {

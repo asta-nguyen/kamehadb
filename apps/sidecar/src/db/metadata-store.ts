@@ -2,9 +2,18 @@ import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
-import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
+import {
+  type ConnectionProfile,
+  type AIProvider,
+  type AISettings,
+  type AIProviderConfig,
+  ALL_KINDS,
+} from '@kamehadb/shared';
 import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
+
+/** SQL CHECK constraint for the `kind` column, built from ALL_KINDS so it stays in sync. */
+const KIND_CHECK = `kind TEXT NOT NULL CHECK(kind IN (${ALL_KINDS.map((k) => `'${k}'`).join(',')}))`;
 
 let db: Database.Database | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
@@ -55,7 +64,7 @@ export function initMetadataStore(dbPath: string): void {
     CREATE TABLE IF NOT EXISTS connection_profiles (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
+      ${KIND_CHECK},
       host TEXT,
       port INTEGER,
       database TEXT,
@@ -91,112 +100,22 @@ export function initMetadataStore(dbPath: string): void {
     // Column already exists, ignore
   }
 
-  // Migration: widen the kind CHECK constraint to include newer engines (e.g. qdrant).
+  // Migration: widen the kind CHECK constraint to include all supported engines.
   // SQLite bakes CHECK constraints into the table definition, so existing databases
-  // must rebuild the table to accept the new kind. Runs after the column migrations
-  // above so every column exists to copy.
+  // must rebuild the table to accept new kinds. Runs after the column migrations
+  // above so every column exists to copy. Rebuilds once if any kind is missing.
   const profilesSql = (
     db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='connection_profiles'").get() as
       | { sql: string }
       | undefined
   )?.sql;
-  // Migration: widen the kind CHECK constraint to include sqlserver/oracle/clickhouse.
-  if (profilesSql && !profilesSql.includes('clickhouse')) {
+  if (profilesSql && !ALL_KINDS.every((k) => profilesSql.includes(`'${k}'`))) {
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE connection_profiles_new (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','tigerbeetle')),
-        host TEXT,
-        port INTEGER,
-        database TEXT,
-        username TEXT,
-        password TEXT,
-        ssl INTEGER DEFAULT 0,
-        file_path TEXT,
-        color TEXT,
-        connection_string TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      INSERT INTO connection_profiles_new
-        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               color, connection_string, created_at, updated_at
-        FROM connection_profiles;
-      DROP TABLE connection_profiles;
-      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
-      COMMIT;
-    `);
-  }
-
-  if (profilesSql && !profilesSql.includes('qdrant')) {
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE connection_profiles_new (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
-        host TEXT,
-        port INTEGER,
-        database TEXT,
-        username TEXT,
-        password TEXT,
-        ssl INTEGER DEFAULT 0,
-        file_path TEXT,
-        color TEXT,
-        connection_string TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      INSERT INTO connection_profiles_new
-        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               color, connection_string, created_at, updated_at
-        FROM connection_profiles;
-      DROP TABLE connection_profiles;
-      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
-      COMMIT;
-    `);
-  }
-
-  // Migration: widen the kind CHECK constraint to include mariadb and duckdb.
-  if (profilesSql && !profilesSql.includes('mariadb')) {
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE connection_profiles_new (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
-        host TEXT,
-        port INTEGER,
-        database TEXT,
-        username TEXT,
-        password TEXT,
-        ssl INTEGER DEFAULT 0,
-        file_path TEXT,
-        color TEXT,
-        connection_string TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      INSERT INTO connection_profiles_new
-        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               color, connection_string, created_at, updated_at
-        FROM connection_profiles;
-      DROP TABLE connection_profiles;
-      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
-      COMMIT;
-    `);
-  }
-
-  // Migration: widen the kind CHECK constraint to include tigerbeetle.
-  if (profilesSql && !profilesSql.includes('tigerbeetle')) {
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE connection_profiles_new (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
+        ${KIND_CHECK},
         host TEXT,
         port INTEGER,
         database TEXT,
@@ -336,6 +255,13 @@ export function initMetadataStore(dbPath: string): void {
 
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS client_tool_paths (
+      tool TEXT PRIMARY KEY,
+      path TEXT NOT NULL
+    );
   `);
 
   seedDefaultAIProviders();
@@ -791,4 +717,43 @@ export function deleteOldSchemaSnapshots(connectionId: string, keep: number): vo
       )`,
     )
     .run(connectionId, connectionId, keep);
+}
+
+export function getClientToolPaths(): Record<string, string> {
+  const rows = getDb().prepare('SELECT tool, path FROM client_tool_paths').all() as {
+    tool: string;
+    path: string;
+  }[];
+  const result: Record<string, string> = {};
+  for (const row of rows) result[row.tool] = row.path;
+  return result;
+}
+
+export function getClientToolPath(tool: string): string | null {
+  const row = getDb().prepare('SELECT path FROM client_tool_paths WHERE tool = ?').get(tool) as
+    | { path: string }
+    | undefined;
+  return row?.path ?? null;
+}
+
+export function saveClientToolPaths(paths: Record<string, string>): void {
+  const db = getDb();
+  const insert = db.prepare(
+    'INSERT INTO client_tool_paths (tool, path) VALUES (?, ?) ON CONFLICT(tool) DO UPDATE SET path = excluded.path',
+  );
+  const deleteStmt = db.prepare('DELETE FROM client_tool_paths WHERE tool = ?');
+  const existing = getClientToolPaths();
+  const upsert = db.transaction(() => {
+    for (const [tool, path] of Object.entries(paths)) {
+      if (path.trim()) {
+        insert.run(tool, path.trim());
+      } else {
+        deleteStmt.run(tool);
+      }
+    }
+    for (const tool of Object.keys(existing)) {
+      if (!(tool in paths)) deleteStmt.run(tool);
+    }
+  });
+  upsert();
 }

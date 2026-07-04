@@ -13,6 +13,8 @@ import type {
   QueryColumn,
   TableCompletions,
   TableStats,
+  IndexStats,
+  ConnectionInfo,
 } from '@kamehadb/shared';
 
 // The @clickhouse/client's result.json() returns { data: [...], meta: [...], rows, statistics },
@@ -270,6 +272,59 @@ export function createClickHouseAdapter(connection: {
         durationMs: Math.round(durationMs),
         truncated: false,
       };
+    },
+
+    async getIndexStats(tableId: string): Promise<IndexStats[]> {
+      const parts = tableId.split('.');
+      const db = parts.length > 1 ? parts[0] : connection.database || 'default';
+      const table = parts.length > 1 ? parts[1] : tableId;
+      const rows = await q<{ name: string; type: string; expr: string; granularity: number }>(
+        `SELECT name, type, expr, granularity FROM system.data_skipping_indices WHERE database = ${escapeClickHouseVal(db)} AND table = ${escapeClickHouseVal(table)} ORDER BY name`,
+      );
+      return rows.map((r) => ({
+        name: r.name,
+        table,
+        columns: [r.expr],
+        unique: false,
+        primary: false,
+        method: r.type,
+        sizeBytes: 0,
+        scans: 0,
+        reads: 0,
+        usagePercent: 0,
+      }));
+    },
+
+    async getActiveConnections(): Promise<ConnectionInfo[]> {
+      const rows = await q<{
+        query_id: string;
+        user: string;
+        client_hostname: string;
+        client_name: string;
+        elapsed: number;
+        query: string;
+        is_initial_query: number;
+      }>(
+        `SELECT query_id, user, client_hostname, client_name, elapsed, query, is_initial_query
+         FROM system.processes
+         ORDER BY elapsed DESC`,
+      );
+      return rows.map((r, idx) => {
+        const startedAt = new Date(Date.now() - Math.max(0, r.elapsed) * 1000).toISOString();
+        return {
+          pid: idx + 1,
+          usename: r.user || '',
+          applicationName: r.client_name || '',
+          clientAddr: r.client_hostname || null,
+          backendStart: startedAt,
+          state: 'active',
+          query: r.query || null,
+          queryStart: startedAt,
+          waitEventType: null,
+          waitEvent: null,
+          durationSeconds: Math.round(r.elapsed) || 0,
+        };
+      });
     },
 
     async close(): Promise<void> {

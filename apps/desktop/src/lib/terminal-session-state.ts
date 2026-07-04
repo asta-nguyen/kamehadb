@@ -1,4 +1,4 @@
-export type TerminalSessionKind = 'postgresPsql';
+export type TerminalSessionKind = 'postgresPsql' | 'oracleSqlplus' | 'clickhouseClient' | 'duckdbCli';
 
 export type TerminalSessionStatus = 'idle' | 'starting' | 'running' | 'exited' | 'error';
 

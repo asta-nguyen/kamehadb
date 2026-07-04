@@ -33,3 +33,12 @@ export type SqliteVecSearchInput = {
   metric?: 'cosine' | 'l2' | 'inner_product';
   limit?: number;
 };
+
+export type OracleVectorSearchInput = {
+  table: string;
+  schema?: string;
+  column: string;
+  vector: number[];
+  metric?: 'cosine' | 'l2' | 'inner_product';
+  limit?: number;
+};
