@@ -10,6 +10,7 @@ mod profiles;
 mod sqlcmd;
 mod sqlite3;
 mod terminal_sessions;
+mod tool_check;
 mod tool_paths;
 
 use app_logs::{append_frontend_log, append_tauri_log, clear_app_logs, read_app_logs};
@@ -22,6 +23,7 @@ use terminal_sessions::{
 use postgres_tools::{
     cancel_postgres_job, start_postgres_backup, start_postgres_restore, PostgresJobState,
 };
+use tool_check::check_tool_installed;
 
 struct SidecarState(Mutex<Option<Child>>);
 
@@ -118,6 +120,7 @@ pub fn run() {
             append_frontend_log,
             read_app_logs,
             clear_app_logs,
+            check_tool_installed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

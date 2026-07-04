@@ -37,3 +37,16 @@ export type StartSqlcmdRequest = { readonly connectionId: string; readonly cols:
 export async function startSqlcmdSession(request: StartSqlcmdRequest): Promise<TerminalSessionStarted> {
   return invokeTauri<TerminalSessionStarted>('start_sqlcmd_session', { request });
 }
+
+export type ToolInstallStatus = {
+  readonly installed: boolean;
+  readonly path: string | null;
+  readonly hint: string;
+};
+
+// Proactively checks whether a CLI binary is on PATH before launching a
+// terminal session, so the shell tab can show an install reminder overlay
+// instead of failing inside the terminal. (Why: better UX than a spawn error.)
+export async function checkToolInstalled(program: string): Promise<ToolInstallStatus> {
+  return invokeTauri<ToolInstallStatus>('check_tool_installed', { program });
+}

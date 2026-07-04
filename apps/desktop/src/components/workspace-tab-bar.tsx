@@ -18,7 +18,7 @@ import { useRef, useState } from 'react';
 function tabIcon(tabType: string) {
   if (tabType === 'query' || tabType === 'redis-query' || tabType === 'migration')
     return <Terminal className="size-3" />;
-  if (tabType === 'postgres-psql' || tabType === 'sqlite3' || tabType === 'sqlcmd')
+  if (tabType === 'postgres-psql' || tabType === 'sqlite3' || tabType === 'sqlcmd' || tabType === 'mongo-shell')
     return <Terminal className="size-3" />;
   if (
     tabType === 'graph' ||

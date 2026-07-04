@@ -16,13 +16,12 @@ import {
   PinOff,
   Settings2,
   Sparkles,
-  Terminal,
   Trash2,
   Upload,
   type LucideIcon,
 } from 'lucide-react';
 import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
-import { setActiveConnection, togglePinnedConnection, openAiChatPanel, openPostgresPsqlTab } from '@/store';
+import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 
 function activate(connId: string, action: (id: string) => void) {
   setActiveConnection(connId);
@@ -47,18 +46,6 @@ function getMaintenanceActions(
   }
 
   const actions: MaintenanceAction[] = [];
-
-  // Postgres shell — not in ENGINE_TAB_ACTIONS so add here
-  if (conn.kind === KIND.POSTGRES) {
-    actions.push({
-      label: 'Open Shell',
-      icon: Terminal,
-      onSelect: () => {
-        setActiveConnection(conn.id);
-        openPostgresPsqlTab(conn.id);
-      },
-    });
-  }
 
   if (conn.kind === KIND.POSTGRES || supportsFileDatabaseMaintenance(conn) || isSqlServerMaintenanceSupported(conn)) {
     actions.push(
