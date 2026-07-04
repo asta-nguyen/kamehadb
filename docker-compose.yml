@@ -90,6 +90,19 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "KamehaDB123!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./docker-init/sqlserver:/docker-init/sqlserver
+    entrypoint: ["/bin/bash", "/docker-init/sqlserver/entrypoint.sh"]
+
 volumes:
   postgres_data:
   mysql_data:
@@ -99,3 +112,4 @@ volumes:
   tigerbeetle_data:
   mongodb_data:
   qdrant_data:
+  sqlserver_data:

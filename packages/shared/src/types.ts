@@ -452,6 +452,32 @@ export type SqliteVecSearchResult = {
   durationMs: number;
 };
 
+// SQL Server vector types (shared between BE and FE)
+export type SqlServerVecColumn = {
+  schemaName: string;
+  tableName: string;
+  columnName: string;
+  dimensions: number;
+};
+
+export type SqlServerVecCapability = {
+  available: boolean;
+  version: string | null;
+  columns: SqlServerVecColumn[];
+  metadataColumns: Record<string, string[]>;
+};
+
+export type SqlServerVecSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type SqlServerVecSearchResult = {
+  hits: SqlServerVecSearchHit[];
+  durationMs: number;
+};
+
 // TigerBeetle types
 export type TigerBeetleAccount = {
   id: string;

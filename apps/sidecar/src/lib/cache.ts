@@ -1,4 +1,3 @@
-import { LRUCache } from 'lru-cache';
 import { CACHE_MAX_ENTRIES } from './constants.js';
 import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@kamehadb/shared';
 
@@ -10,7 +9,7 @@ export const CACHE_TTL = {
   AI_SCHEMA: AI_SCHEMA_CACHE_TIME,
 };
 
-const cache = new LRUCache<string, { data: unknown; timestamp: number }>({ max: CACHE_MAX_ENTRIES });
+const cache = new Map<string, { data: unknown; timestamp: number }>();
 
 export function getCached<T>(key: string, ttl = CACHE_TTL.SCHEMA): T | null {
   const cached = cache.get(key);
@@ -22,6 +21,12 @@ export function getCached<T>(key: string, ttl = CACHE_TTL.SCHEMA): T | null {
 
 export function setCache(key: string, data: unknown) {
   cache.set(key, { data, timestamp: Date.now() });
+  if (cache.size > CACHE_MAX_ENTRIES) {
+    const firstKey = cache.keys().next().value;
+    if (firstKey !== undefined) {
+      cache.delete(firstKey);
+    }
+  }
 }
 
 export function clearConnectionCache(connectionId: string) {

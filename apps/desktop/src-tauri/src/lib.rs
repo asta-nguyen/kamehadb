@@ -1,4 +1,3 @@
-use keyring::Entry;
 use serde::Serialize;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -7,16 +6,24 @@ use tauri::Manager;
 mod app_logs;
 mod postgres_psql;
 mod postgres_tools;
+mod profiles;
+mod sqlcmd;
+mod sqlite3;
 mod terminal_sessions;
+mod tool_check;
+mod tool_paths;
 
 use app_logs::{append_frontend_log, append_tauri_log, clear_app_logs, read_app_logs};
 use postgres_psql::start_postgres_psql_session;
+use sqlcmd::start_sqlcmd_session;
+use sqlite3::start_sqlite3_session;
 use terminal_sessions::{
     resize_terminal_session, stop_terminal_session, write_terminal_session, TerminalSessionState,
 };
 use postgres_tools::{
     cancel_postgres_job, start_postgres_backup, start_postgres_restore, PostgresJobState,
 };
+use tool_check::check_tool_installed;
 
 struct SidecarState(Mutex<Option<Child>>);
 
@@ -90,38 +97,10 @@ fn stop_sidecar(state: tauri::State<'_, SidecarState>) -> Result<(), String> {
     Ok(())
 }
 
-// Keychain operations using keyring crate
-#[tauri::command]
-async fn store_credential(
-    service: String,
-    account: String,
-    password: String,
-) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.set_password(&password).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_credential(service: String, account: String) -> Result<String, String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    let password = entry.get_password().map_err(|e| e.to_string())?;
-    Ok(password)
-}
-
-#[tauri::command]
-async fn delete_credential(service: String, account: String) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.delete_credential().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
         .manage(SidecarState(Mutex::new(None)))
         .manage(TerminalSessionState::default())
         .manage(PostgresJobState::default())
@@ -129,10 +108,9 @@ pub fn run() {
             get_app_data_dir,
             start_sidecar,
             stop_sidecar,
-            store_credential,
-            get_credential,
-            delete_credential,
             start_postgres_psql_session,
+            start_sqlite3_session,
+            start_sqlcmd_session,
             write_terminal_session,
             resize_terminal_session,
             stop_terminal_session,
@@ -142,6 +120,7 @@ pub fn run() {
             append_frontend_log,
             read_app_logs,
             clear_app_logs,
+            check_tool_installed,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

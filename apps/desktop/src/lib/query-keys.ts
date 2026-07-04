@@ -63,6 +63,15 @@ export const QUERY_KEYS = {
     input?: import('@kamehadb/shared').PostgresVectorSampleInput | null,
   ) => ['postgres-vector-sample', connectionId, input] as const,
   SQLITE_VEC_CAPABILITIES: (connectionId: string | null) => ['sqlite-vec-capabilities', connectionId] as const,
+  SQLITE_VEC_VECTORS_SAMPLE: (
+    connectionId: string | null,
+    input?: { readonly table: string; readonly column: string; readonly limit: number } | null,
+  ) => ['sqlite-vec-vectors-sample', connectionId, input] as const,
+  SQLSERVER_VEC_CAPABILITIES: (connectionId: string | null) => ['sqlserver-vec-capabilities', connectionId] as const,
+  SQLSERVER_VEC_VECTORS_SAMPLE: (
+    connectionId: string | null,
+    input?: { readonly schema: string; readonly table: string; readonly column: string; readonly limit: number } | null,
+  ) => ['sqlserver-vec-vectors-sample', connectionId, input] as const,
   CONNECTION_HEALTH: (connectionId: string | null) => ['connection-health', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,
   TABLE_STATS: (connectionId: string | null, tableId?: string | null) =>

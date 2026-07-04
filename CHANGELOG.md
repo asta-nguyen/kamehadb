@@ -10,6 +10,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **MCP server** — v1.4.
+- **SQLite embedded shell** — `sqlite3` CLI spawned via Tauri PTY, mirroring the existing `psql` integration.
+- **SQL Server embedded shell** — `sqlcmd` CLI spawned via Tauri PTY with connection profile-based arguments.
+- **SQL Server backup/restore** — `BACKUP DATABASE`/`RESTORE DATABASE ... WITH REPLACE` executed via the SQL Server adapter, with desktop dialogs for destination and target database selection.
+- **SQL Server vector search** — native `VECTOR` data type support using `VECTOR_DISTANCE()` for similarity search, with capabilities detection, sample vector, bulk vector sampling for 3D visualization, and full integration into the shared `VectorQuery` component (alongside pgvector and sqlite-vec).
+- **SQL Server stats views** — implemented `searchSchema()`, `getTableStats()`, `getIndexStats()`, `getDatabaseSizes()`, and `getActiveConnections()` in the SQL Server adapter.
+- **SQLite backup/restore UI** — file copy backup/restore dialogs integrated into the sidebar and dropdown menu for SQLite connections in the Tauri runtime.
 
 ## [v1.3.4] — 2026-06-28
 

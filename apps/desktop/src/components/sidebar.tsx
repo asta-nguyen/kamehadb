@@ -19,7 +19,6 @@ import { isTauriRuntime } from '@/lib/tauri';
 import {
   appStore,
   navigateTo,
-  openPostgresPsqlTab,
   openRedisTab,
   setActiveConnection,
   setConnectionLatency,
@@ -36,6 +35,12 @@ import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
 import { PostgresBackupDialog } from './postgres-backup-dialog';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
+import { FileDatabaseBackupDialog } from './file-database-backup-dialog';
+import { FileDatabaseRestoreDialog } from './file-database-restore-dialog';
+import { SqlServerBackupDialog } from './sqlserver-backup-dialog';
+import { SqlServerRestoreDialog } from './sqlserver-restore-dialog';
+import { supportsFileDatabaseMaintenance } from '@/lib/file-database-maintenance';
+import { isSqlServerMaintenanceSupported } from '@/lib/sqlserver-maintenance';
 import { DeleteConfirmDialog } from './sidebar-delete-dialog';
 import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
 import { ConnectionExpansion } from './sidebar-expansion';
@@ -140,10 +145,6 @@ const ConnectionItem = memo(function ConnectionItem({
           pinned={pinned}
           onEdit={() => setShowEdit(true)}
           onDelete={() => setShowDeleteConfirm(true)}
-          onOpenPsql={() => {
-            setActiveConnection(conn.id);
-            openPostgresPsqlTab(conn.id);
-          }}
           onBackup={() => setShowBackup(true)}
           onRestore={() => setShowRestore(true)}
         />
@@ -156,6 +157,18 @@ const ConnectionItem = memo(function ConnectionItem({
         <>
           <PostgresBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
           <PostgresRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
+        </>
+      )}
+      {supportsFileDatabaseMaintenance(conn) && isTauriRuntime() && (
+        <>
+          <FileDatabaseBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
+          <FileDatabaseRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
+        </>
+      )}
+      {isSqlServerMaintenanceSupported(conn) && isTauriRuntime() && (
+        <>
+          <SqlServerBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
+          <SqlServerRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
         </>
       )}
       <DeleteConfirmDialog

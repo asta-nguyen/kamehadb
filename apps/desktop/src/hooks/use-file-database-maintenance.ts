@@ -2,26 +2,8 @@ import type { FileDatabaseBackupRequest, FileDatabaseRestoreRequest } from '@kam
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { backupFileDatabase, restoreFileDatabase } from '@/lib/file-database-maintenance';
-import { QUERY_KEYS } from '@/lib/query-keys';
 import { appendFrontendLog } from '@/lib/app-logs';
-
-function queryKeyIncludesConnectionId(queryKey: readonly unknown[], connectionId: string): boolean {
-  return queryKey.some((part) => typeof part === 'string' && part === connectionId);
-}
-
-// Restore rewrites the database file outside React Query's awareness, so the
-// cache must be invalidated by connection id rather than by a single query key.
-function invalidateConnectionQueries(
-  queryClient: ReturnType<typeof useQueryClient>,
-  connectionId: string,
-): Promise<void> {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
-    queryClient.invalidateQueries({
-      predicate: (query) => queryKeyIncludesConnectionId(query.queryKey, connectionId),
-    }),
-  ]).then(() => undefined);
-}
+import { invalidateConnectionQueries } from '@/lib/query-invalidation';
 
 export function useFileDatabaseBackup(connectionId: string) {
   const queryClient = useQueryClient();

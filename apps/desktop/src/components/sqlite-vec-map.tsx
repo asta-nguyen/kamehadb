@@ -1,44 +1,25 @@
-import { useMemo } from 'react';
 import type { WorkspaceTab } from '@/lib/types';
 import { useSqliteVecVectorsSample } from '@/hooks/use-sqlite-vec';
 import { openSqliteVecSearchTab, updateTabSqliteVecMapState } from '@/store';
-import { VectorMap3D } from '@/components/vector-map-3d';
+import { createVecMapComponent } from './create-vec-map';
 
-type SqliteVecMapProps = {
-  readonly tab: Extract<WorkspaceTab, { type: 'sqlite-vec-map' }>;
-  readonly connectionId: string;
-};
+type SqliteVecMapTab = Extract<WorkspaceTab, { type: 'sqlite-vec-map' }>;
 
-export function SqliteVecMap({ tab, connectionId }: SqliteVecMapProps) {
-  const { data, isLoading, error } = useSqliteVecVectorsSample(connectionId, {
+export const SqliteVecMap = createVecMapComponent<SqliteVecMapTab>({
+  useVectorsSample: useSqliteVecVectorsSample,
+  openSearchTab: openSqliteVecSearchTab,
+  updateMapState: updateTabSqliteVecMapState,
+  getSampleInput: (tab) => ({ table: tab.table, column: tab.column, limit: 500 }),
+  getHeader: (tab) => (
+    <>
+      <span className="font-mono">{tab.table}</span>
+      <span className="text-muted-foreground">{tab.column}</span>
+    </>
+  ),
+  getSearchInput: (tab, point) => ({
     table: tab.table,
     column: tab.column,
-    limit: 500,
-  });
-
-  const points = useMemo(() => (data?.points ?? []).filter((point) => point.vector.length > 0), [data]);
-
-  return (
-    <VectorMap3D
-      points={points}
-      isLoading={isLoading}
-      error={error}
-      header={
-        <>
-          <span className="font-mono">{tab.table}</span>
-          <span className="text-muted-foreground">{tab.column}</span>
-        </>
-      }
-      initialCamera={tab.camera}
-      onPointClick={(point) =>
-        openSqliteVecSearchTab(connectionId, {
-          table: tab.table,
-          column: tab.column,
-          mode: 'similar',
-          vectorText: JSON.stringify(point.vector),
-        })
-      }
-      onCameraChange={(camera) => updateTabSqliteVecMapState(tab.id, { camera })}
-    />
-  );
-}
+    mode: 'similar' as const,
+    vectorText: JSON.stringify(point.vector),
+  }),
+});

@@ -1,13 +1,14 @@
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
-import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
 import type { ConnectionProfile, AIProvider, AISettings, AIProviderConfig } from '@kamehadb/shared';
 import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
 
 let db: Database.Database | null = null;
-const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
+const aiSettingsCache = new Map<string, AISettings>();
+const aiSettingsCacheTtl = 1000 * 60 * 5;
+let aiSettingsCacheTime = 0;
 
 function createDefaultAISettings(): AISettings {
   return {
@@ -338,6 +339,13 @@ export function initMetadataStore(dbPath: string): void {
     CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS client_tool_paths (
+      tool TEXT PRIMARY KEY,
+      path TEXT NOT NULL
+    );
+  `);
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
@@ -557,7 +565,8 @@ function normalizeAISettings(input: AISettings): AISettings {
 }
 
 export function getAISettings(): AISettings {
-  const cached = aiSettingsCache.get('settings');
+  const cached =
+    Date.now() - aiSettingsCacheTime < aiSettingsCacheTtl ? (aiSettingsCache.get('settings') ?? null) : null;
   if (cached) return structuredClone(cached);
 
   const settings = createDefaultAISettings();
@@ -592,6 +601,7 @@ export function getAISettings(): AISettings {
   })();
 
   aiSettingsCache.set('settings', settings);
+  aiSettingsCacheTime = Date.now();
   return structuredClone(settings);
 }
 
@@ -612,6 +622,7 @@ export function saveAISettings(settings: AISettings): void {
 
   tx();
   aiSettingsCache.clear();
+  aiSettingsCacheTime = 0;
 }
 
 export function closeMetadataStore(): void {
@@ -791,4 +802,41 @@ export function deleteOldSchemaSnapshots(connectionId: string, keep: number): vo
       )`,
     )
     .run(connectionId, connectionId, keep);
+}
+
+// ── Client tool paths ──────────────────────────────────────────────────────
+
+export function getClientToolPaths(): Record<string, string> {
+  const rows = getDb().prepare('SELECT tool, path FROM client_tool_paths').all() as {
+    tool: string;
+    path: string;
+  }[];
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    result[row.tool] = row.path;
+  }
+  return result;
+}
+
+export function getClientToolPath(tool: string): string | null {
+  const row = getDb().prepare('SELECT path FROM client_tool_paths WHERE tool = ?').get(tool) as
+    | { path: string }
+    | undefined;
+  return row?.path ?? null;
+}
+
+export function saveClientToolPaths(paths: Record<string, string>): void {
+  const db = getDb();
+  db.transaction(() => {
+    const upsert = db.prepare(
+      'INSERT INTO client_tool_paths (tool, path) VALUES (?, ?) ON CONFLICT(tool) DO UPDATE SET path = excluded.path',
+    );
+    for (const [tool, path] of Object.entries(paths)) {
+      if (path.trim()) {
+        upsert.run(tool, path.trim());
+      } else {
+        db.prepare('DELETE FROM client_tool_paths WHERE tool = ?').run(tool);
+      }
+    }
+  })();
 }

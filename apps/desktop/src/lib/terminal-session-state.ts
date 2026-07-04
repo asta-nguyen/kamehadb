@@ -1,4 +1,4 @@
-export type TerminalSessionKind = 'postgresPsql';
+export type TerminalSessionKind = 'postgresPsql' | 'sqlite3' | 'sqlcmd';
 
 export type TerminalSessionStatus = 'idle' | 'starting' | 'running' | 'exited' | 'error';
 

@@ -191,17 +191,17 @@ Notes:
 
 ## Connection Defaults For Docker
 
-| Engine      | Port | User    | Password | Database |
-| ----------- | ---- | ------- | -------- | -------- |
-| PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
-| MySQL       | 3306 | kameha  | kameha   | kamehadb |
-| MariaDB     | 3307 | kameha  | kameha   | kamehadb |
-| Redis       | 6379 | —       | —        | —        |
-| SQL Server  | 1433 | sa      | Kameha1! | kamehadb |
-| Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
-| ClickHouse  | 8123 | default | default  | kamehadb |
-| DuckDB      | 5432 | —       | —        | —        |
-| TigerBeetle | 3001 | —       | —        | —        |
+| Engine      | Port | User    | Password     | Database |
+| ----------- | ---- | ------- | ------------ | -------- |
+| PostgreSQL  | 5432 | kameha  | kameha       | kamehadb |
+| MySQL       | 3306 | kameha  | kameha       | kamehadb |
+| MariaDB     | 3307 | kameha  | kameha       | kamehadb |
+| Redis       | 6379 | —       | —            | —        |
+| SQL Server  | 1433 | sa      | KamehaDB123! | kamehadb |
+| Oracle      | 1521 | SYS     | oracle       | ORCLPDB1 |
+| ClickHouse  | 8123 | default | default      | kamehadb |
+| DuckDB      | 5432 | —       | —            | —        |
+| TigerBeetle | 3001 | —       | —            | —        |
 
 ### TigerBeetle Initialization
 

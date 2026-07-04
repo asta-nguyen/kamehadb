@@ -22,6 +22,23 @@ export const api = {
       input,
     ),
 
+  backupSqlServerDatabase: (connectionId: string, input: { readonly outputPath: string }) =>
+    request<{ readonly success: boolean; readonly message: string }>(
+      'POST',
+      `/connections/${connectionId}/sqlserver-backup`,
+      input,
+    ),
+
+  restoreSqlServerDatabase: (
+    connectionId: string,
+    input: { readonly inputPath: string; readonly targetDatabase: string },
+  ) =>
+    request<{ readonly success: boolean; readonly message: string }>(
+      'POST',
+      `/connections/${connectionId}/sqlserver-restore`,
+      input,
+    ),
+
   createConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
     request<import('@kamehadb/shared').ConnectionProfile>('POST', '/connections', input),
 
@@ -168,6 +185,35 @@ export const api = {
       points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
       dimensions: number;
     }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input, true),
+
+  // SQL Server vector API
+  getSqlServerVecCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').SqlServerVecCapability>(
+      'GET',
+      `/sql/${connectionId}/sqlserver-vec/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchSqlServerVec: (connectionId: string, input: import('@kamehadb/shared').SqlServerVecSearchInput) =>
+    request<import('@kamehadb/shared').SqlServerVecSearchResult>(
+      'POST',
+      `/sql/${connectionId}/sqlserver-vec/search`,
+      input,
+      true,
+    ),
+
+  sampleSqlServerVec: (connectionId: string, input: { schema: string; table: string; column: string }) =>
+    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/sqlserver-vec/sample`, input, true),
+
+  sampleSqlServerVecVectors: (
+    connectionId: string,
+    input: { schema: string; table: string; column: string; limit: number },
+  ) =>
+    request<{
+      points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
+      dimensions: number;
+    }>('POST', `/sql/${connectionId}/sqlserver-vec/vectors/sample`, input, true),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
@@ -341,4 +387,25 @@ export const api = {
       { transfers },
       true,
     ),
+
+  // Client tool paths (DBeaver-style binary configuration)
+  getClientToolPaths: () =>
+    request<
+      Record<
+        string,
+        {
+          configured: string | null;
+          detected: string | null;
+          version: string | null;
+          installCommand: string | null;
+          uninstallCommand: string | null;
+        }
+      >
+    >('GET', '/client-tools/paths'),
+
+  saveClientToolPaths: (paths: Record<string, string>) =>
+    request<{ success: boolean }>('POST', '/client-tools/paths', paths),
+
+  resolveClientTool: (tool: string) =>
+    request<{ path: string; version: string | null }>('POST', `/client-tools/resolve/${tool}`),
 };
