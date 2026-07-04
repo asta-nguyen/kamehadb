@@ -452,6 +452,31 @@ export type SqliteVecSearchResult = {
   durationMs: number;
 };
 
+// MySQL/MariaDB vector types (JSON-array storage with JS-side distance computation)
+export type MysqlVectorColumn = {
+  tableName: string;
+  columnName: string;
+  dimensions: number;
+};
+
+export type MysqlVectorCapability = {
+  available: boolean;
+  version: string | null;
+  columns: MysqlVectorColumn[];
+  metadataColumns: Record<string, string[]>;
+};
+
+export type MysqlVectorSearchHit = {
+  id: string | number;
+  score: number;
+  row: Record<string, unknown>;
+};
+
+export type MysqlVectorSearchResult = {
+  hits: MysqlVectorSearchHit[];
+  durationMs: number;
+};
+
 // TigerBeetle types
 export type TigerBeetleAccount = {
   id: string;

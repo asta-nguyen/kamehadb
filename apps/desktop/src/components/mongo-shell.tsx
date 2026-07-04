@@ -58,6 +58,22 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
       rows: 24,
     });
 
+    // Allow copy-to-clipboard via keyboard shortcut:
+    // Cmd+C on macOS, Ctrl+Shift+C on Linux/Windows.
+    term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      const isMac = navigator.platform.toLowerCase().includes('mac');
+      const isCopyShortcut =
+        (isMac && event.metaKey && event.key === 'c') ||
+        (!isMac && event.ctrlKey && event.shiftKey && (event.key === 'c' || event.key === 'C'));
+      if (!isCopyShortcut) return true;
+      const selection = term.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection).catch(() => {});
+        return false;
+      }
+      return true;
+    });
+
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalContainer);
@@ -168,7 +184,7 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
   }, [connectionString, connectionId, tab.id, handleData, handleResize]);
 
   return (
-    <div className="h-full w-full overflow-hidden bg-black">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-black">
       <div ref={terminalRef} className="h-full w-full" />
     </div>
   );

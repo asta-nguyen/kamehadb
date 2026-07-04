@@ -1,4 +1,4 @@
-export type TerminalSessionKind = 'postgresPsql';
+export type TerminalSessionKind = 'postgresPsql' | 'mysqlShell';
 
 export type TerminalSessionStatus = 'idle' | 'starting' | 'running' | 'exited' | 'error';
 

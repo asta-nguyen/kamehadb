@@ -4,6 +4,7 @@ import type { PostgresVectorSearchResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { usePostgresVectorCapabilities, usePostgresVectorSearch } from '@/hooks/use-postgres-vector';
 import { useSqliteVecCapabilities, useSqliteVecSearch, useSqliteVecSample } from '@/hooks/use-sqlite-vec';
+import { useMysqlVectorCapabilities, useMysqlVectorSearch, useMysqlVectorSample } from '@/hooks/use-mysql-vector';
 import { parseVectorText } from '@/lib/postgres-vector';
 import { PostgresVectorResults } from '@/components/postgres-vector-results';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dice5, Loader2, Network, Play } from 'lucide-react';
-import { openPostgresVectorMapTab, openSqliteVecMapTab } from '@/store';
+import { openPostgresVectorMapTab, openSqliteVecMapTab, openMysqlVecMapTab } from '@/store';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 // ── State type (superset of both PG and sqlite-vec fields) ────────────────
@@ -96,27 +97,34 @@ function getPgSchema(tab: WorkspaceTab): string {
 }
 
 function tabDisplayName(tab: WorkspaceTab): string {
-  return tab.type === 'postgres-vector-search' ? 'pgvector' : 'sqlite-vec';
+  if (tab.type === 'postgres-vector-search') return 'pgvector';
+  if (tab.type === 'mysql-vec-search') return 'MySQL vector';
+  return 'sqlite-vec';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
 
 interface VectorQueryProps {
-  readonly tab: Extract<WorkspaceTab, { type: 'postgres-vector-search' | 'sqlite-vec-search' }>;
+  readonly tab: Extract<WorkspaceTab, { type: 'postgres-vector-search' | 'sqlite-vec-search' | 'mysql-vec-search' }>;
   readonly connectionId: string;
 }
 
 export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
   const isSqlite = tab.type === 'sqlite-vec-search';
+  const isMysql = tab.type === 'mysql-vec-search';
 
   // Hooks — only the active engine's hooks are enabled
-  const { data: pgCapabilities } = usePostgresVectorCapabilities(isSqlite ? null : connectionId);
-  const pgSearch = usePostgresVectorSearch(isSqlite ? null : connectionId);
+  const enablePg = !isSqlite && !isMysql;
+  const { data: pgCapabilities } = usePostgresVectorCapabilities(enablePg ? connectionId : null);
+  const pgSearch = usePostgresVectorSearch(enablePg ? connectionId : null);
   const { data: sqliteCapabilities } = useSqliteVecCapabilities(isSqlite ? connectionId : null);
   const sqliteSearch = useSqliteVecSearch(isSqlite ? connectionId : null);
   const sqliteSample = useSqliteVecSample(isSqlite ? connectionId : null);
+  const { data: mysqlCapabilities } = useMysqlVectorCapabilities(isMysql ? connectionId : null);
+  const mysqlSearch = useMysqlVectorSearch(isMysql ? connectionId : null);
+  const mysqlSample = useMysqlVectorSample(isMysql ? connectionId : null);
 
-  const capabilities = isSqlite ? sqliteCapabilities : pgCapabilities;
+  const capabilities = isSqlite ? sqliteCapabilities : isMysql ? mysqlCapabilities : pgCapabilities;
 
   const [state, dispatch] = useReducer(vectorQueryReducer, {
     schema: getPgSchema(tab),
@@ -138,10 +146,13 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
   // ── Derived lists ─────────────────────────────────────────────────
 
+  // MySQL and SQLite both use table-only (no schema) layout with metadataColumns
+  const isTableOnly = isSqlite || isMysql;
+
   const schemas = useMemo(() => {
-    if (isSqlite || !capabilities?.columns) return [];
+    if (isTableOnly || !capabilities?.columns) return [];
     return [...new Set(capabilities.columns.map((c) => (c as { tableSchema: string }).tableSchema))].sort();
-  }, [capabilities, isSqlite]);
+  }, [capabilities, isTableOnly]);
 
   const vectorTables = useMemo(() => {
     if (!capabilities?.columns) return [];
@@ -149,11 +160,11 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
       ...new Set(
         capabilities.columns.map((c) => {
           const col = c as { tableName: string; tableSchema?: string };
-          return isSqlite ? col.tableName : `${col.tableName}`;
+          return isTableOnly ? col.tableName : `${col.tableName}`;
         }),
       ),
     ].sort();
-  }, [capabilities, isSqlite]);
+  }, [capabilities, isTableOnly]);
 
   const vectorColumns = useMemo(() => {
     if (!capabilities?.columns || !state.table) return [];
@@ -166,26 +177,26 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
       }>
     )
       .filter((col) =>
-        isSqlite ? col.tableName === state.table : col.tableName === state.table && col.tableSchema === state.schema,
+        isTableOnly ? col.tableName === state.table : col.tableName === state.table && col.tableSchema === state.schema,
       )
       .sort((a, b) => a.columnName.localeCompare(b.columnName));
-  }, [capabilities, state.schema, state.table, isSqlite]);
+  }, [capabilities, state.schema, state.table, isTableOnly]);
 
   const metadataColumns = useMemo(() => {
-    if (!isSqlite || !capabilities) return [];
-    const sqliteCap = capabilities as { metadataColumns?: Record<string, string[]> };
-    if (!sqliteCap.metadataColumns || !state.table) return [];
-    return sqliteCap.metadataColumns[state.table] ?? [];
-  }, [capabilities, state.table, isSqlite]);
+    if (!isTableOnly || !capabilities) return [];
+    const tableOnlyCap = capabilities as { metadataColumns?: Record<string, string[]> };
+    if (!tableOnlyCap.metadataColumns || !state.table) return [];
+    return tableOnlyCap.metadataColumns[state.table] ?? [];
+  }, [capabilities, state.table, isTableOnly]);
 
   // ── Auto-select effects ───────────────────────────────────────────
 
   // PG: auto-select first schema
   useEffect(() => {
-    if (!isSqlite && !state.schema && schemas.length > 0) {
+    if (!isTableOnly && !state.schema && schemas.length > 0) {
       dispatch({ type: 'setSchema', value: schemas[0] });
     }
-  }, [isSqlite, schemas, state.schema]);
+  }, [isTableOnly, schemas, state.schema]);
 
   // Both: auto-select first table
   useEffect(() => {
@@ -212,9 +223,9 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
     dispatch({ type: 'startRun' });
     try {
-      // Resolve vector — sampled (sqlite-vec) or parsed from text
+      // Resolve vector — sampled (sqlite-vec/mysql) or parsed from text
       let vector: number[];
-      if (isSqlite && state.sampledVector) {
+      if (isTableOnly && state.sampledVector) {
         vector = state.sampledVector;
       } else {
         try {
@@ -239,7 +250,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
 
       // Build filter clause
       let filter: string | undefined;
-      if (isSqlite) {
+      if (isTableOnly) {
         // Structured filter — column + op + value
         if (state.filterColumn && state.filterValue.trim()) {
           const val =
@@ -248,7 +259,10 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
               : isNaN(Number(state.filterValue))
                 ? `'${state.filterValue.replace(/'/g, "''")}'`
                 : state.filterValue;
-          filter = `"${state.filterColumn}" ${state.filterOp} ${val}`;
+          // MySQL's backend parser requires a bare identifier (it re-quotes with
+          // backticks itself); SQLite accepts the ANSI double-quoted form.
+          const colToken = isMysql ? state.filterColumn : `"${state.filterColumn}"`;
+          filter = `${colToken} ${state.filterOp} ${val}`;
         }
       } else {
         // Free-text SQL WHERE clause
@@ -256,6 +270,8 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
       }
 
       // Execute search — input shapes differ between engines
+      // MySQL only supports cosine and l2 metrics
+      const mysqlMetric = state.metric === 'inner_product' ? 'cosine' : state.metric;
       const result: PostgresVectorSearchResult = isSqlite
         ? await sqliteSearch.mutateAsync({
             table: state.table,
@@ -265,15 +281,24 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             metric: state.metric,
             limit: state.limit,
           })
-        : await pgSearch.mutateAsync({
-            schema: state.schema || undefined,
-            table: state.table,
-            column: state.column,
-            vector,
-            filter,
-            metric: state.metric,
-            limit: state.limit,
-          });
+        : isMysql
+          ? await mysqlSearch.mutateAsync({
+              table: state.table,
+              column: state.column,
+              vector,
+              filter,
+              metric: mysqlMetric as 'cosine' | 'l2',
+              limit: state.limit,
+            })
+          : await pgSearch.mutateAsync({
+              schema: state.schema || undefined,
+              table: state.table,
+              column: state.column,
+              vector,
+              filter,
+              metric: state.metric,
+              limit: state.limit,
+            });
 
       dispatch({ type: 'finishRun', result });
     } catch (error) {
@@ -296,7 +321,9 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
       : capabilities && capabilities.columns.length === 0
         ? isSqlite
           ? 'No vec0 virtual tables found in this database.'
-          : 'No vector columns found in this database.'
+          : isMysql
+            ? 'No JSON vector columns found. Store vectors as JSON arrays in a JSON column.'
+            : 'No vector columns found in this database.'
         : 'Enter a query vector and run a search';
 
   // ── Render ────────────────────────────────────────────────────────
@@ -304,10 +331,10 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-border space-y-2">
-        {/* Engine-agnostic control row: schema (PG), table, column, metric, limit, sample (SQLite), search, map */}
+        {/* Engine-agnostic control row: schema (PG), table, column, metric, limit, sample (SQLite/MySQL), search, map */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Schema selector — PG only */}
-          {!isSqlite && (
+          {!isTableOnly && (
             <Select
               value={state.schema || ''}
               onValueChange={(value) => dispatch({ type: 'setSchema', value: value ?? '' })}
@@ -370,7 +397,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             <SelectContent>
               <SelectItem value="cosine">Cosine</SelectItem>
               <SelectItem value="l2">L2 Distance</SelectItem>
-              <SelectItem value="inner_product">Inner Product</SelectItem>
+              {!isMysql && <SelectItem value="inner_product">Inner Product</SelectItem>}
             </SelectContent>
           </Select>
 
@@ -391,8 +418,8 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             </SelectContent>
           </Select>
 
-          {/* Sample vector button — SQLite only */}
-          {isSqlite && (
+          {/* Sample vector button — SQLite & MySQL */}
+          {isTableOnly && (
             <Button
               variant="outline"
               size="sm"
@@ -400,7 +427,9 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
                 if (!state.table || !state.column) return;
                 dispatch({ type: 'setError', value: null });
                 try {
-                  const result = await sqliteSample.mutateAsync({ table: state.table, column: state.column });
+                  const result = isSqlite
+                    ? await sqliteSample.mutateAsync({ table: state.table, column: state.column })
+                    : await mysqlSample.mutateAsync({ table: state.table, column: state.column });
                   const preview = result.vector.slice(0, 8);
                   const display =
                     preview.length < result.vector.length
@@ -415,10 +444,10 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
                   });
                 }
               }}
-              disabled={sqliteSample.isPending || !state.table || !state.column}
+              disabled={(isSqlite ? sqliteSample.isPending : mysqlSample.isPending) || !state.table || !state.column}
               className="ml-auto"
             >
-              {sqliteSample.isPending ? (
+              {(isSqlite ? sqliteSample.isPending : mysqlSample.isPending) ? (
                 <Loader2 className="size-3.5 mr-1.5 animate-spin" />
               ) : (
                 <Dice5 className="size-3.5 mr-1.5" />
@@ -445,6 +474,8 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
               if (!state.table || !state.column) return;
               if (isSqlite) {
                 openSqliteVecMapTab(connectionId, { table: state.table, column: state.column });
+              } else if (isMysql) {
+                openMysqlVecMapTab(connectionId, { table: state.table, column: state.column });
               } else {
                 openPostgresVectorMapTab(connectionId, {
                   schema: state.schema,
@@ -469,8 +500,8 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
           className="w-full min-h-20 px-2 py-1 text-xs font-mono bg-background border rounded resize-y"
         />
 
-        {/* Filter section — differs by engine */}
-        {isSqlite ? (
+        {/* Filter section — differs by engine (SQLite & MySQL use structured filter) */}
+        {isTableOnly ? (
           <div className="flex items-center gap-2 flex-wrap">
             <Select
               value={state.filterColumn || '__none__'}
@@ -546,15 +577,23 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             result={state.result}
             onViewMap={
               isSqlite
-                ? undefined
-                : () => {
-                    if (!state.schema || !state.table || !state.column) return;
-                    openPostgresVectorMapTab(connectionId, {
-                      schema: state.schema,
-                      table: state.table,
-                      column: state.column,
-                    });
+                ? () => {
+                    if (!state.table || !state.column) return;
+                    openSqliteVecMapTab(connectionId, { table: state.table, column: state.column });
                   }
+                : isMysql
+                  ? () => {
+                      if (!state.table || !state.column) return;
+                      openMysqlVecMapTab(connectionId, { table: state.table, column: state.column });
+                    }
+                  : () => {
+                      if (!state.schema || !state.table || !state.column) return;
+                      openPostgresVectorMapTab(connectionId, {
+                        schema: state.schema,
+                        table: state.table,
+                        column: state.column,
+                      });
+                    }
             }
           />
         ) : (

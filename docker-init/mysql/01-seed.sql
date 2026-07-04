@@ -89,3 +89,23 @@ INSERT INTO comments (post_id, user_id, body) VALUES
   (11, 10, 'Great work team!'),
   (12, 12, 'Very detailed architecture doc.'),
   (12, 9, 'This is exactly what we needed.');
+
+-- Vector search sample data: documents with JSON-array embeddings (4d)
+CREATE TABLE documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  category VARCHAR(50) NOT NULL,
+  embedding JSON NOT NULL
+) ENGINE=InnoDB;
+
+INSERT INTO documents (title, category, embedding) VALUES
+  ('Introduction to Databases', 'docs', '[0.12, 0.33, 0.18, 0.77]'),
+  ('Advanced SQL Techniques', 'docs', '[0.11, 0.29, 0.22, 0.71]'),
+  ('Database Normalization Guide', 'docs', '[0.41, 0.21, 0.53, 0.09]'),
+  ('Indexing Strategies', 'docs', '[0.88, 0.15, 0.42, 0.30]'),
+  ('Replication and Sharding', 'docs', '[0.55, 0.67, 0.12, 0.44]'),
+  ('Query Optimization Tips', 'docs', '[0.14, 0.78, 0.31, 0.62]'),
+  ('Transactions and Isolation', 'docs', '[0.33, 0.45, 0.66, 0.11]'),
+  ('Stored Procedures Basics', 'tutorials', '[0.71, 0.22, 0.38, 0.55]'),
+  ('Triggers and Events', 'tutorials', '[0.20, 0.59, 0.74, 0.16]'),
+  ('Backup and Recovery', 'tutorials', '[0.63, 0.10, 0.85, 0.27]');

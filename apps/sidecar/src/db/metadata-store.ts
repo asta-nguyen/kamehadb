@@ -338,6 +338,13 @@ export function initMetadataStore(dbPath: string): void {
     CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS client_tool_paths (
+      tool TEXT PRIMARY KEY,
+      path TEXT NOT NULL
+    );
+  `);
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
@@ -791,4 +798,41 @@ export function deleteOldSchemaSnapshots(connectionId: string, keep: number): vo
       )`,
     )
     .run(connectionId, connectionId, keep);
+}
+
+// ── Client tool paths (DBeaver-style binary configuration) ───────────────
+
+export function getClientToolPaths(): Record<string, string> {
+  const rows = getDb().prepare('SELECT tool, path FROM client_tool_paths').all() as {
+    tool: string;
+    path: string;
+  }[];
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    result[row.tool] = row.path;
+  }
+  return result;
+}
+
+export function getClientToolPath(tool: string): string | null {
+  const row = getDb().prepare('SELECT path FROM client_tool_paths WHERE tool = ?').get(tool) as
+    | { path: string }
+    | undefined;
+  return row?.path ?? null;
+}
+
+export function saveClientToolPaths(paths: Record<string, string>): void {
+  const db = getDb();
+  db.transaction(() => {
+    const upsert = db.prepare(
+      'INSERT INTO client_tool_paths (tool, path) VALUES (?, ?) ON CONFLICT(tool) DO UPDATE SET path = excluded.path',
+    );
+    for (const [tool, path] of Object.entries(paths)) {
+      if (path.trim()) {
+        upsert.run(tool, path.trim());
+      } else {
+        db.prepare('DELETE FROM client_tool_paths WHERE tool = ?').run(tool);
+      }
+    }
+  })();
 }

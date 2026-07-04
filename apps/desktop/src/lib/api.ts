@@ -47,6 +47,33 @@ export const api = {
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
     request<{ success: boolean }>('POST', '/ai/settings', input),
 
+  // Client tool paths (DBeaver-style binary configuration)
+  getClientToolPaths: () =>
+    request<
+      Record<
+        string,
+        {
+          configured: string | null;
+          detected: string | null;
+          version: string | null;
+          installCommand: string | null;
+          uninstallCommand: string | null;
+        }
+      >
+    >('GET', '/client-tools/paths'),
+
+  saveClientToolPaths: (paths: Record<string, string>) =>
+    request<{ success: boolean }>('POST', '/client-tools/paths', paths),
+
+  resolveClientTool: (tool: string) =>
+    request<{
+      tool: string;
+      configured: string | null;
+      detected: string | null;
+      version: string | null;
+      found: boolean;
+    }>('POST', `/client-tools/resolve/${encodeURIComponent(tool)}`),
+
   getChatHistory: (connectionId: string, limit = 50, mongoDatabase?: string) => {
     const dbParam = mongoDatabase ? `&database=${encodeURIComponent(mongoDatabase)}` : '';
     return request<{
@@ -168,6 +195,32 @@ export const api = {
       points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
       dimensions: number;
     }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input, true),
+
+  // MySQL/MariaDB vector API (JSON-array storage with JS-side distance computation)
+  getMysqlVectorCapabilities: (connectionId: string) =>
+    request<import('@kamehadb/shared').MysqlVectorCapability>(
+      'GET',
+      `/sql/${connectionId}/mysql-vec/capabilities`,
+      undefined,
+      true,
+    ),
+
+  searchMysqlVector: (connectionId: string, input: import('@kamehadb/shared').MysqlVectorSearchInput) =>
+    request<import('@kamehadb/shared').MysqlVectorSearchResult>(
+      'POST',
+      `/sql/${connectionId}/mysql-vec/search`,
+      input,
+      true,
+    ),
+
+  sampleMysqlVector: (connectionId: string, input: { table: string; column: string }) =>
+    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/mysql-vec/sample`, input, true),
+
+  sampleMysqlVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
+    request<{
+      points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
+      dimensions: number;
+    }>('POST', `/sql/${connectionId}/mysql-vec/vectors/sample`, input, true),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>

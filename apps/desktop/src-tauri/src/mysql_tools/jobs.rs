@@ -6,19 +6,19 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::time::sleep;
 use uuid::Uuid;
 
 use super::config::{
-    build_backup_command, build_restore_command, resolve_postgres_program, CommandSpec,
-    PostgresProfile, PostgresToolError,
+    build_backup_command, build_restore_command, resolve_mysql_program, CommandSpec,
+    MysqlProfile, MysqlToolError,
 };
 use super::{
-    OutputStream, PostgresToolEvent, PostgresToolKind, StartBackupRequest, StartRestoreRequest,
-    POSTGRES_TOOL_EVENT,
+    MysqlToolEvent, MysqlToolKind, OutputStream, StartBackupRequest, StartRestoreRequest,
+    MYSQL_TOOL_EVENT,
 };
 
 pub struct JobControl {
@@ -27,39 +27,38 @@ pub struct JobControl {
 }
 
 #[derive(Default)]
-pub struct PostgresJobState(pub Arc<Mutex<HashMap<String, JobControl>>>);
+pub struct MysqlJobState(pub Arc<Mutex<HashMap<String, JobControl>>>);
 
 pub async fn start_backup_job(
     app: AppHandle,
-    state: &PostgresJobState,
-    profile: PostgresProfile,
+    state: &MysqlJobState,
+    profile: MysqlProfile,
     request: StartBackupRequest,
-) -> Result<String, PostgresToolError> {
-    let program = resolve_postgres_program(&app, "pg_dump");
+) -> Result<String, MysqlToolError> {
+    let program = resolve_mysql_program(&app, "mysqldump", &profile);
     let spec = build_backup_command(&program, &profile, &request);
-    start_job(app, state, PostgresToolKind::Backup, spec).await
+    start_job(app, state, MysqlToolKind::Backup, spec).await
 }
 
 pub async fn start_restore_job(
     app: AppHandle,
-    state: &PostgresJobState,
-    profile: PostgresProfile,
+    state: &MysqlJobState,
+    profile: MysqlProfile,
     request: StartRestoreRequest,
-) -> Result<String, PostgresToolError> {
-    let pg_restore = resolve_postgres_program(&app, "pg_restore");
-    let psql = resolve_postgres_program(&app, "psql");
-    let spec = build_restore_command(&pg_restore, &psql, &profile, &request)?;
-    start_job(app, state, PostgresToolKind::Restore, spec).await
+) -> Result<String, MysqlToolError> {
+    let program = resolve_mysql_program(&app, "mysql", &profile);
+    let spec = build_restore_command(&program, &profile, &request)?;
+    start_job(app, state, MysqlToolKind::Restore, spec).await
 }
 
-pub async fn cancel_job(state: &PostgresJobState, job_id: &str) -> Result<(), PostgresToolError> {
+pub async fn cancel_job(state: &MysqlJobState, job_id: &str) -> Result<(), MysqlToolError> {
     let (child, cancelled) = {
         let guard = state
             .0
             .lock()
-            .map_err(|error| PostgresToolError::Spawn(error.to_string()))?;
+            .map_err(|error| MysqlToolError::Spawn(error.to_string()))?;
         let control = guard.get(job_id).ok_or_else(|| {
-            PostgresToolError::InvalidRestoreInput("Backup or restore job was not found".into())
+            MysqlToolError::InvalidRestoreInput("Backup or restore job was not found".into())
         })?;
         (Arc::clone(&control.child), Arc::clone(&control.cancelled))
     };
@@ -69,17 +68,17 @@ pub async fn cancel_job(state: &PostgresJobState, job_id: &str) -> Result<(), Po
         .await
         .kill()
         .await
-        .map_err(|error| PostgresToolError::Spawn(error.to_string()))?;
+        .map_err(|error| MysqlToolError::Spawn(error.to_string()))?;
     cancelled.store(true, Ordering::SeqCst);
     Ok(())
 }
 
 async fn start_job(
     app: AppHandle,
-    state: &PostgresJobState,
-    kind: PostgresToolKind,
+    state: &MysqlJobState,
+    kind: MysqlToolKind,
     spec: CommandSpec,
-) -> Result<String, PostgresToolError> {
+) -> Result<String, MysqlToolError> {
     let job_id = Uuid::new_v4().to_string();
     let program = spec.program.clone();
     let mut command = Command::new(&program);
@@ -87,12 +86,20 @@ async fn start_job(
     command.envs(spec.env.iter().map(|(key, value)| (key, value)));
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
+    // Restore pipes the dump file into stdin; backup has nothing to feed.
+    if spec.stdin_file.is_some() {
+        command.stdin(Stdio::piped());
+    } else {
+        command.stdin(Stdio::null());
+    }
 
     let mut child = command
         .spawn()
-        .map_err(|error| PostgresToolError::Spawn(spawn_message(&program, &error)))?;
+        .map_err(|error| MysqlToolError::Spawn(spawn_message(&program, &error)))?;
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
+    let stdin = child.stdin.take();
+    let stdin_file = spec.stdin_file.clone();
     let child = Arc::new(AsyncMutex::new(child));
     let cancelled = Arc::new(AtomicBool::new(false));
 
@@ -100,7 +107,7 @@ async fn start_job(
         let mut guard = state
             .0
             .lock()
-            .map_err(|error| PostgresToolError::Spawn(error.to_string()))?;
+            .map_err(|error| MysqlToolError::Spawn(error.to_string()))?;
         guard.insert(
             job_id.clone(),
             JobControl {
@@ -117,12 +124,34 @@ async fn start_job(
     tauri::async_runtime::spawn(async move {
         emit(
             &app,
-            PostgresToolEvent::Started {
+            MysqlToolEvent::Started {
                 job_id: task_job_id.clone(),
                 kind,
                 message: started_message,
             },
         );
+
+        // Restore: stream the dump file into the client's stdin and close it
+        // so the server receives EOF and finishes the import.
+        if let (Some(mut stdin), Some(path)) = (stdin, stdin_file) {
+            match tokio::fs::File::open(&path).await {
+                Ok(mut file) => {
+                    let _ = tokio::io::copy(&mut file, &mut stdin).await;
+                    let _ = stdin.shutdown().await;
+                }
+                Err(error) => {
+                    emit(
+                        &app,
+                        MysqlToolEvent::Failed {
+                            job_id: task_job_id.clone(),
+                            kind,
+                            exit_code: None,
+                            message: format!("Failed to read dump file: {error}"),
+                        },
+                    );
+                }
+            }
+        }
 
         let last_stderr = Arc::new(AsyncMutex::new(None::<String>));
         let stdout_task = stdout.map(|pipe| {
@@ -156,7 +185,6 @@ async fn start_job(
             match child_ref.try_wait() {
                 Ok(Some(status)) => break Ok(status),
                 Ok(None) => {
-                    // Release the lock so cancel can grab it and kill the child.
                     drop(child_ref);
                     sleep(Duration::from_millis(100)).await;
                 }
@@ -178,7 +206,7 @@ async fn start_job(
         match status_result {
             Ok(_status) if cancelled.load(Ordering::SeqCst) => emit(
                 &app,
-                PostgresToolEvent::Cancelled {
+                MysqlToolEvent::Cancelled {
                     job_id: task_job_id,
                     kind,
                     message: format!("{} cancelled", tool_name),
@@ -186,7 +214,7 @@ async fn start_job(
             ),
             Ok(status) if status.success() => emit(
                 &app,
-                PostgresToolEvent::Finished {
+                MysqlToolEvent::Finished {
                     job_id: task_job_id,
                     kind,
                     exit_code: status.code().unwrap_or(0),
@@ -195,7 +223,7 @@ async fn start_job(
             ),
             Ok(status) => emit(
                 &app,
-                PostgresToolEvent::Failed {
+                MysqlToolEvent::Failed {
                     job_id: task_job_id,
                     kind,
                     exit_code: status.code(),
@@ -204,7 +232,7 @@ async fn start_job(
             ),
             Err(error) => emit(
                 &app,
-                PostgresToolEvent::Failed {
+                MysqlToolEvent::Failed {
                     job_id: task_job_id,
                     kind,
                     exit_code: None,
@@ -220,7 +248,7 @@ async fn start_job(
 async fn stream_pipe<R>(
     app: AppHandle,
     job_id: String,
-    kind: PostgresToolKind,
+    kind: MysqlToolKind,
     stream: OutputStream,
     pipe: R,
     last_line: Option<Arc<AsyncMutex<Option<String>>>>,
@@ -234,7 +262,7 @@ async fn stream_pipe<R>(
         }
         emit(
             &app,
-            PostgresToolEvent::Log {
+            MysqlToolEvent::Log {
                 job_id: job_id.clone(),
                 kind,
                 stream,
@@ -244,14 +272,14 @@ async fn stream_pipe<R>(
     }
 }
 
-fn emit(app: &AppHandle, event: PostgresToolEvent) {
-    let _ = app.emit(POSTGRES_TOOL_EVENT, event);
+fn emit(app: &AppHandle, event: MysqlToolEvent) {
+    let _ = app.emit(MYSQL_TOOL_EVENT, event);
 }
 
 fn spawn_message(program: &str, error: &std::io::Error) -> String {
     if error.kind() == ErrorKind::NotFound {
         return format!(
-            "{program} was not found in PATH. Install the PostgreSQL client tools and try again."
+            "{program} was not found in PATH. Install the MySQL/MariaDB client tools and try again."
         );
     }
     error.to_string()
@@ -260,13 +288,11 @@ fn spawn_message(program: &str, error: &std::io::Error) -> String {
 fn failure_message(tool_name: &str, last_error: Option<String>, exit_code: Option<i32>) -> String {
     if let Some(last_error) = last_error {
         let lowered = last_error.to_ascii_lowercase();
-        if lowered.contains("password authentication failed") || lowered.contains("fe_sendauth") {
-            return "Authentication failed. Check the saved PostgreSQL username/password.".into();
+        if lowered.contains("access denied") || lowered.contains("password") {
+            return "Authentication failed. Check the saved MySQL/MariaDB username/password.".into();
         }
-        if lowered.contains("not a valid archive")
-            || lowered.contains("input file appears to be a text format dump")
-        {
-            return "The selected dump format does not match the restore tool. Use a plain .sql file with psql or a .dump/.tar archive with pg_restore.".into();
+        if lowered.contains("unknown database") {
+            return "The target database was not found on the server.".into();
         }
         return last_error;
     }

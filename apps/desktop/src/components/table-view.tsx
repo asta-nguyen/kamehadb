@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
 import { useRunQuery } from '@/hooks/use-query';
 import { useFieldVisibility } from '@/hooks/use-field-visibility';
@@ -109,14 +108,13 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     sortColumn: '',
     sortDirection: 'asc',
   });
-  const debouncedSetSearch = useRef<ReturnType<typeof debounce<(v: string) => void>> | null>(null);
+  const debouncedSetSearch = useRef<((v: string) => void) | null>(null);
   if (debouncedSetSearch.current === null) {
-    debouncedSetSearch.current = debounce(
-      (v: string) => {
-        dispatch({ type: 'setQuerySearch', value: v });
-      },
-      { wait: 300 },
-    );
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    debouncedSetSearch.current = (v: string) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => dispatch({ type: 'setQuerySearch', value: v }), 300);
+    };
   }
   const debouncedSearchFn = debouncedSetSearch.current;
 

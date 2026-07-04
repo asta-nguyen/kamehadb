@@ -42,7 +42,7 @@ pub async fn start_postgres_psql_session(
             cols: request.cols,
             rows: request.rows,
         },
-        build_psql_spec(&profile),
+        build_psql_spec(&resolve_postgres_program(&app, "psql"), &profile),
     )
     .map_err(|error| {
         let message = error.to_string();
@@ -57,7 +57,7 @@ pub async fn start_postgres_psql_session(
     })
 }
 
-fn build_psql_spec(profile: &PostgresProfile) -> PtyCommandSpec {
+fn build_psql_spec(program: &str, profile: &PostgresProfile) -> PtyCommandSpec {
     let mut args = vec![
         "--host".into(),
         profile.host.clone(),
@@ -86,7 +86,8 @@ fn build_psql_spec(profile: &PostgresProfile) -> PtyCommandSpec {
     PtyCommandSpec {
         args,
         env,
-        program: resolve_postgres_program("psql"),
+        missing_program_hint: "Install PostgreSQL client tools and try again.".into(),
+        program: program.into(),
         started_message: format!("Connected to {}", profile.database),
     }
 }
@@ -116,7 +117,7 @@ mod tests {
 
     #[test]
     fn psql_command_uses_saved_connection_context() {
-        let spec = build_psql_spec(&profile());
+        let spec = build_psql_spec("psql", &profile());
 
         assert_eq!(
             std::path::Path::new(&spec.program)
@@ -145,7 +146,7 @@ mod tests {
 
     #[test]
     fn psql_command_allows_terminal_prompt_without_stored_password() {
-        let spec = build_psql_spec(&profile_without_password());
+        let spec = build_psql_spec("psql", &profile_without_password());
 
         assert!(!spec.args.iter().any(|value| value == "--no-password"));
         assert!(!spec.env.iter().any(|(key, _value)| key == "PGPASSWORD"));

@@ -67,6 +67,7 @@ pub fn load_postgres_profile(
 }
 
 pub fn build_backup_command(
+    program: &str,
     profile: &PostgresProfile,
     request: &StartBackupRequest,
 ) -> CommandSpec {
@@ -92,7 +93,7 @@ pub fn build_backup_command(
     };
 
     CommandSpec {
-        program: resolve_postgres_program("pg_dump"),
+        program: program.into(),
         args,
         env: connection_env(profile),
         started_message,
@@ -100,6 +101,8 @@ pub fn build_backup_command(
 }
 
 pub fn build_restore_command(
+    pg_restore_path: &str,
+    psql_path: &str,
     profile: &PostgresProfile,
     request: &StartRestoreRequest,
 ) -> Result<CommandSpec, PostgresToolError> {
@@ -115,11 +118,12 @@ pub fn build_restore_command(
             "The selected dump file was not found".into(),
         ));
     }
-    let program = restore_program(&input_path);
+    let use_psql = restore_program(&input_path) == "psql";
+    let program = if use_psql { psql_path } else { pg_restore_path };
     let mut args = connection_args(profile, request.target_database.trim());
     args.push("--no-password".into());
 
-    if program == "psql" {
+    if use_psql {
         args.push("--echo-errors".into());
         args.push("-v".into());
         args.push("ON_ERROR_STOP=1".into());
@@ -134,19 +138,29 @@ pub fn build_restore_command(
     }
 
     Ok(CommandSpec {
-        program: resolve_postgres_program(program),
+        program: program.into(),
         args,
         env: connection_env(profile),
         started_message: format!("Restoring into database {}", request.target_database.trim()),
     })
 }
 
-pub fn resolve_postgres_program(program: &str) -> String {
+pub fn resolve_postgres_program(app: &AppHandle, program: &str) -> String {
+    // 1. Check user-configured path from the metadata store first.
+    if let Some(configured) = crate::tool_paths::get_configured_tool_path(app, program) {
+        let path = PathBuf::from(&configured);
+        if path.is_file() {
+            return configured;
+        }
+    }
+
+    // 2. If the program name itself is an absolute path, use it directly.
     let direct = PathBuf::from(program);
     if direct.is_absolute() || program.contains(std::path::MAIN_SEPARATOR) {
         return program.into();
     }
 
+    // 3. Search PATH.
     if let Some(path) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&path) {
             let candidate = dir.join(program);
@@ -156,6 +170,7 @@ pub fn resolve_postgres_program(program: &str) -> String {
         }
     }
 
+    // 4. Check common install locations (Homebrew, Postgres.app, etc.).
     for candidate in postgres_program_candidates(program) {
         if candidate.is_file() {
             return candidate.to_string_lossy().into_owned();
@@ -390,6 +405,7 @@ mod tests {
     #[test]
     fn backup_command_uses_scope_flags() {
         let command = build_backup_command(
+            "pg_dump",
             &profile(),
             &StartBackupRequest {
                 connection_id: "pg".into(),
@@ -421,6 +437,8 @@ mod tests {
         let dump_path = temp_dir.path().join("app.sql");
         std::fs::write(&dump_path, b"select 1;\n").expect("sql file should be written");
         let command = build_restore_command(
+            "pg_restore",
+            "psql",
             &profile(),
             &StartRestoreRequest {
                 connection_id: "pg".into(),
@@ -448,6 +466,8 @@ mod tests {
         let dump_path = temp_dir.path().join("app.dump");
         std::fs::write(&dump_path, b"PGDMP").expect("dump file should be written");
         let command = build_restore_command(
+            "pg_restore",
+            "psql",
             &profile(),
             &StartRestoreRequest {
                 connection_id: "pg".into(),
@@ -466,6 +486,8 @@ mod tests {
     #[test]
     fn restore_command_rejects_missing_input_file() {
         let result = build_restore_command(
+            "pg_restore",
+            "psql",
             &profile(),
             &StartRestoreRequest {
                 connection_id: "pg".into(),
@@ -485,6 +507,7 @@ mod tests {
     #[test]
     fn backup_command_quotes_table_patterns() {
         let command = build_backup_command(
+            "pg_dump",
             &profile(),
             &StartBackupRequest {
                 connection_id: "pg".into(),

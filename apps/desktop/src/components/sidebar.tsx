@@ -19,14 +19,13 @@ import { isTauriRuntime } from '@/lib/tauri';
 import {
   appStore,
   navigateTo,
-  openPostgresPsqlTab,
   openRedisTab,
   setActiveConnection,
   setConnectionLatency,
   setConnectionStatus,
   toggleExpandedConnection,
 } from '@/store';
-import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
+import { KIND, type ConnectionProfile, type DbKind } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
 import type { ConnectionStatus } from './sidebar.helpers';
@@ -34,6 +33,8 @@ import type { ConnectionStatus } from './sidebar.helpers';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
+import { MysqlBackupDialog } from './mysql-backup-dialog';
+import { MysqlRestoreDialog } from './mysql-restore-dialog';
 import { PostgresBackupDialog } from './postgres-backup-dialog';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { DeleteConfirmDialog } from './sidebar-delete-dialog';
@@ -63,6 +64,8 @@ const ConnectionItem = memo(function ConnectionItem({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
   const [showRestore, setShowRestore] = useState(false);
+  const [showMysqlBackup, setShowMysqlBackup] = useState(false);
+  const [showMysqlRestore, setShowMysqlRestore] = useState(false);
 
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
@@ -74,7 +77,7 @@ const ConnectionItem = memo(function ConnectionItem({
 
   function handleRowActivate() {
     setActiveConnection(conn.id);
-    if (conn.kind === 'redis') {
+    if (conn.kind === KIND.REDIS) {
       openRedisTab(conn.id);
     } else {
       toggleExpandedConnection(conn.id);
@@ -140,22 +143,26 @@ const ConnectionItem = memo(function ConnectionItem({
           pinned={pinned}
           onEdit={() => setShowEdit(true)}
           onDelete={() => setShowDeleteConfirm(true)}
-          onOpenPsql={() => {
-            setActiveConnection(conn.id);
-            openPostgresPsqlTab(conn.id);
-          }}
           onBackup={() => setShowBackup(true)}
           onRestore={() => setShowRestore(true)}
+          onMysqlBackup={() => setShowMysqlBackup(true)}
+          onMysqlRestore={() => setShowMysqlRestore(true)}
         />
 
         <ConnectionStatusDot conn={conn} status={status} latency={latency} />
       </div>
 
       {showEdit && <ConnectionDialog open onOpenChange={setShowEdit} editConnection={conn} />}
-      {conn.kind === 'postgres' && isTauriRuntime() && (
+      {conn.kind === KIND.POSTGRES && isTauriRuntime() && (
         <>
           <PostgresBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
           <PostgresRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
+        </>
+      )}
+      {(conn.kind === KIND.MYSQL || conn.kind === KIND.MARIADB) && isTauriRuntime() && (
+        <>
+          <MysqlBackupDialog connection={conn} open={showMysqlBackup} onOpenChange={setShowMysqlBackup} />
+          <MysqlRestoreDialog connection={conn} open={showMysqlRestore} onOpenChange={setShowMysqlRestore} />
         </>
       )}
       <DeleteConfirmDialog
@@ -168,7 +175,7 @@ const ConnectionItem = memo(function ConnectionItem({
         }}
       />
 
-      {expanded && conn.kind !== 'redis' && (
+      {expanded && conn.kind !== KIND.REDIS && (
         <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
           <ConnectionExpansion conn={conn} activeTabId={activeTabId} />
         </div>

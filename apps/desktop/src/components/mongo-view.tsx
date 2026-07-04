@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo, useReducer } from 'react';
-import { debounce } from '@tanstack/pacer';
 import { useMongoDocuments } from '@/hooks/use-mongo';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
@@ -100,17 +99,16 @@ function mongoReducer(state: MongoState, action: MongoAction): MongoState {
 function useDebouncedSearchQuery(dispatch: React.Dispatch<MongoAction>) {
   // Debounce user keystrokes into a "querySearch" + page-reset so the
   // expensive fetch isn't triggered on every keypress.
-  return useMemo(
-    () =>
-      debounce(
-        (v: string) => {
-          dispatch({ type: 'querySearch', value: v });
-          dispatch({ type: 'page', value: 0 });
-        },
-        { wait: 300 },
-      ),
-    [dispatch],
-  );
+  return useMemo(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    return (v: string) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        dispatch({ type: 'querySearch', value: v });
+        dispatch({ type: 'page', value: 0 });
+      }, 300);
+    };
+  }, [dispatch]);
 }
 
 export function MongoView({ tab, connectionId }: MongoViewProps) {

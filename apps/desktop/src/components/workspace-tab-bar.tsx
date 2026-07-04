@@ -16,19 +16,32 @@ import { Activity, BarChart3, Box, Database, History, Plus, Search, Share2, Tabl
 import { useRef, useState } from 'react';
 
 function tabIcon(tabType: string) {
-  if (tabType === 'query' || tabType === 'redis-query' || tabType === 'migration')
+  if (
+    tabType === 'query' ||
+    tabType === 'redis-query' ||
+    tabType === 'migration' ||
+    tabType === 'postgres-psql' ||
+    tabType === 'mysql-shell' ||
+    tabType === 'mongo-shell'
+  )
     return <Terminal className="size-3" />;
   if (
     tabType === 'graph' ||
     tabType === 'qdrant-graph' ||
     tabType === 'postgres-vector-map' ||
-    tabType === 'sqlite-vec-map'
+    tabType === 'sqlite-vec-map' ||
+    tabType === 'mysql-vec-map'
   )
     return <Share2 className="size-3" />;
   if (tabType === 'mongo' || tabType === 'mongo-query') return <Table2 className="size-3" />;
   if (tabType === 'redis') return <Box className="size-3" />;
   if (tabType === 'qdrant') return <DbIcon kind="qdrant" className="size-3" />;
-  if (tabType === 'qdrant-search' || tabType === 'postgres-vector-search' || tabType === 'sqlite-vec-search')
+  if (
+    tabType === 'qdrant-search' ||
+    tabType === 'postgres-vector-search' ||
+    tabType === 'sqlite-vec-search' ||
+    tabType === 'mysql-vec-search'
+  )
     return <Search className="size-3" />;
   if (tabType === 'qdrant-stats' || tabType === 'stats' || tabType === 'database-stats')
     return <BarChart3 className="size-3" />;

@@ -232,7 +232,7 @@ export function openMongoShellTab(connectionId: string): void {
   openTab({
     id: `mongo-shell-${nanoid()}`,
     type: 'mongo-shell',
-    title: `Mongo Shell ${tabCount + 1}`,
+    title: `Shell ${tabCount + 1}`,
     connectionId,
   });
 }
@@ -242,7 +242,17 @@ export function openPostgresPsqlTab(connectionId: string): void {
   openTab({
     id: `postgres-psql-${nanoid()}`,
     type: 'postgres-psql',
-    title: `PSQL ${tabCount + 1}`,
+    title: `Shell ${tabCount + 1}`,
+    connectionId,
+  });
+}
+
+export function openMysqlShellTab(connectionId: string): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'mysql-shell').length;
+  openTab({
+    id: `mysql-shell-${nanoid()}`,
+    type: 'mysql-shell',
+    title: `Shell ${tabCount + 1}`,
     connectionId,
   });
 }
@@ -292,6 +302,28 @@ export function openSqliteVecSearchTab(
   });
 }
 
+export function openMysqlVectorSearchTab(
+  connectionId: string,
+  options?: {
+    readonly table?: string;
+    readonly column?: string;
+    readonly vectorText?: string;
+    readonly mode?: 'similar' | 'raw';
+  },
+): void {
+  const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'mysql-vec-search').length;
+  openTab({
+    id: `mysql-vec-search-${nanoid()}`,
+    type: 'mysql-vec-search',
+    title: options?.table ? `Vector Search ${options.table}` : `Vector Search ${tabCount + 1}`,
+    connectionId,
+    table: options?.table,
+    column: options?.column,
+    vectorText: options?.vectorText,
+    mode: options?.mode,
+  });
+}
+
 export function openSqliteVecMapTab(
   connectionId: string,
   options: {
@@ -309,6 +341,23 @@ export function openSqliteVecMapTab(
   });
 }
 
+export function openMysqlVecMapTab(
+  connectionId: string,
+  options: {
+    readonly table: string;
+    readonly column: string;
+  },
+): void {
+  openTab({
+    id: `${connectionId}:mysql-vec-map:${options.table}.${options.column}`,
+    type: 'mysql-vec-map',
+    title: `Vector Map ${options.table}`,
+    connectionId,
+    table: options.table,
+    column: options.column,
+  });
+}
+
 export function updateTabSqliteVecMapState(
   tabId: string,
   updates: {
@@ -319,6 +368,20 @@ export function updateTabSqliteVecMapState(
     ...state,
     openedTabs: state.openedTabs.map((tab) =>
       tab.id === tabId && tab.type === 'sqlite-vec-map' ? { ...tab, ...updates } : tab,
+    ),
+  }));
+}
+
+export function updateTabMysqlVecMapState(
+  tabId: string,
+  updates: {
+    readonly camera?: { readonly position: [number, number, number]; readonly target: [number, number, number] };
+  },
+): void {
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'mysql-vec-map' ? { ...tab, ...updates } : tab,
     ),
   }));
 }

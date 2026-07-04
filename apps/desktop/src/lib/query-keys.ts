@@ -63,6 +63,7 @@ export const QUERY_KEYS = {
     input?: import('@kamehadb/shared').PostgresVectorSampleInput | null,
   ) => ['postgres-vector-sample', connectionId, input] as const,
   SQLITE_VEC_CAPABILITIES: (connectionId: string | null) => ['sqlite-vec-capabilities', connectionId] as const,
+  MYSQL_VEC_CAPABILITIES: (connectionId: string | null) => ['mysql-vec-capabilities', connectionId] as const,
   CONNECTION_HEALTH: (connectionId: string | null) => ['connection-health', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,
   TABLE_STATS: (connectionId: string | null, tableId?: string | null) =>
