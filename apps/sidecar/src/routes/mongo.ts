@@ -217,7 +217,6 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
   try {
     const data = await withAdapter(getAdapter, connectionId, async (adapter) => {
       const collections = await adapter.listCollections(database || undefined);
-      // Sample one document from each collection to extract field names
       const result = [];
       for (const coll of collections) {
         let fields: string[] = [];
@@ -229,6 +228,20 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
           });
           if (sample.documents.length > 0) {
             fields = Object.keys(sample.documents[0]);
+          } else {
+            // Collection is empty — fall back to index keys for field hints
+            try {
+              const stats = await adapter.getCollectionStats(database || '', coll.name);
+              const indexFields = new Set<string>();
+              for (const idx of stats.indexes) {
+                for (const key of Object.keys(idx.key)) {
+                  if (key !== '_id') indexFields.add(key);
+                }
+              }
+              fields = Array.from(indexFields);
+            } catch {
+              // skip if stats fail
+            }
           }
         } catch {
           // skip collections we can't sample

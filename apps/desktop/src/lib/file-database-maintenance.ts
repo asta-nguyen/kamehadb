@@ -9,29 +9,6 @@ import { isTauriRuntime } from '@/lib/tauri';
 
 export { FileDatabaseMaintenanceError } from '@kamehadb/shared';
 
-type FilePathParts = {
-  readonly directory: string;
-  readonly baseName: string;
-  readonly extension: string;
-};
-
-function splitFilePath(filePath: string): FilePathParts {
-  const lastSeparatorIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
-  const directory = lastSeparatorIndex >= 0 ? filePath.slice(0, lastSeparatorIndex + 1) : '';
-  const fileName = lastSeparatorIndex >= 0 ? filePath.slice(lastSeparatorIndex + 1) : filePath;
-  const lastDotIndex = fileName.lastIndexOf('.');
-
-  if (lastDotIndex <= 0) {
-    return { directory, baseName: fileName, extension: '' };
-  }
-
-  return {
-    directory,
-    baseName: fileName.slice(0, lastDotIndex),
-    extension: fileName.slice(lastDotIndex),
-  };
-}
-
 // Gate the UI to the engines whose on-disk files can be backed up and restored
 // directly, because server-backed engines need engine-specific tooling instead.
 export function supportsFileDatabaseMaintenance(connection: ConnectionProfile): boolean {
@@ -48,7 +25,12 @@ export function defaultFileDatabaseBackupPath(connection: ConnectionProfile): st
     return `${connection.name || 'database'}-backup-${date}.db`;
   }
 
-  const { directory, baseName, extension } = splitFilePath(sourcePath);
+  const lastSep = Math.max(sourcePath.lastIndexOf('/'), sourcePath.lastIndexOf('\\'));
+  const directory = lastSep >= 0 ? sourcePath.slice(0, lastSep + 1) : '';
+  const fileName = lastSep >= 0 ? sourcePath.slice(lastSep + 1) : sourcePath;
+  const lastDot = fileName.lastIndexOf('.');
+  const baseName = lastDot > 0 ? fileName.slice(0, lastDot) : fileName;
+  const extension = lastDot > 0 ? fileName.slice(lastDot) : '';
   return `${directory}${baseName}-backup-${date}${extension}`;
 }
 
@@ -72,8 +54,13 @@ export async function pickFileDatabaseRestoreInput(connection: ConnectionProfile
 
   const { open } = await import('@tauri-apps/plugin-dialog');
   const sourcePath = connection.filePath?.trim();
-  const fileParts = sourcePath ? splitFilePath(sourcePath) : null;
-  const extension = fileParts?.extension.startsWith('.') ? fileParts.extension.slice(1) : null;
+  let extension: string | null = null;
+  if (sourcePath) {
+    const lastSep = Math.max(sourcePath.lastIndexOf('/'), sourcePath.lastIndexOf('\\'));
+    const fileName = lastSep >= 0 ? sourcePath.slice(lastSep + 1) : sourcePath;
+    const lastDot = fileName.lastIndexOf('.');
+    if (lastDot > 0) extension = fileName.slice(lastDot + 1);
+  }
   const selected = await open({
     directory: false,
     multiple: false,

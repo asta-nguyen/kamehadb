@@ -19,10 +19,8 @@ function pick<T>(items: readonly T[], last?: T): T {
 }
 
 function getGreeting(): [string, string] {
-  const hour = new Date().getHours();
-  const bucket = hour < 5 ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 22 ? 'evening' : 'night';
   const lastGreeting = localStorage.getItem('lastGreeting') ?? undefined;
-  const greeting = pick(GREETINGS[bucket], lastGreeting);
+  const greeting = pick(GREETINGS, lastGreeting);
   localStorage.setItem('lastGreeting', greeting);
   const returning = localStorage.getItem('kamehadb_visits');
   const prompt = returning ? pick(PROMPTS) : 'Create or select a connection to get started';

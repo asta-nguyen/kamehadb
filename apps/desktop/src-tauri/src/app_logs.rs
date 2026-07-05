@@ -67,9 +67,15 @@ pub fn read_app_logs(app: AppHandle, limit: Option<usize>) -> Result<AppLogsSnap
     let max_entries = limit.unwrap_or(300).max(1);
     let mut entries = Vec::new();
 
-    entries.extend(read_native_log(&log_dir.join(FRONTEND_LOG_FILE), max_entries));
+    entries.extend(read_native_log(
+        &log_dir.join(FRONTEND_LOG_FILE),
+        max_entries,
+    ));
     entries.extend(read_native_log(&log_dir.join(TAURI_LOG_FILE), max_entries));
-    entries.extend(read_sidecar_log(&log_dir.join(SIDECAR_LOG_FILE), max_entries));
+    entries.extend(read_sidecar_log(
+        &log_dir.join(SIDECAR_LOG_FILE),
+        max_entries,
+    ));
 
     entries.sort_by_key(|entry| Reverse(entry.timestamp_ms));
     if entries.len() > max_entries {
@@ -115,7 +121,11 @@ pub fn append_tauri_log(
     let _ = append_log_entry(app, TAURI_LOG_FILE, &entry);
 }
 
-fn append_log_entry(app: &AppHandle, file_name: &str, entry: &AppLogEntry) -> Result<(), std::io::Error> {
+fn append_log_entry(
+    app: &AppHandle,
+    file_name: &str,
+    entry: &AppLogEntry,
+) -> Result<(), std::io::Error> {
     let log_dir = ensure_log_dir(app)?;
     let mut file = OpenOptions::new()
         .create(true)
@@ -280,7 +290,10 @@ fn parse_sidecar_log_line(line: &str) -> Option<AppLogEntry> {
         level: map_sidecar_level(value.get("level")),
         source: "sidecar".into(),
         message,
-        scope: value.get("scope").and_then(Value::as_str).map(str::to_string),
+        scope: value
+            .get("scope")
+            .and_then(Value::as_str)
+            .map(str::to_string),
         details,
         stack: None,
         url: None,

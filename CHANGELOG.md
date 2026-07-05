@@ -7,11 +7,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- **MCP server**
+
+---
+
+## [v1.4.5] — 2026-07-03
+
+### Fixed
+
+- **Windows sidecar startup** — bundled Node.js binary now resolves with `.exe` extension on Windows, and sidecar path uses forward slashes to prevent `realpathSync` truncation.
+
+---
+
+## [v1.4.4] — 2026-07-03
+
+### Fixed
+
+- **Linux release bundles** — temporarily disabled AppImage packaging in CI while `linuxdeploy` is unreliable; Linux releases still publish `.deb` and `.rpm`. Issue tracked in [#14796](https://github.com/tauri-apps/tauri/issues/14796).
+
+---
+
+## [v1.4.3] — 2026-07-03
+
+### Fixed
+
+- **pnpm deploy compatibility** — removed unsupported `--legacy` flag from `pnpm deploy` in bundle script, fixing CI builds on pnpm 9+.
+- **Windows bundle script** — `pnpm deploy` now runs with `shell: true` on Windows so `pnpm.cmd` resolves correctly.
+- **Linux release bundles** — temporarily disabled AppImage packaging in CI while `linuxdeploy` is unreliable; Linux releases still publish `.deb` and `.rpm`.
+
+---
+
+## [v1.4.0] — 2026-07-03
+
 ### Added
 
-- **MCP server** — v1.4.
 - **DeepSeek AI provider** — direct DeepSeek API access for DeepSeek-V3 (`deepseek-chat`) and DeepSeek-R1 (`deepseek-reasoner`) models via OpenAI-compatible endpoint.
 - **Gemini AI provider** — Google AI Studio API access for Gemini models (`gemini-2.5-flash`, `gemini-2.5-pro`, etc.) via OpenAI-compatible endpoint.
+- **Bundled sidecar** — sidecar `dist/`, production `node_modules/`, and Node.js runtime are bundled into the Tauri app. The sidecar auto-starts on launch and is cleaned up on exit — no manual `pnpm dev:sidecar` needed.
+- **Shared package build** — `@kamehadb/shared` compiles to JS so the sidecar resolves it at runtime.
+- **Sidecar loading screen** — spinner while the sidecar starts, with an error screen if Node.js is missing or startup fails.
+
+### Fixed
+
+- **Sidecar port detection** — `start_sidecar` reads the runtime port from stdout instead of hardcoding 3170; Tauri allocates a concrete port before spawning instead of `PORT=0`.
+- **Packaged sidecar stability** — stdout/stderr are drained after port detection, pnpm symlinks are materialized before bundling, and stale sidecar handles are discarded before restart.
+- **Frontend query gating** — TanStack Query waits for the sidecar to be ready before firing requests, preventing "Load failed" errors on app launch.
 
 ## [v1.3.4] — 2026-06-28
 

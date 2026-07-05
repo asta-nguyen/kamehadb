@@ -6,7 +6,6 @@ import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
 import { useTableColumns } from '@/hooks/use-schema';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
-import { TableEditabilityNotice } from '@/components/table-editability-notice';
 import { api } from '@/lib/api';
 import { buildRowUpdateQuery, getQueryResultEditabilityState, inferSimpleSelectTableId } from '@/lib/table-editability';
 import type { OnMount } from '@monaco-editor/react';
@@ -463,7 +462,7 @@ function QueryResultTable({
       return (
         <span
           onDoubleClick={editability.canEditCells ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
-          className={editability.canEditCells ? 'block w-full cursor-pointer' : 'block w-full'}
+          className={editability.canEditCells ? 'flex-1 min-w-0 truncate cursor-pointer' : 'flex-1 min-w-0 truncate'}
         >
           {value === null ? (
             <span className="text-muted-foreground italic">null</span>
@@ -482,7 +481,15 @@ function QueryResultTable({
   return (
     <div ref={tableRef} className="flex flex-col h-full min-h-0 p-4">
       {editability.warningMessage && editability.warningTone && (
-        <TableEditabilityNotice message={editability.warningMessage} tone={editability.warningTone} />
+        <div
+          className={
+            editability.warningTone === 'warning'
+              ? 'mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-600 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-400'
+              : 'mb-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-700 dark:border-sky-800/40 dark:bg-sky-950/30 dark:text-sky-300'
+          }
+        >
+          {editability.warningMessage}
+        </div>
       )}
       <div className="min-h-0 overflow-hidden border border-border rounded-md">
         <div className="overflow-auto max-h-full">

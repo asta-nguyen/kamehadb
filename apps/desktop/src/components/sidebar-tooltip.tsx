@@ -1,5 +1,4 @@
 import { TooltipContent } from '@/components/ui/tooltip';
-import { formatShortDateTime } from '@/lib/utils';
 import type { ConnectionProfile } from '@kamehadb/shared';
 import { getIndicatorColor, getStatusLabel } from './sidebar.helpers';
 import type { ConnectionStatus } from './sidebar.helpers';
@@ -30,7 +29,14 @@ export function ConnectionTooltip({
           </p>
           {conn.database && <p>db: {conn.database}</p>}
           {conn.updatedAt && (
-            <p className="text-popover-foreground/40 text-[10px]">{formatShortDateTime(conn.updatedAt)}</p>
+            <p className="text-popover-foreground/40 text-[10px]">
+              {new Date(conn.updatedAt).toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </p>
           )}
         </div>
       </div>

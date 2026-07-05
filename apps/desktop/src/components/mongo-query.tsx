@@ -258,7 +258,7 @@ function AggregationResult({
   return (
     <>
       {columns.length > 0 && (
-        <div className="flex-1 min-h-0 flex flex-col border rounded-md bg-background">
+        <div className="flex-1 min-h-0 flex flex-col border bg-background">
           <div className="flex-1 min-h-0 overflow-auto">
             <DataTable
               rows={result.documents}
