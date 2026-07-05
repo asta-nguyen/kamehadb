@@ -40,6 +40,7 @@ import redis from 'thesvg/redis';
 import qdrant from 'thesvg/qdrant';
 
 const HeroCanvas = dynamic(() => import('./hero-canvas'), { ssr: false });
+const ParticleFooter = dynamic(() => import('./particle-footer').then((m) => m.ParticleFooter), { ssr: false });
 
 type HomeViewProps = {
   readonly githubStars: number | null;
@@ -932,74 +933,8 @@ export default function HomeView({ githubStars }: HomeViewProps) {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="relative py-16 md:py-24 px-4 md:px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-b from-transparent via-amber-500/5 to-transparent" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-128 h-128 bg-gradient-to-br from-amber-500/8 via-rose-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
-        <motion.div
-          className="relative max-w-4xl mx-auto text-center bg-white/50 dark:bg-surface-strong/50 backdrop-blur-sm rounded-3xl border border-slate-200/60 dark:border-slate-700/50 p-6 md:p-12"
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={stagger}
-        >
-          <motion.h2
-            className="text-4xl font-extrabold text-ink tracking-tight mb-6"
-            variants={fadeUp}
-            transition={{ duration: 0.5 }}
-          >
-            One app for every database you run
-          </motion.h2>
-          <motion.p className="text-xl text-body mb-10" variants={fadeUp} transition={{ duration: 0.5 }}>
-            Free, open source, and local-first. No telemetry, no cloud proxy — your data stays on your machine.
-          </motion.p>
-          <motion.div variants={fadeUp} transition={{ duration: 0.5 }}>
-            <motion.a
-              href="https://github.com/asta-nguyen/kamehadb/releases"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors hover:shadow-lg hover:shadow-amber-500/25"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              Download for free
-            </motion.a>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border py-8 md:py-12 px-4 md:px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 relative">
-              <Image src="/logo.png" alt="KamehaDB" fill className="object-contain" />
-            </div>
-            <span className="font-bold text-ink">KamehaDB</span>
-          </Link>
-          <div className="flex items-center gap-6 text-sm text-muted">
-            <a
-              href="https://github.com/asta-nguyen/kamehadb"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-            >
-              GitHub
-            </a>
-            <Link href="/changelog" className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
-              Changelog
-            </Link>
-            <a
-              href="https://github.com/asta-nguyen/kamehadb/releases"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-            >
-              Releases
-            </a>
-          </div>
-        </div>
-      </footer>
+      {/* Footer — Particle wordmark with CTA combined */}
+      <ParticleFooter />
     </main>
   );
 }
