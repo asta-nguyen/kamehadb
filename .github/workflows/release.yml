@@ -51,7 +51,9 @@ jobs:
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
           - platform: 'ubuntu-22.04'
-            args: ''
+            # AppImage is intentionally disabled for now because linuxdeploy
+            # fails intermittently on GitHub runners; keep Linux on deb/rpm.
+            args: '--bundles deb,rpm'
           - platform: 'windows-latest'
             args: ''
 
@@ -111,7 +113,6 @@ jobs:
           if-no-files-found: error
           path: |
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
-            apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/desktop/src-tauri/target/release/bundle/rpm/*.rpm
 
       - name: Upload Windows artifacts
@@ -149,7 +150,6 @@ jobs:
             release-assets/**/*.exe
             release-assets/**/*.msi
             release-assets/**/*.deb
-            release-assets/**/*.AppImage
             release-assets/**/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,7 +1,7 @@
 {
   "name": "kamehadb",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.4.5",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "dev:sidecar": "pnpm --filter @kamehadb/sidecar dev",
     "dev:landing": "npm --prefix landing run dev",
     "dev:all": "concurrently \"npm --prefix landing run dev\" \"pnpm dev:desktop\" \"pnpm dev:sidecar\"",
-    "build": "pnpm --filter @kamehadb/sidecar build && pnpm --filter @kamehadb/desktop build",
+    "build": "pnpm --filter @kamehadb/shared build && pnpm --filter @kamehadb/sidecar build && pnpm --filter @kamehadb/desktop build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",

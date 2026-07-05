@@ -1,6 +1,6 @@
 [package]
 name = "kamehadb"
-version = "0.1.0"
+version = "1.4.5"
 description = "Local database admin tool"
 authors = ["you"]
 edition = "2021"
@@ -27,3 +27,4 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 thiserror = "2"
 tempfile = "3"
+which = "7"

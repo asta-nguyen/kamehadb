@@ -214,9 +214,21 @@ fn postgres_program_candidates(program: &str) -> Vec<PathBuf> {
         )),
     ];
 
-    candidates.extend(versioned_postgres_bin_dirs("/opt/homebrew/opt").into_iter().map(|dir| dir.join(program)));
-    candidates.extend(versioned_postgres_bin_dirs("/usr/local/opt").into_iter().map(|dir| dir.join(program)));
-    candidates.extend(postgres_app_bin_dirs().into_iter().map(|dir| dir.join(program)));
+    candidates.extend(
+        versioned_postgres_bin_dirs("/opt/homebrew/opt")
+            .into_iter()
+            .map(|dir| dir.join(program)),
+    );
+    candidates.extend(
+        versioned_postgres_bin_dirs("/usr/local/opt")
+            .into_iter()
+            .map(|dir| dir.join(program)),
+    );
+    candidates.extend(
+        postgres_app_bin_dirs()
+            .into_iter()
+            .map(|dir| dir.join(program)),
+    );
     candidates
 }
 

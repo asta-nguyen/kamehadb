@@ -22,18 +22,17 @@ pub async fn start_postgres_psql_session(
     state: tauri::State<'_, TerminalSessionState>,
     request: StartPostgresPsqlRequest,
 ) -> Result<TerminalSessionStarted, String> {
-    let profile =
-        load_postgres_profile(&app, &request.connection_id).map_err(|error| {
-            let message = error.to_string();
-            append_tauri_log(
-                &app,
-                "error",
-                "postgres-psql",
-                "Failed to load saved PostgreSQL profile for PSQL session",
-                Some(message.clone()),
-            );
-            message
-        })?;
+    let profile = load_postgres_profile(&app, &request.connection_id).map_err(|error| {
+        let message = error.to_string();
+        append_tauri_log(
+            &app,
+            "error",
+            "postgres-psql",
+            "Failed to load saved PostgreSQL profile for PSQL session",
+            Some(message.clone()),
+        );
+        message
+    })?;
     start_terminal_session(
         app.clone(),
         state.inner(),
