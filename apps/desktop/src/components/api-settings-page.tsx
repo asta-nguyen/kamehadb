@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
 
-const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router'];
+const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini'];
 
 const PROVIDER_META: Record<
   AIProvider,
@@ -53,6 +53,20 @@ const PROVIDER_META: Record<
     baseUrlPlaceholder: 'https://router.example.com/v1',
     icon: Bot,
   },
+  deepseek: {
+    label: 'DeepSeek',
+    description: 'Direct DeepSeek API access for DeepSeek-V3 and DeepSeek-R1 models.',
+    modelPlaceholder: 'deepseek-chat',
+    baseUrlPlaceholder: 'https://api.deepseek.com/v1',
+    icon: Sparkles,
+  },
+  gemini: {
+    label: 'Gemini',
+    description: 'Google AI Studio API access for Gemini models.',
+    modelPlaceholder: 'gemini-2.5-flash',
+    baseUrlPlaceholder: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    icon: Sparkles,
+  },
 };
 
 function createEmptySettings(): AISettings {
@@ -81,6 +95,18 @@ function createEmptySettings(): AISettings {
         enabled: false,
         model: '',
         baseUrl: '',
+        apiKey: '',
+      },
+      deepseek: {
+        enabled: false,
+        model: 'deepseek-chat',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKey: '',
+      },
+      gemini: {
+        enabled: false,
+        model: 'gemini-2.5-flash',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
         apiKey: '',
       },
     },
@@ -528,7 +554,9 @@ export function ApiSettingsPage() {
         selectedConfig.apiKey?.trim() || undefined,
         signal,
       ),
-    enabled: !!selectedConfig.baseUrl?.trim(),
+    enabled:
+      !!selectedConfig.baseUrl?.trim() &&
+      (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim()),
     staleTime: 0,
     gcTime: 0,
   });
@@ -587,7 +615,10 @@ export function ApiSettingsPage() {
                     dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
                   }
                   onFetchModels={() => refetchModels()}
-                  canFetchModels={!!selectedConfig.baseUrl?.trim()}
+                  canFetchModels={
+                    !!selectedConfig.baseUrl?.trim() &&
+                    (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim())
+                  }
                 />
 
                 <SettingsFooter

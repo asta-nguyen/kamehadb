@@ -33,6 +33,12 @@ export function resolveProviderConfig(provider: AIProvider, config: AIProviderCo
     case 'ollama-cloud':
     case '9router':
       break;
+    case 'deepseek':
+      baseUrl = baseUrl || 'https://api.deepseek.com/v1';
+      break;
+    case 'gemini':
+      baseUrl = baseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai';
+      break;
   }
   return { apiKey, model: config.model.trim(), baseUrl };
 }
@@ -53,6 +59,12 @@ export function validateProviderConfig(provider: AIProvider, config: AIProviderC
     case '9router':
       if (!config.baseUrl) return 'Base URL is required for 9Router';
       if (!config.apiKey) return 'API key is required for 9Router';
+      return null;
+    case 'deepseek':
+      if (!config.apiKey) return 'API key is required for DeepSeek';
+      return null;
+    case 'gemini':
+      if (!config.apiKey) return 'API key is required for Gemini';
       return null;
   }
 }

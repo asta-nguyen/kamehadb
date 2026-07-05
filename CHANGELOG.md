@@ -41,6 +41,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **DeepSeek AI provider** — direct DeepSeek API access for DeepSeek-V3 (`deepseek-chat`) and DeepSeek-R1 (`deepseek-reasoner`) models via OpenAI-compatible endpoint.
+- **Gemini AI provider** — Google AI Studio API access for Gemini models (`gemini-2.5-flash`, `gemini-2.5-pro`, etc.) via OpenAI-compatible endpoint.
 - **Bundled sidecar** — sidecar `dist/`, production `node_modules/`, and Node.js runtime are bundled into the Tauri app. The sidecar auto-starts on launch and is cleaned up on exit — no manual `pnpm dev:sidecar` needed.
 - **Shared package build** — `@kamehadb/shared` compiles to JS so the sidecar resolves it at runtime.
 - **Sidecar loading screen** — spinner while the sidecar starts, with an error screen if Node.js is missing or startup fails.

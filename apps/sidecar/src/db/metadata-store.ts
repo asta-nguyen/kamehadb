@@ -37,6 +37,18 @@ function createDefaultAISettings(): AISettings {
         baseUrl: '',
         apiKey: '',
       },
+      deepseek: {
+        enabled: false,
+        model: 'deepseek-chat',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKey: '',
+      },
+      gemini: {
+        enabled: false,
+        model: 'gemini-2.5-flash',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+        apiKey: '',
+      },
     },
   };
 }

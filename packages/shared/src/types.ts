@@ -530,7 +530,7 @@ export type TigerBeetleExplorerData = {
 };
 
 // AI types
-export type AIProvider = 'ollama-local' | 'ollama-cloud' | 'openai' | '9router';
+export type AIProvider = 'ollama-local' | 'ollama-cloud' | 'openai' | '9router' | 'deepseek' | 'gemini';
 
 export type AIProviderConfig = {
   enabled: boolean;
