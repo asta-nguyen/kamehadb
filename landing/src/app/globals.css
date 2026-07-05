@@ -29,6 +29,10 @@
   --space-base: 24px;
   --space-lg: 32px;
   --space-section: 64px;
+
+  --shadow-chromatic: 0 30px 45px -30px rgba(50, 50, 93, 0.25), 0 18px 36px -18px rgba(0, 0, 0, 0.1);
+  --shadow-warm-glow: 0 18px 40px rgba(245, 158, 11, 0.22);
+  --shadow-soft-panel: 0 15px 35px rgba(23, 23, 23, 0.08);
 }
 
 .dark {

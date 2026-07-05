@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 - **MCP server**
+- **Landing UI** — Added `@radix-ui/react-avatar`, `@radix-ui/react-slot`, and `class-variance-authority` for the new UI components.
 
 ---
 

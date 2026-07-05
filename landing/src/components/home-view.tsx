@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ThemeToggle } from './theme-toggle';
+import { Footer } from './footer';
 import {
   Database,
   Sparkles,
@@ -27,6 +28,7 @@ import type { LucideIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { cn } from '../lib/utils';
 import { Compare } from './ui/compare';
+import { BrandIcon } from './ui/brand-icon';
 import postgresql from 'thesvg/postgresql';
 import mysql from 'thesvg/mysql';
 import mariadb from 'thesvg/mariadb';
@@ -256,31 +258,10 @@ function EngineLogo({ engine }: { engine: { label: string; svg: { svg: string } 
   }
 
   if (engine.svg) {
-    return <BrandIcon icon={engine.svg} />;
+    return <BrandIcon icon={engine.svg} className="h-4 w-12 max-w-full" />;
   }
 
   return <span className="text-[9px] font-bold text-indigo-500">TB</span>;
-}
-
-function BrandIcon({ icon, className }: { icon: { svg: string }; className?: string }) {
-  return (
-    <span
-      // Give inline SVG logos a real width so `width="100%"` resolves to pixels
-      // instead of collapsing the vector to 0px inside the carousel slot.
-      className={cn('inline-flex h-4 w-12 max-w-full items-center justify-center overflow-hidden', className)}
-      dangerouslySetInnerHTML={{
-        __html: icon.svg
-          .replace(/width='[^']*'/g, "width='100%'")
-          .replace(/width="[^"]*"/g, 'width="100%"')
-          .replace(/height='[^']*'/g, "height='100%'")
-          .replace(/height="[^"]*"/g, 'height="100%"')
-          .replace(
-            /<svg/,
-            '<svg style="width:100%;height:100%;max-width:100%;max-height:100%" preserveAspectRatio="xMidYMid meet"',
-          ),
-      }}
-    />
-  );
 }
 
 const fadeUp = {
@@ -423,6 +404,12 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             >
               Install
             </a>
+            <Link
+              href="/team"
+              className="text-body hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-sm font-medium hidden sm:block"
+            >
+              Team
+            </Link>
             <a
               href="https://github.com/asta-nguyen/kamehadb"
               target="_blank"
@@ -603,14 +590,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
               </div>
               <div className="bg-surface-strong rounded-2xl overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-900/30 to-slate-800" />
-                <video
-                  src="https://kamehadb.s3.ap-southeast-2.amazonaws.com/demo-kamehadb.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-auto relative"
-                />
+                <video src="/kamehadb-demo.mp4" autoPlay loop muted playsInline className="w-full h-auto relative" />
               </div>
             </div>
           </motion.div>
