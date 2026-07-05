@@ -231,6 +231,9 @@ function ApiSettingsHeader({ draft }: { draft: AISettings }) {
             <Badge variant="outline" className="bg-background/70 text-xs">
               Local user profile
             </Badge>
+            <Badge variant="secondary" className="text-xs font-mono">
+              {__APP_VERSION__}
+            </Badge>
           </div>
           <p className="max-w-3xl text-sm text-muted-foreground">
             Manage provider credentials for the current desktop user. You can keep multiple providers ready and switch

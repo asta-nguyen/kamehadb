@@ -1,12 +1,6 @@
-import { ArrowUpDown, BarChart3, Download, FileJson, FileSpreadsheet, List, Search, Table2, X } from 'lucide-react';
+import { ArrowUpDown, List, Search, Table2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface MongoViewHeaderProps {
@@ -17,13 +11,17 @@ interface MongoViewHeaderProps {
   onSortFieldChange: (field: string | null) => void;
   onClearSort: () => void;
   showSortClear: boolean;
-  viewMode: 'list' | 'table' | 'chart';
-  onViewModeChange: (mode: 'list' | 'table' | 'chart') => void;
+  viewMode: 'list' | 'table';
+  onViewModeChange: (mode: 'list' | 'table') => void;
   isFetching: boolean;
   onRefresh: () => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
 }
+
+const VIEW_MODES = ['table', 'list'] as const;
+const VIEW_ICONS = { table: Table2, list: List } as const;
+const VIEW_LABELS = { table: 'Table', list: 'List' } as const;
 
 export function MongoViewHeader({
   searchText,
@@ -35,9 +33,13 @@ export function MongoViewHeader({
   showSortClear,
   viewMode,
   onViewModeChange,
-  onExportJSON,
-  onExportCSV,
 }: MongoViewHeaderProps) {
+  const cycleView = () => {
+    const idx = VIEW_MODES.indexOf(viewMode);
+    onViewModeChange(VIEW_MODES[(idx + 1) % VIEW_MODES.length]);
+  };
+  const ViewIcon = VIEW_ICONS[viewMode];
+
   return (
     <div className="px-4 py-2 border-b border-border">
       <div className="flex flex-wrap gap-1.5 items-end">
@@ -78,45 +80,12 @@ export function MongoViewHeader({
           <Button
             variant="outline"
             size="icon"
-            onClick={() => onViewModeChange('list')}
-            className={viewMode === 'list' ? 'bg-muted' : ''}
-            title="List view"
+            onClick={cycleView}
+            className="bg-muted"
+            title={`View: ${VIEW_LABELS[viewMode]} (click to switch)`}
           >
-            <List className="!size-3.5" />
+            <ViewIcon className="!size-3.5" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onViewModeChange('table')}
-            className={viewMode === 'table' ? 'bg-muted' : ''}
-            title="Table view"
-          >
-            <Table2 className="!size-3.5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => onViewModeChange('chart')}
-            className={viewMode === 'chart' ? 'bg-muted' : ''}
-            title="Chart view"
-          >
-            <BarChart3 className="!size-3.5" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-lg border border-input bg-background hover:bg-muted hover:text-foreground size-8">
-              <Download className="size-3.5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onExportJSON}>
-                <FileJson className="size-3.5 mr-2" />
-                Export JSON
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onExportCSV}>
-                <FileSpreadsheet className="size-3.5 mr-2" />
-                Export CSV
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
     </div>

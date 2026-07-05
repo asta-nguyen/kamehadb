@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Copy, Eye, Trash2, Ellipsis } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,11 +15,18 @@ import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import { collectRecordFields, useFieldVisibility } from '@/hooks/use-field-visibility';
 import { useMongoFieldEdit } from '@/hooks/use-mongo-field-edit';
 
-function formatCellValue(value: unknown): string {
-  if (value === null) return 'null';
+function formatScalar(value: unknown): string {
   if (value === undefined) return '';
-  if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function formatObjectPreview(value: unknown): string {
+  if (Array.isArray(value)) return `[ ${value.length} item${value.length !== 1 ? 's' : ''} ]`;
+  if (value !== null && typeof value === 'object') {
+    const keys = Object.keys(value as Record<string, unknown>);
+    return `{ ${keys.length} field${keys.length !== 1 ? 's' : ''} }`;
+  }
+  return formatScalar(value);
 }
 
 interface DocumentTableViewProps {
@@ -45,6 +52,12 @@ export function DocumentTableView({
 }: DocumentTableViewProps) {
   const [editCell, setEditCell] = useState<{ docId: unknown; key: string } | null>(null);
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | null>(null);
+
+  // Distinguish single-click (open sheet) from double-click (edit cell).
+  // event.detail >= 2 means a double-click — skip the sheet entirely.
+  // A 300ms timeout as fallback handles edge cases where the browser
+  // reports detail=1 for the first click of a slow double-click.
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { editValue, setEditValue, saving, startEditValue, clearEditValue, saveFieldEdit, handleEditKeyDown } =
     useMongoFieldEdit({
@@ -113,6 +126,34 @@ export function DocumentTableView({
     }
   };
 
+  const handleRowClick = useCallback((doc: Record<string, unknown>, _index: number, e: React.MouseEvent) => {
+    // If this is the second click of a double-click, don't open the sheet —
+    // the cell-level onDoubleClick handler will start editing instead.
+    if (e.detail >= 2) {
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
+      return;
+    }
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      setSelectedRow(doc);
+      clickTimerRef.current = null;
+    }, 300);
+  }, []);
+
+  const handleCellDoubleClick = useCallback(
+    (docId: unknown, key: string, value: unknown) => {
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
+      startEdit(docId, key, value);
+    },
+    [startEdit],
+  );
+
   const tableColumns: ColumnDef<Record<string, unknown>>[] = useMemo(
     () =>
       visibleFields.map((col) => ({
@@ -120,6 +161,7 @@ export function DocumentTableView({
         header: col,
         accessor: (row) => row[col],
         sortable: true,
+        cellClassName: col === '_id' ? 'font-mono text-xs text-muted-foreground' : undefined,
         render: (value, row) => {
           const isEditing = editCell?.docId === row?._id && editCell?.key === col;
           if (isEditing) {
@@ -130,29 +172,30 @@ export function DocumentTableView({
                 onChange={(e) => setEditValue(e.target.value)}
                 onKeyDown={onKeyDown}
                 onBlur={() => setTimeout(() => saveEdit(), 150)}
-                className="h-5 min-w-0 rounded border bg-background px-1 font-mono text-xs focus:ring-1 focus:ring-primary"
+                className="h-7 min-w-0 text-xs"
                 autoFocus
               />
             );
           }
+          const isObject = value !== null && typeof value === 'object';
+          const displayText = isObject ? formatObjectPreview(value) : formatScalar(value);
           return (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="block w-full truncate justify-start font-normal text-left h-auto px-1"
-              onClick={() => startEdit(row?._id, col, value)}
-              title={formatCellValue(value)}
+            <span
+              onDoubleClick={() => handleCellDoubleClick(row?._id, col, value)}
+              className="flex-1 min-w-0 truncate cursor-pointer"
             >
               {value === null ? (
-                <span className="text-muted-foreground italic">null</span>
+                <span className="text-muted-foreground italic">{displayText}</span>
+              ) : isObject ? (
+                <span className="text-primary">{displayText}</span>
               ) : (
-                <span className={typeof value === 'object' ? 'text-primary' : ''}>{formatCellValue(value)}</span>
+                <span>{displayText}</span>
               )}
-            </Button>
+            </span>
           );
         },
       })),
-    [visibleFields, editCell, editValue, onKeyDown, saveEdit, saving, cancelEdit, startEdit],
+    [visibleFields, editCell, editValue, onKeyDown, saveEdit, saving, cancelEdit, startEdit, handleCellDoubleClick],
   );
 
   return (
@@ -161,6 +204,7 @@ export function DocumentTableView({
         rows={documents}
         columns={tableColumns}
         rowKey={(doc, i) => (doc._id ? String(doc._id) : String(i))}
+        onRowClick={handleRowClick}
         suffixHeader="Actions"
         suffixWidth="64px"
         showIndex
@@ -169,26 +213,28 @@ export function DocumentTableView({
         sortColumn={currentSort?.field}
         sortDirection={currentSort?.dir === -1 ? 'desc' : 'asc'}
         suffix={(doc) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <Ellipsis className="size-3.5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => setSelectedRow(doc)}>
-                <Eye className="size-3.5 mr-2" />
-                View details
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCopyRow(doc)}>
-                <Copy className="size-3.5 mr-2" />
-                Copy JSON
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onDelete(doc)}>
-                <Trash2 className="size-3.5 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <Ellipsis className="size-3.5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => setSelectedRow(doc)}>
+                  <Eye className="size-3.5 mr-2" />
+                  View details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleCopyRow(doc)}>
+                  <Copy className="size-3.5 mr-2" />
+                  Copy JSON
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onDelete(doc)}>
+                  <Trash2 className="size-3.5 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
         className="bg-background"
       />

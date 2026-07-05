@@ -261,7 +261,9 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
             onDoubleClick={
               pkColumns.length > 0 && !isView ? () => setEditingCell({ rowIndex, column: col.name }) : undefined
             }
-            className={pkColumns.length > 0 && !isView ? 'cursor-pointer block w-full' : 'block w-full'}
+            className={
+              pkColumns.length > 0 && !isView ? 'cursor-pointer flex-1 min-w-0 truncate' : 'flex-1 min-w-0 truncate'
+            }
           >
             {value === null ? (
               <span className="text-muted-foreground italic">null</span>

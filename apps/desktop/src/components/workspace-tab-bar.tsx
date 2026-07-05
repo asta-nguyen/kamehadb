@@ -134,7 +134,7 @@ export function WorkspaceTabBar() {
               type="button"
               variant="ghost"
               size="sm"
-              className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex h-full shrink-0 items-center justify-center px-2 rounded-none text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               onClick={() => openRedisQueryTab(activeTab.connectionId)}
               title="Redis Query"
             >
@@ -145,7 +145,7 @@ export function WorkspaceTabBar() {
               type="button"
               variant="ghost"
               size="sm"
-              className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="flex h-full shrink-0 items-center justify-center px-2 rounded-none text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               onClick={() => {
                 const mongoDatabase = appStore.state.activeMongoDatabase;
                 const database = 'database' in activeTab ? activeTab.database : (mongoDatabase ?? 'admin');
@@ -162,7 +162,7 @@ export function WorkspaceTabBar() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                className="flex h-full shrink-0 items-center justify-center px-2 rounded-none text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 onClick={() => openNewQueryTab(activeTab.connectionId)}
                 title="New Query"
               >
@@ -172,7 +172,7 @@ export function WorkspaceTabBar() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                className="flex h-full shrink-0 items-center justify-center px-2 rounded-none text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 onClick={() => openGraphTab(activeTab.connectionId)}
                 title="Schema Graph"
               >

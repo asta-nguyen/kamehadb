@@ -38,10 +38,13 @@ import { PostgresBackupDialog } from './postgres-backup-dialog';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { DeleteConfirmDialog } from './sidebar-delete-dialog';
 import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
-import { ConnectionExpansion } from './sidebar-expansion';
 import { ConnectionStatusDot } from './sidebar-status-dot';
 import { ConnectionTooltip } from './sidebar-tooltip';
 import { SpinningRefresh } from './sidebar.helpers';
+import { MongoExplorer } from './mongo-explorer';
+import { QdrantExplorer } from './qdrant-explorer';
+import { TigerBeetleExplorer } from './tigerbeetle-explorer';
+import { SchemaTree } from './schema-tree';
 
 const ConnectionItem = memo(function ConnectionItem({
   conn,
@@ -170,7 +173,31 @@ const ConnectionItem = memo(function ConnectionItem({
 
       {expanded && conn.kind !== 'redis' && (
         <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
-          <ConnectionExpansion conn={conn} activeTabId={activeTabId} />
+          {conn.kind === 'mongodb' ? (
+            <MongoExplorer key={conn.id} connectionId={conn.id} />
+          ) : conn.kind === 'qdrant' ? (
+            <QdrantExplorer key={conn.id} connectionId={conn.id} />
+          ) : conn.kind === 'tigerbeetle' ? (
+            <TigerBeetleExplorer key={conn.id} connectionId={conn.id} />
+          ) : (
+            <SchemaTree
+              key={conn.id}
+              connectionId={conn.id}
+              activeTableId={activeTabId}
+              onSelectTable={(tableId) => {
+                const tabId = `${conn.id}:${tableId}`;
+                const newTab = { id: tabId, type: 'table' as const, title: tableId, connectionId: conn.id };
+                const exists = appStore.state.openedTabs.some((t) => t.id === tabId);
+                appStore.setState((s) => ({
+                  ...s,
+                  activeConnectionId: conn.id,
+                  view: 'workspace',
+                  activeTabId: tabId,
+                  openedTabs: exists ? s.openedTabs : [...s.openedTabs, newTab],
+                }));
+              }}
+            />
+          )}
         </div>
       )}
     </div>
