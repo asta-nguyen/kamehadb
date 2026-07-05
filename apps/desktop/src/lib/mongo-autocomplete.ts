@@ -60,6 +60,9 @@ const STAGES = [
 ];
 
 // Query/expression operators that appear inside $match etc.
+// Note: $box, $polygon, $center, $centerSphere, $geometry are intentionally
+// excluded — they are sub-operators of $geoWithin/$geoIntersects, not
+// standalone top-level query operators.
 const QUERY_OPERATORS = [
   '$eq',
   '$ne',
@@ -80,6 +83,38 @@ const QUERY_OPERATORS = [
   '$all',
   '$elemMatch',
   '$expr',
+  '$size',
+  '$mod',
+  '$where',
+  '$geoWithin',
+  '$geoIntersects',
+  '$near',
+  '$nearSphere',
+  '$text',
+  '$language',
+  '$caseSensitive',
+  '$diacriticSensitive',
+];
+
+// Update operators for update operations ($set, $unset, $inc, etc.)
+const UPDATE_OPERATORS = [
+  { label: '$set', detail: 'Set field value' },
+  { label: '$unset', detail: 'Remove field' },
+  { label: '$inc', detail: 'Increment field' },
+  { label: '$mul', detail: 'Multiply field' },
+  { label: '$rename', detail: 'Rename field' },
+  { label: '$min', detail: 'Set if lower' },
+  { label: '$max', detail: 'Set if higher' },
+  { label: '$currentDate', detail: 'Set to current date' },
+  { label: '$push', detail: 'Append to array' },
+  { label: '$pull', detail: 'Remove from array' },
+  { label: '$pop', detail: 'Remove last/first element' },
+  { label: '$addToSet', detail: 'Add unique to array' },
+  { label: '$pullAll', detail: 'Remove all matching values' },
+  { label: '$each', detail: 'Multiple values for $push/$addToSet' },
+  { label: '$position', detail: 'Position for $push' },
+  { label: '$slice', detail: 'Limit array size after $push' },
+  { label: '$sort', detail: 'Sort array after $push' },
 ];
 
 // Accumulators used inside $group
@@ -167,6 +202,16 @@ function buildOperatorSuggestions(): MongoCompletionEntry[] {
     detail: 'query operator',
     kind: 'operator',
     sortText: `2-${i.toString().padStart(3, '0')}`,
+  }));
+}
+
+function buildUpdateOperatorSuggestions(): MongoCompletionEntry[] {
+  return UPDATE_OPERATORS.map((op, i) => ({
+    label: op.label,
+    insertText: op.label,
+    detail: op.detail,
+    kind: 'operator',
+    sortText: `2b-${i.toString().padStart(3, '0')}`,
   }));
 }
 
@@ -349,6 +394,7 @@ export function buildMongoCompletionEntries(
     case 'expression':
       // After $: suggest all operators
       entries.push(...buildOperatorSuggestions());
+      entries.push(...buildUpdateOperatorSuggestions());
       entries.push(...buildAccumulatorSuggestions());
       entries.push(...buildExpressionSuggestions());
       break;
@@ -357,6 +403,7 @@ export function buildMongoCompletionEntries(
       // General context: suggest everything
       entries.push(...buildStagesSuggestions());
       entries.push(...buildOperatorSuggestions());
+      entries.push(...buildUpdateOperatorSuggestions());
       entries.push(...buildAccumulatorSuggestions());
       entries.push(...buildExpressionSuggestions());
       if (data && Array.isArray(data.collections)) {

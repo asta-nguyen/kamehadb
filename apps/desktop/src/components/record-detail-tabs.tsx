@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Check, Copy, Eye, FileJson } from 'lucide-react';
-import { formatJsonSyntax } from '@/lib/format-json';
+import { formatJsonSyntax } from '@/lib/utils.tsx';
 
 export function RecordDetailTabs({ selectedRow }: { selectedRow: Record<string, unknown> | null }) {
   const [copied, setCopied] = useState(false);

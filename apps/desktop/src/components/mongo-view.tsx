@@ -1,15 +1,13 @@
 import { useState, useCallback, useMemo, useReducer } from 'react';
 import { debounce } from '@tanstack/pacer';
-import { useMongoDocuments } from '@/hooks/use-mongo';
+import { useMongoDocuments, useMongoCollectionStats } from '@/hooks/use-mongo';
 import { api } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { AlertCircle, Activity } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChartView } from '@/components/chart-view';
 import type { WorkspaceTab } from '@/lib/types';
-import type { QueryResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { DocumentCard } from '@/components/mongo-document-card';
 import { DocumentTableView } from '@/components/mongo-document-table-view';
@@ -19,20 +17,6 @@ import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { PAGE_LIMIT } from '@/lib/constants';
-
-// Derive column metadata from every document so sparse Mongo fields remain
-// available to chart and table consumers.
-function deriveColumns(docs: Record<string, unknown>[]): QueryResult['columns'] {
-  if (docs.length === 0) return [];
-  return collectRecordFields(docs).map((name) => {
-    const val = docs.find((doc) => doc[name] !== undefined)?.[name];
-    let type = 'string';
-    if (typeof val === 'number') type = Number.isInteger(val) ? 'integer' : 'number';
-    else if (typeof val === 'boolean') type = 'boolean';
-    else if (val === null) type = 'string';
-    return { name, type, nullable: val === null };
-  });
-}
 
 function parseJsonSafe(text: string): Record<string, unknown> | null {
   try {
@@ -51,7 +35,7 @@ interface MongoViewProps {
 // dispatch produces a single re-render instead of seven.
 type MongoState = {
   activeTab: 'data' | 'stats';
-  viewMode: 'list' | 'table' | 'chart';
+  viewMode: 'list' | 'table';
   searchText: string;
   sortStr: string;
   page: number;
@@ -61,7 +45,7 @@ type MongoState = {
 
 type MongoAction =
   | { type: 'activeTab'; value: 'data' | 'stats' }
-  | { type: 'viewMode'; value: 'list' | 'table' | 'chart' }
+  | { type: 'viewMode'; value: 'list' | 'table' }
   | { type: 'searchText'; value: string }
   | { type: 'sortStr'; value: string | ((prev: string) => string) }
   | { type: 'page'; value: number }
@@ -180,6 +164,12 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     skip,
     state.querySearch || undefined,
   );
+
+  const {
+    data: statsData,
+    isLoading: statsLoading,
+    error: statsError,
+  } = useMongoCollectionStats(connectionId, database, collection);
 
   const [expandedDocs, setExpandedDocs] = useState<Set<number>>(new Set());
 
@@ -348,6 +338,9 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             onPageChange={(p) => dispatch({ type: 'page', value: p })}
             onExportJSON={handleExportJSON}
             onExportCSV={handleExportCSV}
+            indexes={statsData?.indexes ?? []}
+            statsLoading={statsLoading}
+            statsError={statsError}
           />
         </TabsContent>
 
@@ -363,7 +356,7 @@ interface DocumentsPanelProps {
   isLoading: boolean;
   error: unknown;
   documents: Record<string, unknown>[];
-  viewMode: 'list' | 'table' | 'chart';
+  viewMode: 'list' | 'table';
   page: number;
   pageSize: number;
   totalCount: number;
@@ -382,6 +375,9 @@ interface DocumentsPanelProps {
   onPageChange: (page: number) => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
+  indexes: { name: string; key: Record<string, unknown>; unique: boolean }[];
+  statsLoading: boolean;
+  statsError: unknown;
 }
 
 function DocumentsPanel({
@@ -407,6 +403,9 @@ function DocumentsPanel({
   onPageChange,
   onExportJSON,
   onExportCSV,
+  indexes,
+  statsLoading,
+  statsError,
 }: DocumentsPanelProps) {
   const footerProps = {
     page,
@@ -441,24 +440,51 @@ function DocumentsPanel({
   }
 
   if (!documents.length) {
+    // Extract indexed field names from index keys to show as "schema" hints.
+    // Only show index info when stats have loaded successfully — while loading
+    // or on error, show a neutral message instead of falsely claiming "no indexes".
+    const indexedFields = new Set<string>();
+    for (const idx of indexes) {
+      for (const field of Object.keys(idx.key)) {
+        indexedFields.add(field);
+      }
+    }
     return (
-      <div className="p-4">
-        <div className="flex items-center justify-center h-32 text-muted-foreground">No documents found</div>
-      </div>
-    );
-  }
-
-  if (viewMode === 'chart') {
-    const chartResult: QueryResult = {
-      columns: deriveColumns(documents),
-      rows: documents,
-      rowCount: totalCount,
-      durationMs,
-      truncated: hasMore,
-    };
-    return (
-      <div className="p-4">
-        <ChartView result={chartResult} />
+      <div className="p-4 space-y-3">
+        <div className="flex items-center justify-center h-20 text-muted-foreground">
+          No documents found in this collection
+        </div>
+        {statsLoading ? (
+          <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+            <p className="text-xs text-muted-foreground">Loading index information…</p>
+          </div>
+        ) : statsError ? (
+          <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              Could not load index information. Check the Stats tab for details.
+            </p>
+          </div>
+        ) : indexedFields.size > 0 ? (
+          <div className="rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              Indexed fields (from {indexes.length} index{indexes.length !== 1 ? 'es' : ''}):
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {Array.from(indexedFields).map((field) => (
+                <span key={field} className="rounded bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
+                  {field}
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">Switch to the Stats tab to see full index details.</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border bg-muted/30 p-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              This collection has no indexes. Insert a document to start building its schema.
+            </p>
+          </div>
+        )}
       </div>
     );
   }

@@ -35,7 +35,7 @@ export interface DataTableProps<T> {
   suffixCellClassName?: string;
   fixedTemplate?: string;
   stickyHeader?: boolean;
-  onRowClick?: (row: T, index: number) => void;
+  onRowClick?: (row: T, index: number, event: React.MouseEvent) => void;
   onSortChange?: (columnId: string) => void;
   sortColumn?: string;
   sortDirection?: SortDirection;
@@ -190,15 +190,20 @@ export function DataTable<T>({
                           onRowClick && 'cursor-pointer',
                           extraClass,
                         )}
-                        onClick={onRowClick ? () => onRowClick(row, rowIndex) : undefined}
+                        onClick={onRowClick ? (e) => onRowClick(row, rowIndex, e) : undefined}
                       >
                         {prefix && (
-                          <TableCell className={cn('sticky left-0 z-20 px-2 py-1 bg-inherit', prefixCellClassName)}>
+                          <TableCell
+                            className={cn(
+                              'sticky left-0 z-20 px-2 py-1 flex items-center bg-inherit',
+                              prefixCellClassName,
+                            )}
+                          >
                             {prefix(row, rowIndex)}
                           </TableCell>
                         )}
                         {showIndex && (
-                          <TableCell className="px-3 py-1 text-muted-foreground tabular-nums">
+                          <TableCell className="px-3 py-1 flex items-center text-muted-foreground tabular-nums">
                             {indexOffset + rowIndex + 1}
                           </TableCell>
                         )}
@@ -213,7 +218,7 @@ export function DataTable<T>({
                           return (
                             <TableCell
                               key={col.id}
-                              className={cn('px-2 py-1 overflow-hidden truncate min-w-0', col.cellClassName)}
+                              className={cn('px-2 py-1 flex items-center overflow-hidden min-w-0', col.cellClassName)}
                               title={title}
                             >
                               {col.render ? col.render(value, row, rowIndex) : defaultCellRender(value)}
@@ -258,10 +263,10 @@ export function DataTable<T>({
 }
 
 function defaultCellRender(value: unknown): ReactNode {
-  if (value === null) return <span className="text-muted-foreground italic">null</span>;
-  if (value === undefined) return <span className="text-muted-foreground">-</span>;
-  if (typeof value === 'object') return <span className="text-primary">{JSON.stringify(value)}</span>;
-  return <span>{String(value)}</span>;
+  if (value === null) return <span className="truncate text-muted-foreground italic">null</span>;
+  if (value === undefined) return <span className="truncate text-muted-foreground">-</span>;
+  if (typeof value === 'object') return <span className="truncate text-primary">{JSON.stringify(value)}</span>;
+  return <span className="truncate">{String(value)}</span>;
 }
 
 // Resize handle extracted into its own component so it can hold the hover/drag

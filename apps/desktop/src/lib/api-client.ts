@@ -1,23 +1,11 @@
-const DEV_PROXY_API_BASE = 'http://127.0.0.1:3170';
-const DIRECT_SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 
-let apiBase = import.meta.env.DEV ? DEV_PROXY_API_BASE : DIRECT_SIDECAR_API_BASE;
-const sidecarBase = SIDECAR_API_BASE;
-
 export function getApiBase(): string {
-  return apiBase;
+  return SIDECAR_API_BASE;
 }
 
-export async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-  useSidecar = false,
-  signal?: AbortSignal,
-): Promise<T> {
-  const base = useSidecar ? sidecarBase : apiBase;
-  const response = await fetch(`${base}${path}`, {
+export async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`${SIDECAR_API_BASE}${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -42,10 +30,10 @@ export async function request<T>(
   return data as T;
 }
 
-export async function get<T>(path: string, useSidecar = true): Promise<T> {
-  return request<T>('GET', path, undefined, useSidecar);
+export async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  return request<T>('GET', path, undefined, signal);
 }
 
-export async function post<T>(path: string, body: unknown, useSidecar = true): Promise<T> {
-  return request<T>('POST', path, body, useSidecar);
+export async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return request<T>('POST', path, body, signal);
 }
