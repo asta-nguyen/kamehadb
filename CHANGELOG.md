@@ -11,6 +11,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.4.6] — 2026-07-06
+
+### Fixed
+
+- **PostgreSQL SSL connections** — added SSL toggle to connection dialog and fixed `ssl` flag not being passed through connection test and health check endpoints.
+
+---
+
 ## [v1.4.5] — 2026-07-03
 
 ### Fixed

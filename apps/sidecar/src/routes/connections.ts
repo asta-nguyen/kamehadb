@@ -69,6 +69,7 @@ type TestConnectionParams = {
   database?: string | null;
   username?: string | null;
   password?: string;
+  ssl?: boolean | null;
   connectionString?: string | null;
   filePath?: string | null;
 };
@@ -79,7 +80,7 @@ type TestConnectionParams = {
 async function testConnectionByKind(
   params: TestConnectionParams,
 ): Promise<{ success: boolean; message?: string; latencyMs?: number }> {
-  const { kind, host, port, database, username, password, connectionString, filePath } = params;
+  const { kind, host, port, database, username, password, ssl, connectionString, filePath } = params;
 
   switch (kind) {
     case KIND.POSTGRES:
@@ -89,6 +90,7 @@ async function testConnectionByKind(
         database: database!,
         username: username!,
         password: password ?? '',
+        ssl: ssl ?? false,
       });
     case KIND.MONGODB:
       return createMongoAdapter({
@@ -196,6 +198,7 @@ connectionsRouter.get('/health', async (c) => {
                 database: profile.database,
                 username: profile.username,
                 password: password ?? undefined,
+                ssl: profile.ssl,
                 connectionString: profile.connectionString,
                 filePath: profile.filePath,
               }),
@@ -263,6 +266,7 @@ connectionsRouter.get('/:id/health', async (c) => {
       database: profile.database,
       username: profile.username,
       password: password ?? undefined,
+      ssl: profile.ssl,
       connectionString: profile.connectionString,
       filePath: profile.filePath,
     });
@@ -362,6 +366,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
       database: input.database,
       username: input.username,
       password: input.password,
+      ssl: input.ssl,
       connectionString: input.connectionString,
       filePath: input.filePath,
     });
