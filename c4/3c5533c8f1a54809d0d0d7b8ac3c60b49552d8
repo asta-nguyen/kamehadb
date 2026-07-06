@@ -1,0 +1,45 @@
+apps/desktop/src-tauri/Cargo.toml
+  s_5ec0d0f5e0810b::t_0bd52c67450306 3
+apps/desktop/package.json
+  s_5ec0d0f5e0810b::t_ac82f6862b062a 4
+packages/shared/package.json
+  s_5ec0d0f5e0810b::t_348b3cf266c5da 4
+package.json
+  s_5ec0d0f5e0810b::t_8cf5c74058c2e8 4
+apps/sidecar/src/routes/connections.ts
+  s_6db619afb45f47::t_f194924befc942 201,269,369
+  s_6db619afb45f47::t_83830ac9893dee 72,83,93
+apps/desktop/src/components/connection-dialog-fields.tsx
+  s_6db619afb45f47::t_20d674cf944627 385,388-396
+  s_6db619afb45f47::t_b40216940a8dc9 386-387
+CHANGELOG.md
+  s_5ec0d0f5e0810b::t_1927b0a644787b 14-21
+apps/sidecar/package.json
+  s_5ec0d0f5e0810b::t_e7c8e6a11985de 4
+apps/desktop/src-tauri/tauri.conf.json
+  s_5ec0d0f5e0810b::t_e151e87f494b52 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c43c5533c8f1a54809d0d0d7b8ac3c60b49552d8",
+  "prompts": {},
+  "sessions": {
+    "s_5ec0d0f5e0810b": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "8acdc714-9980-45b9-a30f-58b0c7f922ef",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_6db619afb45f47": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "ab2245cd-12f1-49ce-beb6-82fca183a862",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
