@@ -101,6 +101,7 @@ try {
     'deploy',
     '--filter', '@kamehadb/sidecar',
     '--prod',
+    '--legacy',
     outDir,
   ], {
     cwd: workspaceRoot,
@@ -131,13 +132,32 @@ writeFileSync(resolve(outDir, 'node-abi.txt'), `${process.versions.modules}\n`);
 console.log('[bundle-sidecar] Installing better-sqlite3 native binding for current Node.js...');
 try {
   const prebuildInstall = resolve(findPnpmPackageDir('prebuild-install@'), 'bin.js');
-  execFileSync(process.execPath, [prebuildInstall], {
-    cwd: findPnpmPackageDir('better-sqlite3@'),
-    stdio: 'pipe',
-    encoding: 'utf-8',
-  });
+  const bsqDir = findPnpmPackageDir('better-sqlite3@');
+  // Try downloading a prebuilt binary first; fall back to compiling from
+  // source when no prebuild exists for the current Node.js ABI (e.g. new
+  // or pre-release Node versions).  prebuild-install --build-from-source
+  // cannot find node-gyp in a --prod deploy, so call node-gyp directly.
+  try {
+    execFileSync(process.execPath, [prebuildInstall], {
+      cwd: bsqDir,
+      stdio: 'pipe',
+      encoding: 'utf-8',
+    });
+  } catch {
+    console.log('[bundle-sidecar] No prebuilt binary found, building from source...');
+    // node-gyp is a devDependency of better-sqlite3, so it is not present
+    // in the --prod deploy tree.  Use the system node-gyp (installed
+    // globally with Node.js or via npm i -g node-gyp).  shell:true lets
+    // Windows resolve node-gyp.cmd automatically.
+    execFileSync('node-gyp', ['rebuild', '--release'], {
+      cwd: bsqDir,
+      stdio: 'inherit',
+      encoding: 'utf-8',
+      shell: true,
+    });
+  }
 } catch (err) {
-  console.error('[bundle-sidecar] better-sqlite3 native install failed:', err.stderr || err.message);
+  console.error('[bundle-sidecar] better-sqlite3 native install failed:', err.stderr || err.stdout || err.message);
   process.exit(1);
 }
 

@@ -25,7 +25,9 @@ use terminal_sessions::{
 
 const AUTO_ASSIGN_PORT: u16 = 0;
 const SIDECAR_HOST: &str = "127.0.0.1";
-const MAX_SUPPORTED_NODE_MAJOR: u32 = 22;
+// Lofty ceiling — the ABI check (node-abi.txt) gates native addon compat,
+// so the major version is only a sanity floor. Any modern Node.js works.
+const MAX_SUPPORTED_NODE_MAJOR: u32 = 99;
 const NODE_ABI_FILE: &str = "node-abi.txt";
 #[cfg(windows)]
 const BUNDLED_NODE_PATH: &str = "node/bin/node.exe";
@@ -148,15 +150,33 @@ fn node_abi_version(node_path: &str) -> Option<String> {
     Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-fn resolve_sidecar_root(resource_dir: &Path) -> Result<PathBuf, String> {
-    let candidates = [
-        resource_dir.join("sidecar"),
-        resource_dir.join("resources").join("sidecar"),
-    ];
+fn resolve_sidecar_root(resource_dir: Option<&Path>) -> Result<PathBuf, String> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+
+    // Try Tauri's resource_dir candidates first (works when the binary runs
+    // from target/ (dev) or from a proper bundle install like AppImage/deb).
+    if let Some(dir) = resource_dir {
+        candidates.push(dir.join("sidecar"));
+        candidates.push(dir.join("resources").join("sidecar"));
+    }
+
+    // Fallback: search relative to the running executable. This covers
+    // ad-hoc binary copies (e.g., ~/.local/bin/kamehadb) where Tauri's
+    // resource_dir() cannot locate the bundle layout.
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            // Co-located: resources/sidecar next to the binary
+            candidates.push(exe_dir.join("resources").join("sidecar"));
+        }
+    }
+
+    let tried: Vec<_> = candidates.iter().map(|p| p.display().to_string()).collect();
     candidates
         .into_iter()
         .find(|path| path.join("dist").join("index.js").exists())
-        .ok_or_else(|| format!("Bundled sidecar not found under {}", resource_dir.display()))
+        .ok_or_else(move || {
+            format!("Bundled sidecar not found. Tried paths: {}", tried.join(", "))
+        })
 }
 
 #[tauri::command]
@@ -201,8 +221,8 @@ async fn start_sidecar(
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
 
-    let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
-    let sidecar_root = resolve_sidecar_root(&resource_dir)?;
+    let resource_dir = app.path().resource_dir().ok();
+    let sidecar_root = resolve_sidecar_root(resource_dir.as_deref())?;
     let required_node_abi = std::fs::read_to_string(sidecar_root.join(NODE_ABI_FILE))
         .ok()
         .map(|value| value.trim().to_string())
@@ -222,7 +242,7 @@ async fn start_sidecar(
     })?;
     if matches!(node_major_version(&node_bin), Some(major) if major > MAX_SUPPORTED_NODE_MAJOR) {
         let msg = format!(
-            "Unsupported Node.js runtime at {node_bin}. Install Node.js 20 or 22, or expose one via nvm/asdf/volta."
+            "Unsupported Node.js runtime at {node_bin}. Install Node.js 20–{MAX_SUPPORTED_NODE_MAJOR}, or expose one via nvm/asdf/volta."
         );
         append_tauri_log(&app, "error", "sidecar", &msg, None);
         return Err(msg);

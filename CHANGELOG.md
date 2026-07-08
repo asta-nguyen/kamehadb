@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **MCP server**
 
+### Fixed
+
+- **Sidecar "Connection refused" on launch** — the bundled Node.js runtime was rejected by a hardcoded `MAX_SUPPORTED_NODE_MAJOR = 22` check even when the ABI matched, preventing the sidecar from starting on any build using Node 23+. The major-version gate is now a sanity floor (99); the existing `node-abi.txt` ABI check remains the real compatibility gate. Affects all platforms (Linux, macOS, Windows).
+- **`tauri build` failure on pnpm v10** — restored the `--legacy` flag on `pnpm deploy` in the bundle script. pnpm v10 rejects `deploy` from workspaces without `inject-workspace-packages=true` or `--legacy`; removing it (v1.4.3) broke CI and local builds on pnpm 10+.
+- **`better-sqlite3` native binding for new Node ABIs** — `prebuild-install` now falls back to `node-gyp rebuild --release` when no prebuilt binary exists for the current Node.js ABI (e.g. Node 25). Uses `shell: true` so Windows resolves `node-gyp.cmd` automatically.
+- **Sidecar root resolution for ad-hoc binary installs** — `resolve_sidecar_root` now falls back to searching relative to the running executable when Tauri's `resource_dir()` is unavailable, fixing sidecar startup for binary copies outside a bundle layout (e.g. `~/.local/bin/kamehadb`).
+
 ---
 
 ## [v1.4.5] — 2026-07-03
