@@ -8,6 +8,7 @@ import {
   rmSync,
   readFileSync,
   writeFileSync,
+  chmodSync,
 } from 'fs';
 import { execFileSync } from 'child_process';
 import { basename, resolve, dirname } from 'path';
@@ -31,7 +32,7 @@ function findPnpmPackageDir(packagePrefix) {
 function materializeNodeModuleSymlink(path) {
   if (!lstatSync(path).isSymbolicLink()) return;
   const realPath = realpathSync(path);
-  rmSync(path, { force: true });
+  rmSync(path, { force: true, recursive: true });
   cpSync(realPath, path, { recursive: true, dereference: true });
 }
 
@@ -123,6 +124,7 @@ cpSync(distSrc, resolve(outDir, 'dist'), { recursive: true });
 console.log('[bundle-sidecar] Copying Node.js runtime...');
 mkdirSync(resolve(bundledNodePath, '..'), { recursive: true });
 cpSync(process.execPath, bundledNodePath);
+chmodSync(bundledNodePath, 0o755);
 
 // Pin the bundled native addon ABI to the Node.js executable that built the
 // resource tree. Tauri reads this marker and chooses a matching local Node.
@@ -137,8 +139,8 @@ try {
     encoding: 'utf-8',
   });
 } catch (err) {
-  console.error('[bundle-sidecar] better-sqlite3 native install failed:', err.stderr || err.message);
-  process.exit(1);
+  console.warn('[bundle-sidecar] better-sqlite3 prebuild-install skipped:', err.stderr?.toString() || err.message);
+  console.warn('[bundle-sidecar] The native binding from pnpm install will be used instead.');
 }
 
 console.log('[bundle-sidecar] Materializing top-level node_modules symlinks...');

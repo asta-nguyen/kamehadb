@@ -25,7 +25,7 @@ use terminal_sessions::{
 
 const AUTO_ASSIGN_PORT: u16 = 0;
 const SIDECAR_HOST: &str = "127.0.0.1";
-const MAX_SUPPORTED_NODE_MAJOR: u32 = 22;
+const MAX_SUPPORTED_NODE_MAJOR: u32 = 24;
 const NODE_ABI_FILE: &str = "node-abi.txt";
 #[cfg(windows)]
 const BUNDLED_NODE_PATH: &str = "node/bin/node.exe";
@@ -220,7 +220,9 @@ async fn start_sidecar(
         append_tauri_log(&app, "error", "sidecar", &msg, None);
         msg
     })?;
-    if matches!(node_major_version(&node_bin), Some(major) if major > MAX_SUPPORTED_NODE_MAJOR) {
+    if required_node_abi.is_none()
+        && matches!(node_major_version(&node_bin), Some(major) if major > MAX_SUPPORTED_NODE_MAJOR)
+    {
         let msg = format!(
             "Unsupported Node.js runtime at {node_bin}. Install Node.js 20 or 22, or expose one via nvm/asdf/volta."
         );
@@ -244,13 +246,27 @@ async fn start_sidecar(
     );
 
     let requested_port = allocate_sidecar_port(&app)?;
-    let sidecar_arg = sidecar_path.to_string_lossy().replace('\\', "/");
-    let mut child = Command::new(&node_bin)
-        .arg(&sidecar_arg)
+    let sidecar_dist = sidecar_root.join("dist");
+    // On Windows, passing an absolute path with a drive letter (e.g. C:\...)
+    // triggers a Node.js realpathSync bug: it splits the path by separator,
+    // extracts "C:" as a standalone component, and lstat("C:") fails with
+    // EISDIR. Using current_dir + relative "index.js" avoids the drive-letter
+    // component entirely.
+    #[cfg(windows)]
+    let (sidecar_arg, sidecar_cwd) = ("index.js".to_string(), Some(sidecar_dist.clone()));
+    #[cfg(not(windows))]
+    let (sidecar_arg, sidecar_cwd): (String, Option<PathBuf>) = (sidecar_path.to_string_lossy().replace('\\', "/"), None);
+
+    let mut cmd = Command::new(&node_bin);
+    cmd.arg(&sidecar_arg)
         .env("KAMEHADB_DATA_DIR", data_dir.to_string_lossy().to_string())
         .env("PORT", requested_port.to_string())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    if let Some(cwd) = sidecar_cwd {
+        cmd.current_dir(&cwd);
+    }
+    let mut child = cmd
         .spawn()
         .map_err(|e| {
             let message = format!("Failed to start sidecar: {}", e);
