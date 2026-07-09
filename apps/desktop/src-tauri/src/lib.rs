@@ -9,6 +9,9 @@ use std::sync::Mutex;
 use std::thread;
 use tauri::Manager;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 mod app_logs;
 mod postgres_psql;
 mod postgres_tools;
@@ -31,6 +34,36 @@ const NODE_ABI_FILE: &str = "node-abi.txt";
 const BUNDLED_NODE_PATH: &str = "node/bin/node.exe";
 #[cfg(not(windows))]
 const BUNDLED_NODE_PATH: &str = "node/bin/node";
+
+/// On Windows, hide the console window for child processes spawned via
+/// std::process::Command (node version probes, sidecar).  portable-pty
+/// handles its own window hiding for terminal sessions.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+#[cfg(windows)]
+trait NoWindowExt {
+    fn no_window(&mut self) -> &mut Self;
+}
+
+#[cfg(windows)]
+impl NoWindowExt for Command {
+    fn no_window(&mut self) -> &mut Self {
+        self.creation_flags(CREATE_NO_WINDOW)
+    }
+}
+
+#[cfg(not(windows))]
+trait NoWindowExt {
+    fn no_window(&mut self) -> &mut Self;
+}
+
+#[cfg(not(windows))]
+impl NoWindowExt for Command {
+    fn no_window(&mut self) -> &mut Self {
+        self
+    }
+}
 
 struct SidecarProcess {
     child: Child,
@@ -123,7 +156,7 @@ fn glob_child_nodes(root: &Path) -> Vec<PathBuf> {
 }
 
 fn node_major_version(node_path: &str) -> Option<u32> {
-    let output = Command::new(node_path).arg("-v").output().ok()?;
+    let output = Command::new(node_path).no_window().arg("-v").output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -139,6 +172,7 @@ fn node_major_version(node_path: &str) -> Option<u32> {
 
 fn node_abi_version(node_path: &str) -> Option<String> {
     let output = Command::new(node_path)
+        .no_window()
         .args(["-p", "process.versions.modules"])
         .output()
         .ok()?;
@@ -246,6 +280,7 @@ async fn start_sidecar(
     let requested_port = allocate_sidecar_port(&app)?;
     let sidecar_arg = sidecar_path.to_string_lossy().replace('\\', "/");
     let mut child = Command::new(&node_bin)
+        .no_window()
         .arg(&sidecar_arg)
         .env("KAMEHADB_DATA_DIR", data_dir.to_string_lossy().to_string())
         .env("PORT", requested_port.to_string())
