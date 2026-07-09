@@ -11,6 +11,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.4.7] — 2026-07-09
+
+### Fixed
+
+- **Windows sidecar startup (EISDIR)** — use `current_dir` + relative `index.js` instead of absolute path with drive letter, avoiding Node.js `realpathSync` bug that caused `EISDIR: illegal operation on a directory, lstat 'C:'`.
+- **Linux sidecar startup** — skip `MAX_SUPPORTED_NODE_MAJOR` check when bundled node ABI matches; ensure bundled node binary is executable (`chmod 0o755`).
+- **pnpm v10 compatibility** — added `force-legacy-deploy=true` to `.npmrc` so `pnpm deploy` works without `--legacy` flag.
+- **Node 24 compatibility** — `rmSync` now uses `recursive: true` for symlink-to-directory removal; `prebuild-install` failure is non-fatal.
+- **Max supported Node.js** — raised from 22 to 24 for dev fallback.
+
+---
+
 ## [v1.4.6] — 2026-07-06
 
 ### Fixed
