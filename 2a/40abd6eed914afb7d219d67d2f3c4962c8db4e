@@ -1,0 +1,19 @@
+.npmrc
+  s_5ec0d0f5e0810b::t_667731c2d12413 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2a40abd6eed914afb7d219d67d2f3c4962c8db4e",
+  "prompts": {},
+  "sessions": {
+    "s_5ec0d0f5e0810b": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "8acdc714-9980-45b9-a30f-58b0c7f922ef",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
