@@ -1,0 +1,41 @@
+CHANGELOG.md
+  s_5ec0d0f5e0810b::t_59759a872f6dce 14-25
+packages/shared/package.json
+  s_5ec0d0f5e0810b::t_b6667149b45927 4
+apps/desktop/src-tauri/tauri.conf.json
+  s_5ec0d0f5e0810b::t_eeaa597c7f0bd3 4
+package.json
+  s_5ec0d0f5e0810b::t_63e93dfd43d9df 4
+apps/desktop/src-tauri/src/lib.rs
+  s_5ec0d0f5e0810b::t_7f387b89281293 223-225
+  s_5ec0d0f5e0810b::t_1f2e7f39d37f59 249-257,259-261,265-269
+  s_5ec0d0f5e0810b::t_2d2d86c484bbfb 28
+  s_5ec0d0f5e0810b::t_66060e6d301d59 258
+apps/sidecar/package.json
+  s_5ec0d0f5e0810b::t_be92ca2c42077a 4
+apps/desktop/package.json
+  s_5ec0d0f5e0810b::t_a04a1da8ec427c 4
+apps/sidecar/scripts/bundle-for-tauri.mjs
+  s_5ec0d0f5e0810b::t_f343258e05748e 11
+  s_5ec0d0f5e0810b::t_52a628dd99130e 35
+  s_5ec0d0f5e0810b::t_b6d0b8db24fe8a 127
+  s_5ec0d0f5e0810b::t_6e3862b962e84f 142-143
+apps/desktop/src-tauri/Cargo.toml
+  s_5ec0d0f5e0810b::t_085b3c54aedd51 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e1e5c7047e8b48e9a8c8257bc3175342f2bd8b20",
+  "prompts": {},
+  "sessions": {
+    "s_5ec0d0f5e0810b": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "8acdc714-9980-45b9-a30f-58b0c7f922ef",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
