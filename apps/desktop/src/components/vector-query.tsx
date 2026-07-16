@@ -4,15 +4,18 @@ import type { PostgresVectorSearchResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { usePostgresVectorCapabilities, usePostgresVectorSearch } from '@/hooks/use-postgres-vector';
 import { useSqliteVecCapabilities, useSqliteVecSearch, useSqliteVecSample } from '@/hooks/use-sqlite-vec';
+import { useTableColumns } from '@/hooks/use-schema';
 import { parseVectorText } from '@/lib/postgres-vector';
 import { PostgresVectorResults } from '@/components/postgres-vector-results';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dice5, Loader2, Network, Play } from 'lucide-react';
 import { openPostgresVectorMapTab, openSqliteVecMapTab } from '@/store';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterBar, type FilterEntry } from '@/components/ui/filter-bar';
 
 // ── State type (superset of both PG and sqlite-vec fields) ────────────────
 
@@ -22,10 +25,7 @@ type VectorQueryState = {
   readonly column: string;
   readonly vectorText: string;
   readonly sampledVector: number[] | null;
-  readonly filterColumn: string;
-  readonly filterOp: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'LIKE';
-  readonly filterValue: string;
-  readonly filterText: string;
+  readonly filters: FilterEntry[];
   readonly metric: 'cosine' | 'l2' | 'inner_product';
   readonly limit: number;
   readonly running: boolean;
@@ -40,10 +40,7 @@ type VectorQueryAction =
   | { type: 'setColumn'; value: string }
   | { type: 'setVectorText'; value: string }
   | { type: 'setSampledVector'; vector: number[]; display: string }
-  | { type: 'setFilterColumn'; value: string }
-  | { type: 'setFilterOp'; value: VectorQueryState['filterOp'] }
-  | { type: 'setFilterValue'; value: string }
-  | { type: 'setFilterText'; value: string }
+  | { type: 'setFilters'; value: FilterEntry[] }
   | { type: 'setMetric'; value: VectorQueryState['metric'] }
   | { type: 'setLimit'; value: number }
   | { type: 'startRun' }
@@ -55,23 +52,26 @@ type VectorQueryAction =
 function vectorQueryReducer(state: VectorQueryState, action: VectorQueryAction): VectorQueryState {
   switch (action.type) {
     case 'setSchema':
-      return { ...state, schema: action.value, table: '', column: '', result: null, info: null, error: null };
+      return {
+        ...state,
+        schema: action.value,
+        table: '',
+        column: '',
+        filters: [],
+        result: null,
+        info: null,
+        error: null,
+      };
     case 'setTable':
-      return { ...state, table: action.value, column: '', result: null, info: null, error: null };
+      return { ...state, table: action.value, column: '', filters: [], result: null, info: null, error: null };
     case 'setColumn':
       return { ...state, column: action.value, result: null, info: null, error: null };
     case 'setVectorText':
       return { ...state, vectorText: action.value, sampledVector: null };
     case 'setSampledVector':
       return { ...state, vectorText: action.display, sampledVector: action.vector };
-    case 'setFilterColumn':
-      return { ...state, filterColumn: action.value };
-    case 'setFilterOp':
-      return { ...state, filterOp: action.value };
-    case 'setFilterValue':
-      return { ...state, filterValue: action.value };
-    case 'setFilterText':
-      return { ...state, filterText: action.value };
+    case 'setFilters':
+      return { ...state, filters: action.value };
     case 'setMetric':
       return { ...state, metric: action.value };
     case 'setLimit':
@@ -99,6 +99,24 @@ function tabDisplayName(tab: WorkspaceTab): string {
   return tab.type === 'postgres-vector-search' ? 'pgvector' : 'sqlite-vec';
 }
 
+// Serialize the shared structured filters into the sidecar's deliberately
+// narrow filter grammar; the backend still parses and parameterizes values.
+function buildFilter(filters: FilterEntry[]): string | undefined {
+  const clauses = filters.flatMap((filter) => {
+    if (!filter.column || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(filter.column)) return [];
+    if (filter.operator === 'IS NULL' || filter.operator === 'IS NOT NULL') {
+      return [`${filter.column} ${filter.operator}`];
+    }
+
+    const value = filter.value.trim();
+    if (!value) return [];
+    const literal = /^(?:-?\d+(?:\.\d+)?|true|false|null)$/i.test(value) ? value : `'${value.replace(/'/g, "''")}'`;
+    return [`${filter.column} ${filter.operator} ${literal}`];
+  });
+
+  return clauses.length > 0 ? clauses.join(' AND ') : undefined;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────
 
 interface VectorQueryProps {
@@ -124,10 +142,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
     column: tab.column ?? '',
     vectorText: tab.vectorText ?? '',
     sampledVector: null,
-    filterColumn: '',
-    filterOp: '=',
-    filterValue: '',
-    filterText: '',
+    filters: [],
     metric: 'cosine',
     limit: 10,
     running: false,
@@ -135,6 +150,10 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
     info: null,
     result: null,
   });
+  const { data: pgTableColumns } = useTableColumns(
+    isSqlite ? null : connectionId,
+    !isSqlite && state.table ? `${state.schema}.${state.table}` : null,
+  );
 
   // ── Derived lists ─────────────────────────────────────────────────
 
@@ -177,6 +196,11 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
     if (!sqliteCap.metadataColumns || !state.table) return [];
     return sqliteCap.metadataColumns[state.table] ?? [];
   }, [capabilities, state.table, isSqlite]);
+
+  const filterColumns = useMemo(() => {
+    const columns = isSqlite ? metadataColumns : (pgTableColumns ?? []).map((column) => column.name);
+    return columns.filter((column) => column !== state.column && /^[A-Za-z_][A-Za-z0-9_]*$/.test(column));
+  }, [isSqlite, metadataColumns, pgTableColumns, state.column]);
 
   // ── Auto-select effects ───────────────────────────────────────────
 
@@ -237,23 +261,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
         return;
       }
 
-      // Build filter clause
-      let filter: string | undefined;
-      if (isSqlite) {
-        // Structured filter — column + op + value
-        if (state.filterColumn && state.filterValue.trim()) {
-          const val =
-            state.filterOp === 'LIKE'
-              ? `'${state.filterValue.replace(/'/g, "''")}'`
-              : isNaN(Number(state.filterValue))
-                ? `'${state.filterValue.replace(/'/g, "''")}'`
-                : state.filterValue;
-          filter = `"${state.filterColumn}" ${state.filterOp} ${val}`;
-        }
-      } else {
-        // Free-text SQL WHERE clause
-        filter = state.filterText.trim() || undefined;
-      }
+      const filter = buildFilter(state.filters);
 
       // Execute search — input shapes differ between engines
       const result: PostgresVectorSearchResult = isSqlite
@@ -469,73 +477,14 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
           className="w-full min-h-20 px-2 py-1 text-xs font-mono bg-background border rounded resize-y"
         />
 
-        {/* Filter section — differs by engine */}
-        {isSqlite ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Select
-              value={state.filterColumn || '__none__'}
-              onValueChange={(value) =>
-                dispatch({
-                  type: 'setFilterColumn',
-                  value: (value ?? '') === '__none__' ? '' : (value ?? ''),
-                })
-              }
-            >
-              <SelectTrigger size="sm" className="h-7 text-xs w-32">
-                <SelectValue placeholder="No filter" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No filter</SelectItem>
-                {metadataColumns.map((col) => (
-                  <SelectItem key={col} value={col}>
-                    {col}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {state.filterColumn && (
-              <>
-                <Select
-                  value={state.filterOp}
-                  onValueChange={(value) =>
-                    dispatch({ type: 'setFilterOp', value: value as VectorQueryState['filterOp'] })
-                  }
-                >
-                  <SelectTrigger size="sm" className="h-7 text-xs w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="=">=</SelectItem>
-                    <SelectItem value="!=">&ne;</SelectItem>
-                    <SelectItem value=">">&gt;</SelectItem>
-                    <SelectItem value="<">&lt;</SelectItem>
-                    <SelectItem value=">=">&ge;</SelectItem>
-                    <SelectItem value="<=">&le;</SelectItem>
-                    <SelectItem value="LIKE">LIKE</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Input
-                  value={state.filterValue}
-                  onChange={(event) => dispatch({ type: 'setFilterValue', value: event.target.value })}
-                  placeholder="Value…"
-                  className="h-7 w-32 px-2 text-xs bg-background border rounded"
-                />
-              </>
-            )}
-          </div>
-        ) : (
-          <Input
-            value={state.filterText}
-            onChange={(event) => dispatch({ type: 'setFilterText', value: event.target.value })}
-            placeholder="Optional filter, e.g. category = 'docs' AND id > 10"
-            className="w-full h-9 px-2 text-sm bg-background border rounded"
-          />
-        )}
+        <FilterBar
+          filters={state.filters}
+          columns={filterColumns}
+          onChange={(filters) => dispatch({ type: 'setFilters', value: filters })}
+        />
 
         {/* Error / info display */}
-        {state.error && <div className="text-xs text-destructive">{state.error}</div>}
+        {state.error && <ErrorState compact error={new Error(state.error)} />}
         {state.info && !state.error && <div className="text-xs text-muted-foreground">{state.info}</div>}
       </div>
 
@@ -558,7 +507,7 @@ export function VectorQuery({ tab, connectionId }: VectorQueryProps) {
             }
           />
         ) : (
-          <div className="p-3 text-sm text-muted-foreground">{emptyMessage}</div>
+          <EmptyState title={emptyMessage} />
         )}
       </div>
     </div>

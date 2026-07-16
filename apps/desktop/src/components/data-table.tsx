@@ -218,7 +218,11 @@ export function DataTable<T>({
                           return (
                             <TableCell
                               key={col.id}
-                              className={cn('px-2 py-1 flex items-center overflow-hidden min-w-0', col.cellClassName)}
+                              className={cn(
+                                'px-2 py-1 overflow-hidden truncate min-w-0',
+                                typeof value === 'object' && value !== null && 'overflow-visible whitespace-normal',
+                                col.cellClassName,
+                              )}
                               title={title}
                             >
                               {col.render ? col.render(value, row, rowIndex) : defaultCellRender(value)}

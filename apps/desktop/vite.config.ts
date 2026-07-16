@@ -24,7 +24,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(getAppVersion()),
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
   },
   clearScreen: false,
   resolve: {

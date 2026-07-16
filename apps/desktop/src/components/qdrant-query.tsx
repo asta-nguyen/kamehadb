@@ -13,6 +13,8 @@ import { simpleEmbed } from '@/lib/simple-embed';
 import { Play } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface QdrantQueryProps {
   tab: Extract<WorkspaceTab, { type: 'qdrant-search' }>;
@@ -305,7 +307,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               value={state.text}
               onChange={(e) => dispatch({ type: 'setText', value: e.target.value })}
               placeholder="Describe what you're looking for…"
-              className="w-full h-9 px-2 text-sm bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="w-full h-7 px-2 text-xs bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
             <p className="text-xs text-muted-foreground">
               Text is converted to a vector locally using hash-based embedding — no AI provider needed. Works at
@@ -320,7 +322,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
               value={state.pointId}
               onChange={(e) => dispatch({ type: 'setPointId', value: e.target.value })}
               placeholder="Point ID to find neighbors of"
-              className="w-full h-9 px-2 text-sm font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="w-full h-7 px-2 text-xs font-mono bg-background border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
             <p className="text-xs text-muted-foreground">
               Finds points most similar to an existing point — no model needed.
@@ -340,7 +342,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
 
         <QdrantFilterBuilder onChange={(v) => dispatch({ type: 'setFilter', value: v })} fields={fields} />
 
-        {state.error && <div className="text-xs text-destructive">{state.error}</div>}
+        {state.error && <ErrorState compact error={new Error(state.error)} />}
         {state.info && !state.error && <div className="text-xs text-muted-foreground">{state.info}</div>}
       </div>
 
@@ -356,13 +358,15 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
             className="overflow-visible"
           />
         ) : (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            {state.mode === 'text'
-              ? 'Type a query and run a search'
-              : state.mode === 'similar'
-                ? 'Enter a point ID to find similar points'
-                : 'Enter a query vector and run a search'}
-          </div>
+          <EmptyState
+            title={
+              state.mode === 'text'
+                ? 'Type a query and run a search'
+                : state.mode === 'similar'
+                  ? 'Enter a point ID to find similar points'
+                  : 'Enter a query vector and run a search'
+            }
+          />
         )}
       </div>
 

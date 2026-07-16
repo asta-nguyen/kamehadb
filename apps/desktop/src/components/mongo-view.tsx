@@ -282,6 +282,8 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
   return (
     <div className="h-full flex flex-col bg-background">
       <MongoViewHeader
+        title={collection}
+        count={data?.documents.length ?? 0}
         searchText={state.searchText}
         onSearchChange={handleSearchChange}
         sortField={currentSortField}

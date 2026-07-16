@@ -1,9 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { useTbAccounts, useTbTransfers, useTbBalances } from '@/hooks/use-tigerbeetle';
 import type { TigerBeetleAccount, TigerBeetleTransfer, TigerBeetleAccountBalance } from '@kamehadb/shared';
-import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { LoadingState } from '@/components/ui/loading-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useState } from 'react';
+import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
 
 interface TigerBeetleExplorerProps {
   connectionId: string;
@@ -11,30 +14,25 @@ interface TigerBeetleExplorerProps {
 
 export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) {
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
-  const { data, isLoading, refetch } = useTbAccounts(connectionId);
+  const { data, isLoading, isFetching, refetch } = useTbAccounts(connectionId);
 
   const accounts = data?.accounts ?? [];
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <Spinner size="md" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
     <div className="space-y-1 px-2 py-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Accounts ({accounts.length})
-        </span>
-        <Button variant="ghost" size="icon" className="size-5" onClick={() => refetch()} title="Refresh accounts">
-          <RefreshCw className="size-3" />
-        </Button>
-      </div>
+      <ExplorerToolbar
+        title="Accounts"
+        count={accounts.length}
+        onRefresh={() => void refetch()}
+        isRefreshing={isFetching}
+        className="-mx-2 -mt-2"
+      />
       {accounts.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-2">No accounts found</p>
+        <EmptyState compact title="No accounts found" />
       ) : (
         accounts.map((account) => (
           <AccountNode
@@ -86,15 +84,15 @@ function AccountNode({
         ) : (
           <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
         )}
-        <span className="font-mono text-[11px] truncate flex-1">{account.id.slice(0, 16)}</span>
-        <span className={`text-[10px] font-medium ${posted >= 0n ? 'text-emerald-500' : 'text-red-500'}`}>
+        <span className="font-mono text-xs truncate flex-1">{account.id.slice(0, 16)}</span>
+        <span className={`text-xs font-medium ${posted >= 0n ? 'text-success' : 'text-destructive'}`}>
           {posted.toString()}
         </span>
       </Button>
       {isSelected && (
         <div className="ml-3 pl-2 border-l border-border/40 space-y-2 py-1">
           {/* Account details */}
-          <div className="text-[10px] text-muted-foreground space-y-0.5">
+          <div className="text-xs text-muted-foreground space-y-0.5">
             <div>
               Ledger: {account.ledger} &middot; Code: {account.code}
             </div>
@@ -106,13 +104,13 @@ function AccountNode({
           {balance && <BalanceView balance={balance} />}
 
           {/* Transfers */}
-          <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Transfers</div>
+          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Transfers</div>
           {loadingTransfers ? (
             <div className="flex justify-center py-1">
               <Spinner size="sm" className="text-muted-foreground" />
             </div>
           ) : transfers.length === 0 ? (
-            <p className="text-[10px] text-muted-foreground text-center py-1">No transfers</p>
+            <p className="text-xs text-muted-foreground text-center py-1">No transfers</p>
           ) : (
             transfers.map((t) => <TransferRow key={t.id} transfer={t} selectedAccountId={account.id} />)
           )}
@@ -124,7 +122,7 @@ function AccountNode({
 
 function BalanceView({ balance }: { balance: TigerBeetleAccountBalance }) {
   return (
-    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
+    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs">
       <span className="text-muted-foreground">Debits Pend:</span>
       <span className="font-mono text-right">{balance.debitsPending}</span>
       <span className="text-muted-foreground">Debits Post:</span>
@@ -143,9 +141,9 @@ function TransferRow({ transfer, selectedAccountId }: { transfer: TigerBeetleTra
   const ts = new Date(Number(BigInt(transfer.timestamp) / 1_000_000n));
 
   return (
-    <div className="flex items-center gap-1.5 py-0.5 text-[10px]">
-      <div className={`size-1.5 rounded-full shrink-0 ${isDebit ? 'bg-red-400' : 'bg-emerald-400'}`} />
-      <span className="font-mono text-[9px] text-muted-foreground w-14 truncate">{transfer.id.slice(0, 8)}</span>
+    <div className="flex items-center gap-1.5 py-0.5 text-xs">
+      <div className={`size-1.5 rounded-full shrink-0 ${isDebit ? 'bg-destructive' : 'bg-success'}`} />
+      <span className="font-mono text-xs text-muted-foreground w-14 truncate">{transfer.id.slice(0, 8)}</span>
       <span className="font-mono flex-1">{isDebit ? `-${amount.toString()}` : `+${amount.toString()}`}</span>
       <span className="text-muted-foreground">{ts.toLocaleDateString()}</span>
     </div>

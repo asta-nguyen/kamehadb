@@ -159,7 +159,7 @@ function MongoQueryToolbar({
           size="sm"
           onClick={onRun}
           disabled={!collection || running}
-          className="h-7 text-xs gap-1.5 px-3"
+          className="gap-1.5"
         >
           {running ? <Spinner size="sm" className="size-3.5" /> : <Play className="size-3.5 fill-current" />}
           {running ? 'Running' : 'Run'}
@@ -170,13 +170,7 @@ function MongoQueryToolbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onFormat}
-          className="h-7 text-xs gap-1.5 px-2"
-          title="Format pipeline"
-        >
+        <Button variant="ghost" size="sm" onClick={onFormat} className="gap-1.5 px-2" title="Format pipeline">
           <Braces className="size-3.5" />
         </Button>
         {resultTotal != null && !running && (
@@ -184,7 +178,7 @@ function MongoQueryToolbar({
             variant="ghost"
             size="sm"
             onClick={onToggleChart}
-            className="h-7 text-xs gap-1.5 px-2"
+            className="gap-1.5 px-2"
             title={showChart ? 'Show table' : 'Show chart'}
           >
             {showChart ? <Table2 className="size-3.5" /> : <BarChart3 className="size-3.5" />}

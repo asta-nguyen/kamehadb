@@ -1,6 +1,6 @@
 import type { FileDatabaseBackupRequest, FileDatabaseRestoreRequest } from '@kamehadb/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { backupFileDatabase, restoreFileDatabase } from '@/lib/file-database-maintenance';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { appendFrontendLog } from '@/lib/app-logs';
@@ -26,11 +26,11 @@ export function useFileDatabaseBackup(connectionId: string) {
     mutationFn: (request: FileDatabaseBackupRequest) => backupFileDatabase(connectionId, request),
     onSuccess: async () => {
       await invalidateConnectionQueries(queryClient, connectionId);
-      toast.success('Backup completed');
+      toastSuccess('Backup completed');
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : 'Backup failed';
-      toast.error(message);
+      toastError(message);
       void appendFrontendLog({
         level: 'error',
         scope: 'file-database-backup',
@@ -48,11 +48,11 @@ export function useFileDatabaseRestore(connectionId: string) {
     mutationFn: (request: FileDatabaseRestoreRequest) => restoreFileDatabase(connectionId, request),
     onSuccess: async () => {
       await invalidateConnectionQueries(queryClient, connectionId);
-      toast.success('Restore completed');
+      toastSuccess('Restore completed');
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : 'Restore failed';
-      toast.error(message);
+      toastError(message);
       void appendFrontendLog({
         level: 'error',
         scope: 'file-database-restore',

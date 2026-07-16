@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
+import { toastError, toastSuccess } from '@/lib/toast';
 import {
   CreateConnectionProfileSchema,
   EditConnectionProfileSchema,
@@ -184,13 +184,13 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
     try {
       const result = await testConnection.mutateAsync(values);
       if (result.success) {
-        toast.success('Connection successful!');
+        toastSuccess('Connection successful!');
       } else {
-        toast.error(result.message || 'Connection failed');
+        toastError(result.message || 'Connection failed');
       }
     } catch (err) {
       const message = safeErrorMessage(err, 'Connection failed');
-      toast.error(message);
+      toastError(message);
       void appendFrontendLog({
         level: 'error',
         scope: 'connection-dialog.test',
@@ -208,17 +208,17 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
           id: editConnection.id,
           input: values,
         });
-        toast.success('Connection updated!');
+        toastSuccess('Connection updated!');
       } else {
         await createConnection.mutateAsync(values);
-        toast.success('Connection created!');
+        toastSuccess('Connection created!');
       }
       onOpenChange?.(false);
       form.reset();
     } catch (err) {
       // Don't close on error - let user see the error
       const message = safeErrorMessage(err, 'Failed to save');
-      toast.error(message);
+      toastError(message);
       void appendFrontendLog({
         level: 'error',
         scope: 'connection-dialog.submit',

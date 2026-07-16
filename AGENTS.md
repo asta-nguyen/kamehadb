@@ -135,6 +135,8 @@ Important sidecar internals:
 
 `apps/desktop/src/App.tsx` drives the top-level app views (`workspace`, `api-settings`, `logs`) and the tabbed workspace.
 
+Design system tokens and conventions are documented in `apps/desktop/DESIGN-SYSTEM.md`.
+
 Main areas:
 
 - `components/sidebar.tsx` for connection and schema navigation

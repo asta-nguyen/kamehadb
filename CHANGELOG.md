@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **MCP server**
 - **Landing UI** — Added `@radix-ui/react-avatar`, `@radix-ui/react-slot`, and `class-variance-authority` for the new UI components.
 - **Runtime reliability** — Prevented AI-generated write queries from auto-running, moved saved SQL health checks onto cached adapters/pools at a 60-second cadence, bounded timed-out probes, stopped Qdrant WebGL scene churn, and surfaced AI stream failures in chat.
+- **Desktop UI consistency** — Unified explorer toolbars, structured vector filters, nested JSON rendering, accessible loading/error states, semantic vector-map colors, and notification styling.
 
 ---
 

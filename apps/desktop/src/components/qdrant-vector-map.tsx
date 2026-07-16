@@ -1,19 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useStore } from '@tanstack/react-store';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { WorkspaceTab } from '@/lib/types';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { api } from '@/lib/api';
-import { projectVectorsTo3d } from '@/lib/pca3d';
-import { appStore, openQdrantSearchTab, updateTabQdrantGraphState } from '@/store';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Spinner } from '@/components/ui/spinner';
+import { SCHEMA_CACHE_TIME } from '@/lib/constants';
+import { openQdrantSearchTab, updateTabQdrantGraphState } from '@/store';
+import { VECTOR_PALETTE, VectorMap3D, type VectorPoint, type LegendItem } from '@/components/vector-map-3d';
 
-const BG_DARK = 0x0b0b0c;
-const BG_LIGHT = 0xf8fafc;
+const SAMPLE_LIMIT = 500;
 
 interface QdrantVectorMapProps {
   tab: WorkspaceTab & { type: 'qdrant-graph' };
@@ -22,228 +16,23 @@ interface QdrantVectorMapProps {
   vectorName?: string;
 }
 
-const SAMPLE_LIMIT = 500;
-const PALETTE = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#84cc16',
-  '#f97316',
-  '#6366f1',
-];
-const SPREAD = 100;
-
 function toNumericVector(vector: unknown, vectorName?: string): number[] | null {
   if (Array.isArray(vector) && typeof vector[0] === 'number') return vector as number[];
   if (vector && typeof vector === 'object') {
     const obj = vector as Record<string, unknown>;
     if (vectorName && vectorName in obj) {
-      const v = obj[vectorName];
-      if (Array.isArray(v) && typeof v[0] === 'number') return v as number[];
+      const value = obj[vectorName];
+      if (Array.isArray(value) && typeof value[0] === 'number') return value as number[];
     }
     if (!vectorName) {
       const keys = Object.keys(obj);
       if (keys.length === 1) {
-        const v = obj[keys[0]];
-        if (Array.isArray(v) && typeof v[0] === 'number') return v as number[];
+        const value = obj[keys[0]];
+        if (Array.isArray(value) && typeof value[0] === 'number') return value as number[];
       }
     }
   }
   return null;
-}
-
-type Point = { id: string | number; payload: Record<string, unknown>; vector: number[] };
-
-type SceneSetup = {
-  mountRef: React.RefObject<HTMLDivElement | null>;
-  sceneRef: React.MutableRefObject<THREE.Scene | null>;
-  geometryRef: React.MutableRefObject<THREE.BufferGeometry | null>;
-  pointsRef: React.MutableRefObject<Point[]>;
-  isDarkRef: React.MutableRefObject<boolean>;
-};
-
-type SceneApi = SceneSetup & {
-  hover: { i: number; x: number; y: number } | null;
-  setHover: React.Dispatch<React.SetStateAction<{ i: number; x: number; y: number } | null>>;
-};
-
-// Encapsulates the THREE.js scene lifecycle so the React component can stay
-// focused on data binding and UI.
-function useVectorScene(
-  tab: QdrantVectorMapProps['tab'],
-  points: Point[],
-  positions: Float32Array | null,
-  colorBy: string,
-  colorValue: (i: number) => string,
-  connectionId: string,
-  collection: string,
-  isDark: boolean,
-): SceneApi {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const geometryRef = useRef<THREE.BufferGeometry | null>(null);
-  const pointsRef = useRef<Point[]>(points);
-  pointsRef.current = points;
-  const isDarkRef = useRef(isDark);
-  isDarkRef.current = isDark;
-  const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    const mount = mountRef.current;
-    if (!mount || !positions) return;
-
-    const width = mount.clientWidth || 800;
-    const height = mount.clientHeight || 600;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(isDarkRef.current ? BG_DARK : BG_LIGHT);
-    sceneRef.current = scene;
-
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 4000);
-    if (tab.camera) {
-      camera.position.set(tab.camera.position[0], tab.camera.position[1], tab.camera.position[2]);
-    } else {
-      camera.position.set(0, 0, SPREAD * 1.8);
-    }
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(width, height);
-    mount.appendChild(renderer.domElement);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.1;
-    if (tab.camera?.target) {
-      controls.target.set(tab.camera.target[0], tab.camera.target[1], tab.camera.target[2]);
-      controls.update();
-    }
-
-    let saveCameraTimeout: ReturnType<typeof setTimeout>;
-    const onControlsChange = () => {
-      clearTimeout(saveCameraTimeout);
-      saveCameraTimeout = setTimeout(() => {
-        updateTabQdrantGraphState(tab.id, {
-          camera: {
-            position: [camera.position.x, camera.position.y, camera.position.z],
-            target: [controls.target.x, controls.target.y, controls.target.z],
-          },
-        });
-      }, 500);
-    };
-    controls.addEventListener('change', onControlsChange);
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const colors = new Float32Array(positions.length);
-    const c = new THREE.Color();
-    for (let i = 0; i < pointsRef.current.length; i++) {
-      c.set(PALETTE[0]);
-      colors[i * 3] = c.r;
-      colors[i * 3 + 1] = c.g;
-      colors[i * 3 + 2] = c.b;
-    }
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometryRef.current = geometry;
-
-    const material = new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, vertexColors: true });
-    const cloud = new THREE.Points(geometry, material);
-    scene.add(cloud);
-
-    const raycaster = new THREE.Raycaster();
-    raycaster.params.Points = { threshold: 5 };
-    const pointer = new THREE.Vector2();
-
-    const onPointerMove = (e: PointerEvent) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObject(cloud)[0];
-      if (hit && hit.index != null) {
-        setHover({ i: hit.index, x: e.clientX - rect.left, y: e.clientY - rect.top });
-      } else {
-        setHover(null);
-      }
-    };
-    const onClick = () => {
-      raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObject(cloud)[0];
-      if (hit && hit.index != null) {
-        const p = pointsRef.current[hit.index];
-        if (p) openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: p.id });
-      }
-    };
-    renderer.domElement.addEventListener('pointermove', onPointerMove);
-    renderer.domElement.addEventListener('click', onClick);
-
-    let raf = 0;
-    const animate = () => {
-      raf = requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    const ro = new ResizeObserver(() => {
-      const w = mount.clientWidth;
-      const h = mount.clientHeight;
-      if (!w || !h) return;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    });
-    ro.observe(mount);
-
-    return () => {
-      // Ensure final camera state is saved on unmount (e.g., if switching tabs during debounce)
-      updateTabQdrantGraphState(tab.id, {
-        camera: {
-          position: [camera.position.x, camera.position.y, camera.position.z],
-          target: [controls.target.x, controls.target.y, controls.target.z],
-        },
-      });
-
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-      renderer.domElement.removeEventListener('pointermove', onPointerMove);
-      renderer.domElement.removeEventListener('click', onClick);
-      controls.removeEventListener('change', onControlsChange);
-      clearTimeout(saveCameraTimeout);
-      controls.dispose();
-      geometry.dispose();
-      material.dispose();
-      renderer.dispose();
-      mount.removeChild(renderer.domElement);
-      geometryRef.current = null;
-      sceneRef.current = null;
-    };
-  }, [positions, connectionId, collection, tab.id]);
-
-  // Reactively re-tint the geometry when colorBy changes (no full scene rebuild).
-  useEffect(() => {
-    const geometry = geometryRef.current;
-    if (!geometry) return;
-    const attr = geometry.getAttribute('color') as THREE.BufferAttribute;
-    const c = new THREE.Color();
-    for (let i = 0; i < points.length; i++) {
-      c.set(colorBy ? colorValue(i) : PALETTE[0]);
-      attr.setXYZ(i, c.r, c.g, c.b);
-    }
-    attr.needsUpdate = true;
-  }, [colorBy, points, colorValue]);
-
-  // Reactively update scene background on theme change.
-  useEffect(() => {
-    const bg = sceneRef.current?.background;
-    if (bg instanceof THREE.Color) bg.set(isDark ? BG_DARK : BG_LIGHT);
-  }, [isDark]);
-
-  return { mountRef, sceneRef, geometryRef, pointsRef, isDarkRef, hover, setHover };
 }
 
 export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: QdrantVectorMapProps) {
@@ -256,7 +45,7 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
         withPayload: true,
         withVector: true,
       }),
-    staleTime: 30000,
+    staleTime: SCHEMA_CACHE_TIME,
   });
 
   const [colorBy, setColorBy] = useState<string>(tab.colorBy || '');
@@ -265,124 +54,47 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
     updateTabQdrantGraphState(tab.id, { colorBy });
   }, [tab.id, colorBy]);
 
-  const theme = useStore(appStore, (s) => s.theme);
-  const isDark = useMemo(() => document.documentElement.classList.contains('dark'), [theme]);
-
-  const points = useMemo<Point[]>(() => {
+  const points = useMemo<VectorPoint[]>(() => {
     if (!data) return [];
     return data.points
-      .map((p) => ({ id: p.id, payload: p.payload ?? {}, vector: toNumericVector(p.vector, vectorName) }))
-      .filter((p): p is Point => !!p.vector);
+      .map((point) => ({
+        id: point.id,
+        payload: point.payload ?? {},
+        vector: toNumericVector(point.vector, vectorName),
+      }))
+      .filter((point): point is VectorPoint => !!point.vector);
   }, [data, vectorName]);
 
   const payloadKeys = useMemo(() => {
     const keys = new Set<string>();
-    for (const p of points) for (const k of Object.keys(p.payload)) keys.add(k);
+    for (const point of points) for (const key of Object.keys(point.payload)) keys.add(key);
     return [...keys];
   }, [points]);
 
-  const positions = useMemo(() => {
-    return projectVectorsTo3d(
-      points.map((point) => point.vector),
-      SPREAD,
-    );
-  }, [points]);
-
-  const { legend, colorValue } = useMemo(() => {
-    if (!colorBy) return { legend: [] as { value: string; color: string }[], colorValue: () => PALETTE[0] };
-    const values = [...new Set(points.map((p) => String(p.payload[colorBy] ?? '∅')))];
-    const map = new Map(values.map((v, i) => [v, PALETTE[i % PALETTE.length]]));
+  const { legend, colorValue } = useMemo<{ legend: LegendItem[]; colorValue: (index: number) => string }>(() => {
+    if (!colorBy) return { legend: [], colorValue: () => VECTOR_PALETTE[0] };
+    const values = [...new Set(points.map((point) => String(point.payload[colorBy] ?? '∅')))];
+    const colors = new Map(values.map((value, index) => [value, VECTOR_PALETTE[index % VECTOR_PALETTE.length]]));
     return {
-      legend: values.slice(0, 12).map((v) => ({ value: v, color: map.get(v)! })),
-      colorValue: (i: number) => map.get(String(points[i].payload[colorBy] ?? '∅')) ?? PALETTE[0],
+      legend: values.slice(0, 12).map((value) => ({ value, color: colors.get(value)! })),
+      colorValue: (index: number) => colors.get(String(points[index].payload[colorBy] ?? '∅')) ?? VECTOR_PALETTE[0],
     };
   }, [colorBy, points]);
 
-  const { mountRef, pointsRef, hover } = useVectorScene(
-    tab,
-    points,
-    positions,
-    colorBy,
-    colorValue,
-    connectionId,
-    collection,
-    isDark,
-  );
-
-  if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="p-4 text-sm text-destructive">
-        {error instanceof Error ? error.message : 'Failed to load vectors'}
-      </div>
-    );
-  }
-  if (points.length < 2 || !positions) {
-    return (
-      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Need at least 2 points with vectors to visualize
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-border flex items-center gap-3 text-xs">
-        <span className="font-mono">{collection}</span>
-        <span className="text-muted-foreground">{points.length} points (PCA → 3D)</span>
-        <Label className="flex items-center gap-1 ml-auto text-muted-foreground">
-          Color by
-          <Select value={colorBy || '_none'} onValueChange={(v) => setColorBy(v === '_none' || v == null ? '' : v)}>
-            <SelectTrigger size="sm" className="h-6 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="_none">none</SelectItem>
-              {payloadKeys.map((k) => (
-                <SelectItem key={k} value={k}>
-                  {k}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Label>
-      </div>
-
-      {legend.length > 0 && (
-        <div className="px-3 py-1.5 border-b border-border flex flex-wrap gap-x-3 gap-y-1 text-xs">
-          {legend.map((l) => (
-            <span key={l.value} className="flex items-center gap-1 text-muted-foreground">
-              <span className="size-2.5 rounded-full" style={{ backgroundColor: l.color }} />
-              {l.value}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="flex-1 min-h-0 relative">
-        <div ref={mountRef} className="absolute inset-0" />
-        {hover && pointsRef.current[hover.i] && (
-          <div
-            className="absolute pointer-events-none bg-popover border border-border rounded-md shadow-md p-2 text-xs max-w-64 z-10"
-            style={{ left: hover.x + 12, top: hover.y + 12 }}
-          >
-            <div className="font-mono text-muted-foreground mb-1">id: {String(pointsRef.current[hover.i].id)}</div>
-            <pre className="font-mono whitespace-pre-wrap break-all">
-              {JSON.stringify(pointsRef.current[hover.i].payload, null, 2)}
-            </pre>
-            <div className="text-muted-foreground/60 mt-1">click → find similar</div>
-          </div>
-        )}
-        <div className="absolute bottom-2 left-3 text-xs text-muted-foreground/70 pointer-events-none">
-          drag to rotate · scroll to zoom · right-drag to pan
-        </div>
-      </div>
-    </div>
+    <VectorMap3D
+      points={points}
+      isLoading={isLoading}
+      error={error}
+      header={<span className="font-mono">{collection}</span>}
+      onPointClick={(point) => openQdrantSearchTab(connectionId, collection, { mode: 'similar', pointId: point.id })}
+      onCameraChange={(camera) => updateTabQdrantGraphState(tab.id, { camera })}
+      initialCamera={tab.camera as { position: [number, number, number]; target: [number, number, number] } | undefined}
+      colorBy={colorBy}
+      onColorByChange={setColorBy}
+      payloadKeys={payloadKeys}
+      colorValue={colorValue}
+      legend={legend}
+    />
   );
 }

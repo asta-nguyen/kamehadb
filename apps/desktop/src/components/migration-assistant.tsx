@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Copy, Check, ArrowRight, Terminal } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { useSchemaSnapshots } from '@/hooks/use-schema-changelog';
-import { toast } from 'sonner';
+import { toastError } from '@/lib/toast';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 export function MigrationAssistant({
@@ -56,7 +56,7 @@ export function MigrationAssistant({
       setResult(r);
     } catch (err) {
       const message = safeErrorMessage(err, 'Failed to generate migration');
-      toast.error(message);
+      toastError(message);
       void appendFrontendLog({
         level: 'error',
         scope: 'migration-assistant',

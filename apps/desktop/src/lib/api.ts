@@ -41,7 +41,7 @@ export const api = {
   fetchAvailableModels: (baseUrl: string, apiKey?: string, signal?: AbortSignal) => {
     const params = new URLSearchParams({ baseUrl });
     if (apiKey) params.set('apiKey', apiKey);
-    return request<{ models: string[] }>('GET', `/ai/models?${params}`, undefined, signal);
+    return request<{ models: string[] }>('GET', `/ai/models?${params}`, undefined, false, signal);
   },
 
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
