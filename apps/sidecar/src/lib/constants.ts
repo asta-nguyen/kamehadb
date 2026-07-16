@@ -33,3 +33,6 @@ export const ADAPTER_TIMEOUTS = {
 
 /** Timeout for a single connection test probe (ms). */
 export const CONNECTION_TEST_TIMEOUT_MS = 5_000;
+
+/** Delay between connection health stream probes (ms). */
+export const CONNECTION_HEALTH_INTERVAL_MS = 60_000;

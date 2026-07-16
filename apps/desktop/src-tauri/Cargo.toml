@@ -1,6 +1,6 @@
 [package]
 name = "kamehadb"
-version = "1.4.5"
+version = "1.4.7"
 description = "Local database admin tool"
 authors = ["you"]
 edition = "2021"

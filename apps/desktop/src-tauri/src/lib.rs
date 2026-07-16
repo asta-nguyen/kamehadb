@@ -9,6 +9,9 @@ use std::sync::Mutex;
 use std::thread;
 use tauri::Manager;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 mod app_logs;
 mod postgres_psql;
 mod postgres_tools;
@@ -25,12 +28,42 @@ use terminal_sessions::{
 
 const AUTO_ASSIGN_PORT: u16 = 0;
 const SIDECAR_HOST: &str = "127.0.0.1";
-const MAX_SUPPORTED_NODE_MAJOR: u32 = 22;
+const MAX_SUPPORTED_NODE_MAJOR: u32 = 24;
 const NODE_ABI_FILE: &str = "node-abi.txt";
 #[cfg(windows)]
 const BUNDLED_NODE_PATH: &str = "node/bin/node.exe";
 #[cfg(not(windows))]
 const BUNDLED_NODE_PATH: &str = "node/bin/node";
+
+/// On Windows, hide the console window for child processes spawned via
+/// std::process::Command (node version probes, sidecar).  portable-pty
+/// handles its own window hiding for terminal sessions.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+#[cfg(windows)]
+trait NoWindowExt {
+    fn no_window(&mut self) -> &mut Self;
+}
+
+#[cfg(windows)]
+impl NoWindowExt for Command {
+    fn no_window(&mut self) -> &mut Self {
+        self.creation_flags(CREATE_NO_WINDOW)
+    }
+}
+
+#[cfg(not(windows))]
+trait NoWindowExt {
+    fn no_window(&mut self) -> &mut Self;
+}
+
+#[cfg(not(windows))]
+impl NoWindowExt for Command {
+    fn no_window(&mut self) -> &mut Self {
+        self
+    }
+}
 
 struct SidecarProcess {
     child: Child,
@@ -123,7 +156,7 @@ fn glob_child_nodes(root: &Path) -> Vec<PathBuf> {
 }
 
 fn node_major_version(node_path: &str) -> Option<u32> {
-    let output = Command::new(node_path).arg("-v").output().ok()?;
+    let output = Command::new(node_path).no_window().arg("-v").output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -139,6 +172,7 @@ fn node_major_version(node_path: &str) -> Option<u32> {
 
 fn node_abi_version(node_path: &str) -> Option<String> {
     let output = Command::new(node_path)
+        .no_window()
         .args(["-p", "process.versions.modules"])
         .output()
         .ok()?;
@@ -220,7 +254,9 @@ async fn start_sidecar(
         append_tauri_log(&app, "error", "sidecar", &msg, None);
         msg
     })?;
-    if matches!(node_major_version(&node_bin), Some(major) if major > MAX_SUPPORTED_NODE_MAJOR) {
+    if required_node_abi.is_none()
+        && matches!(node_major_version(&node_bin), Some(major) if major > MAX_SUPPORTED_NODE_MAJOR)
+    {
         let msg = format!(
             "Unsupported Node.js runtime at {node_bin}. Install Node.js 20 or 22, or expose one via nvm/asdf/volta."
         );
@@ -244,13 +280,28 @@ async fn start_sidecar(
     );
 
     let requested_port = allocate_sidecar_port(&app)?;
-    let sidecar_arg = sidecar_path.to_string_lossy().replace('\\', "/");
-    let mut child = Command::new(&node_bin)
+    let sidecar_dist = sidecar_root.join("dist");
+    // On Windows, passing an absolute path with a drive letter (e.g. C:\...)
+    // triggers a Node.js realpathSync bug: it splits the path by separator,
+    // extracts "C:" as a standalone component, and lstat("C:") fails with
+    // EISDIR. Using current_dir + relative "index.js" avoids the drive-letter
+    // component entirely.
+    #[cfg(windows)]
+    let (sidecar_arg, sidecar_cwd) = ("index.js".to_string(), Some(sidecar_dist.clone()));
+    #[cfg(not(windows))]
+    let (sidecar_arg, sidecar_cwd): (String, Option<PathBuf>) = (sidecar_path.to_string_lossy().replace('\\', "/"), None);
+
+    let mut cmd = Command::new(&node_bin);
+    cmd.no_window()
         .arg(&sidecar_arg)
         .env("KAMEHADB_DATA_DIR", data_dir.to_string_lossy().to_string())
         .env("PORT", requested_port.to_string())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    if let Some(cwd) = sidecar_cwd {
+        cmd.current_dir(&cwd);
+    }
+    let mut child = cmd
         .spawn()
         .map_err(|e| {
             let message = format!("Failed to start sidecar: {}", e);

@@ -1,12 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  useConnectionHealth,
-  useConnections,
-  useDeleteConnection,
-  useRefreshConnection,
-} from '@/hooks/use-connections';
+import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
 import { getApiBase } from '@/lib/api-client';
 import {
   SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
@@ -69,10 +64,8 @@ const ConnectionItem = memo(function ConnectionItem({
 
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
-  const healthCheck = useConnectionHealth(conn.id);
 
-  const status: ConnectionStatus =
-    conn.id in connectionStatus ? connectionStatus[conn.id] : (healthCheck.data ?? 'disconnected');
+  const status: ConnectionStatus = connectionStatus[conn.id] ?? 'disconnected';
   const latency = connectionLatency[conn.id];
 
   function handleRowActivate() {

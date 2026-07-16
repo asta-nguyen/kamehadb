@@ -9,6 +9,7 @@ import {
   FileDatabaseBackupRequestSchema,
   FileDatabaseRestoreRequestSchema,
   UpdateConnectionProfileSchema,
+  isSqlKind,
   isPasswordRequired,
   isUsernameRequired,
 } from '@kamehadb/shared';
@@ -24,13 +25,13 @@ import { createMongoAdapter } from '../adapters/mongodb.js';
 import { createRedisDbAdapter, createQdrantDbAdapter, createTigerBeetleDbAdapter } from '../adapters/factory.js';
 import { testRedisConnection } from '../adapters/redis.js';
 import { clearConnectionCache } from '../lib/cache.js';
-import { CONNECTION_TEST_TIMEOUT_MS } from '../lib/constants.js';
+import { CONNECTION_HEALTH_INTERVAL_MS, CONNECTION_TEST_TIMEOUT_MS } from '../lib/constants.js';
 import {
   backupFileDatabase,
   FileDatabaseMaintenanceError,
   restoreFileDatabase,
 } from '../lib/file-database-maintenance.js';
-import { invalidateAdapterCache } from './sql.js';
+import { getSqlAdapter, invalidateAdapterCache } from './sql.js';
 import { log } from '../lib/logger.js';
 import { safeErrorMessage } from '../lib/route-utils.js';
 
@@ -63,12 +64,14 @@ function fileDatabaseErrorResponse(error: unknown): { readonly message: string; 
 }
 
 type TestConnectionParams = {
+  connectionId?: string;
   kind: DbKind;
   host?: string | null;
   port?: number | null;
   database?: string | null;
   username?: string | null;
   password?: string;
+  ssl?: boolean | null;
   connectionString?: string | null;
   filePath?: string | null;
 };
@@ -79,7 +82,13 @@ type TestConnectionParams = {
 async function testConnectionByKind(
   params: TestConnectionParams,
 ): Promise<{ success: boolean; message?: string; latencyMs?: number }> {
-  const { kind, host, port, database, username, password, connectionString, filePath } = params;
+  const { kind, host, port, database, username, password, ssl, connectionString, filePath } = params;
+
+  // Stored SQL profiles reuse their cached adapter so pooled engines validate
+  // a live session without repeating authentication handshakes.
+  if (params.connectionId && isSqlKind(kind)) {
+    return (await getSqlAdapter(params.connectionId)).testConnection();
+  }
 
   switch (kind) {
     case KIND.POSTGRES:
@@ -89,6 +98,7 @@ async function testConnectionByKind(
         database: database!,
         username: username!,
         password: password ?? '',
+        ssl: ssl ?? false,
       });
     case KIND.MONGODB:
       return createMongoAdapter({
@@ -153,12 +163,34 @@ async function testConnectionByKind(
   }
 }
 
+type ConnectionTestResult = Awaited<ReturnType<typeof testConnectionByKind>>;
+const activeHealthChecks = new Map<string, Promise<ConnectionTestResult>>();
+
+// ponytail: DB drivers lack shared cancellation, so cap each connection at one
+// probe; add per-driver abort only when its client exposes a reliable signal.
+function getActiveHealthCheck(connectionId: string, params: TestConnectionParams): Promise<ConnectionTestResult> {
+  const active = activeHealthChecks.get(connectionId);
+  if (active) return active;
+
+  const check = testConnectionByKind(params);
+  activeHealthChecks.set(connectionId, check);
+  void check.then(
+    () => {
+      if (activeHealthChecks.get(connectionId) === check) activeHealthChecks.delete(connectionId);
+    },
+    () => {
+      if (activeHealthChecks.get(connectionId) === check) activeHealthChecks.delete(connectionId);
+    },
+  );
+  return check;
+}
+
 connectionsRouter.get('/', (c) => {
   const profiles = metadataStore.listProfiles();
   return c.json(profiles);
 });
 
-// SSE stream: pushes health status for all connections every 30 seconds using
+// SSE stream: pushes health status for all connections every 60 seconds using
 // an async generator. Each event carries a map of connection-id → result.
 // The client opens one EventSource instead of polling N individual endpoints.
 // NOTE: literal routes must be registered BEFORE /:id to avoid Hono trie conflicts.
@@ -166,15 +198,21 @@ connectionsRouter.get('/health', async (c) => {
   const abortController = new AbortController();
   const PER_CHECK_TIMEOUT = CONNECTION_TEST_TIMEOUT_MS;
 
-  /** Wrap a health check with a per-connection timeout so one hanging
-   *  adapter (e.g. TigerBeetle) doesn't block the entire SSE stream. */
-  const withTimeout = (promise: Promise<{ success: boolean; message?: string; latencyMs?: number }>, ms: number) =>
-    Promise.race([
-      promise,
-      new Promise<{ success: boolean; message: string; latencyMs?: number }>((resolve) =>
-        setTimeout(() => resolve({ success: false, message: `Timeout after ${ms}ms` }), ms),
-      ),
-    ]);
+  // Clear the losing timer after every race; the shared in-flight map above
+  // bounds adapters without native cancellation to one probe per connection.
+  const withTimeout = async (promise: Promise<ConnectionTestResult>, ms: number): Promise<ConnectionTestResult> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<ConnectionTestResult>((resolve) => {
+          timer = setTimeout(() => resolve({ success: false, message: `Timeout after ${ms}ms` }), ms);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
 
   const streamHealth = async function* () {
     while (!abortController.signal.aborted) {
@@ -189,13 +227,15 @@ connectionsRouter.get('/health', async (c) => {
           try {
             const start = performance.now();
             const result = await withTimeout(
-              testConnectionByKind({
+              getActiveHealthCheck(profile.id, {
+                connectionId: profile.id,
                 kind: profile.kind,
                 host: profile.host,
                 port: profile.port,
                 database: profile.database,
                 username: profile.username,
                 password: password ?? undefined,
+                ssl: profile.ssl,
                 connectionString: profile.connectionString,
                 filePath: profile.filePath,
               }),
@@ -216,8 +256,8 @@ connectionsRouter.get('/health', async (c) => {
 
       yield `data: ${JSON.stringify(results)}\n\n`;
 
-      // Wait 30 seconds before the next round of checks
-      await new Promise((resolve) => setTimeout(resolve, 30_000));
+      // Wait before the next round so saved connections do not get hammered.
+      await new Promise((resolve) => setTimeout(resolve, CONNECTION_HEALTH_INTERVAL_MS));
     }
   };
 
@@ -248,7 +288,7 @@ connectionsRouter.get('/health', async (c) => {
 });
 
 // Single-shot health check for manual "reload" action (dropdown menu).
-// The SSE /health stream handles automatic 30s updates, but the refresh
+// The SSE /health stream handles automatic updates, but the refresh
 // button needs an immediate result.
 connectionsRouter.get('/:id/health', async (c) => {
   const connectionId = c.req.param('id');
@@ -257,12 +297,14 @@ connectionsRouter.get('/:id/health', async (c) => {
   const password = metadataStore.getProfilePassword(connectionId);
   try {
     const result = await testConnectionByKind({
+      connectionId,
       kind: profile.kind,
       host: profile.host,
       port: profile.port,
       database: profile.database,
       username: profile.username,
       password: password ?? undefined,
+      ssl: profile.ssl,
       connectionString: profile.connectionString,
       filePath: profile.filePath,
     });
@@ -323,6 +365,7 @@ connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
   invalidateAdapterCache(id);
+  activeHealthChecks.delete(id);
   return c.json(profile);
 });
 
@@ -332,6 +375,7 @@ connectionsRouter.delete('/:id', (c) => {
   if (!deleted) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
   invalidateAdapterCache(id);
+  activeHealthChecks.delete(id);
   return c.body(null, 204);
 });
 
@@ -362,6 +406,7 @@ connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async 
       database: input.database,
       username: input.username,
       password: input.password,
+      ssl: input.ssl,
       connectionString: input.connectionString,
       filePath: input.filePath,
     });

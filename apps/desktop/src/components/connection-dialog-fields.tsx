@@ -382,6 +382,18 @@ export function ConnectionDetailsSection({
               <Input id="database" {...form.register('database')} placeholder="0" />
             </div>
           )}
+          {kind === KIND.POSTGRES && (
+            <Label className="flex items-center gap-2 cursor-pointer select-none">
+              {/* eslint-disable-next-line local/no-restricted-syntax -- native checkbox, no shadcn equivalent */}
+              <input
+                type="checkbox"
+                checked={form.watch('ssl') ?? false}
+                onChange={(e) => form.setValue('ssl', e.target.checked)}
+                className="size-4 rounded border-border"
+              />
+              <span className="text-xs font-medium text-muted-foreground">Use SSL</span>
+            </Label>
+          )}
         </>
       )}
     </div>

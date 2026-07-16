@@ -605,6 +605,13 @@ export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
 
   if (!normalized) return { safe: true };
 
+  // Reject statement chains because checking only the first command would let
+  // a read-only query hide a second mutating command behind a semicolon.
+  const statement = normalized.endsWith(';') ? normalized.slice(0, -1) : normalized;
+  if (statement.includes(';')) {
+    return { safe: false, reason: 'Only one read-only statement can run automatically' };
+  }
+
   for (const kw of DESTRUCTIVE_KEYWORDS) {
     const regex = new RegExp(`\\b${kw}\\b`);
     if (regex.test(normalized)) {
@@ -614,10 +621,10 @@ export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
 
   for (const kw of SAFE_KEYWORDS) {
     const regex = new RegExp(`^\\b${kw}\\b`);
-    if (regex.test(normalized)) {
+    if (regex.test(statement)) {
       return { safe: true };
     }
   }
 
-  return { safe: true };
+  return { safe: false, reason: 'Only read-only SELECT, WITH, SHOW, DESCRIBE, and EXPLAIN statements are allowed' };
 }
