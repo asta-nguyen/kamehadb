@@ -2,12 +2,7 @@ import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { setConnectionStatus } from '@/store';
 import { appendFrontendLog } from '@/lib/app-logs';
-import type {
-  ConnectionProfile,
-  CreateConnectionProfileInput,
-  TestConnectionResult,
-  UpdateConnectionProfileInput,
-} from '@kamehadb/shared';
+import type { ConnectionProfile, CreateConnectionProfileInput, UpdateConnectionProfileInput } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -17,31 +12,6 @@ export function useConnections(options?: { enabled?: boolean }) {
     queryKey: QUERY_KEYS.CONNECTIONS,
     queryFn: api.listConnections,
     enabled: options?.enabled ?? true,
-  });
-}
-
-export function useConnectionHealth(connectionId: string | null) {
-  return useQuery<TestConnectionResult, Error, 'connected' | 'disconnected'>({
-    queryKey: QUERY_KEYS.CONNECTION_HEALTH(connectionId),
-    queryFn: () => api.checkConnectionHealth(connectionId!),
-    enabled: Boolean(connectionId),
-    refetchInterval: 60_000,
-    retry: 2,
-    retryDelay: 1000,
-    select: (result) => (result.success ? 'connected' : 'disconnected'),
-    meta: {
-      // The global QueryCache handler passes the connection id when the query
-      // key shape matches; fall back to the current hook input if it doesn't.
-      onError: (error: Error, id?: string) => {
-        const targetId = id ?? connectionId ?? 'unknown';
-        void appendFrontendLog({
-          level: 'error',
-          scope: 'use-connections.health',
-          message: `Health check failed for ${targetId}: ${error.message}`,
-          details: error.stack,
-        });
-      },
-    },
   });
 }
 

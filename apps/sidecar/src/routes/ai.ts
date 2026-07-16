@@ -353,6 +353,12 @@ aiRouter.post(
             let errorMessage: string | null = null;
 
             for (const query of sqlQueries) {
+              const safety = isQuerySafe(query);
+              if (!safety.safe) {
+                errorMessage = safety.reason ?? 'The generated query was not read-only';
+                continue;
+              }
+
               try {
                 const result = await sqlAdapter.runQuery({ query });
                 allResults.push(...(result.rows ?? []));

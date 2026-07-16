@@ -64,7 +64,6 @@ type SceneSetup = {
   geometryRef: React.MutableRefObject<THREE.BufferGeometry | null>;
   pointsRef: React.MutableRefObject<Point[]>;
   isDarkRef: React.MutableRefObject<boolean>;
-  colorByRef: React.MutableRefObject<string>;
 };
 
 type SceneApi = SceneSetup & {
@@ -91,8 +90,6 @@ function useVectorScene(
   pointsRef.current = points;
   const isDarkRef = useRef(isDark);
   isDarkRef.current = isDark;
-  const colorByRef = useRef(colorBy);
-  colorByRef.current = colorBy;
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -145,7 +142,7 @@ function useVectorScene(
     const colors = new Float32Array(positions.length);
     const c = new THREE.Color();
     for (let i = 0; i < pointsRef.current.length; i++) {
-      c.set(colorByRef.current ? colorValue(i) : PALETTE[0]);
+      c.set(PALETTE[0]);
       colors[i * 3] = c.r;
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;
@@ -225,8 +222,7 @@ function useVectorScene(
       geometryRef.current = null;
       sceneRef.current = null;
     };
-    // colorBy / colorValue / points are read via refs in the closure above.
-  }, [positions, connectionId, collection, tab.id, tab.camera, colorValue, isDark]);
+  }, [positions, connectionId, collection, tab.id]);
 
   // Reactively re-tint the geometry when colorBy changes (no full scene rebuild).
   useEffect(() => {
@@ -247,7 +243,7 @@ function useVectorScene(
     if (bg instanceof THREE.Color) bg.set(isDark ? BG_DARK : BG_LIGHT);
   }, [isDark]);
 
-  return { mountRef, sceneRef, geometryRef, pointsRef, isDarkRef, colorByRef, hover, setHover };
+  return { mountRef, sceneRef, geometryRef, pointsRef, isDarkRef, hover, setHover };
 }
 
 export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: QdrantVectorMapProps) {
