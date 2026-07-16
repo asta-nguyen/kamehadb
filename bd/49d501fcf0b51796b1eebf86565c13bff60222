@@ -1,0 +1,19 @@
+landing/package.json
+  s_9c525c028b588d::t_68eef4d03e4587 28-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bd49d501fcf0b51796b1eebf86565c13bff60222",
+  "prompts": {},
+  "sessions": {
+    "s_9c525c028b588d": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "295e7a51-8ded-48e1-995d-5d8fc23fd6cc",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
