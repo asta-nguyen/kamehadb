@@ -13,6 +13,7 @@ import {
   appStore,
   openAiChatPanel,
   openDatabaseStatsTab,
+  openFederatedQueryTab,
   openGraphTab,
   openNewQueryTab,
   setActiveConnection,
@@ -186,6 +187,14 @@ export function GlobalSearch({
               <CommandShortcut>with {activeConn.name}</CommandShortcut>
             </CommandItem>
           )}
+          <CommandItem
+            value="federated query union sql connections"
+            onSelect={() => select(() => openFederatedQueryTab())}
+          >
+            <Share2 className="size-4" />
+            <span>Federated Query</span>
+            <CommandShortcut>Ctrl+Shift+F</CommandShortcut>
+          </CommandItem>
           {onShortcutsOpen && (
             <CommandItem
               value="keyboard shortcuts help"

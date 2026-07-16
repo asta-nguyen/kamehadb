@@ -6,6 +6,7 @@ allowBuilds:
   duckdb: true
   esbuild: true
   msw: true
+  node-pty: true
   oracledb: true
   sharp: true
   unrs-resolver: true

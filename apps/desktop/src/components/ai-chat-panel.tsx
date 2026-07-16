@@ -21,7 +21,7 @@ import {
   type CodeLanguage,
   type SafeHighlightNode,
 } from '@/lib/ai-chat-helpers';
-import { appStore, navigateTo, openQueryTabWithSql } from '@/store';
+import { appStore, navigateTo, openQueryTabWithSql, clearPendingAiPrompt } from '@/store';
 import {
   Bot,
   Check,
@@ -42,6 +42,8 @@ import { useCallback, useEffect, useRef, useState, Fragment } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useStore } from '@tanstack/react-store';
+import type { PendingAiPrompt } from '@/lib/types';
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
 
@@ -455,10 +457,27 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
         ? CHAT_MODE_CONFIG.redis
         : CHAT_MODE_CONFIG.sql;
 
+  // Consume a pending AI prompt queued by a schema-tree right-click action.
+  // The schema-tree handler calls setPendingAiPrompt + openAiChatPanel; this
+  // effect sends the prompt via the panel's useChat instance and clears the
+  // field. The sentPromptRef guard prevents double-sends from React strict-mode
+  // double-invocation. The tableId from pendingAiPrompt flows into forwardedProps
+  // so the sidecar builds table-scoped DDL instead of full-schema DDL.
+  const pendingAiPrompt = useStore(appStore, (s) => s.pendingAiPrompt);
+  const sentPromptRef = useRef<PendingAiPrompt | null>(null);
+
   const chat = useChat({
     url: '/ai/chat',
-    forwardedProps: connectionId ? { connectionId, mongoDatabase } : undefined,
+    forwardedProps: connectionId ? { connectionId, mongoDatabase, tableId: pendingAiPrompt?.tableId } : undefined,
   });
+
+  useEffect(() => {
+    if (!pendingAiPrompt) return;
+    if (sentPromptRef.current === pendingAiPrompt) return;
+    sentPromptRef.current = pendingAiPrompt;
+    chat.sendMessage(pendingAiPrompt.prompt);
+    clearPendingAiPrompt();
+  }, [pendingAiPrompt, chat]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -489,6 +508,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   });
 
   useEffect(() => {
+    if (sentPromptRef.current) return;
     if (chatHistory?.messages && chat.messages.length === 0 && !historyLoadedRef.current) {
       historyLoadedRef.current = true;
       const uiMessages: ChatMessage[] = chatHistory.messages.map(toUIMessage);

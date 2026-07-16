@@ -118,6 +118,21 @@ export const api = {
   generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
     request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/schema/migrations`, input),
 
+  startSchemaWatcher: (connectionId: string, intervalMs?: number) =>
+    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/start`, { intervalMs }),
+
+  stopSchemaWatcher: (connectionId: string) =>
+    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/stop`),
+
+  getSchemaWatcherStatus: (connectionId: string) =>
+    request<import('@kamehadb/shared').SchemaWatcherStatus>('GET', `/sql/${connectionId}/schema/watcher/status`),
+
+  startSchemaNotifyWatcher: (connectionId: string) =>
+    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/notify/start`),
+
+  stopSchemaNotifyWatcher: (connectionId: string) =>
+    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/notify/stop`),
+
   // PostgreSQL pgvector API
   getPostgresVectorCapabilities: (connectionId: string) =>
     request<import('@kamehadb/shared').PostgresVectorCapability>(

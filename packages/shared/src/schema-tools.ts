@@ -21,11 +21,14 @@ export type SchemaTableSnapshot = {
   readonly indexes: readonly SchemaIndexSnapshot[];
 };
 
+export type SchemaSnapshotSource = 'manual' | 'auto-cadence' | 'auto-notify';
+
 export type SchemaSnapshotRecord = {
   readonly id: string;
   readonly connectionId: string;
   readonly capturedAt: string;
   readonly tables: readonly SchemaTableSnapshot[];
+  readonly source?: SchemaSnapshotSource;
 };
 
 export type SchemaSnapshotSummary = {
@@ -33,6 +36,7 @@ export type SchemaSnapshotSummary = {
   readonly connectionId: string;
   readonly capturedAt: string;
   readonly tableCount: number;
+  readonly source?: SchemaSnapshotSource;
 };
 
 export type SchemaChangeDescriptor =
@@ -154,3 +158,19 @@ export type MigrationResult = {
 export function quoteSqlIdentifier(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`;
 }
+
+/** Persisted watcher configuration per connection. Stored in the schema_watchers metadata table. */
+export type SchemaWatcherConfig = {
+  readonly connectionId: string;
+  readonly cadenceEnabled: boolean;
+  readonly notifyEnabled: boolean;
+  readonly intervalMs: number;
+};
+
+/** Runtime status returned by the watcher status route. */
+export type SchemaWatcherStatus = {
+  readonly cadenceRunning: boolean;
+  readonly notifyRunning: boolean;
+  readonly intervalMs: number;
+  readonly lastCaptureAt: string | null;
+};

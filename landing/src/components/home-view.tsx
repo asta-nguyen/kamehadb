@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'motion/react';
 import { ThemeToggle } from './theme-toggle';
 import { Footer } from './footer';
@@ -25,10 +26,11 @@ import {
   Search,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import { cn } from '../lib/utils';
 import { Compare } from './ui/compare';
 import { BrandIcon } from './ui/brand-icon';
+import { EngineMatrix } from './engine-matrix';
+import { SchemaGraph3D } from './schema-graph-3d';
 import postgresql from 'thesvg/postgresql';
 import mysql from 'thesvg/mysql';
 import mariadb from 'thesvg/mariadb';
@@ -429,9 +431,9 @@ export default function HomeView({ githubStars }: HomeViewProps) {
       {/* Hero Section */}
       <section className="relative pt-24 md:pt-32 pb-16 md:pb-20 px-4 md:px-6 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(245,158,11,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.06)_1px,transparent_1px)] bg-[size:64px_64px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-160 h-160 bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
         <HeroCanvas />
-        <div className="max-w-6xl mx-auto text-center relative">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-160 h-160 bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="max-w-6xl mx-auto text-center relative" style={{ zIndex: 1 }}>
           <motion.div
             className="flex flex-wrap items-center justify-center gap-2 mb-8"
             initial="hidden"
@@ -645,6 +647,17 @@ export default function HomeView({ githubStars }: HomeViewProps) {
         </div>
       </section>
 
+      {/* Engine Matrix */}
+      <section className="py-16 md:py-24 px-4 md:px-6 bg-surface-soft">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeading
+            title="Every engine, one workspace"
+            subtitle="12 databases — SQL, document, cache, vector, and ledger — with feature matrices and Docker snippets"
+          />
+          <EngineMatrix />
+        </div>
+      </section>
+
       {/* AI Query Generation */}
       <section className="relative py-16 md:py-24 px-4 md:px-6 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.07)_0%,transparent_70%)]" />
@@ -730,6 +743,29 @@ export default function HomeView({ githubStars }: HomeViewProps) {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Schema Graph Demo */}
+      <section className="py-16 md:py-24 px-4 md:px-6">
+        <div className="max-w-6xl mx-auto">
+          <SectionHeading
+            title="See your schema, visualized"
+            subtitle="Animated ER diagram from bundled sample data — tables slide in, FK lines draw on scroll"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.7, ease: 'easeOut' }}
+          >
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 rounded-3xl blur-xl opacity-50" />
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-[#27273a] shadow-2xl shadow-amber-500/5 bg-slate-50 dark:bg-[#0c0c16]">
+                <SchemaGraph3D />
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 

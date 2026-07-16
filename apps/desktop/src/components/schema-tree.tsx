@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ChevronRight, ChevronDown, Database, Table2, Columns3, Search } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { AI_SCHEMA_ACTIONS, AI_SCHEMA_ACTION_ORDER } from '@/lib/constants';
+import { openAiChatPanel, setPendingAiPrompt } from '@/store';
+import type { AiSchemaAction } from '@kamehadb/shared';
 
 function SchemaItem({
   connectionId,
@@ -95,7 +99,7 @@ function TableItem({
   onSelect,
 }: {
   connectionId: string;
-  table: { id: string; name: string };
+  table: { id: string; name: string; schema?: string };
   activeTableId: string | null;
   onSelect: (tableId: string) => void;
 }) {
@@ -103,20 +107,49 @@ function TableItem({
   const { data: columns, isLoading } = useTableColumns(connectionId, expanded ? table.id : null);
   const isActive = activeTableId === `${connectionId}:${table.id}`;
 
+  // Build the qualified table name for AI prompts: "schema.table" or just "table".
+  const qualifiedName = table.schema ? `${table.schema}.${table.name}` : table.name;
+
+  // Open the AI chat panel and queue a pre-seeded prompt for this table.
+  // The AIChatPanel watches pendingAiPrompt and sends it via its useChat instance.
+  function handleAiAction(action: AiSchemaAction) {
+    openAiChatPanel(connectionId);
+    setPendingAiPrompt({
+      prompt: AI_SCHEMA_ACTIONS[action].buildPrompt(qualifiedName),
+      tableId: table.id,
+    });
+  }
+
   return (
     <div className="select-none">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onSelect(table.id)}
-        onDoubleClick={() => setExpanded(!expanded)}
-        className={`justify-start px-2 w-full font-normal ${isActive ? 'bg-muted/50' : ''}`}
-      >
-        <Table2 className={`shrink-0 size-3 ${isActive ? 'text-foreground' : 'text-muted-foreground/70'}`} />
-        <span className={`truncate ${isActive ? 'text-foreground font-medium' : 'text-foreground/80'}`}>
-          {table.name}
-        </span>
-      </Button>
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSelect(table.id)}
+            onDoubleClick={() => setExpanded(!expanded)}
+            className={`justify-start px-2 w-full font-normal ${isActive ? 'bg-muted/50' : ''}`}
+          >
+            <Table2 className={`shrink-0 size-3 ${isActive ? 'text-foreground' : 'text-muted-foreground/70'}`} />
+            <span className={`truncate ${isActive ? 'text-foreground font-medium' : 'text-foreground/80'}`}>
+              {table.name}
+            </span>
+          </Button>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          {AI_SCHEMA_ACTION_ORDER.map((action) => {
+            const config = AI_SCHEMA_ACTIONS[action];
+            const Icon = config.icon;
+            return (
+              <ContextMenuItem key={action} onClick={() => handleAiAction(action)}>
+                <Icon className="mr-2 size-3.5" />
+                {config.label}
+              </ContextMenuItem>
+            );
+          })}
+        </ContextMenuContent>
+      </ContextMenu>
       {expanded && (
         <div className="pl-2 ml-4 mt-0.5 space-y-0">
           {isLoading ? (

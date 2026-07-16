@@ -227,7 +227,10 @@ export const Compare = ({
         <div className="absolute left-0 top-1/2 z-20 h-full w-36 bg-gradient-to-r opacity-50 -translate-y-1/2 from-indigo-400 mask-[radial-gradient(100px_at_left,white,transparent)] to-transparent via-transparent" />
         <div className="absolute left-0 top-1/2 z-10 h-1/2 w-10 bg-gradient-to-r opacity-100 -translate-y-1/2 from-cyan-400 mask-[radial-gradient(50px_at_left,white,transparent)] to-transparent via-transparent" />
         {showHandlebar && (
-          <div className="absolute top-1/2 z-30 flex items-center justify-center h-5 w-5 bg-white rounded-md shadow-[0px_-1px_0px_0px_#FFFFFF40] -right-2.5 -translate-y-1/2">
+          <div
+            data-testid="compare-slider-handle"
+            className="absolute top-1/2 z-30 flex items-center justify-center h-5 w-5 bg-white rounded-md shadow-[0px_-1px_0px_0px_#FFFFFF40] -right-2.5 -translate-y-1/2"
+          >
             <IconDotsVertical className="h-4 w-4 text-black" />
           </div>
         )}

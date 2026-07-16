@@ -21,6 +21,7 @@ const initialState: AppStoreState = {
   activeTableId: null,
   activeMongoDatabase: null,
   aiPanelConnectionId: null,
+  pendingAiPrompt: null,
   openedTabs: restoreTabs(),
   activeTabId: restoreActiveTab(),
   sidebarCollapsed: false,
