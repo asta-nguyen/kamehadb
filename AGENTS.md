@@ -479,3 +479,11 @@ const id = Number(row.id);
 - One short line per comment is the default; multi-line only when truly needed
 - Place the comment above the line it explains, not as a trailing line
 - Use full sentences with proper punctuation; no "TODO later" or "fix me" leftovers
+
+## Agent Workflows
+
+Reusable workflow definitions live in `.agents/`. When the user asks to run a workflow, read the corresponding file and follow its steps.
+
+| Trigger phrase                   | File                      | Description                                              |
+| -------------------------------- | ------------------------- | -------------------------------------------------------- |
+| "bump version", "update version" | `.agents/bump-version.md` | Bump app version across all 6 files and update CHANGELOG |

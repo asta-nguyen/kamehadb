@@ -25,6 +25,7 @@ import { useEffect, useRef, useState } from 'react';
 import { isSqlKind } from '@/lib/constants';
 import { toast } from 'sonner';
 import { useConnections } from '@/hooks/use-connections';
+import { useSidecar } from '@/hooks/use-sidecar';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -145,6 +146,7 @@ function App() {
   const theme = useStore(appStore, (state) => state.theme);
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const connectionsRef = useRef<ReturnType<typeof useConnections>['data']>(undefined);
+  const { ready: sidecarReady, error: sidecarError } = useSidecar();
 
   // Kill orphaned mongo-shell PTY sessions when their tabs are closed.
   // Lives in App() (always mounted) rather than Workspace() (unmounted when
@@ -165,7 +167,9 @@ function App() {
     }
     prevShellTabsRef.current = current;
   }, [openedTabs]);
-  const { data: connections } = useConnections();
+  const { data: connections } = useConnections({
+    enabled: sidecarReady,
+  });
   connectionsRef.current = connections;
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -362,10 +366,30 @@ function App() {
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <div className="flex h-screen w-screen flex-col">
         <Header onSearchOpen={() => setSearchOpen(true)} onShortcutsOpen={() => setShortcutsOpen(true)} />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar />
-          {view === 'api-settings' ? <ApiSettingsPage /> : view === 'logs' ? <LogsPage /> : <MainLayout />}
-        </div>
+        {!sidecarReady ? (
+          <div className="flex flex-1 items-center justify-center">
+            {sidecarError ? (
+              <div className="max-w-md text-center">
+                <TriangleAlert className="mx-auto mb-4 size-12 text-destructive" />
+                <h2 className="mb-2 text-lg font-semibold">Sidecar failed to start</h2>
+                <p className="text-sm text-muted-foreground">{sidecarError}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Ensure Node.js is installed and try restarting the app.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="size-4 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+                Starting sidecar...
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar />
+            {view === 'api-settings' ? <ApiSettingsPage /> : view === 'logs' ? <LogsPage /> : <MainLayout />}
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

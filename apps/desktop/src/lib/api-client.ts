@@ -3,10 +3,15 @@ const DIRECT_SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 
 let apiBase = import.meta.env.DEV ? DEV_PROXY_API_BASE : DIRECT_SIDECAR_API_BASE;
-const sidecarBase = SIDECAR_API_BASE;
+let sidecarBase = SIDECAR_API_BASE;
 
 export function getApiBase(): string {
   return apiBase;
+}
+
+export function setApiBase(port: number): void {
+  apiBase = `http://127.0.0.1:${port}`;
+  sidecarBase = `http://127.0.0.1:${port}`;
 }
 
 export async function request<T>(

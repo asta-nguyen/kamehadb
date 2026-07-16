@@ -7,9 +7,12 @@ use tauri::AppHandle;
 use crate::app_logs::append_tauri_log;
 
 // Re-exported for use by jobs.rs and external consumers (tests, future modules).
-#[allow(unused_imports)]
-pub use config::{build_backup_command, build_restore_command, load_postgres_profile, PostgresProfile, PostgresToolError};
 pub use config::resolve_postgres_program;
+#[allow(unused_imports)]
+pub use config::{
+    build_backup_command, build_restore_command, load_postgres_profile, PostgresProfile,
+    PostgresToolError,
+};
 pub use jobs::PostgresJobState;
 
 use crate::postgres_tools::jobs::{cancel_job, start_backup_job, start_restore_job};
