@@ -1,0 +1,91 @@
+apps/desktop/src/components/ui/json-value.tsx
+  s_f998223eb862df::t_6cd1cd009d0909 14,75-88,93,98,126-143,146,152-154
+.planning/ROADMAP.md
+  s_f998223eb862df::t_966a00f8d2a8b3 102-106
+  s_f998223eb862df::t_73a3fcbe0f87ad 100-101
+apps/desktop/src/components/data-table.tsx
+  s_f998223eb862df::t_6cd1cd009d0909 2,217-221,268
+apps/desktop/src/components/ui/__tests__/loading-state.test.tsx
+  s_f998223eb862df::t_30edd24004e9f5 1-3,6-11,14-15
+apps/desktop/src/components/connection-dialog.tsx
+  s_f998223eb862df::t_5a825d00705da9 4,187,189,193,211,214,221
+apps/desktop/src/components/redis-explorer.tsx
+  s_f998223eb862df::t_60caeea74b36a2 3,8-9,37,42,46,58-63,83-98
+  s_f998223eb862df::t_571310447b88a7 99-101
+apps/desktop/src/components/tigerbeetle-explorer.tsx
+  s_f998223eb862df::t_60caeea74b36a2 4,9,17,27-33
+  s_f998223eb862df::t_eed0f4cddb17c5 87-88,95,107,113,125,144,146
+apps/desktop/src/components/schema-timeline.tsx
+  s_f998223eb862df::t_5a825d00705da9 14,121,128
+CHANGELOG.md
+  s_f998223eb862df::t_eed0f4cddb17c5 12
+apps/desktop/src/components/qdrant-view.tsx
+  s_f998223eb862df::t_60caeea74b36a2 14-15,104,106,137,188-195
+  s_f998223eb862df::t_10dc1f0099a3c2 196-209
+apps/desktop/src/components/schema-diff-view.tsx
+  s_f998223eb862df::t_5a825d00705da9 13,62,65
+apps/desktop/src/components/ui/__tests__/explorer-toolbar.test.tsx
+  s_f998223eb862df::t_30edd24004e9f5 1-3,6-16,18-22,25-26
+apps/desktop/src/components/ui/__tests__/empty-state.test.tsx
+  s_f998223eb862df::t_30edd24004e9f5 1-3,6-13,16-17
+.planning/REQUIREMENTS.md
+  s_f998223eb862df::t_966a00f8d2a8b3 12-16,20-25,29-32,36-40,44-47,51-55,69-99,110
+apps/desktop/src/hooks/use-connections.ts
+  s_f998223eb862df::t_5a825d00705da9 13
+apps/desktop/src/components/ui/__tests__/json-value.test.tsx
+  s_f998223eb862df::t_30edd24004e9f5 1-2,6-9,12-13,15-17,20-21,23-24,27-28,30-31
+apps/desktop/src/components/vector-query.tsx
+  s_f998223eb862df::t_4743231660bff0 7,18,28,43,64,66,73-74,102-112,118,145
+  s_f998223eb862df::t_cfb16fe99c3821 55-57
+  s_f998223eb862df::t_85791ec2ab77b7 58-63
+  s_f998223eb862df::t_2a76a88a2b4f13 113-117
+  s_f998223eb862df::t_1bb5d37989a952 119
+apps/desktop/src/lib/toast.ts
+  s_f998223eb862df::t_5a825d00705da9 3,12,16,21,30
+apps/desktop/src/components/ui/filter-bar.tsx
+  s_f998223eb862df::t_2544bc207f3157 78
+apps/desktop/src/components/mongo-view-header.tsx
+  s_f998223eb862df::t_10dc1f0099a3c2 60-123
+  s_f998223eb862df::t_cfb16fe99c3821 1,3,13-14,31-32,42-43,48-58,125-126
+apps/desktop/src/components/ui/__tests__/filter-bar.test.tsx
+  s_f998223eb862df::t_30edd24004e9f5 1-3,6-13,15-17,20-29,32-35
+apps/desktop/src/components/vector-map-3d.tsx
+  s_f998223eb862df::t_0c98199c10fdc3 24-51,179,276
+  s_f998223eb862df::t_7b39b3c46d4724 95,137,256,258-266,280
+  s_f998223eb862df::t_42dd1b45285a7a 22-23,52,97,99,173-178,180-182,184,187
+apps/desktop/src/components/mongo-view.tsx
+  s_f998223eb862df::t_cfb16fe99c3821 295-296
+apps/desktop/src/components/qdrant-vector-map.tsx
+  s_f998223eb862df::t_42dd1b45285a7a 7,70,72,75
+apps/desktop/src/App.tsx
+  s_f998223eb862df::t_5a825d00705da9 26
+apps/desktop/src/components/migration-assistant.tsx
+  s_f998223eb862df::t_5a825d00705da9 11,59
+apps/desktop/src/components/ui/loading-state.tsx
+  s_f998223eb862df::t_6cd1cd009d0909 12-16,18
+apps/desktop/src/index.css
+  s_f998223eb862df::t_5a825d00705da9 78,135
+  s_f998223eb862df::t_0c98199c10fdc3 107-116,163-172
+apps/desktop/src/hooks/use-file-database-maintenance.ts
+  s_f998223eb862df::t_5a825d00705da9 3,33,37,55,59
+apps/desktop/src/components/ui/__tests__/error-state.test.tsx
+  s_f998223eb862df::t_30edd24004e9f5 1-3,6-10,13-14,17-18
+apps/desktop/src/components/ui/error-state.tsx
+  s_f998223eb862df::t_6cd1cd009d0909 23,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "bba72b10a31a2da07ecb219ba2da2a133fc7bbe0",
+  "prompts": {},
+  "sessions": {
+    "s_f998223eb862df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f6b9e-745e-7933-9392-be26875c358a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
