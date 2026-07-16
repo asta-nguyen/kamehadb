@@ -19,12 +19,19 @@ import { SqlEditor } from '@/components/sql-editor';
 import { SqliteVecMap } from '@/components/sqlite-vec-map';
 import { TableStats } from '@/components/table-stats';
 import { TableView } from '@/components/table-view';
+import { TigerBeetleExplorer } from '@/components/tigerbeetle-explorer';
 
 const QdrantVectorMap = lazy(() =>
   import('@/components/qdrant-vector-map').then((module) => ({ default: module.QdrantVectorMap })),
 );
 const QdrantStatsPanel = lazy(() =>
   import('@/components/qdrant-stats').then((module) => ({ default: module.QdrantStatsPanel })),
+);
+const TigerBeetleStatsPanel = lazy(() =>
+  import('@/components/tigerbeetle-stats').then((module) => ({ default: module.TigerBeetleStatsPanel })),
+);
+const FederatedQueryCanvas = lazy(() =>
+  import('@/components/federated-query-canvas').then((module) => ({ default: module.FederatedQueryCanvas })),
 );
 
 export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceTab }) {
@@ -117,8 +124,22 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
     return <DatabaseStats key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'tigerbeetle') {
+    return <TigerBeetleExplorer key={activeTab.id} connectionId={activeTab.connectionId} />;
+  }
+  if (activeTab.type === 'tigerbeetle-stats') {
     return (
-      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">TigerBeetle explorer</div>
+      <Suspense>
+        <TigerBeetleStatsPanel connectionId={activeTab.connectionId} />
+      </Suspense>
+    );
+  }
+  if (activeTab.type === 'federated-query') {
+    return (
+      <Suspense
+        fallback={<div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading…</div>}
+      >
+        <FederatedQueryCanvas key={activeTab.id} tab={activeTab} />
+      </Suspense>
     );
   }
   return (

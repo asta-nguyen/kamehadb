@@ -558,6 +558,9 @@ export type AIChatRequest = {
   model?: string;
 };
 
+/** Identifiers for the three schema-tree right-click AI actions. */
+export type AiSchemaAction = 'explain-schema' | 'generate-test-data' | 'suggest-index';
+
 // Health check
 export type HealthStatus = {
   status: 'ok';

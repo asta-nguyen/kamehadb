@@ -1,0 +1,50 @@
+name: Screenshot Refresh
+
+# Runs the AI Compare screenshot capture script on every release tag
+# and commits updated images back to the repo so the landing site
+# always shows fresh screenshots for each release.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture-screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Check out the default branch (not the tag ref) so git-auto-commit
+          # can push back to a named branch. persist-credentials: false keeps
+          # the GITHUB_TOKEN out of git config for build steps; the commit
+          # step uses its own GITHUB_TOKEN via the default token.
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: landing/package-lock.json
+
+      - name: Install landing dependencies
+        run: npm --prefix landing ci
+
+      - name: Install Playwright Chromium
+        run: npx --prefix landing playwright install chromium --with-deps
+
+      - name: Capture screenshots
+        run: node landing/scripts/capture-images.mjs
+
+      - name: Commit updated screenshots
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore: refresh AI Compare screenshots [skip ci]'
+          file_pattern: 'landing/public/images/*.png'
+          commit_options: '--no-verify'

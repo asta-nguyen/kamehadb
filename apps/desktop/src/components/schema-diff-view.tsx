@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { useCaptureSchemaSnapshot, useSchemaDiff, useSchemaSnapshots } from '@/hooks/use-schema-changelog';
+import { useAutoCaptureInvalidation } from '@/hooks/use-auto-capture-invalidation';
 import { openMigrationTab } from '@/store';
 import { SchemaDiffTableCard } from './schema-diff-table-card';
 import { toastError, toastSuccess } from '@/lib/toast';
@@ -30,6 +31,9 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
   const [toSnapshotId, setToSnapshotId] = useState('');
   const [filter, setFilter] = useState<DiffFilter>('all');
   const snapshots = data?.snapshots ?? [];
+
+  // Refresh snapshot list when an auto-capture is detected via the watcher status poll.
+  useAutoCaptureInvalidation(connectionId);
 
   useEffect(() => {
     if (snapshots.length < 2 || (fromSnapshotId && toSnapshotId)) return;

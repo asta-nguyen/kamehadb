@@ -36,3 +36,14 @@ export const CONNECTION_TEST_TIMEOUT_MS = 5_000;
 
 /** Delay between connection health stream probes (ms). */
 export const CONNECTION_HEALTH_INTERVAL_MS = 60_000;
+/** Schema watcher defaults and limits. */
+export const WATCHER_DEFAULT_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+export const WATCHER_MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — prevents excessive snapshot churn
+export const WATCHER_MAX_SNAPSHOTS = 50; // matches existing deleteOldSchemaSnapshots cap
+
+/** PostgreSQL pg_notify channel name for schema-change events. */
+export const SCHEMA_NOTIFY_CHANNEL = 'kamehadb_schema_change';
+
+/** pg_notify listener reconnection backoff (ms). Linear backoff up to max. */
+export const WATCHER_RECONNECT_INITIAL_MS = 5_000;
+export const WATCHER_RECONNECT_MAX_MS = 60_000;

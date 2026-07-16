@@ -1,110 +1,119 @@
-# Requirements: KamehaDB UI/UX Consistency
+# Requirements: KamehaDB
 
-**Defined:** 2026-06-28
-**Core Value:** Every supported database engine should feel equally first-class in the UI — consistent navigation, predictable interactions, and unified visual language across all explorers.
+**Defined:** 2026-06-29
+**Core Value:** Developers can browse, query, and understand any local database from a single desktop app without touching the command line.
 
 ## v1 Requirements
 
-Requirements for the UI/UX consistency initiative. Each maps to roadmap phases.
+Requirements for milestone v1.0 (Dashboard & Landing Polish). Each maps to roadmap phases.
 
-### Design Tokens
+### TigerBeetle Explorer
 
-- [x] **DSN-01**: Establish spacing scale (4/8/12/16/24/32/48px) as TailwindCSS tokens used consistently across all components
-- [x] **DSN-02**: Define color palette tokens for surface, border, text, accent, and status (success/warning/error/info) with semantic naming
-- [x] **DSN-03**: Standardize typography scale (font sizes, weights, line heights) for headings, body, captions, and code
-- [x] **DSN-04**: Define radius and shadow tokens for cards, dialogs, inputs, and popovers
-- [x] **DSN-05**: Document all tokens in a style guide (DESIGN-SYSTEM.md) accessible from the codebase
+- [ ] **TBEX-01**: User opening a TigerBeetle connection sees the real explorer (accounts list, account detail, transfers, balances) instead of a placeholder
+- [ ] **TBEX-02**: TigerBeetle explorer matches the Qdrant explorer depth (query and stats sub-panels where applicable)
 
-### Component Patterns
+### Federated Query
 
-- [x] **CMP-01**: Create a shared ExplorerToolbar component for database explorer views (Mongo, Redis, Qdrant, TigerBeetle) with consistent filter/refresh/action slots
-- [x] **CMP-02**: Create a shared EmptyState component with icon, title, description, and optional action
-- [x] **CMP-03**: Create a shared LoadingState component (skeleton or spinner) used by all data-dependent views
-- [x] **CMP-04**: Create a shared ErrorState component with retry action for failed data loads
-- [x] **CMP-05**: Standardize action button sizing and icon usage across all table row actions (edit, delete, view, copy)
-- [x] **CMP-06**: Create a shared FilterBar component for structured filter building (reused by vector search and Mongo/Redis explorers)
+- [ ] **FED-01**: User can open a read-only "Federated Query" tab that unions results from multiple connections into one grid
+- [ ] **FED-02**: Federated query enforces read-only safety (no cross-engine writes)
+- [ ] **FED-03**: User can select which connections contribute results to the federated canvas
 
-### SQL Editor & Results
+### Schema Timeline
 
-- [x] **SQL-01**: Unify SQL editor toolbar layout with consistent button placement, spacing, and grouping
-- [x] **SQL-02**: Standardize query results table styling (header, row height, cell padding, truncation) across all SQL engines
-- [x] **SQL-03**: Ensure table browser (schema sidebar) uses consistent tree indentation, icons, and hover states
-- [x] **SQL-04**: Unify query history panel styling with results table
+- [ ] **SCHTL-01**: User can enable an opt-in watcher that snapshots schema on a configurable cadence (e.g. hourly)
+- [ ] **SCHTL-02**: User can enable PostgreSQL pg_notify-triggered snapshots that capture schema changes automatically
+- [ ] **SCHTL-03**: Auto-snapshots appear in the existing schema timeline and diff views
 
-### Non-SQL Explorers
+### AI Chat Actions
 
-- [x] **EXP-01**: Mongo document table view — align toolbar, filter, and pagination with shared ExplorerToolbar pattern
-- [x] **EXP-02**: Redis key list view — align toolbar, search, and key detail panel with shared patterns
-- [x] **EXP-03**: Qdrant collection/point view — align toolbar, filter, and point table with shared patterns
-- [x] **EXP-04**: TigerBeetle explorer — align toolbar and table with shared patterns
-- [x] **EXP-05**: Ensure all explorers use consistent JSON/document rendering for nested data
+- [ ] **AICHAT-01**: User can right-click a table in the schema tree and choose "Explain this schema" to pre-seed the AI chat with scoped context
+- [ ] **AICHAT-02**: User can right-click a table and choose "Generate test data" to trigger AI-generated test data scoped to that table
+- [ ] **AICHAT-03**: User can right-click a table and choose "Suggest index" to trigger an AI index recommendation scoped to that table
 
-### Vector Search UI
+### Slow-Query Insights
 
-- [x] **VEC-01**: Unify pgvector and sqlite-vec search panels into a shared layout (search form + results + map toggle)
-- [x] **VEC-02**: Standardize vector column selector, metric selector, and limit input styling
-- [x] **VEC-03**: Ensure vector map (3D scatter) controls are consistent between pgvector and sqlite-vec
-- [x] **VEC-04**: Align filter builder UI between pgvector and sqlite-vec search
+- [ ] **SLOWQ-01**: User can open a "Slow queries" view in the query history panel showing top-N queries by p95 duration
+- [ ] **SLOWQ-02**: Slow queries are grouped by normalized pattern (not raw SQL text)
+- [ ] **SLOWQ-03**: User can pre-seed the AI chat from a slow query to request an index suggestion or explanation
 
-### Chrome & Navigation
+### Landing Engine Matrix
 
-- [x] **CHR-01**: Audit sidebar for consistent connection card styling, spacing, and status badge placement
-- [x] **CHR-02**: Standardize workspace tab bar — tab sizing, close button, active indicator, overflow handling
-- [x] **CHR-03**: Ensure all dialogs (connection edit, backup/restore, settings) use consistent Dialog component with standardized header/footer
-- [x] **CHR-04**: Unify toast/notification patterns for success, error, and info messages
-- [x] **CHR-05**: Ensure keyboard shortcuts are consistent and discoverable (help overlay or hints)
+- [ ] **LMAT-01**: Landing site visitor sees an interactive engine matrix with status badges (SQL/document/cache/vector/ledger) per engine
+- [ ] **LMAT-02**: Each engine card shows a supported-features matrix kept in sync with the app's canonical engine list
+- [ ] **LMAT-03**: Each engine card offers a one-click "Try in Docker" snippet
+
+### Landing Screenshot CI
+
+- [ ] **LCI-01**: A CI workflow runs the AI Compare screenshot capture script on every release tag
+- [ ] **LCI-02**: Updated screenshots are committed automatically by the CI workflow
+
+### Landing Schema-Graph Demo
+
+- [ ] **LGRAPH-01**: Landing site visitor sees an interactive read-only sample ER diagram using the same ReactFlow + dagre stack as the desktop app
+- [ ] **LGRAPH-02**: The demo loads instantly from a bundled static sample schema (no backend connection required)
+
+## v2 Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Testing Foundation
+
+- **TEST-01**: Unit tests for the 12 DB adapters
+- **TEST-02**: Integration tests for Hono route handlers
+- **TEST-03**: Tests for shared Zod schemas and utility functions
+
+### Observability
+
+- **OBS-01**: Query plan visualization (EXPLAIN) for SQL engines
+- **OBS-02**: Connection health dashboard across all engines
 
 ## Out of Scope
 
-| Feature                  | Reason                                                          |
-| ------------------------ | --------------------------------------------------------------- |
-| Landing page redesign    | Separate Next.js marketing site, not desktop app                |
-| Mobile/responsive design | Desktop-only Tauri app                                          |
-| New theme/color scheme   | Dark/light mode works; focus is consistency not new themes      |
-| New icon library         | Lucide icons are sufficient; standardize usage patterns instead |
-| Animation/motion design  | Out of scope for consistency pass; may add later                |
+Explicitly excluded. Documented to prevent scope creep.
+
+| Feature                                       | Reason                                                           |
+| --------------------------------------------- | ---------------------------------------------------------------- |
+| Cross-engine writes in federated query        | Safety risk; federation is read-only by design                   |
+| Mobile app                                    | Desktop-first; Tauri targets desktop platforms                   |
+| Cloud-hosted version                          | Local-first is a core value; no server-side component            |
+| Real-time collaboration                       | Single-user local tool; not a team product                       |
+| Live connection for landing schema-graph demo | Demo must be read-only with bundled static data for instant load |
 
 ## Traceability
 
-| Requirement | Phase   | Status   |
-| ----------- | ------- | -------- |
-| DSN-01      | Phase 1 | Complete |
-| DSN-02      | Phase 1 | Complete |
-| DSN-03      | Phase 1 | Complete |
-| DSN-04      | Phase 1 | Complete |
-| DSN-05      | Phase 1 | Complete |
-| CMP-01      | Phase 2 | Complete |
-| CMP-02      | Phase 2 | Complete |
-| CMP-03      | Phase 2 | Complete |
-| CMP-04      | Phase 2 | Complete |
-| CMP-05      | Phase 2 | Complete |
-| CMP-06      | Phase 2 | Complete |
-| SQL-01      | Phase 3 | Complete |
-| SQL-02      | Phase 3 | Complete |
-| SQL-03      | Phase 3 | Complete |
-| SQL-04      | Phase 3 | Complete |
-| EXP-01      | Phase 4 | Complete |
-| EXP-02      | Phase 4 | Complete |
-| EXP-03      | Phase 4 | Complete |
-| EXP-04      | Phase 4 | Complete |
-| EXP-05      | Phase 4 | Complete |
-| VEC-01      | Phase 5 | Complete |
-| VEC-02      | Phase 5 | Complete |
-| VEC-03      | Phase 5 | Complete |
-| VEC-04      | Phase 5 | Complete |
-| CHR-01      | Phase 3 | Complete |
-| CHR-02      | Phase 3 | Complete |
-| CHR-03      | Phase 3 | Complete |
-| CHR-04      | Phase 2 | Complete |
-| CHR-05      | Phase 3 | Complete |
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase   | Status  |
+| ----------- | ------- | ------- |
+| TBEX-01     | Phase 1 | Pending |
+| TBEX-02     | Phase 1 | Pending |
+| FED-01      | Phase 2 | Pending |
+| FED-02      | Phase 2 | Pending |
+| FED-03      | Phase 2 | Pending |
+| SCHTL-01    | Phase 3 | Pending |
+| SCHTL-02    | Phase 3 | Pending |
+| SCHTL-03    | Phase 3 | Pending |
+| AICHAT-01   | Phase 4 | Pending |
+| AICHAT-02   | Phase 4 | Pending |
+| AICHAT-03   | Phase 4 | Pending |
+| SLOWQ-01    | Phase 5 | Pending |
+| SLOWQ-02    | Phase 5 | Pending |
+| SLOWQ-03    | Phase 5 | Pending |
+| LMAT-01     | Phase 6 | Pending |
+| LMAT-02     | Phase 6 | Pending |
+| LMAT-03     | Phase 6 | Pending |
+| LCI-01      | Phase 6 | Pending |
+| LCI-02      | Phase 6 | Pending |
+| LGRAPH-01   | Phase 6 | Pending |
+| LGRAPH-02   | Phase 6 | Pending |
 
 **Coverage:**
 
-- v1 requirements: 29 total
-- Mapped to phases: 29
-- Unmapped: 0
+- v1 requirements: 21 total
+- Mapped to phases: 21
+- Unmapped: 0 ✓
 
 ---
 
-_Requirements defined: 2026-06-28_
-_Last updated: 2026-07-16 after implementation verification_
+_Requirements defined: 2026-06-29_
+_Last updated: 2026-06-29 after initial definition_

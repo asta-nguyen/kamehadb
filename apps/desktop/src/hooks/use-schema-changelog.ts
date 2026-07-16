@@ -35,3 +35,39 @@ export function useCaptureSchemaSnapshot() {
     mutationFn: (connectionId: string) => api.captureSchemaSnapshot(connectionId),
   });
 }
+
+export function useSchemaWatcherStatus(connectionId: string | null) {
+  return useQuery({
+    queryKey: QUERY_KEYS.SCHEMA_WATCHER(connectionId),
+    queryFn: () => api.getSchemaWatcherStatus(connectionId!),
+    enabled: !!connectionId,
+    // Poll every 10s to pick up auto-capture timestamps and status changes.
+    refetchInterval: 10_000,
+    staleTime: 5_000,
+  });
+}
+
+export function useStartSchemaWatcher() {
+  return useMutation({
+    mutationFn: ({ connectionId, intervalMs }: { connectionId: string; intervalMs?: number }) =>
+      api.startSchemaWatcher(connectionId, intervalMs),
+  });
+}
+
+export function useStopSchemaWatcher() {
+  return useMutation({
+    mutationFn: (connectionId: string) => api.stopSchemaWatcher(connectionId),
+  });
+}
+
+export function useStartSchemaNotifyWatcher() {
+  return useMutation({
+    mutationFn: (connectionId: string) => api.startSchemaNotifyWatcher(connectionId),
+  });
+}
+
+export function useStopSchemaNotifyWatcher() {
+  return useMutation({
+    mutationFn: (connectionId: string) => api.stopSchemaNotifyWatcher(connectionId),
+  });
+}

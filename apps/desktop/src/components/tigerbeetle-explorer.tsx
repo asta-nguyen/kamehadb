@@ -1,22 +1,30 @@
 import { Button } from '@/components/ui/button';
-import { useTbAccounts, useTbTransfers, useTbBalances } from '@/hooks/use-tigerbeetle';
-import type { TigerBeetleAccount, TigerBeetleTransfer, TigerBeetleAccountBalance } from '@kamehadb/shared';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
-import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
-import { useState } from 'react';
 import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
+import { LoadingState } from '@/components/ui/loading-state';
+import { Spinner } from '@/components/ui/spinner';
+import { useTbAccounts, useTbBalances, useTbTransfers } from '@/hooks/use-tigerbeetle';
+import type { TigerBeetleAccount, TigerBeetleAccountBalance, TigerBeetleTransfer } from '@kamehadb/shared';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 interface TigerBeetleExplorerProps {
   connectionId: string;
 }
 
 export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) {
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const { data, isLoading, isFetching, refetch } = useTbAccounts(connectionId);
 
   const accounts = data?.accounts ?? [];
+
+  const filtered = useMemo(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return accounts;
+    const query = trimmed.toLowerCase();
+    return accounts.filter((a) => a.id.toLowerCase().includes(query) || String(a.ledger).includes(query));
+  }, [accounts, searchQuery]);
 
   if (isLoading) {
     return <LoadingState />;
@@ -34,7 +42,7 @@ export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) 
       {accounts.length === 0 ? (
         <EmptyState compact title="No accounts found" />
       ) : (
-        accounts.map((account) => (
+        filtered.map((account) => (
           <AccountNode
             key={account.id}
             account={account}

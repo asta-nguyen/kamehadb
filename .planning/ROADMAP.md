@@ -1,112 +1,142 @@
-# Roadmap: KamehaDB UI/UX Consistency
+# Roadmap: KamehaDB
 
-**Created:** 2026-06-28
-**Granularity:** Standard (5-8 phases, 3-5 plans each)
+## Overview
 
-## Phase 1: Design Token Foundation
+Milestone v1.0 (Dashboard & Landing Polish) closes high-visibility dashboard gaps and elevates the landing site with interactive demos. The 8 planted seeds (SEED-001 through SEED-008) route into 6 phases: the first five address dashboard features (TigerBeetle wire-up, federated query, schema timeline auto-snapshots, AI chat actions, slow-query insights), and the final phase consolidates the three landing-site seeds into one cohesive landing polish phase.
 
-**Goal:** Establish the shared design token system (spacing, color, typography, radius, shadow) as the single source of truth, documented in a style guide.
+## Phases
 
-**Requirements:** DSN-01, DSN-02, DSN-03, DSN-04, DSN-05
+**Phase Numbering:**
 
-**Scope:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- Audit current TailwindCSS config and all ad-hoc spacing/color/typography values across components
-- Define semantic design tokens and map them to TailwindCSS utility classes
-- Create DESIGN-SYSTEM.md documenting all tokens with usage guidelines
-- Refactor `variants.ts` and base UI components to consume tokens
+Decimal phases appear between their surrounding integers in numeric order.
 
-**Out of phase scope:** Component pattern refactoring (Phase 2), view-specific fixes (Phases 3-5)
+- [x] **Phase 1: TigerBeetle Explorer Wire-Up** - Replace placeholder with real explorer component
+- [ ] **Phase 2: Federated Query Canvas** - Read-only cross-engine result federation
+- [ ] **Phase 3: Schema Timeline Auto-Snapshots** - Opt-in watcher and pg_notify snapshots
+- [x] **Phase 4: AI Chat Schema-Tree Actions** - Right-click menu one-click AI actions
+- [x] **Phase 5: Slow-Query Insights** - p95 by normalized pattern with AI pre-seed
+- [x] **Phase 6: Landing Polish** - Engine matrix, screenshot CI, schema-graph demo
 
-**Depends on:** —
+## Phase Details
 
-## Phase 2: Shared Component Patterns
+### Phase 1: TigerBeetle Explorer Wire-Up
 
-**Goal:** Build the shared state and toolbar components that all explorer views will consume, replacing duplicated implementations.
+**Goal**: Users opening a TigerBeetle connection see their accounts, transfers, and balances instead of a placeholder
+**Depends on**: Nothing (first phase)
+**Requirements**: TBEX-01, TBEX-02
+**Success Criteria** (what must be TRUE):
 
-**Requirements:** CMP-01, CMP-02, CMP-03, CMP-04, CMP-05, CMP-06, CHR-04
+1. User opening a TigerBeetle connection sees the real TigerBeetleExplorer component (accounts list, selected-account detail, transfers, balances) in the workspace tab
+2. TigerBeetle explorer depth matches the Qdrant explorer pattern (query and stats sub-panels where applicable)
+3. No placeholder text remains for the TigerBeetle tab type in workspace-content.tsx
 
-**Scope:**
+Plans:
 
-- Create ExplorerToolbar, EmptyState, LoadingState, ErrorState, FilterBar components
-- Standardize action button sizing (icon-xs for row actions, sm for toolbar)
-- Create shared toast/notification utility
-- Audit existing components for token compliance and fix deviations
-- Write unit tests for new shared components
+- [x] 01-01: Wire TigerBeetleExplorer into workspace-content.tsx (replace stub at line 119-123)
+- [x] 01-02: Add query/stats sub-panels to match Qdrant explorer depth
 
-**Out of phase scope:** Integrating components into specific views (Phases 3-5)
+### Phase 2: Federated Query Canvas
 
-**Depends on:** Phase 1
+**Goal**: Users can union read-only results from multiple connections into a single grid
+**Depends on**: Phase 1
+**Requirements**: FED-01, FED-02, FED-03
+**Success Criteria** (what must be TRUE):
 
-## Phase 3: SQL Editor, Results & Chrome Consistency
+1. User can open a "Federated Query" tab type that unions results from multiple selected connections
+2. Federated query rejects any write operation (read-only safety enforced)
+3. User can select which connections contribute to the federated result set
 
-**Goal:** Apply design tokens and shared components to the SQL editor, query results, schema sidebar, tab bar, and dialogs.
+Plans:
 
-**Requirements:** SQL-01, SQL-02, SQL-03, SQL-04, CHR-01, CHR-02, CHR-03, CHR-05
+- [ ] 02-01: Define federated tab type in desktop WorkspaceTab union and wire into workspace tab orchestration
+- [ ] 02-02: Implement client-side UNION ALL result merge utility (mergeQueryResults)
+- [ ] 02-03: Implement full FederatedQueryCanvas (connection picker + Monaco editor + safety gate + parallel dispatch + merged DataTable)
 
-**Scope:**
+### Phase 3: Schema Timeline Auto-Snapshots
 
-- Refactor SQL editor toolbar to use consistent layout and token-based spacing
-- Standardize query results table (header, row height, cell padding, truncation)
-- Audit sidebar connection cards, status badges, and tree indentation
-- Refactor workspace tab bar (tab sizing, close button, active indicator)
-- Ensure all dialogs use shared Dialog component with consistent header/footer
-- Add keyboard shortcut hints or help overlay
+**Goal**: Users can opt into automatic schema snapshots on a cadence or via pg_notify
+**Depends on**: Phase 2
+**Requirements**: SCHTL-01, SCHTL-02, SCHTL-03
+**Success Criteria** (what must be TRUE):
 
-**Out of phase scope:** Non-SQL explorer views (Phase 4), Vector search (Phase 5)
+1. User can enable an opt-in watcher that snapshots schema on a configurable cadence
+2. User can enable PostgreSQL pg_notify-triggered snapshots that fire on schema change events
+3. Auto-captured snapshots appear in the existing schema timeline and diff views
+   **Plans**: TBD
 
-**Depends on:** Phase 2
+Plans:
 
-## Phase 4: Non-SQL Explorer Consistency
+- [ ] 03-01: Implement cadence-based watcher lifecycle with persisted config in metadata store
+- [ ] 03-02: Wire pg_notify listener for PostgreSQL schema-change events
+- [ ] 03-03: Integrate auto-snapshots into existing timeline and diff views
 
-**Goal:** Unify MongoDB, Redis, Qdrant, and TigerBeetle explorer views using shared ExplorerToolbar and state components.
+### Phase 4: AI Chat Schema-Tree Actions
 
-**Requirements:** EXP-01, EXP-02, EXP-03, EXP-04, EXP-05
+**Goal**: Users can trigger AI assistance scoped to a specific table via right-click
+**Depends on**: Phase 3
+**Requirements**: AICHAT-01, AICHAT-02, AICHAT-03
+**Success Criteria** (what must be TRUE):
 
-**Scope:**
+1. User can right-click a table in the schema tree and choose "Explain this schema" to pre-seed AI chat with scoped context
+2. User can right-click a table and choose "Generate test data" to trigger AI test-data generation scoped to that table
+3. User can right-click a table and choose "Suggest index" to trigger an AI index recommendation scoped to that table
+   **Plans**: TBD
 
-- Refactor Mongo document table/card views to use ExplorerToolbar + shared states
-- Refactor Redis key list view with ExplorerToolbar + shared states
-- Refactor Qdrant collection/point view with ExplorerToolbar + shared states
-- Refactor TigerBeetle explorer with ExplorerToolbar + shared states
-- Standardize JSON/document rendering across all explorers
+Plans:
 
-**Out of phase scope:** Vector search UI (Phase 5)
+- [x] 04-01: Add right-click context menu to schema tree with three AI actions
+- [x] 04-02: Implement prompt templates reusing existing schema-context generation in apps/sidecar/src/ai/
 
-**Depends on:** Phase 2
+### Phase 5: Slow-Query Insights
 
-## Phase 5: Vector Search UI Unification
+**Goal**: Users can identify performance hotspots via p95 slow-query grouping and AI remediation
+**Depends on**: Phase 4
+**Requirements**: SLOWQ-01, SLOWQ-02, SLOWQ-03
+**Success Criteria** (what must be TRUE):
 
-**Goal:** Unify pgvector and sqlite-vec search panels into a consistent layout with shared controls and filter builder.
+1. User can open a "Slow queries" view in the query history panel showing top-N queries by p95 duration
+2. Slow queries are grouped by normalized pattern, not raw SQL text
+3. User can pre-seed the AI chat from a slow query to request an index suggestion or explanation
+   **Plans**: TBD
 
-**Requirements:** VEC-01, VEC-02, VEC-03, VEC-04
+Plans:
 
-**Scope:**
+- [x] 05-01: Implement query normalization logic (client-side or sidecar metadata store)
+- [x] 05-02: Add p95 aggregation and "Slow queries" view to query-history-panel.tsx
+- [x] 05-03: Wire AI pre-seed from slow query (reuse SEED-004 pattern)
 
-- Create shared vector search layout (search form + results + map toggle)
-- Standardize vector column selector, metric selector, and limit input
-- Align 3D vector map controls between pgvector and sqlite-vec
-- Unify filter builder UI using shared FilterBar component
-- Ensure both vector search paths use shared EmptyState/LoadingState/ErrorState
+### Phase 6: Landing Polish
 
-**Out of phase scope:** New vector search features (focus is consistency)
+**Goal**: Landing site showcases engine breadth and schema intelligence with interactive demos and automated screenshot freshness
+**Depends on**: Phase 5
+**Requirements**: LMAT-01, LMAT-02, LMAT-03, LCI-01, LCI-02, LGRAPH-01, LGRAPH-02
+**Success Criteria** (what must be TRUE):
 
-**Depends on:** Phase 2, Phase 4
+1. Landing visitor sees an interactive engine matrix with status badges (SQL/document/cache/vector/ledger) per engine
+2. Each engine card shows a supported-features matrix in sync with the app's canonical engine list and offers a one-click "Try in Docker" snippet
+3. A CI workflow runs the AI Compare screenshot capture script on every release tag and commits updated images
+4. Landing visitor sees an interactive read-only sample ER diagram (ReactFlow + dagre) that loads instantly from bundled static data
+   **Plans**: TBD
 
----
+Plans:
 
-## Phase Summary
+- [x] 06-01: Build interactive engine matrix section (status badges, feature matrix, Docker snippets)
+- [x] 06-02: Add screenshot refresh CI workflow keyed off release tags
+- [x] 06-03: Embed read-only schema-graph demo with bundled static sample schema
 
-| Phase | Name                         | Requirements | Depends On | Status   |
-| ----- | ---------------------------- | ------------ | ---------- | -------- |
-| 1     | Design Token Foundation      | 5            | —          | Complete |
-| 2     | Shared Component Patterns    | 7            | Phase 1    | Complete |
-| 3     | SQL Editor, Results & Chrome | 8            | Phase 2    | Complete |
-| 4     | Non-SQL Explorer Consistency | 5            | Phase 2    | Complete |
-| 5     | Vector Search UI Unification | 4            | Phase 2, 4 | Complete |
+## Progress
 
-**Total:** 5 phases, 29 requirements
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
----
-
-_Roadmap created: 2026-06-28_
+| Phase                             | Plans Complete | Status      | Completed  |
+| --------------------------------- | -------------- | ----------- | ---------- |
+| 1. TigerBeetle Explorer Wire-Up   | 2/2            | Verified    | 2026-06-29 |
+| 2. Federated Query Canvas         | 0/3            | Planned     | -          |
+| 3. Schema Timeline Auto-Snapshots | 0/3            | Not started | -          |
+| 4. AI Chat Schema-Tree Actions    | 2/2            | Verified    | 2026-06-29 |
+| 5. Slow-Query Insights            | 3/3            | Verified    | 2026-06-29 |
+| 6. Landing Polish                 | 3/3            | Verified    | 2026-06-29 |

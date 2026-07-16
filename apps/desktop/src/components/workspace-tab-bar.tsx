@@ -3,6 +3,7 @@ import { DbIcon } from '@/components/db-icon';
 import {
   appStore,
   closeTab,
+  openFederatedQueryTab,
   openGraphTab,
   openMongoQueryTab,
   openNewQueryTab,
@@ -28,12 +29,19 @@ function tabIcon(tabType: string) {
   if (tabType === 'mongo' || tabType === 'mongo-query') return <Table2 className="size-3" />;
   if (tabType === 'redis') return <Box className="size-3" />;
   if (tabType === 'qdrant') return <DbIcon kind="qdrant" className="size-3" />;
+  if (tabType === 'tigerbeetle') return <DbIcon kind="tigerbeetle" className="size-3" />;
   if (tabType === 'qdrant-search' || tabType === 'postgres-vector-search' || tabType === 'sqlite-vec-search')
     return <Search className="size-3" />;
-  if (tabType === 'qdrant-stats' || tabType === 'stats' || tabType === 'database-stats')
+  if (
+    tabType === 'qdrant-stats' ||
+    tabType === 'stats' ||
+    tabType === 'database-stats' ||
+    tabType === 'tigerbeetle-stats'
+  )
     return <BarChart3 className="size-3" />;
   if (tabType === 'table-stats') return <Activity className="size-3" />;
   if (tabType === 'schema-timeline' || tabType === 'schema-diff') return <History className="size-3" />;
+  if (tabType === 'federated-query') return <Share2 className="size-3" />;
   return <Table2 className="size-3" />;
 }
 
@@ -58,7 +66,7 @@ export function WorkspaceTabBar() {
       }}
     >
       {openedTabs.map((tab, index) => {
-        const status = connectionStatus[tab.connectionId];
+        const status = 'connectionId' in tab ? connectionStatus[tab.connectionId] : undefined;
         const signalColor =
           status === 'connected' || status === 'slow'
             ? 'var(--success)'
@@ -98,12 +106,20 @@ export function WorkspaceTabBar() {
               tab.id === activeTabId ? 'border-b-2 border-b-primary bg-background' : 'hover:bg-muted/50'
             } ${dragOverIndex === index ? 'border-l-2 border-l-primary' : ''}`}
             onClick={() =>
-              appStore.setState((state) => ({ ...state, activeTabId: tab.id, activeConnectionId: tab.connectionId }))
+              appStore.setState((state) => ({
+                ...state,
+                activeTabId: tab.id,
+                activeConnectionId: 'connectionId' in tab ? tab.connectionId : null,
+              }))
             }
             onKeyDown={(event) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                appStore.setState((state) => ({ ...state, activeTabId: tab.id, activeConnectionId: tab.connectionId }));
+                appStore.setState((state) => ({
+                  ...state,
+                  activeTabId: tab.id,
+                  activeConnectionId: 'connectionId' in tab ? tab.connectionId : null,
+                }));
               }
             }}
           >
@@ -156,7 +172,7 @@ export function WorkspaceTabBar() {
             >
               <Database className="size-3.5" />
             </Button>
-          ) : activeConnection && isSqlKind(activeConnection.kind) && activeTab ? (
+          ) : activeConnection && isSqlKind(activeConnection.kind) && activeTab && 'connectionId' in activeTab ? (
             <>
               <Button
                 type="button"
@@ -182,6 +198,17 @@ export function WorkspaceTabBar() {
           ) : null}
         </>
       )}
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="flex h-full shrink-0 items-center justify-center px-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        onClick={() => openFederatedQueryTab()}
+        title="Federated Query"
+      >
+        <Share2 className="size-3.5" />
+      </Button>
 
       {openedTabs.length > 0 && (
         <div
