@@ -1,0 +1,21 @@
+CHANGELOG.md
+  s_9c525c028b588d::t_d8d9d559d716b7 78-83
+landing/src/components/home-view.tsx
+  s_9c525c028b588d::t_51aefb6b3eefbd 3,5,9-10,12,14-15,17-20,22,24-26,29-30,32-34,36-42,433-434,648-658,747-769
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d2db5d39b65aeb007fdb70fa78de3faebfa333b9",
+  "prompts": {},
+  "sessions": {
+    "s_9c525c028b588d": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "295e7a51-8ded-48e1-995d-5d8fc23fd6cc",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
