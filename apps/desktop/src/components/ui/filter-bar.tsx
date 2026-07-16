@@ -75,7 +75,7 @@ export function FilterBar({ filters, columns, onChange, className }: FilterBarPr
           </Button>
         </div>
       ))}
-      <Button variant="ghost" size="xs" onClick={addFilter}>
+      <Button variant="ghost" size="xs" onClick={addFilter} disabled={columns.length === 0}>
         <Plus className="size-3" />
         Add filter
       </Button>

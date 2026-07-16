@@ -4,20 +4,7 @@ import type { WorkspaceTab } from '@/lib/types';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { api } from '@/lib/api';
 import { openQdrantSearchTab, updateTabQdrantGraphState } from '@/store';
-import { VectorMap3D, type VectorPoint, type LegendItem } from '@/components/vector-map-3d';
-
-const PALETTE = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#84cc16',
-  '#f97316',
-  '#6366f1',
-];
+import { VECTOR_PALETTE, VectorMap3D, type VectorPoint, type LegendItem } from '@/components/vector-map-3d';
 
 const SAMPLE_LIMIT = 500;
 
@@ -80,12 +67,12 @@ export function QdrantVectorMap({ tab, connectionId, collection, vectorName }: Q
   }, [points]);
 
   const { legend, colorValue } = useMemo<{ legend: LegendItem[]; colorValue: (i: number) => string }>(() => {
-    if (!colorBy) return { legend: [], colorValue: () => PALETTE[0] };
+    if (!colorBy) return { legend: [], colorValue: () => VECTOR_PALETTE[0] };
     const values = [...new Set(points.map((p) => String(p.payload[colorBy] ?? '∅')))];
-    const map = new Map(values.map((v, i) => [v, PALETTE[i % PALETTE.length]]));
+    const map = new Map(values.map((v, i) => [v, VECTOR_PALETTE[i % VECTOR_PALETTE.length]]));
     return {
       legend: values.slice(0, 12).map((v) => ({ value: v, color: map.get(v)! })),
-      colorValue: (i: number) => map.get(String(points[i].payload[colorBy] ?? '∅')) ?? PALETTE[0],
+      colorValue: (i: number) => map.get(String(points[i].payload[colorBy] ?? '∅')) ?? VECTOR_PALETTE[0],
     };
   }, [colorBy, points]);
 

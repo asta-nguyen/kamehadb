@@ -1,18 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { ErrorState } from '../error-state';
 
 describe('ErrorState', () => {
-  it('extracts Error message', () => {
-    const err = new Error('Connection failed');
-    expect(err.message).toBe('Connection failed');
+  it('renders an alert with the error message', () => {
+    const html = renderToStaticMarkup(<ErrorState error={new Error('Connection failed')} />);
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('Connection failed');
   });
 
-  it('extracts string error', () => {
-    const err = 'Something went wrong';
-    expect(typeof err === 'string' ? err : '').toBe('Something went wrong');
+  it('renders the retry action when provided', () => {
+    expect(renderToStaticMarkup(<ErrorState error="Failed" onRetry={() => undefined} />)).toContain('Retry');
   });
 
-  it('falls back for unknown error types', () => {
-    const fallback = 'Failed to load';
-    expect(fallback).toBe('Failed to load');
+  it('uses a safe fallback for unknown errors', () => {
+    expect(renderToStaticMarkup(<ErrorState error={{ reason: 'unknown' }} />)).toContain('Failed to load');
   });
 });

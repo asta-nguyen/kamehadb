@@ -1,4 +1,5 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { JsonValue } from '@/components/ui/json-value';
 import { useColumnResize } from '@/hooks/use-column-resize';
 import { cn } from 'cnfast';
 import { ArrowDown, ArrowUp, Table2 } from 'lucide-react';
@@ -213,7 +214,11 @@ export function DataTable<T>({
                           return (
                             <TableCell
                               key={col.id}
-                              className={cn('px-2 py-1 overflow-hidden truncate min-w-0', col.cellClassName)}
+                              className={cn(
+                                'px-2 py-1 overflow-hidden truncate min-w-0',
+                                typeof value === 'object' && value !== null && 'overflow-visible whitespace-normal',
+                                col.cellClassName,
+                              )}
                               title={title}
                             >
                               {col.render ? col.render(value, row, rowIndex) : defaultCellRender(value)}
@@ -260,7 +265,7 @@ export function DataTable<T>({
 function defaultCellRender(value: unknown): ReactNode {
   if (value === null) return <span className="text-muted-foreground italic">null</span>;
   if (value === undefined) return <span className="text-muted-foreground">-</span>;
-  if (typeof value === 'object') return <span className="text-primary">{JSON.stringify(value)}</span>;
+  if (typeof value === 'object') return <JsonValue value={value} />;
   return <span>{String(value)}</span>;
 }
 

@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **MCP server**
 - **Landing UI** — Added `@radix-ui/react-avatar`, `@radix-ui/react-slot`, and `class-variance-authority` for the new UI components.
+- **Desktop UI consistency** — Unified explorer toolbars, structured vector filters, nested JSON rendering, accessible loading/error states, semantic vector-map colors, and notification styling.
 
 ---
 

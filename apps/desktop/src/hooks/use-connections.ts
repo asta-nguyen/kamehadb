@@ -10,7 +10,7 @@ import type {
 } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 export function useConnections(options?: { enabled?: boolean }) {
   return useQuery({

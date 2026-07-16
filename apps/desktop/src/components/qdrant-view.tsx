@@ -11,6 +11,8 @@ import { ChevronLeft, ChevronRight, Network, Search, Sparkles } from 'lucide-rea
 import { LoadingState } from '@/components/ui/loading-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { Spinner } from '@/components/ui/spinner';
+import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
+import { JsonValue } from '@/components/ui/json-value';
 
 interface QdrantViewProps {
   connectionId: string;
@@ -99,7 +101,9 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
   const {
     data: page,
     isLoading,
+    isFetching,
     error,
+    refetch,
   } = useQdrantPoints(connectionId, collection, currentOffset, state.appliedFilter, state.pageSize);
 
   // Field names discovered from the current page, offered as filter suggestions.
@@ -130,9 +134,7 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
         accessor: (row) => row.payload,
         headerClassName: 'px-3 py-1.5 font-medium h-auto',
         cellClassName: 'px-3 py-1.5',
-        render: (value) => (
-          <pre className="font-mono whitespace-pre-wrap break-all">{value ? JSON.stringify(value, null, 2) : '—'}</pre>
-        ),
+        render: (value) => (value ? <JsonValue value={value} /> : '—'),
       },
     ],
     [],
@@ -183,26 +185,28 @@ export function QdrantView({ connectionId, collection }: QdrantViewProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="font-mono text-sm truncate" title={collection}>
-            {collection}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'toggleStats' })} className="text-xs">
-            {state.showStats ? 'Hide stats' : 'Stats'}
-          </Button>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => openQdrantGraphTab(connectionId, collection)}>
-            <Network className="size-3.5 mr-1.5" />
-            Visualize
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => openQdrantSearchTab(connectionId, collection)}>
-            <Search className="size-3.5 mr-1.5" />
-            Vector Search
-          </Button>
-        </div>
-      </div>
+      <ExplorerToolbar
+        title={collection}
+        count={page?.points.length ?? 0}
+        onRefresh={() => void refetch()}
+        isRefreshing={isFetching}
+        className="px-1 py-1 border-b border-border"
+        actions={
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'toggleStats' })} className="text-xs">
+              {state.showStats ? 'Hide stats' : 'Stats'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => openQdrantGraphTab(connectionId, collection)}>
+              <Network className="size-3.5 mr-1.5" />
+              Visualize
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => openQdrantSearchTab(connectionId, collection)}>
+              <Search className="size-3.5 mr-1.5" />
+              Vector Search
+            </Button>
+          </div>
+        }
+      />
 
       <div
         className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${state.showStats && stats ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}

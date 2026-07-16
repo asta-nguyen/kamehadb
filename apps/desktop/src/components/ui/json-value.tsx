@@ -11,7 +11,7 @@ interface JsonValueProps {
   maxExpandDepth?: number;
 }
 
-export function JsonValue({ value, className, maxExpandDepth = 3 }: JsonValueProps) {
+export function JsonValue({ value, className, maxExpandDepth = 1 }: JsonValueProps) {
   return <JsonValueInner value={value} className={className} depth={0} maxExpandDepth={maxExpandDepth} />;
 }
 
@@ -72,26 +72,30 @@ function JsonArray({
 
   return (
     <div className={cn('inline-flex flex-col', className)}>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        onClick={() => setExpanded(!expanded)}
-        className="text-muted-foreground hover:text-foreground h-4 w-4 p-0"
-      >
-        {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-      </Button>
-      <span className="font-mono text-xs">[{items.length}]</span>
+      <div className="inline-flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={expanded ? 'Collapse array' : 'Expand array'}
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+          className="text-muted-foreground hover:text-foreground h-4 w-4 p-0"
+        >
+          {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        </Button>
+        <span className="font-mono text-xs">[{items.length}]</span>
+      </div>
       {expanded && (
         <div className="ml-3 border-l border-border/40 pl-2 space-y-0.5">
           {items.slice(0, MAX_ITEMS).map((item, i) => (
             <div key={i} className="flex items-start gap-1.5">
-              <span className="text-muted-foreground/60 font-mono text-[10px] w-6 text-right shrink-0 pt-px">{i}</span>
+              <span className="text-muted-foreground/60 font-mono text-xs w-6 text-right shrink-0 pt-px">{i}</span>
               <JsonValueInner value={item} depth={depth + 1} maxExpandDepth={maxExpandDepth} />
             </div>
           ))}
           {items.length > MAX_ITEMS && (
-            <div className="text-[10px] text-muted-foreground pl-7">... and {items.length - MAX_ITEMS} more</div>
+            <div className="text-xs text-muted-foreground pl-7">... and {items.length - MAX_ITEMS} more</div>
           )}
         </div>
       )}
@@ -119,28 +123,35 @@ function JsonObject({
 
   return (
     <div className={cn('inline-flex flex-col', className)}>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        onClick={() => setExpanded(!expanded)}
-        className="text-muted-foreground hover:text-foreground h-4 w-4 p-0"
-      >
-        {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-      </Button>
-      <span className="font-mono text-xs">
-        {'{'}
-        {entries.length}
-        {'}'}
-      </span>
+      <div className="inline-flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={expanded ? 'Collapse object' : 'Expand object'}
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+          className="text-muted-foreground hover:text-foreground h-4 w-4 p-0"
+        >
+          {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+        </Button>
+        <span className="font-mono text-xs">
+          {'{'}
+          {entries.length}
+          {'}'}
+        </span>
+      </div>
       {expanded && (
         <div className="ml-3 border-l border-border/40 pl-2 space-y-0.5">
-          {entries.map(([key, val]) => (
+          {entries.slice(0, MAX_ITEMS).map(([key, val]) => (
             <div key={key} className="flex items-start gap-1.5">
               <span className="text-primary/80 font-mono text-xs shrink-0">{key}:</span>
               <JsonValueInner value={val} depth={depth + 1} maxExpandDepth={maxExpandDepth} />
             </div>
           ))}
+          {entries.length > MAX_ITEMS && (
+            <div className="text-xs text-muted-foreground">... and {entries.length - MAX_ITEMS} more</div>
+          )}
         </div>
       )}
     </div>

@@ -1,11 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { LoadingState } from '../loading-state';
 
 describe('LoadingState', () => {
-  it('compact uses py-2 padding', () => {
-    expect('py-2').toBe('py-2');
+  it('announces loading to assistive technology', () => {
+    const html = renderToStaticMarkup(<LoadingState />);
+
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('Loading');
   });
 
-  it('default uses py-8 padding', () => {
-    expect('py-8').toBe('py-8');
+  it('renders the compact spacing variant', () => {
+    expect(renderToStaticMarkup(<LoadingState compact />)).toContain('py-2');
   });
 });

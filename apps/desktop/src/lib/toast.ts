@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 
-export function toastSuccess(message: string) {
+export function toastSuccess(message: string): void {
   toast.success(message, {
     style: {
       background: 'var(--success)',
@@ -9,16 +9,16 @@ export function toastSuccess(message: string) {
   });
 }
 
-export function toastError(message: string) {
+export function toastError(message: string): void {
   toast.error(message, {
     style: {
       background: 'var(--destructive)',
-      color: 'var(--foreground)',
+      color: 'var(--destructive-foreground)',
     },
   });
 }
 
-export function toastInfo(message: string) {
+export function toastInfo(message: string): void {
   toast.info(message, {
     style: {
       background: 'var(--info)',
@@ -27,7 +27,7 @@ export function toastInfo(message: string) {
   });
 }
 
-export function toastWarning(message: string) {
+export function toastWarning(message: string): void {
   toast.warning(message, {
     style: {
       background: 'var(--warning)',

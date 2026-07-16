@@ -1,18 +1,28 @@
-import { describe, it, expect } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { ExplorerToolbar } from '../explorer-toolbar';
 
 describe('ExplorerToolbar', () => {
-  it('shows search only when searchValue and onSearchChange are provided', () => {
-    const hasSearch = (searchValue: string | undefined, onSearchChange: ((v: string) => void) | undefined) =>
-      searchValue !== undefined && onSearchChange !== undefined;
+  it('renders title, count, search, actions, and refresh controls', () => {
+    const html = renderToStaticMarkup(
+      <ExplorerToolbar
+        title="Documents"
+        count={12}
+        searchValue="Ada"
+        onSearchChange={() => undefined}
+        actions={<span>Export</span>}
+        onRefresh={() => undefined}
+      />,
+    );
 
-    expect(hasSearch('', (v) => v)).toBe(true);
-    expect(hasSearch(undefined, (v) => v)).toBe(false);
-    expect(hasSearch('', undefined)).toBe(false);
+    expect(html).toContain('Documents');
+    expect(html).toContain('12');
+    expect(html).toContain('value="Ada"');
+    expect(html).toContain('Export');
+    expect(html).toContain('title="Refresh"');
   });
 
-  it('shows refresh only when onRefresh is provided', () => {
-    const hasRefresh = (onRefresh?: () => void) => onRefresh !== undefined;
-    expect(hasRefresh(() => {})).toBe(true);
-    expect(hasRefresh(undefined)).toBe(false);
+  it('omits search when it is not configured', () => {
+    expect(renderToStaticMarkup(<ExplorerToolbar title="Documents" />)).not.toContain('placeholder="Filter..."');
   });
 });

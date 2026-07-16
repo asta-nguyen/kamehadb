@@ -19,18 +19,37 @@ export type VectorPoint = {
   readonly payload: Record<string, unknown>;
 };
 
-const PALETTE = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#84cc16',
-  '#f97316',
-  '#6366f1',
-];
+export const VECTOR_PALETTE = Array.from({ length: 10 }, (_, index) => `var(--vector-${index + 1})`);
+
+// Three.js cannot parse CSS variables or OKLCH, so convert the shared token to
+// linear sRGB before writing it into the GPU while the legend stays token-driven.
+function setTokenColor(target: THREE.Color, color: string): void {
+  const tokenMatch = color.match(/^var\((--[^)]+)\)$/);
+  const resolved = tokenMatch
+    ? getComputedStyle(document.documentElement).getPropertyValue(tokenMatch[1]).trim()
+    : color;
+  const oklchMatch = resolved.match(/^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)$/);
+  if (!oklchMatch) {
+    target.set(resolved);
+    return;
+  }
+
+  const lightness = Number(oklchMatch[1]);
+  const chroma = Number(oklchMatch[2]);
+  const hue = (Number(oklchMatch[3]) * Math.PI) / 180;
+  const a = chroma * Math.cos(hue);
+  const b = chroma * Math.sin(hue);
+  const l = Math.pow(lightness + 0.3963377774 * a + 0.2158037573 * b, 3);
+  const m = Math.pow(lightness - 0.1055613458 * a - 0.0638541728 * b, 3);
+  const s = Math.pow(lightness - 0.0894841775 * a - 1.291485548 * b, 3);
+  const clamp = (channel: number) => Math.max(0, Math.min(1, channel));
+
+  target.setRGB(
+    clamp(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    clamp(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    clamp(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+  );
+}
 
 export type LegendItem = { readonly value: string; readonly color: string };
 
@@ -73,8 +92,11 @@ export function VectorMap3D({
   const pointsRef = useRef<VectorPoint[]>([]);
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
   const colorByRef = useRef(colorBy);
+  const colorValueRef = useRef(colorValue);
   colorByRef.current = colorBy;
+  colorValueRef.current = colorValue;
   // Capture initial camera on first render only, so camera saves don't re-create the scene
   const initialCameraRef = useRef(initialCamera);
 
@@ -112,6 +134,7 @@ export function VectorMap3D({
     const height = mount.clientHeight || 600;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(isDark ? BG_DARK : BG_LIGHT);
+    sceneRef.current = scene;
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 4000);
     if (cam?.position) {
       camera.position.set(cam.position[0], cam.position[1], cam.position[2]);
@@ -147,23 +170,21 @@ export function VectorMap3D({
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    const useVertexColors = !!colorByRef.current && !!colorValue;
-    const colors = useVertexColors ? new Float32Array(positions.length) : null;
-    if (colors && colorValue) {
-      const c = new THREE.Color();
-      for (let i = 0; i < pointsRef.current.length; i++) {
-        c.set(colorValue(i));
-        colors[i * 3] = c.r;
-        colors[i * 3 + 1] = c.g;
-        colors[i * 3 + 2] = c.b;
-      }
-      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    // Always allocate vertex colors so changing "Color by" only updates the
+    // existing GPU buffer and never destroys the scene or resets the camera.
+    const colors = new Float32Array(positions.length);
+    const c = new THREE.Color();
+    for (let i = 0; i < pointsRef.current.length; i++) {
+      const color = colorByRef.current && colorValueRef.current ? colorValueRef.current(i) : VECTOR_PALETTE[0];
+      setTokenColor(c, color);
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
     }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometryRef.current = geometry;
 
-    const material = useVertexColors
-      ? new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, vertexColors: true })
-      : new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, color: PALETTE[0] });
+    const material = new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, vertexColors: true });
     const cloud = new THREE.Points(geometry, material);
     scene.add(cloud);
 
@@ -232,8 +253,17 @@ export function VectorMap3D({
       material.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
+      sceneRef.current = null;
     };
-  }, [isDark, positions, colorValue]);
+  }, [positions]);
+
+  // Theme changes only update the existing scene background, preserving the
+  // camera and controls instead of recreating the complete WebGL scene.
+  useEffect(() => {
+    if (sceneRef.current) {
+      sceneRef.current.background = new THREE.Color(isDark ? BG_DARK : BG_LIGHT);
+    }
+  }, [isDark]);
 
   // Reactively re-tint the geometry when colorBy changes (no full scene rebuild).
   useEffect(() => {
@@ -243,11 +273,11 @@ export function VectorMap3D({
     if (!attr) return;
     const c = new THREE.Color();
     for (let i = 0; i < points.length; i++) {
-      c.set(colorBy ? colorValue(i) : PALETTE[0]);
+      setTokenColor(c, colorBy ? colorValue(i) : VECTOR_PALETTE[0]);
       attr.setXYZ(i, c.r, c.g, c.b);
     }
     attr.needsUpdate = true;
-  }, [colorBy, points, colorValue]);
+  }, [colorBy, points, colorValue, isDark]);
 
   if (isLoading) {
     return <LoadingState />;

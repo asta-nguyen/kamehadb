@@ -20,7 +20,7 @@ export function ErrorState({ error, onRetry, compact = false, className }: Error
 
   if (compact) {
     return (
-      <div className={cn('flex items-start gap-1.5 text-destructive text-xs', className)}>
+      <div role="alert" className={cn('flex items-start gap-1.5 text-destructive text-xs', className)}>
         <AlertCircle className="mt-0.5 shrink-0 size-3" />
         <span className="break-all">{message}</span>
       </div>
@@ -28,9 +28,7 @@ export function ErrorState({ error, onRetry, compact = false, className }: Error
   }
 
   return (
-    <div
-      className={cn('flex flex-col items-center justify-center text-destructive', compact ? 'py-2' : 'py-8', className)}
-    >
+    <div role="alert" className={cn('flex flex-col items-center justify-center py-8 text-destructive', className)}>
       <div className="flex items-center gap-2">
         <AlertCircle className="size-5 shrink-0" />
         <span className="text-sm">{message}</span>

@@ -1,34 +1,37 @@
-import { describe, it, expect } from 'vitest';
-import type { FilterEntry } from '../filter-bar';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { FilterBar } from '../filter-bar';
 
 describe('FilterBar', () => {
-  it('addFilter appends a new entry', () => {
-    const filters: FilterEntry[] = [{ column: 'name', operator: '=', value: 'test' }];
-    const updated = [...filters, { column: 'id', operator: '=', value: '' }];
-    expect(updated).toHaveLength(2);
-    expect(updated[1].column).toBe('id');
+  it('renders a configured filter and its value input', () => {
+    const html = renderToStaticMarkup(
+      <FilterBar
+        filters={[{ column: 'name', operator: 'LIKE', value: 'Ada%' }]}
+        columns={['name', 'id']}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(html).toContain('Ada%');
+    expect(html).toContain('Remove filter');
+    expect(html).toContain('Add filter');
   });
 
-  it('removeFilter removes by index', () => {
-    const filters: FilterEntry[] = [
-      { column: 'name', operator: '=', value: 'a' },
-      { column: 'id', operator: '>', value: '5' },
-    ];
-    const updated = filters.filter((_, i) => i !== 0);
-    expect(updated).toHaveLength(1);
-    expect(updated[0].column).toBe('id');
+  it('hides the value input for null operators', () => {
+    const html = renderToStaticMarkup(
+      <FilterBar
+        filters={[{ column: 'deleted_at', operator: 'IS NULL', value: '' }]}
+        columns={['deleted_at']}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(html).not.toContain('placeholder="Value"');
   });
 
-  it('updateFilter updates the correct entry', () => {
-    const filters: FilterEntry[] = [{ column: 'name', operator: '=', value: 'a' }];
-    const updated = filters.map((f, i) => (i === 0 ? { ...f, operator: 'LIKE' } : f));
-    expect(updated[0].operator).toBe('LIKE');
-  });
-
-  it('IS NULL operators hide value input', () => {
-    const isNullOp = (op: string) => op === 'IS NULL' || op === 'IS NOT NULL';
-    expect(isNullOp('IS NULL')).toBe(true);
-    expect(isNullOp('IS NOT NULL')).toBe(true);
-    expect(isNullOp('=')).toBe(false);
+  it('disables adding a filter when no columns are available', () => {
+    expect(renderToStaticMarkup(<FilterBar filters={[]} columns={[]} onChange={() => undefined} />)).toContain(
+      'disabled=""',
+    );
   });
 });

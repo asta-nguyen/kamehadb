@@ -1,11 +1,12 @@
 import { useState, useMemo, type ReactNode } from 'react';
 import { useRedisKeys, useRedisKeyDetails, useRedisStats } from '@/hooks/use-redis';
-import { Search, Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Users } from 'lucide-react';
+import { Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Users } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
+import { JsonValue } from '@/components/ui/json-value';
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   string: Type,
@@ -33,38 +34,16 @@ function formatValue(value: unknown, type: string): ReactNode {
     case 'set':
     case 'zset':
       if (Array.isArray(value)) {
-        return (
-          <div className="space-y-0.5">
-            {value.slice(0, 20).map((item, i) => (
-              <div key={`${item}-${i}`} className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-6 text-right">{i}</span>
-                <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(item)}</code>
-              </div>
-            ))}
-            {value.length > 20 && (
-              <div className="text-xs text-muted-foreground pl-8">... and {value.length - 20} more</div>
-            )}
-          </div>
-        );
+        return <JsonValue value={value} />;
       }
       break;
     case 'hash':
       if (typeof value === 'object' && value !== null) {
-        return (
-          <div className="space-y-0.5">
-            {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2">
-                <code className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">{k}</code>
-                <span className="text-muted-foreground">:</span>
-                <code className="text-xs bg-muted px-2 py-0.5 rounded">{String(v)}</code>
-              </div>
-            ))}
-          </div>
-        );
+        return <JsonValue value={value} />;
       }
       break;
   }
-  return <code className="text-xs bg-muted px-2 py-1 rounded">{JSON.stringify(value)}</code>;
+  return <JsonValue value={value} />;
 }
 
 interface RedisExplorerProps {
@@ -76,7 +55,12 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showStats, setShowStats] = useState(false);
 
-  const { data: keysResult, isLoading: loadingKeys } = useRedisKeys(connectionId, searchQuery || '*');
+  const {
+    data: keysResult,
+    isLoading: loadingKeys,
+    isFetching,
+    refetch,
+  } = useRedisKeys(connectionId, searchQuery || '*');
   const { data: stats, isLoading: loadingStats, error: statsError } = useRedisStats(connectionId, showStats);
 
   const filteredKeys = useMemo(() => {
@@ -96,17 +80,27 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
     <div className="flex h-full">
       {/* Key list */}
       <div className="w-48 border-r border-border flex flex-col">
-        <div className="px-2 py-1.5 border-b border-border">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter keys..."
-              className="h-6 pl-6 pr-2 text-xs"
-            />
-          </div>
-        </div>
+        <ExplorerToolbar
+          title="Keys"
+          count={filteredKeys.length}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Filter keys..."
+          onRefresh={() => void refetch()}
+          isRefreshing={isFetching}
+          className="border-b border-border"
+          actions={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setShowStats(!showStats)}
+              className={showStats ? 'text-primary' : 'text-muted-foreground'}
+              title="Show stats"
+            >
+              <BarChart3 className="size-3" />
+            </Button>
+          }
+        />
         <div className="flex-1 overflow-y-auto min-h-0 p-1.5 space-y-0.5">
           {loadingKeys ? (
             <LoadingState compact />
@@ -132,18 +126,6 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
               );
             })
           )}
-        </div>
-        <div className="px-2 py-1 border-t border-border flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{filteredKeys.length} keys</span>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={() => setShowStats(!showStats)}
-            className={showStats ? 'text-primary' : 'text-muted-foreground'}
-            title="Show stats"
-          >
-            <BarChart3 className="size-3" />
-          </Button>
         </div>
         {showStats && (
           <div className="px-3 py-2 border-t border-border bg-muted/30">
