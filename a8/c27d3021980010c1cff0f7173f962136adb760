@@ -1,0 +1,19 @@
+landing/tsconfig.json
+  s_9c525c028b588d::t_d0982b0ab8757a 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a8c27d3021980010c1cff0f7173f962136adb760",
+  "prompts": {},
+  "sessions": {
+    "s_9c525c028b588d": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "295e7a51-8ded-48e1-995d-5d8fc23fd6cc",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
