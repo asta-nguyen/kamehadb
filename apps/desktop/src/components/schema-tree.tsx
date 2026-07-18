@@ -20,7 +20,7 @@ function SchemaItem({
   onToggle,
   onSelectTable,
 }: {
-  connectionId: string;
+  connectionId: number;
   schema: string;
   expanded: boolean;
   activeTableId: string | null;
@@ -98,7 +98,7 @@ function TableItem({
   activeTableId,
   onSelect,
 }: {
-  connectionId: string;
+  connectionId: number;
   table: { id: string; name: string; schema?: string };
   activeTableId: string | null;
   onSelect: (tableId: string) => void;
@@ -195,7 +195,7 @@ export function SchemaTree({
   activeTableId,
   onSelectTable,
 }: {
-  connectionId: string;
+  connectionId: number;
   activeTableId: string | null;
   onSelectTable: (tableId: string) => void;
 }) {

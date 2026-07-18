@@ -4,7 +4,7 @@ import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import type { FindDocumentsInput } from '@kamehadb/shared';
 
-export function useMongoDatabases(connectionId: string | null) {
+export function useMongoDatabases(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.MONGO_DATABASES(connectionId),
     queryFn: () => {
@@ -16,7 +16,7 @@ export function useMongoDatabases(connectionId: string | null) {
   });
 }
 
-export function useMongoCollections(connectionId: string | null, database: string | null) {
+export function useMongoCollections(connectionId: number | null, database: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.MONGO_COLLECTIONS(connectionId, database),
     queryFn: () => {
@@ -29,7 +29,7 @@ export function useMongoCollections(connectionId: string | null, database: strin
 }
 
 export function useMongoDocuments(
-  connectionId: string | null,
+  connectionId: number | null,
   database: string | null,
   collection: string | null,
   filter: Record<string, unknown> = {},
@@ -60,7 +60,7 @@ export function useMongoDocuments(
 }
 
 export function useMongoCollectionStats(
-  connectionId: string | null,
+  connectionId: number | null,
   database: string | null,
   collection: string | null,
 ) {

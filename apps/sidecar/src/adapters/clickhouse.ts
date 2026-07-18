@@ -128,13 +128,20 @@ export function createClickHouseAdapter(connection: {
       }>(
         `SELECT name, type, default_kind, default_expression FROM system.columns WHERE database = ${escapeClickHouseVal(db)} AND table = ${escapeClickHouseVal(table)} ORDER BY position`,
       );
-      return rows.map((r) => ({
-        name: r.name,
-        type: r.type,
-        nullable: r.type.startsWith('Nullable('),
-        default: r.default_kind === 'DEFAULT' ? r.default_expression : null,
-        primaryKey: false,
-      }));
+      return rows.map((r) => {
+        const type = r.type;
+        return {
+          name: r.name,
+          type,
+          nullable: type.startsWith('Nullable('),
+          default: r.default_kind === 'DEFAULT' ? r.default_expression : null,
+          primaryKey: false,
+          isJson: type
+            .replace(/^Nullable\(/i, '')
+            .toLowerCase()
+            .startsWith('json'),
+        };
+      });
     },
 
     async getTableIndexes(tableId: string): Promise<IndexInfo[]> {

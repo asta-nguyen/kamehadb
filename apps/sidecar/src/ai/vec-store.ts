@@ -2,6 +2,7 @@ import type { SqlAdapter, AIProvider, AIProviderConfig } from '@kamehadb/shared'
 import { createEmbedding } from './provider.js';
 import crypto from 'node:crypto';
 import { getDb } from '../db/metadata-store.js';
+import { log } from '../lib/logger.js';
 
 type Column = {
   name: string;
@@ -174,10 +175,6 @@ function computeTableHash(table: Table, columns: Column[], indexes: Index[]): st
   return h.digest('hex');
 }
 
-function toFloat32Array(values: number[]): Float32Array {
-  return new Float32Array(values);
-}
-
 function ensureVecTable(dimension: number): void {
   const db = getDb();
   // Check if schema_vec exists and has the right dimension
@@ -199,14 +196,28 @@ function ensureVecTable(dimension: number): void {
 
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS schema_vec USING vec0(
-      connection_id TEXT,
+      connection_id INTEGER,
       table_id TEXT,
       embedding float[${dimension}]
     );
   `);
 }
 
-function getExistingHashes(connectionId: string): Map<string, string> {
+function getSchemaVecDimension(): number | null {
+  const db = getDb();
+  try {
+    const row = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='schema_vec'").get() as
+      | { sql: string }
+      | undefined;
+    if (!row?.sql) return null;
+    const match = row.sql.match(/float\[(\d+)\]/);
+    return match ? Number(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function getExistingHashes(connectionId: number): Map<string, string> {
   const db = getDb();
   const rows = db.prepare('SELECT table_id, hash FROM schema_embeddings WHERE connection_id = ?').all(connectionId) as {
     table_id: string;
@@ -215,7 +226,7 @@ function getExistingHashes(connectionId: string): Map<string, string> {
   return new Map(rows.map((r) => [r.table_id, r.hash]));
 }
 
-function deleteOrphanedRows(connectionId: string, validTableIds: Set<string>): void {
+function deleteOrphanedRows(connectionId: number, validTableIds: Set<string>): void {
   const db = getDb();
   const rows = db.prepare('SELECT table_id FROM schema_embeddings WHERE connection_id = ?').all(connectionId) as {
     table_id: string;
@@ -236,7 +247,7 @@ function deleteOrphanedRows(connectionId: string, validTableIds: Set<string>): v
 
 export async function buildSchemaIndex(
   adapter: SqlAdapter,
-  connectionId: string,
+  connectionId: number,
   provider: AIProvider,
   config: AIProviderConfig,
   force: boolean = false,
@@ -288,14 +299,26 @@ export async function buildSchemaIndex(
   const batchSize = 20;
   for (let i = 1; i < toEmbed.length; i += batchSize) {
     const batch = toEmbed.slice(i, i + batchSize);
-    const embeddings = await Promise.all(batch.map((item) => createEmbedding(item.enriched, provider, config)));
+    const embeddings = await Promise.all(
+      batch.map((item) => createEmbedding(item.enriched, provider, config, undefined, first.length)),
+    );
     allVectors.push(...embeddings);
   }
 
   for (let i = 0; i < toEmbed.length; i++) {
     const item = toEmbed[i];
     const vec = allVectors[i];
-    const float32 = toFloat32Array(vec);
+    if (vec.length !== first.length) {
+      // Reject mixed-dimension vectors (e.g. from intermittent API failures
+      // falling back to a different local dimension) before they reach
+      // schema_vec, which would corrupt the vec0 index.
+      log.warn(
+        { tableId: item.tableId, got: vec.length, expected: first.length },
+        'Embedding dimension mismatch, skipping table to preserve schema_vec consistency',
+      );
+      continue;
+    }
+    const float32 = new Float32Array(vec);
 
     deleteRow.run(connectionId, item.tableId);
     deleteVec.run(connectionId, item.tableId);
@@ -311,14 +334,28 @@ export async function buildSchemaIndex(
 }
 
 export async function searchRelevantSchema(
-  connectionId: string,
+  connectionId: number,
   query: string,
   provider: AIProvider,
   config: AIProviderConfig,
   topK: number = 5,
 ): Promise<{ tableId: string; ddl: string; score: number }[]> {
-  const queryVector = await createEmbedding(query, provider, config);
-  const float32 = toFloat32Array(queryVector);
+  const expectedDim = getSchemaVecDimension();
+  if (expectedDim === null) {
+    // No schema_vec index built yet — nothing to search.
+    return [];
+  }
+  const queryVector = await createEmbedding(query, provider, config, undefined, expectedDim);
+  if (queryVector.length !== expectedDim) {
+    // Fallback produced a mismatched dimension (e.g. API failure with no
+    // dimensions hint). Reject rather than corrupting the cosine search.
+    log.warn(
+      { got: queryVector.length, expected: expectedDim },
+      'Query embedding dimension mismatch, aborting schema search',
+    );
+    return [];
+  }
+  const float32 = new Float32Array(queryVector);
 
   const db = getDb();
   const rows = db
@@ -339,7 +376,7 @@ export async function searchRelevantSchema(
   }));
 }
 
-export function collectionPointCount(connectionId: string): number {
+export function collectionPointCount(connectionId: number): number {
   const db = getDb();
   const row = db
     .prepare('SELECT COUNT(*) as count FROM schema_embeddings WHERE connection_id = ?')

@@ -12,7 +12,7 @@ const Editor = lazy(() => import('@monaco-editor/react'));
 
 type RedisQueryProps = {
   tab: WorkspaceTab;
-  connectionId: string;
+  connectionId: number;
 };
 
 // Redis commands

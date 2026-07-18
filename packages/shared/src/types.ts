@@ -3,6 +3,7 @@ export type QueryColumn = {
   name: string;
   type: string;
   nullable?: boolean;
+  isJson?: boolean;
 };
 
 export type QueryResult = {
@@ -43,6 +44,7 @@ export type ColumnInfo = {
   };
   isVector?: boolean;
   vectorDimensions?: number;
+  isJson?: boolean;
 };
 
 export type TableCompletions = {
@@ -550,7 +552,7 @@ export type AIChatMessage = {
 };
 
 export type AIChatRequest = {
-  connectionId?: string;
+  connectionId?: number;
   mongoDatabase?: string;
   messages: AIChatMessage[];
   latestMessage?: AIChatMessage;
@@ -577,8 +579,8 @@ export type ApiError = {
 
 // Query history
 export type QueryHistoryEntry = {
-  id: string;
-  connectionId: string;
+  id: number;
+  connectionId: number;
   query: string;
   executedAt: string;
   durationMs?: number;

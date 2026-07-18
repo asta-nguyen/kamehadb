@@ -5,7 +5,7 @@ import { getCached, setCache } from '../lib/cache.js';
 import * as metadataStore from '../db/metadata-store.js';
 import { createMongoDbAdapter } from '../adapters/factory.js';
 import * as pty from 'node-pty';
-import { nanoid } from 'nanoid';
+import { randomUUID } from 'node:crypto';
 import { streamSSE } from 'hono/streaming';
 import { resolveMongoshCommand } from '../lib/mongosh.js';
 import { SHELL_TIMEOUT_MS } from '../lib/constants.js';
@@ -15,13 +15,13 @@ import { log } from '../lib/logger.js';
 
 export const mongoRouter = new Hono();
 
-async function getAdapter(connectionId: string) {
+async function getAdapter(connectionId: number) {
   return getNonSqlAdapter(connectionId, KIND.MONGODB, createMongoDbAdapter);
 }
 
 // GET /mongo/:connectionId/collections
 mongoRouter.get('/:connectionId/collections', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const database = c.req.query('database') || '';
   const cacheKey = `mongo:${connectionId}:collections:${database}`;
   const cached = getCached<unknown[]>(cacheKey);
@@ -40,7 +40,7 @@ mongoRouter.get('/:connectionId/collections', async (c) => {
 
 // GET /mongo/:connectionId/databases
 mongoRouter.get('/:connectionId/databases', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const cacheKey = `mongo:${connectionId}:databases`;
   const cached = getCached<unknown[]>(cacheKey);
   if (cached) return c.json(cached);
@@ -72,7 +72,7 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
         adapter.findDocuments(c.req.valid('json')),
       );
       return c.json(result);
@@ -96,7 +96,7 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
         adapter.aggregate(c.req.valid('json')),
       );
       return c.json(result);
@@ -121,7 +121,7 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
       const { collection, database, filter } = c.req.valid('json');
@@ -151,7 +151,7 @@ mongoRouter.post(
   ),
   async (c) => {
     try {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
       const { collection, database, filter, update } = c.req.valid('json');
@@ -173,7 +173,7 @@ mongoRouter.get('/:connectionId/stats', async (c) => {
     if (!database || !collection) {
       return c.json({ error: 'MISSING_PARAMS', message: 'database and collection are required' }, 400);
     }
-    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+    const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
       adapter.getCollectionStats(database, collection),
     );
     return c.json(result);
@@ -195,7 +195,7 @@ mongoRouter.post(
   async (c) => {
     try {
       const { database, command } = c.req.valid('json');
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
         adapter.runCommand(database || '', command),
       );
       return c.json(result);
@@ -208,7 +208,7 @@ mongoRouter.post(
 // GET /mongo/:connectionId/autocomplete
 // Returns collection names + field names from sample documents for autocomplete.
 mongoRouter.get('/:connectionId/autocomplete', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const database = c.req.query('database') || '';
   const cacheKey = `mongo:${connectionId}:completions:${database}`;
   const cached = getCached<{ collections: { name: string; fields: string[] }[] }>(cacheKey);
@@ -260,7 +260,9 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
 // GET /mongo/:connectionId/test
 mongoRouter.get('/:connectionId/test', async (c) => {
   try {
-    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.testConnection());
+    const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
+      adapter.testConnection(),
+    );
     return c.json(result);
   } catch (err) {
     return handleError(c, err, 'testConnection');
@@ -308,7 +310,7 @@ export function killAllMongoShells(): void {
 
 // POST /mongo/:connectionId/shell — start a mongosh process with a real PTY
 mongoRouter.post('/:connectionId/shell', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
 
@@ -320,7 +322,7 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
     if (body.rows) rows = body.rows;
   } catch {}
   const connStr = profile.connectionString || '';
-  const sessionId = nanoid();
+  const sessionId = randomUUID();
   const mongoshCommand = await resolveMongoshCommand();
 
   let ptyProcess: pty.IPty;

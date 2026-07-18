@@ -10,14 +10,16 @@ import { handleError, getNonSqlAdapter, withAdapter } from '../lib/route-utils.j
 
 export const qdrantRouter = new Hono();
 
-async function getAdapter(connectionId: string) {
+async function getAdapter(connectionId: number) {
   return getNonSqlAdapter(connectionId, KIND.QDRANT, createQdrantDbAdapter);
 }
 
 // GET /qdrant/:connectionId/test
 qdrantRouter.get('/:connectionId/test', async (c) => {
   try {
-    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.testConnection());
+    const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
+      adapter.testConnection(),
+    );
     return c.json(result);
   } catch (err) {
     return handleError(c, err, 'testConnection');
@@ -27,7 +29,9 @@ qdrantRouter.get('/:connectionId/test', async (c) => {
 // GET /qdrant/:connectionId/collections
 qdrantRouter.get('/:connectionId/collections', async (c) => {
   try {
-    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.listCollections());
+    const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
+      adapter.listCollections(),
+    );
     return c.json(result);
   } catch (err) {
     return handleError(c, err, 'listCollections');
@@ -50,7 +54,7 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
         adapter.scrollPoints(c.req.valid('json')),
       );
       return c.json(result);
@@ -76,7 +80,7 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
         adapter.search(c.req.valid('json')),
       );
       return c.json(result);
@@ -102,7 +106,7 @@ qdrantRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      const result = await withAdapter(getAdapter, Number(c.req.param('connectionId')), (adapter) =>
         adapter.recommend(c.req.valid('json')),
       );
       return c.json(result);
@@ -114,7 +118,7 @@ qdrantRouter.post(
 
 // GET /qdrant/:connectionId/stats?collection=
 qdrantRouter.get('/:connectionId/stats', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const collection = c.req.query('collection');
   if (!collection) {
     return c.json({ error: 'BAD_REQUEST', message: 'collection query param is required' }, 400);

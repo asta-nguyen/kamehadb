@@ -31,7 +31,7 @@ function formatObjectPreview(value: unknown): string {
 
 interface DocumentTableViewProps {
   documents: Record<string, unknown>[];
-  connectionId: string;
+  connectionId: number;
   collection: string;
   database: string;
   onDelete: (doc: Record<string, unknown>) => void;

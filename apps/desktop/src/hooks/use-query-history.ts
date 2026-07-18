@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import type { QueryHistoryEntry, SaveQueryHistoryInput, UpdateQueryHistoryInput } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export function useQueryHistory(connectionId: string | null, limit = 50) {
+export function useQueryHistory(connectionId: number | null, limit = 50) {
   return useQuery({
     queryKey: [...QUERY_KEYS.QUERY_HISTORY(connectionId), { limit }],
     queryFn: () => api.request<QueryHistoryEntry[]>('GET', `/query-history/${connectionId}?limit=${limit}`),
@@ -11,7 +11,7 @@ export function useQueryHistory(connectionId: string | null, limit = 50) {
   });
 }
 
-export function useFavoriteQueries(connectionId: string | null) {
+export function useFavoriteQueries(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.QUERY_HISTORY_FAVORITES(connectionId),
     queryFn: () => api.request<QueryHistoryEntry[]>('GET', `/query-history/${connectionId}?favorites=true`),
@@ -19,7 +19,7 @@ export function useFavoriteQueries(connectionId: string | null) {
   });
 }
 
-export function useSaveQueryHistory(connectionId: string | null) {
+export function useSaveQueryHistory(connectionId: number | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: SaveQueryHistoryInput) =>
@@ -30,10 +30,10 @@ export function useSaveQueryHistory(connectionId: string | null) {
   });
 }
 
-export function useUpdateQueryHistory(connectionId: string | null) {
+export function useUpdateQueryHistory(connectionId: number | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateQueryHistoryInput }) =>
+    mutationFn: ({ id, input }: { id: number; input: UpdateQueryHistoryInput }) =>
       api.request<void>('PATCH', `/query-history/${connectionId}/${id}`, input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.QUERY_HISTORY(connectionId) });
@@ -42,10 +42,10 @@ export function useUpdateQueryHistory(connectionId: string | null) {
   });
 }
 
-export function useDeleteQueryHistory(connectionId: string | null) {
+export function useDeleteQueryHistory(connectionId: number | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.request<void>('DELETE', `/query-history/${connectionId}/${id}`),
+    mutationFn: (id: number) => api.request<void>('DELETE', `/query-history/${connectionId}/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEYS.QUERY_HISTORY(connectionId) });
       qc.invalidateQueries({ queryKey: QUERY_KEYS.QUERY_HISTORY_FAVORITES(connectionId) });

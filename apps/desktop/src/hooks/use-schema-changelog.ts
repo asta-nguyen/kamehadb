@@ -3,7 +3,7 @@ import { SCHEMA_CACHE_TIME } from '@/lib/constants';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-export function useSchemaChangelog(connectionId: string | null) {
+export function useSchemaChangelog(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.SCHEMA_CHANGELOG(connectionId),
     queryFn: () => api.getSchemaChangelog(connectionId!),
@@ -12,7 +12,7 @@ export function useSchemaChangelog(connectionId: string | null) {
   });
 }
 
-export function useSchemaSnapshots(connectionId: string | null) {
+export function useSchemaSnapshots(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.SCHEMA_SNAPSHOTS(connectionId),
     queryFn: () => api.getSchemaSnapshots(connectionId!),
@@ -21,7 +21,7 @@ export function useSchemaSnapshots(connectionId: string | null) {
   });
 }
 
-export function useSchemaDiff(connectionId: string | null, input: import('@kamehadb/shared').SchemaDiffInput | null) {
+export function useSchemaDiff(connectionId: number | null, input: import('@kamehadb/shared').SchemaDiffInput | null) {
   return useQuery({
     queryKey: QUERY_KEYS.SCHEMA_DIFF(connectionId, input),
     queryFn: () => api.getSchemaDiff(connectionId!, input!),
@@ -32,11 +32,11 @@ export function useSchemaDiff(connectionId: string | null, input: import('@kameh
 
 export function useCaptureSchemaSnapshot() {
   return useMutation({
-    mutationFn: (connectionId: string) => api.captureSchemaSnapshot(connectionId),
+    mutationFn: (connectionId: number) => api.captureSchemaSnapshot(connectionId),
   });
 }
 
-export function useSchemaWatcherStatus(connectionId: string | null) {
+export function useSchemaWatcherStatus(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.SCHEMA_WATCHER(connectionId),
     queryFn: () => api.getSchemaWatcherStatus(connectionId!),
@@ -49,25 +49,25 @@ export function useSchemaWatcherStatus(connectionId: string | null) {
 
 export function useStartSchemaWatcher() {
   return useMutation({
-    mutationFn: ({ connectionId, intervalMs }: { connectionId: string; intervalMs?: number }) =>
+    mutationFn: ({ connectionId, intervalMs }: { connectionId: number; intervalMs?: number }) =>
       api.startSchemaWatcher(connectionId, intervalMs),
   });
 }
 
 export function useStopSchemaWatcher() {
   return useMutation({
-    mutationFn: (connectionId: string) => api.stopSchemaWatcher(connectionId),
+    mutationFn: (connectionId: number) => api.stopSchemaWatcher(connectionId),
   });
 }
 
 export function useStartSchemaNotifyWatcher() {
   return useMutation({
-    mutationFn: (connectionId: string) => api.startSchemaNotifyWatcher(connectionId),
+    mutationFn: (connectionId: number) => api.startSchemaNotifyWatcher(connectionId),
   });
 }
 
 export function useStopSchemaNotifyWatcher() {
   return useMutation({
-    mutationFn: (connectionId: string) => api.stopSchemaNotifyWatcher(connectionId),
+    mutationFn: (connectionId: number) => api.stopSchemaNotifyWatcher(connectionId),
   });
 }

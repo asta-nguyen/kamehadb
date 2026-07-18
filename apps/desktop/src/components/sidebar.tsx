@@ -204,7 +204,7 @@ function ConnectionGroup({
 }: {
   kind: string;
   conns: ConnectionProfile[];
-  activeConnectionId: string | null;
+  activeConnectionId: number | null;
 }) {
   const isPinned = kind === '_pinned';
   return (
@@ -276,12 +276,13 @@ export function Sidebar() {
   // Single SSE stream for all connection health — replaces per-item polling
   useEffect(() => {
     const es = new EventSource(`${getApiBase()}/connections/health`);
-    const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    const reconnectTimers = new Map<number, ReturnType<typeof setTimeout>>();
 
     es.onmessage = (event) => {
       try {
         const results: Record<string, { success: boolean; latencyMs?: number }> = JSON.parse(event.data);
-        for (const [id, r] of Object.entries(results)) {
+        for (const [idStr, r] of Object.entries(results)) {
+          const id = Number(idStr);
           if (r.success) {
             clearTimeout(reconnectTimers.get(id));
             reconnectTimers.delete(id);

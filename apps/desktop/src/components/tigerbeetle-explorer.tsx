@@ -9,7 +9,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 interface TigerBeetleExplorerProps {
-  connectionId: string;
+  connectionId: number;
 }
 
 export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) {
@@ -37,10 +37,14 @@ export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) 
         count={accounts.length}
         onRefresh={() => void refetch()}
         isRefreshing={isFetching}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
         className="-mx-2 -mt-2"
       />
       {accounts.length === 0 ? (
         <EmptyState compact title="No accounts found" />
+      ) : filtered.length === 0 ? (
+        <EmptyState compact title="No matches" />
       ) : (
         filtered.map((account) => (
           <AccountNode
@@ -63,7 +67,7 @@ function AccountNode({
   onToggle,
 }: {
   account: TigerBeetleAccount;
-  connectionId: string;
+  connectionId: number;
   isSelected: boolean;
   onToggle: () => void;
 }) {

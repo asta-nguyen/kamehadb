@@ -1,4 +1,3 @@
-import { nanoid } from 'nanoid';
 import type { WorkspaceTab } from '@/lib/types';
 import { appStore } from './state';
 
@@ -27,10 +26,10 @@ export function openTab(tab: WorkspaceTab): void {
   });
 }
 
-export function openNewQueryTab(connectionId: string, sql?: string, shouldAutoRun = false): void {
+export function openNewQueryTab(connectionId: number, sql?: string, shouldAutoRun = false): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'query').length;
   openTab({
-    id: `query-${nanoid()}`,
+    id: `query-${crypto.randomUUID()}`,
     type: 'query',
     title: `Query ${tabCount + 1}`,
     connectionId,
@@ -39,30 +38,30 @@ export function openNewQueryTab(connectionId: string, sql?: string, shouldAutoRu
   });
 }
 
-export function openQueryTabWithSql(connectionId: string, sql: string, shouldAutoRun = false): string {
+export function openQueryTabWithSql(connectionId: number, sql: string, shouldAutoRun = false): string {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'query').length;
-  const tabId = `query-${nanoid()}`;
+  const tabId = `query-${crypto.randomUUID()}`;
   openTab({ id: tabId, type: 'query', title: `Query ${tabCount + 1}`, connectionId, sql, autoRun: shouldAutoRun });
   return tabId;
 }
 
-export function openGraphTab(connectionId: string): void {
+export function openGraphTab(connectionId: number): void {
   openTab({ id: `${connectionId}:graph`, type: 'graph', title: 'Schema Graph', connectionId });
 }
 
-export function openDatabaseStatsTab(connectionId: string): void {
+export function openDatabaseStatsTab(connectionId: number): void {
   openTab({ id: `${connectionId}:db-stats`, type: 'database-stats', title: 'Database Stats', connectionId });
 }
 
-export function openSchemaTimelineTab(connectionId: string): void {
+export function openSchemaTimelineTab(connectionId: number): void {
   openTab({ id: `${connectionId}:schema-timeline`, type: 'schema-timeline', title: 'Schema Timeline', connectionId });
 }
 
-export function openSchemaDiffTab(connectionId: string): void {
+export function openSchemaDiffTab(connectionId: number): void {
   openTab({ id: `${connectionId}:schema-diff`, type: 'schema-diff', title: 'Schema Diff', connectionId });
 }
 
-export function openMigrationTab(connectionId: string, fromSnapshotId?: string, toSnapshotId?: string): void {
+export function openMigrationTab(connectionId: number, fromSnapshotId?: number, toSnapshotId?: number): void {
   openTab({
     id: `${connectionId}:migration`,
     type: 'migration',
@@ -73,14 +72,14 @@ export function openMigrationTab(connectionId: string, fromSnapshotId?: string, 
   });
 }
 
-export function openRedisTab(connectionId: string): void {
+export function openRedisTab(connectionId: number): void {
   openTab({ id: `${connectionId}:redis`, type: 'redis', title: 'Redis Browser', connectionId });
 }
 
-export function openRedisQueryTab(connectionId: string): void {
+export function openRedisQueryTab(connectionId: number): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'redis-query').length;
   openTab({
-    id: `redis-query-${nanoid()}`,
+    id: `redis-query-${crypto.randomUUID()}`,
     type: 'redis-query',
     title: `Redis Query ${tabCount + 1}`,
     connectionId,
@@ -88,11 +87,11 @@ export function openRedisQueryTab(connectionId: string): void {
   });
 }
 
-export function openTigerBeetleTab(connectionId: string): void {
+export function openTigerBeetleTab(connectionId: number): void {
   openTab({ id: `${connectionId}:tigerbeetle`, type: 'tigerbeetle', title: 'TigerBeetle Explorer', connectionId });
 }
 
-export function openTigerBeetleStatsTab(connectionId: string): void {
+export function openTigerBeetleStatsTab(connectionId: number): void {
   openTab({
     id: `${connectionId}:tigerbeetle-stats`,
     type: 'tigerbeetle-stats',
@@ -101,10 +100,10 @@ export function openTigerBeetleStatsTab(connectionId: string): void {
   });
 }
 
-export function openMongoQueryTab(connectionId: string, database: string, collection: string): void {
+export function openMongoQueryTab(connectionId: number, database: string, collection: string): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'mongo-query').length;
   openTab({
-    id: `mongo-query-${nanoid()}`,
+    id: `mongo-query-${crypto.randomUUID()}`,
     type: 'mongo-query',
     title: `Aggregate ${collection || tabCount + 1}`,
     connectionId,
@@ -113,18 +112,18 @@ export function openMongoQueryTab(connectionId: string, database: string, collec
   });
 }
 
-export function openQdrantTab(connectionId: string, collection: string): void {
+export function openQdrantTab(connectionId: number, collection: string): void {
   openTab({ id: `${connectionId}:qdrant:${collection}`, type: 'qdrant', title: collection, connectionId, collection });
 }
 
 export function openQdrantSearchTab(
-  connectionId: string,
+  connectionId: number,
   collection?: string,
   options?: { readonly mode?: 'text' | 'similar' | 'raw'; readonly pointId?: string | number },
 ): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'qdrant-search').length;
   openTab({
-    id: `qdrant-search-${nanoid()}`,
+    id: `qdrant-search-${crypto.randomUUID()}`,
     type: 'qdrant-search',
     title: options?.pointId
       ? `Similar to ${options.pointId}`
@@ -138,7 +137,7 @@ export function openQdrantSearchTab(
   });
 }
 
-export function openQdrantGraphTab(connectionId: string, collection: string): void {
+export function openQdrantGraphTab(connectionId: number, collection: string): void {
   openTab({
     id: `${connectionId}:qdrant-graph:${collection}`,
     type: 'qdrant-graph',
@@ -149,7 +148,7 @@ export function openQdrantGraphTab(connectionId: string, collection: string): vo
 }
 
 export function openPostgresVectorSearchTab(
-  connectionId: string,
+  connectionId: number,
   options?: {
     readonly schema?: string;
     readonly table?: string;
@@ -160,7 +159,7 @@ export function openPostgresVectorSearchTab(
 ): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'postgres-vector-search').length;
   openTab({
-    id: `postgres-vector-search-${nanoid()}`,
+    id: `postgres-vector-search-${crypto.randomUUID()}`,
     type: 'postgres-vector-search',
     title: options?.table ? `Vector Search ${options.table}` : `Vector Search ${tabCount + 1}`,
     connectionId,
@@ -173,7 +172,7 @@ export function openPostgresVectorSearchTab(
 }
 
 export function openPostgresVectorMapTab(
-  connectionId: string,
+  connectionId: number,
   options: {
     readonly schema: string;
     readonly table: string;
@@ -245,20 +244,20 @@ export function updateTabQdrantGraphState(
   }));
 }
 
-export function openMongoShellTab(connectionId: string): void {
+export function openMongoShellTab(connectionId: number): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'mongo-shell').length;
   openTab({
-    id: `mongo-shell-${nanoid()}`,
+    id: `mongo-shell-${crypto.randomUUID()}`,
     type: 'mongo-shell',
     title: `Mongo Shell ${tabCount + 1}`,
     connectionId,
   });
 }
 
-export function openPostgresPsqlTab(connectionId: string): void {
+export function openPostgresPsqlTab(connectionId: number): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'postgres-psql').length;
   openTab({
-    id: `postgres-psql-${nanoid()}`,
+    id: `postgres-psql-${crypto.randomUUID()}`,
     type: 'postgres-psql',
     title: `PSQL ${tabCount + 1}`,
     connectionId,
@@ -289,7 +288,7 @@ export function closeTab(tabId: string): void {
 }
 
 export function openSqliteVecSearchTab(
-  connectionId: string,
+  connectionId: number,
   options?: {
     readonly table?: string;
     readonly column?: string;
@@ -299,7 +298,7 @@ export function openSqliteVecSearchTab(
 ): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'sqlite-vec-search').length;
   openTab({
-    id: `sqlite-vec-search-${nanoid()}`,
+    id: `sqlite-vec-search-${crypto.randomUUID()}`,
     type: 'sqlite-vec-search',
     title: options?.table ? `Vector Search ${options.table}` : `Vector Search ${tabCount + 1}`,
     connectionId,
@@ -311,7 +310,7 @@ export function openSqliteVecSearchTab(
 }
 
 export function openSqliteVecMapTab(
-  connectionId: string,
+  connectionId: number,
   options: {
     readonly table: string;
     readonly column: string;
@@ -344,7 +343,7 @@ export function updateTabSqliteVecMapState(
 export function openFederatedQueryTab(): void {
   const tabCount = appStore.state.openedTabs.filter((tab) => tab.type === 'federated-query').length;
   openTab({
-    id: `federated-query-${nanoid()}`,
+    id: `federated-query-${crypto.randomUUID()}`,
     type: 'federated-query',
     title: `Federated Query ${tabCount + 1}`,
     connectionIds: [],
@@ -354,7 +353,7 @@ export function openFederatedQueryTab(): void {
   appStore.setState((state) => ({ ...state, view: 'workspace' }));
 }
 
-export function updateTabFederatedConnections(tabId: string, connectionIds: readonly string[]): void {
+export function updateTabFederatedConnections(tabId: string, connectionIds: readonly number[]): void {
   appStore.setState((state) => ({
     ...state,
     openedTabs: state.openedTabs.map((tab) =>

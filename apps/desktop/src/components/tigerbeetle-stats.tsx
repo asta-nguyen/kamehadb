@@ -3,7 +3,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useMemo } from 'react';
 
 interface TigerBeetleStatsPanelProps {
-  connectionId: string;
+  connectionId: number;
 }
 
 export function TigerBeetleStatsPanel({ connectionId }: TigerBeetleStatsPanelProps) {

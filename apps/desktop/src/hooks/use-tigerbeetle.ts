@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import type { CreateTigerBeetleAccountInput, CreateTigerBeetleTransferInput } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export function useTbAccounts(connectionId: string | null, limit?: number) {
+export function useTbAccounts(connectionId: number | null, limit?: number) {
   return useQuery({
     queryKey: QUERY_KEYS.TB_ACCOUNTS(connectionId, limit),
     queryFn: () => api.tbListAccounts(connectionId!, limit),
@@ -11,7 +11,7 @@ export function useTbAccounts(connectionId: string | null, limit?: number) {
   });
 }
 
-export function useTbAccount(connectionId: string | null, id: string | null) {
+export function useTbAccount(connectionId: number | null, id: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.TB_ACCOUNT(connectionId, id),
     queryFn: () => api.tbLookupAccount(connectionId!, id!),
@@ -19,7 +19,7 @@ export function useTbAccount(connectionId: string | null, id: string | null) {
   });
 }
 
-export function useTbTransfers(connectionId: string | null, accountId: string | null) {
+export function useTbTransfers(connectionId: number | null, accountId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.TB_TRANSFERS(connectionId, accountId),
     queryFn: () => api.tbGetTransfers(connectionId!, accountId!),
@@ -27,7 +27,7 @@ export function useTbTransfers(connectionId: string | null, accountId: string | 
   });
 }
 
-export function useTbBalances(connectionId: string | null, accountId: string | null) {
+export function useTbBalances(connectionId: number | null, accountId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.TB_BALANCES(connectionId, accountId),
     queryFn: () => api.tbGetBalances(connectionId!, accountId!),
@@ -35,7 +35,7 @@ export function useTbBalances(connectionId: string | null, accountId: string | n
   });
 }
 
-export function useTbCreateAccounts(connectionId: string) {
+export function useTbCreateAccounts(connectionId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (accounts: CreateTigerBeetleAccountInput[]) => api.tbCreateAccounts(connectionId, accounts),
@@ -45,7 +45,7 @@ export function useTbCreateAccounts(connectionId: string) {
   });
 }
 
-export function useTbCreateTransfers(connectionId: string) {
+export function useTbCreateTransfers(connectionId: number) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (transfers: CreateTigerBeetleTransferInput[]) => api.tbCreateTransfers(connectionId, transfers),

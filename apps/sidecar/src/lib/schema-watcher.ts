@@ -11,18 +11,18 @@ import {
 } from './constants.js';
 
 /** Function that captures a snapshot for a connection. Injected by sql-schema.ts on init to avoid circular imports. */
-type CaptureFn = (connectionId: string, source: SchemaSnapshotSource) => Promise<void>;
+type CaptureFn = (connectionId: number, source: SchemaSnapshotSource) => Promise<void>;
 
 type NotifyListenerEntry = { client: pg.Client; stopped: boolean };
 
 class SchemaWatcherManager {
-  private cadenceTimers = new Map<string, NodeJS.Timeout>();
-  private lastCaptureAt = new Map<string, string>();
+  private cadenceTimers = new Map<number, NodeJS.Timeout>();
+  private lastCaptureAt = new Map<number, string>();
   private captureFn: CaptureFn | null = null;
-  private notifyListeners = new Map<string, NotifyListenerEntry>();
-  private reconnectTimers = new Map<string, NodeJS.Timeout>();
-  private reconnectAttempts = new Map<string, number>();
-  private cadenceInFlight = new Map<string, boolean>();
+  private notifyListeners = new Map<number, NotifyListenerEntry>();
+  private reconnectTimers = new Map<number, NodeJS.Timeout>();
+  private reconnectAttempts = new Map<number, number>();
+  private cadenceInFlight = new Map<number, boolean>();
 
   /** Inject the capture function (called once on sidecar startup from sql-schema.ts). */
   setCaptureFn(fn: CaptureFn): void {
@@ -30,7 +30,7 @@ class SchemaWatcherManager {
   }
 
   /** Start cadence-based auto-snapshots for a connection. Persists config and starts the interval timer. */
-  startCadence(connectionId: string, intervalMs: number): void {
+  startCadence(connectionId: number, intervalMs: number): void {
     this.stopCadence(connectionId);
 
     const existing = metadataStore.getSchemaWatcher(connectionId);
@@ -61,7 +61,7 @@ class SchemaWatcherManager {
   }
 
   /** Stop cadence-based auto-snapshots for a connection. Updates persisted config and clears the timer. */
-  stopCadence(connectionId: string): void {
+  stopCadence(connectionId: number): void {
     const timer = this.cadenceTimers.get(connectionId);
     if (timer) {
       clearInterval(timer);
@@ -85,7 +85,7 @@ class SchemaWatcherManager {
    * Uses a dedicated pg.Client (not the adapter pool) so the listener
    * persists independently of query traffic. Reconnects with linear backoff
    * on disconnect. */
-  async startNotify(connectionId: string): Promise<void> {
+  async startNotify(connectionId: number): Promise<void> {
     this.stopNotify(connectionId);
 
     // Verify this is a PostgreSQL connection — pg_notify is PG-only.
@@ -110,7 +110,7 @@ class SchemaWatcherManager {
   }
 
   /** Connect a single pg.Client listener for the connection. */
-  private async connectNotifyListener(connectionId: string, profile: ConnectionProfile): Promise<void> {
+  private async connectNotifyListener(connectionId: number, profile: ConnectionProfile): Promise<void> {
     const password = metadataStore.getProfilePassword(connectionId);
     const client = new pg.Client({
       host: profile.host || 'localhost',
@@ -162,7 +162,7 @@ class SchemaWatcherManager {
   }
 
   /** Schedule a reconnection attempt with linear backoff. */
-  private scheduleReconnect(connectionId: string): void {
+  private scheduleReconnect(connectionId: number): void {
     const existingTimer = this.reconnectTimers.get(connectionId);
     if (existingTimer) clearTimeout(existingTimer);
 
@@ -184,7 +184,7 @@ class SchemaWatcherManager {
   }
 
   /** Attempt to reconnect the pg_notify listener. */
-  private async reconnectNotify(connectionId: string): Promise<void> {
+  private async reconnectNotify(connectionId: number): Promise<void> {
     const profile = metadataStore.getProfile(connectionId);
     if (!profile) {
       log.warn({ connectionId }, 'Connection profile gone — stopping notify listener');
@@ -209,7 +209,7 @@ class SchemaWatcherManager {
   }
 
   /** Stop the pg_notify listener for a connection. */
-  stopNotify(connectionId: string): void {
+  stopNotify(connectionId: number): void {
     const timer = this.reconnectTimers.get(connectionId);
     if (timer) {
       clearTimeout(timer);
@@ -237,7 +237,7 @@ class SchemaWatcherManager {
   }
 
   /** Get the runtime status for a connection. */
-  getStatus(connectionId: string): SchemaWatcherStatus {
+  getStatus(connectionId: number): SchemaWatcherStatus {
     const config = metadataStore.getSchemaWatcher(connectionId);
     return {
       cadenceRunning: this.cadenceTimers.has(connectionId),
@@ -287,7 +287,7 @@ class SchemaWatcherManager {
   }
 
   /** Run a single snapshot capture and record the timestamp. */
-  private async runCapture(connectionId: string, source: SchemaSnapshotSource): Promise<void> {
+  private async runCapture(connectionId: number, source: SchemaSnapshotSource): Promise<void> {
     if (!this.captureFn) {
       log.warn({ connectionId }, 'Schema watcher capture function not set — skipping capture');
       return;

@@ -117,11 +117,22 @@ export function createMysqlAdapter(connection: {
         `SELECT
           c.COLUMN_NAME AS name,
           c.COLUMN_TYPE AS type,
+          c.DATA_TYPE AS data_type,
           c.IS_NULLABLE AS nullable,
           c.COLUMN_DEFAULT AS \`default\`,
           IF(c.COLUMN_KEY = 'PRI', TRUE, FALSE) AS primary_key,
           ku.REFERENCED_TABLE_NAME AS ref_table,
-          ku.REFERENCED_COLUMN_NAME AS ref_column
+          ku.REFERENCED_COLUMN_NAME AS ref_column,
+          EXISTS (
+            SELECT 1 FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+            JOIN INFORMATION_SCHEMA.CHECK_CONSTRAINTS cc
+              ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+            WHERE tc.CONSTRAINT_SCHEMA = c.TABLE_SCHEMA
+              AND tc.TABLE_NAME = c.TABLE_NAME
+              AND tc.CONSTRAINT_TYPE = 'CHECK'
+              AND cc.CHECK_CLAUSE LIKE '%JSON_VALID(%'
+              AND cc.CHECK_CLAUSE REGEXP CONCAT('[[:<:]]', c.COLUMN_NAME, '[[:>:]]')
+          ) AS is_json
         FROM INFORMATION_SCHEMA.COLUMNS c
         LEFT JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku
           ON c.TABLE_SCHEMA = ku.TABLE_SCHEMA AND c.TABLE_NAME = ku.TABLE_NAME AND c.COLUMN_NAME = ku.COLUMN_NAME
@@ -137,6 +148,7 @@ export function createMysqlAdapter(connection: {
         default: r.default === null ? null : String(r.default),
         primaryKey: !!r.primary_key,
         foreignKey: r.ref_table ? { table: r.ref_table as string, column: r.ref_column as string } : undefined,
+        isJson: r.data_type === 'json' || !!r.is_json,
       }));
     },
 

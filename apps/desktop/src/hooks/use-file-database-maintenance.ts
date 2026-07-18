@@ -5,21 +5,25 @@ import { backupFileDatabase, restoreFileDatabase } from '@/lib/file-database-mai
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { appendFrontendLog } from '@/lib/app-logs';
 
+function queryKeyIncludesConnectionId(queryKey: readonly unknown[], connectionId: number): boolean {
+  return queryKey.some((part) => typeof part === 'number' && part === connectionId);
+}
+
 // Restore rewrites the database file outside React Query's awareness, so the
 // cache must be invalidated by connection id rather than by a single query key.
 function invalidateConnectionQueries(
   queryClient: ReturnType<typeof useQueryClient>,
-  connectionId: string,
+  connectionId: number,
 ): Promise<void> {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
     queryClient.invalidateQueries({
-      predicate: (query) => query.queryKey.some((part) => typeof part === 'string' && part === connectionId),
+      predicate: (query) => queryKeyIncludesConnectionId(query.queryKey, connectionId),
     }),
   ]).then(() => undefined);
 }
 
-export function useFileDatabaseBackup(connectionId: string) {
+export function useFileDatabaseBackup(connectionId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -41,7 +45,7 @@ export function useFileDatabaseBackup(connectionId: string) {
   });
 }
 
-export function useFileDatabaseRestore(connectionId: string) {
+export function useFileDatabaseRestore(connectionId: number) {
   const queryClient = useQueryClient();
 
   return useMutation({

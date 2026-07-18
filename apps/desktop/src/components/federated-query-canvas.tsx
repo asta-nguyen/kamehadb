@@ -19,7 +19,7 @@ const Editor = lazy(() => import('@monaco-editor/react'));
 
 export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceTab, { type: 'federated-query' }> }) {
   const [sql, setSql] = useState(tab.sql ?? 'SELECT * FROM ');
-  const [selectedIds, setSelectedIds] = useState<readonly string[]>(tab.connectionIds);
+  const [selectedIds, setSelectedIds] = useState<readonly number[]>(tab.connectionIds);
   const [mergedResult, setMergedResult] = useState<QueryResult | null>(null);
   const [perConnectionErrors, setPerConnectionErrors] = useState<readonly PerConnectionResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -31,7 +31,7 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
   const sqlConnections = useMemo(() => (connections ?? []).filter((c) => isSqlKind(c.kind)), [connections]);
 
   const toggleConnection = useCallback(
-    (id: string) => {
+    (id: number) => {
       setSelectedIds((prev) => {
         const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
         updateTabFederatedConnections(tab.id, next);
@@ -74,11 +74,11 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
         const conn = connMap.get(id);
         try {
           const result = await api.request<QueryResult>('POST', `/sql/${id}/query`, { query: sql });
-          return { connectionId: id, connectionName: conn?.name ?? id, result, error: null };
+          return { connectionId: id, connectionName: conn?.name ?? String(id), result, error: null };
         } catch (err) {
           return {
             connectionId: id,
-            connectionName: conn?.name ?? id,
+            connectionName: conn?.name ?? String(id),
             result: null,
             error: err instanceof Error ? err.message : String(err),
           };

@@ -137,7 +137,7 @@ function SourceBadge({ source }: { source?: SchemaSnapshotSource }) {
   );
 }
 
-export function SchemaTimeline({ connectionId }: { connectionId: string }) {
+export function SchemaTimeline({ connectionId }: { connectionId: number }) {
   const { data, isLoading, error } = useSchemaChangelog(connectionId);
   const { data: connections } = useConnections();
   const { mutateAsync: capture, isPending: capturing } = useCaptureSchemaSnapshot();
@@ -168,7 +168,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_WATCHER(connectionId) });
     } catch (err) {
       const message = safeErrorMessage(err, 'Watcher toggle failed');
-      toast.error(message);
+      toastError(message);
     }
   };
 
@@ -182,7 +182,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
       await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_WATCHER(connectionId) });
     } catch (err) {
       const message = safeErrorMessage(err, 'Notify watcher toggle failed');
-      toast.error(message);
+      toastError(message);
     }
   };
 

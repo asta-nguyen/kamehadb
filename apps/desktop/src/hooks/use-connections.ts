@@ -26,7 +26,7 @@ export function useCreateConnection() {
 export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateConnectionProfileInput }) => api.updateConnection(id, input),
+    mutationFn: ({ id, input }: { id: number; input: UpdateConnectionProfileInput }) => api.updateConnection(id, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
   });
 }
@@ -34,7 +34,7 @@ export function useUpdateConnection() {
 export function useDeleteConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.deleteConnection(id),
+    mutationFn: (id: number) => api.deleteConnection(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS }),
   });
 }
@@ -53,7 +53,7 @@ export function useTestConnection() {
 export function useRefreshConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: number) => {
       const result = await api.checkConnectionHealth(id);
       return { id, result };
     },
@@ -110,7 +110,7 @@ export function useRefreshConnection() {
       ]);
       void Promise.all(
         keysToInvalidate
-          .filter(([prefix]) => refetchable.has(prefix))
+          .filter(([prefix]) => typeof prefix === 'string' && refetchable.has(prefix))
           .map((queryKey) => qc.refetchQueries({ queryKey, type: 'active' })),
       );
       const message = result.success ? 'Reloaded' : result.message || 'Connection failed';

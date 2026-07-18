@@ -122,14 +122,18 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
         fkMap.set(fk.from, { table: fk.table, column: fk.to });
       }
 
-      return result.map((r) => ({
-        name: r.name,
-        type: r.type || 'text',
-        nullable: !r.notnull,
-        default: r.dflt_value,
-        primaryKey: r.pk > 0,
-        foreignKey: fkMap.get(r.name),
-      }));
+      return result.map((r) => {
+        const type = r.type || 'text';
+        return {
+          name: r.name,
+          type,
+          nullable: !r.notnull,
+          default: r.dflt_value,
+          primaryKey: r.pk > 0,
+          foreignKey: fkMap.get(r.name),
+          isJson: type.toLowerCase() === 'json',
+        };
+      });
     },
 
     async getCompletions(schema?: string): Promise<TableCompletions[]> {

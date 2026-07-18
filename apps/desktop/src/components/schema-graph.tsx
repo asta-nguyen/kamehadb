@@ -37,7 +37,7 @@ type CompletionsData = {
   }>;
 };
 
-function useCompletionsSchema(connectionId: string | null) {
+function useCompletionsSchema(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
     queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
@@ -190,7 +190,7 @@ function buildGraph(data: CompletionsData) {
 }
 
 type SchemaGraphProps = {
-  connectionId: string;
+  connectionId: number;
 };
 
 function SchemaGraphInner({ connectionId }: SchemaGraphProps) {

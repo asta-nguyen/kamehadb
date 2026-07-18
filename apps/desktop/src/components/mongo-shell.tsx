@@ -10,7 +10,7 @@ import '@xterm/xterm/css/xterm.css';
 
 interface MongoShellProps {
   tab: Extract<WorkspaceTab, { type: 'mongo-shell' }>;
-  connectionId: string;
+  connectionId: number;
 }
 
 export function MongoShell({ tab, connectionId }: MongoShellProps) {

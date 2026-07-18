@@ -121,7 +121,7 @@ function buildFilter(filters: FilterEntry[]): string | undefined {
 
 interface VectorQueryProps {
   readonly tab: Extract<WorkspaceTab, { type: 'postgres-vector-search' | 'sqlite-vec-search' }>;
-  readonly connectionId: string;
+  readonly connectionId: number;
 }
 
 export function VectorQuery({ tab, connectionId }: VectorQueryProps) {

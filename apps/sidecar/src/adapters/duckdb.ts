@@ -72,6 +72,36 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
     }
     if (Array.isArray(val)) return val.map(convertBigInt);
     if (val && typeof val === 'object') {
+      // DuckDB node-api returns temporal types as value objects:
+      //   DATE → { days: <days since epoch> }          (number)
+      //   TIMESTAMP / TIMESTAMPTZ → { micros: <µs> }   (bigint)
+      //   TIMESTAMP_S → { seconds: <s> }               (bigint)
+      //   TIMESTAMP_MS → { millis: <ms> }              (bigint)
+      //   TIMESTAMP_NS → { nanos: <ns> }               (bigint)
+      // Each value object exposes an `isFinite` getter and a `toString()` that
+      // preserves the stored precision (micro/nanoseconds) and renders
+      // `infinity`/`-infinity` for out-of-range values. Going through the JS
+      // `Date` truncates to milliseconds and throws `RangeError` for infinity,
+      // so we delegate to the value's string representation.
+      const tv = val as Record<string, unknown>;
+      const hasTemporalUnit = 'micros' in tv || 'seconds' in tv || 'millis' in tv || 'nanos' in tv || 'days' in tv;
+      if (hasTemporalUnit && typeof tv.isFinite === 'boolean' && typeof val.toString === 'function') {
+        if (!tv.isFinite) {
+          const unitVal = tv.micros ?? tv.seconds ?? tv.millis ?? tv.nanos ?? tv.days;
+          const sign = typeof unitVal === 'bigint' ? unitVal > 0n : (unitVal as number) > 0;
+          return sign ? 'infinity' : '-infinity';
+        }
+        return val.toString();
+      }
+      if ('micros' in val) {
+        const micros = (val as Record<string, unknown>).micros;
+        if (typeof micros === 'bigint' || typeof micros === 'number') {
+          return new Date(Number(micros) / 1000).toISOString();
+        }
+      }
+      if ('days' in val && typeof (val as Record<string, unknown>).days === 'number') {
+        return new Date((val as Record<string, number>).days * 86_400_000).toISOString().split('T')[0];
+      }
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(val)) out[k] = convertBigInt(v);
       return out;
@@ -141,13 +171,17 @@ export function createDuckDbAdapter(filePath: string): SqlAdapter {
          WHERE table_schema = ${escapeDuckDbVal(schema)} AND table_name = ${escapeDuckDbVal(table)}
          ORDER BY ordinal_position`,
       );
-      return rows.map((r) => ({
-        name: r.name as string,
-        type: r.type as string,
-        nullable: r.nullable === 'YES',
-        default: r['default'] === null ? null : String(r['default']),
-        primaryKey: r.primary_key === true,
-      }));
+      return rows.map((r) => {
+        const type = r.type as string;
+        return {
+          name: r.name as string,
+          type,
+          nullable: r.nullable === 'YES',
+          default: r['default'] === null ? null : String(r['default']),
+          primaryKey: r.primary_key === true,
+          isJson: type.toLowerCase() === 'json',
+        };
+      });
     },
 
     async getTableIndexes(tableId: string): Promise<IndexInfo[]> {

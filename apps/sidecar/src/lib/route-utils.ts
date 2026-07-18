@@ -54,7 +54,7 @@ export function quoteSqlIdentifier(identifier: string): string {
  * codes instead of generic 500s.
  */
 export async function getNonSqlAdapter<T>(
-  connectionId: string,
+  connectionId: number,
   expectedKind: ConnectionProfile['kind'],
   factory: (profile: ConnectionProfile) => Promise<T> | T,
 ): Promise<T> {
@@ -75,8 +75,8 @@ export async function getNonSqlAdapter<T>(
  * the repeated getAdapter + try/finally + adapter.close() boilerplate.
  */
 export async function withAdapter<TAdapter extends { close(): Promise<unknown> }, T>(
-  loadAdapter: (connectionId: string) => Promise<TAdapter>,
-  connectionId: string,
+  loadAdapter: (connectionId: number) => Promise<TAdapter>,
+  connectionId: number,
   fn: (adapter: TAdapter) => Promise<T>,
 ): Promise<T> {
   const adapter = await loadAdapter(connectionId);

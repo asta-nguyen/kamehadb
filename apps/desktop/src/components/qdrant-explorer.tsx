@@ -7,7 +7,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Input } from '@/components/ui/input';
 
 interface QdrantExplorerProps {
-  connectionId: string;
+  connectionId: number;
 }
 
 export function QdrantExplorer({ connectionId }: QdrantExplorerProps) {

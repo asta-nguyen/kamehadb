@@ -12,14 +12,14 @@ export type PostgresBackupScope =
   | { readonly kind: 'table'; readonly schema: string; readonly table: string };
 
 export type PostgresBackupRequest = {
-  readonly connectionId: string;
+  readonly connectionId: number;
   readonly outputPath: string;
   readonly format: PostgresBackupFormat;
   readonly scope: PostgresBackupScope;
 };
 
 export type PostgresRestoreRequest = {
-  readonly connectionId: string;
+  readonly connectionId: number;
   readonly inputPath: string;
   readonly targetDatabase: string;
   readonly clean: boolean;

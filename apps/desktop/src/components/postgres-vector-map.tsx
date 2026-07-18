@@ -6,7 +6,7 @@ import { VectorMap3D } from '@/components/vector-map-3d';
 
 type PostgresVectorMapProps = {
   readonly tab: Extract<WorkspaceTab, { type: 'postgres-vector-map' }>;
-  readonly connectionId: string;
+  readonly connectionId: number;
 };
 
 export function PostgresVectorMap({ tab, connectionId }: PostgresVectorMapProps) {

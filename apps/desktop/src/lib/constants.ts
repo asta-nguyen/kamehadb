@@ -114,28 +114,38 @@ export const PRESET_COLORS = [
   { hex: '#84cc16', name: 'Lime' },
 ];
 
-export const GREETINGS = [
-  'Ready to review your data?',
-  "Let's see what's new in the database.",
-  'Start with fresh insights.',
-  "Data looks good—what's first?",
-  'Any updates to review today?',
-  "Let's dive into the tables.",
-  'Review your latest entries.',
-  "Here's the overview.",
-  'Data updates are waiting—ready to explore?',
-  'Any new records to inspect?',
-  "Let's finish today's data review.",
-  'All tables up to date.',
-  "Time to wrap up today's database tasks.",
-  'See what changed today.',
-  'Check the last updates before closing.',
-  'Quiet time—check your data.',
-  'Inspect your tables calmly.',
-  'Last changes of the day.',
-  'Take a look before logging off.',
-  "See today's records at a glance.",
-] as const;
+/** Time-bucketed greeting prompts. `getGreeting()` in workspace-screen.tsx
+ * picks one at random per session based on the current hour. */
+export const GREETINGS = {
+  morning: [
+    'Good morning! Ready to review your data?',
+    "Morning! Let's see what's new in the database.",
+    'Start the day with fresh insights.',
+    "Data looks good this morning—what's first?",
+    'Morning check: any updates to review today?',
+  ],
+  afternoon: [
+    "Good afternoon! Let's dive into the tables.",
+    'Afternoon snapshot: review your latest entries.',
+    "Keep track of your data—here's the overview.",
+    'Data updates are waiting—ready to explore?',
+    'Afternoon check-in: any new records to inspect?',
+  ],
+  evening: [
+    "Good evening! Let's finish today's data review.",
+    'Evening overview: all tables up to date.',
+    "Time to wrap up today's database tasks.",
+    'Evening summary: see what changed today.',
+    'Calm evening—check the last updates before closing.',
+  ],
+  night: [
+    'Night mode: quiet time, check your data.',
+    'Late hours? Inspect your tables calmly.',
+    'Nightly review: last changes of the day.',
+    'Data is steady—take a look before logging off.',
+    "Midnight check: see today's records at a glance.",
+  ],
+} as const;
 
 export const PROMPTS = [
   'Select a table to start reviewing.',
@@ -204,7 +214,7 @@ export const SHORTCUT_GROUPS: { heading: string; entries: ShortcutEntry[] }[] = 
 export type TabAction = {
   label: string;
   icon: LucideIcon;
-  open: (id: string) => void;
+  open: (id: number) => void;
 };
 
 export const SQL_TAB_ACTIONS: TabAction[] = [

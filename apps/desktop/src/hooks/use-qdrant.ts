@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import type { QdrantSearchInput, RecommendInput } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-export function useQdrantCollections(connectionId: string | null) {
+export function useQdrantCollections(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.QDRANT_COLLECTIONS(connectionId),
     queryFn: () => api.listQdrantCollections(connectionId!),
@@ -14,7 +14,7 @@ export function useQdrantCollections(connectionId: string | null) {
 }
 
 export function useQdrantPoints(
-  connectionId: string | null,
+  connectionId: number | null,
   collection: string | null,
   offset?: string | number | null,
   filter?: Record<string, unknown>,
@@ -35,7 +35,7 @@ export function useQdrantPoints(
   });
 }
 
-export function useQdrantSearch(connectionId: string | null) {
+export function useQdrantSearch(connectionId: number | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: QdrantSearchInput) => {
@@ -48,7 +48,7 @@ export function useQdrantSearch(connectionId: string | null) {
   });
 }
 
-export function useQdrantRecommend(connectionId: string | null) {
+export function useQdrantRecommend(connectionId: number | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: RecommendInput) => {
@@ -61,7 +61,7 @@ export function useQdrantRecommend(connectionId: string | null) {
   });
 }
 
-export function useQdrantStats(connectionId: string | null, collection: string | null) {
+export function useQdrantStats(connectionId: number | null, collection: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.QDRANT_STATS(connectionId!, collection!),
     queryFn: () => api.getQdrantStats(connectionId!, collection!),

@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import type { SqliteVecSearchInput } from '@kamehadb/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-export function useSqliteVecCapabilities(connectionId: string | null) {
+export function useSqliteVecCapabilities(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.SQLITE_VEC_CAPABILITIES(connectionId),
     queryFn: () => api.getSqliteVecCapabilities(connectionId!),
@@ -13,7 +13,7 @@ export function useSqliteVecCapabilities(connectionId: string | null) {
   });
 }
 
-export function useSqliteVecSearch(connectionId: string | null) {
+export function useSqliteVecSearch(connectionId: number | null) {
   return useMutation({
     mutationFn: (input: SqliteVecSearchInput) => {
       if (!connectionId) return Promise.reject(new Error('No connectionId'));
@@ -22,7 +22,7 @@ export function useSqliteVecSearch(connectionId: string | null) {
   });
 }
 
-export function useSqliteVecSample(connectionId: string | null) {
+export function useSqliteVecSample(connectionId: number | null) {
   return useMutation({
     mutationFn: (input: { table: string; column: string }) => {
       if (!connectionId) return Promise.reject(new Error('No connectionId'));
@@ -32,7 +32,7 @@ export function useSqliteVecSample(connectionId: string | null) {
 }
 
 export function useSqliteVecVectorsSample(
-  connectionId: string | null,
+  connectionId: number | null,
   input: { table: string; column: string; limit: number } | null,
 ) {
   return useQuery({

@@ -9,6 +9,29 @@ import { isTauriRuntime } from '@/lib/tauri';
 
 export { FileDatabaseMaintenanceError } from '@kamehadb/shared';
 
+type FilePathParts = {
+  readonly directory: string;
+  readonly baseName: string;
+  readonly extension: string;
+};
+
+export function splitFilePath(filePath: string): FilePathParts {
+  const lastSeparatorIndex = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'));
+  const directory = lastSeparatorIndex >= 0 ? filePath.slice(0, lastSeparatorIndex + 1) : '';
+  const fileName = lastSeparatorIndex >= 0 ? filePath.slice(lastSeparatorIndex + 1) : filePath;
+  const lastDotIndex = fileName.lastIndexOf('.');
+
+  if (lastDotIndex <= 0) {
+    return { directory, baseName: fileName, extension: '' };
+  }
+
+  return {
+    directory,
+    baseName: fileName.slice(0, lastDotIndex),
+    extension: fileName.slice(lastDotIndex),
+  };
+}
+
 // Gate the UI to the engines whose on-disk files can be backed up and restored
 // directly, because server-backed engines need engine-specific tooling instead.
 export function supportsFileDatabaseMaintenance(connection: ConnectionProfile): boolean {
@@ -70,7 +93,7 @@ export async function pickFileDatabaseRestoreInput(connection: ConnectionProfile
 }
 
 export async function backupFileDatabase(
-  connectionId: string,
+  connectionId: number,
   request: FileDatabaseBackupRequest,
 ): Promise<FileDatabaseMaintenanceResult> {
   const { api } = await import('@/lib/api');
@@ -78,7 +101,7 @@ export async function backupFileDatabase(
 }
 
 export async function restoreFileDatabase(
-  connectionId: string,
+  connectionId: number,
   request: FileDatabaseRestoreRequest,
 ): Promise<FileDatabaseMaintenanceResult> {
   const { api } = await import('@/lib/api');

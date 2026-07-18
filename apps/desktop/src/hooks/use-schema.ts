@@ -3,7 +3,7 @@ import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
-export function useSchemas(connectionId: string | null) {
+export function useSchemas(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.SCHEMAS(connectionId),
     queryFn: () => api.request<import('@kamehadb/shared').SchemaInfo[]>('GET', `/sql/${connectionId}/schemas`),
@@ -12,7 +12,7 @@ export function useSchemas(connectionId: string | null) {
   });
 }
 
-export function useTables(connectionId: string | null, schema?: string) {
+export function useTables(connectionId: number | null, schema?: string) {
   return useQuery({
     queryKey: QUERY_KEYS.TABLES(connectionId, schema),
     queryFn: () => {
@@ -24,7 +24,7 @@ export function useTables(connectionId: string | null, schema?: string) {
   });
 }
 
-export function useTableColumns(connectionId: string | null, tableId: string | null) {
+export function useTableColumns(connectionId: number | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.COLUMNS(connectionId, tableId),
     queryFn: () =>
@@ -34,7 +34,7 @@ export function useTableColumns(connectionId: string | null, tableId: string | n
   });
 }
 
-export function useTableIndexes(connectionId: string | null, tableId: string | null) {
+export function useTableIndexes(connectionId: number | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.INDEXES(connectionId, tableId),
     queryFn: () =>
@@ -44,7 +44,7 @@ export function useTableIndexes(connectionId: string | null, tableId: string | n
   });
 }
 
-export function usePreviewRows(connectionId: string | null, input: import('@kamehadb/shared').PreviewRowsInput | null) {
+export function usePreviewRows(connectionId: number | null, input: import('@kamehadb/shared').PreviewRowsInput | null) {
   return useQuery({
     queryKey: QUERY_KEYS.PREVIEW(connectionId, input),
     queryFn: () => api.request<import('@kamehadb/shared').QueryResult>('POST', `/sql/${connectionId}/rows`, input!),
@@ -54,7 +54,7 @@ export function usePreviewRows(connectionId: string | null, input: import('@kame
   });
 }
 
-export function useTableStats(connectionId: string | null, tableId: string | null) {
+export function useTableStats(connectionId: number | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.TABLE_STATS(connectionId, tableId),
     queryFn: () =>
@@ -64,7 +64,7 @@ export function useTableStats(connectionId: string | null, tableId: string | nul
   });
 }
 
-export function useIndexStats(connectionId: string | null, tableId: string | null) {
+export function useIndexStats(connectionId: number | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.INDEX_STATS(connectionId, tableId),
     queryFn: () =>
@@ -77,7 +77,7 @@ export function useIndexStats(connectionId: string | null, tableId: string | nul
   });
 }
 
-export function useDatabaseSizes(connectionId: string | null, schema?: string) {
+export function useDatabaseSizes(connectionId: number | null, schema?: string) {
   return useQuery({
     queryKey: QUERY_KEYS.DATABASES(connectionId, schema),
     queryFn: () => {

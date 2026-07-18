@@ -299,7 +299,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import { ChartView } from '@/components/chart-view';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-function useCompletionsSchema(connectionId: string | null) {
+function useCompletionsSchema(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
     queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
@@ -310,7 +310,7 @@ function useCompletionsSchema(connectionId: string | null) {
 
 type SqlEditorProps = {
   tab: WorkspaceTab;
-  connectionId: string;
+  connectionId: number;
 };
 
 function QueryResultTable({
@@ -325,7 +325,7 @@ function QueryResultTable({
   onNextPage,
   onLimitChange,
 }: {
-  connectionId: string;
+  connectionId: number;
   executedSql: string;
   result: QueryResult;
   onSelectRow: (row: Record<string, unknown>) => void;
@@ -423,26 +423,42 @@ function QueryResultTable({
       const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.column === col.name;
       const isDate = dateColumns.has(col.name);
       if (isEditing) {
-        const inputType =
-          isDate && typeof value === 'string'
-            ? col.type.toLowerCase() === 'date'
-              ? 'date'
-              : 'datetime-local'
-            : 'text';
         const formatDefault = (inputValue: unknown): string => {
           if (inputValue === null || inputValue === undefined) return '';
           const stringValue = String(inputValue);
           if (isDate && stringValue.includes('T')) {
-            if (inputType === 'date') return stringValue.slice(0, 10);
+            if (col.type.toLowerCase() === 'date') return stringValue.slice(0, 10);
             return stringValue.slice(0, 16);
           }
           return stringValue;
         };
 
+        if (isDate) {
+          const inputType = col.type.toLowerCase() === 'date' ? 'date' : 'datetime-local';
+          return (
+            <Input
+              ref={editInputRef}
+              type={inputType}
+              defaultValue={formatDefault(value)}
+              autoFocus
+              className="h-7 min-w-0 text-xs"
+              onClick={(event) => event.stopPropagation()}
+              onBlur={(event) => setTimeout(() => saveCellEdit(rowIndex, col.name, event.target.value, col.type), 150)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.currentTarget.blur();
+                } else if (event.key === 'Escape') {
+                  setEditingCell(null);
+                }
+              }}
+            />
+          );
+        }
+
         return (
           <Input
             ref={editInputRef}
-            type={inputType}
+            type="text"
             defaultValue={formatDefault(value)}
             autoFocus
             className="h-7 min-w-0 text-xs"

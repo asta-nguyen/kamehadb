@@ -6,7 +6,7 @@ import { BarChart3, Database, HardDrive, RefreshCw, Trash2, Activity, AlertTrian
 import { useTableStats, useIndexStats } from '@/hooks/use-schema';
 
 type TableStatsProps = {
-  connectionId: string;
+  connectionId: number;
   tableId: string;
 };
 

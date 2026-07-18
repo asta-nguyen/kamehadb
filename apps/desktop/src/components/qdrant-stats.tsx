@@ -2,7 +2,7 @@ import { useQdrantStats } from '@/hooks/use-qdrant';
 import { Spinner } from '@/components/ui/spinner';
 
 interface QdrantStatsPanelProps {
-  connectionId: string;
+  connectionId: number;
   collection: string;
 }
 

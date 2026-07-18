@@ -1,7 +1,7 @@
 import { RedisExplorer } from './redis-explorer';
 
 interface RedisViewProps {
-  connectionId: string;
+  connectionId: number;
 }
 
 export function RedisView({ connectionId }: RedisViewProps) {

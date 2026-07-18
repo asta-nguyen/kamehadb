@@ -155,13 +155,29 @@ export function createOracleAdapter(connection: {
 
         const pkColumns = new Set((pkResult.rows as Record<string, string>[]).map((r) => r.COLUMN_NAME));
 
-        return (colResult.rows as Record<string, unknown>[]).map((r) => ({
-          name: r.NAME as string,
-          type: r.TYPE as string,
-          nullable: r.NULLABLE === 'Y',
-          default: r.DEFAULT_VAL === null || r.DEFAULT_VAL === undefined ? null : String(r.DEFAULT_VAL),
-          primaryKey: pkColumns.has(r.NAME as string),
-        }));
+        const jsonResult = await conn.execute(
+          `SELECT cc.column_name
+           FROM all_cons_columns cc
+           JOIN all_constraints c ON cc.constraint_name = c.constraint_name AND cc.owner = c.owner
+           WHERE cc.owner = :owner AND cc.table_name = :tbl
+             AND c.constraint_type = 'C'
+             AND UPPER(c.search_condition_vc) LIKE '%IS JSON%'`,
+          { owner, tbl: table },
+        );
+
+        const jsonColumns = new Set((jsonResult.rows as Record<string, string>[]).map((r) => r.COLUMN_NAME));
+
+        return (colResult.rows as Record<string, unknown>[]).map((r) => {
+          const type = r.TYPE as string;
+          return {
+            name: r.NAME as string,
+            type,
+            nullable: r.NULLABLE === 'Y',
+            default: r.DEFAULT_VAL === null || r.DEFAULT_VAL === undefined ? null : String(r.DEFAULT_VAL),
+            primaryKey: pkColumns.has(r.NAME as string),
+            isJson: type.toLowerCase() === 'json' || jsonColumns.has(r.NAME as string),
+          };
+        });
       } finally {
         await conn.close();
       }

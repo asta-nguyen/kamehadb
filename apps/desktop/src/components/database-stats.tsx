@@ -32,7 +32,7 @@ import { DataTable, type ColumnDef } from '@/components/data-table';
 import type { ConnectionInfo } from '@kamehadb/shared';
 
 type DatabaseStatsProps = {
-  connectionId: string;
+  connectionId: number;
 };
 
 function getStateColor(state: string) {

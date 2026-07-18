@@ -1,4 +1,5 @@
 import type { AIChatMessage, AIProvider, AIProviderConfig } from '@kamehadb/shared';
+import { localEmbedding } from '@kamehadb/shared';
 import { log } from '../lib/logger.js';
 
 export type ChatResult = {
@@ -6,11 +7,6 @@ export type ChatResult = {
   inputTokens: number;
   outputTokens: number;
 };
-
-export interface LLMProvider {
-  chat(messages: AIChatMessage[], signal?: AbortSignal): Promise<ChatResult>;
-  chatStream(messages: AIChatMessage[], signal?: AbortSignal): AsyncGenerator<string, void, void>;
-}
 
 type ResolvedConfig = {
   apiKey: string;
@@ -69,7 +65,7 @@ export function validateProviderConfig(provider: AIProvider, config: AIProviderC
   }
 }
 
-class OpenAICompatibleProvider implements LLMProvider {
+class OpenAICompatibleProvider {
   private baseUrl: string;
   private apiKey: string;
   private model: string;
@@ -183,34 +179,9 @@ class OpenAICompatibleProvider implements LLMProvider {
   }
 }
 
-export function createProvider(provider: AIProvider, config: AIProviderConfig): LLMProvider {
+export function createProvider(provider: AIProvider, config: AIProviderConfig): OpenAICompatibleProvider {
   const resolved = resolveProviderConfig(provider, config);
   return new OpenAICompatibleProvider(resolved);
-}
-
-function localEmbedding(text: string, dimensions: number = 256): number[] {
-  const tokens = text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-  const vec = new Array(dimensions).fill(0);
-
-  for (const token of tokens) {
-    let hash = 0;
-    for (let i = 0; i < token.length; i++) {
-      hash = (hash << 5) - hash + token.charCodeAt(i);
-      hash |= 0;
-    }
-    const idx = Math.abs(hash) % dimensions;
-    vec[idx] += 1;
-  }
-
-  let mag = 0;
-  for (let i = 0; i < dimensions; i++) mag += vec[i] * vec[i];
-  mag = Math.sqrt(mag);
-  if (mag > 0) for (let i = 0; i < dimensions; i++) vec[i] /= mag;
-
-  return vec;
 }
 
 export async function createEmbedding(
@@ -218,6 +189,7 @@ export async function createEmbedding(
   provider: AIProvider,
   config: AIProviderConfig,
   embeddingModel?: string,
+  dimensions?: number,
 ): Promise<number[]> {
   const resolved = resolveProviderConfig(provider, config);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -237,15 +209,15 @@ export async function createEmbedding(
 
     if (!res.ok) {
       log.warn({ status: res.status }, 'Embedding API error, falling back to local embedding');
-      return localEmbedding(text);
+      return localEmbedding(text, dimensions);
     }
 
     const body = (await res.json()) as {
       data: { embedding: number[] }[];
     };
-    return body.data[0]?.embedding ?? localEmbedding(text);
+    return body.data[0]?.embedding ?? localEmbedding(text, dimensions);
   } catch (err) {
     log.warn({ err }, 'Embedding request failed, falling back to local embedding');
-    return localEmbedding(text);
+    return localEmbedding(text, dimensions);
   }
 }

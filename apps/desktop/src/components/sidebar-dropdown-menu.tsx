@@ -11,7 +11,7 @@ import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
 import type { ConnectionProfile } from '@kamehadb/shared';
 import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
 
-function activate(connId: string, action: (id: string) => void) {
+function activate(connId: number, action: (id: number) => void) {
   setActiveConnection(connId);
   action(connId);
 }
@@ -27,7 +27,7 @@ export function ConnectionDropdownMenu({
   onRestore,
 }: {
   conn: ConnectionProfile;
-  refreshConnection: { mutate: (id: string) => void; isPending: boolean };
+  refreshConnection: { mutate: (id: number) => void; isPending: boolean };
   pinned: boolean;
   onEdit: () => void;
   onDelete: () => void;

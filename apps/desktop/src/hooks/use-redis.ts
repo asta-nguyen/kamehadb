@@ -2,7 +2,7 @@ import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { useQuery } from '@tanstack/react-query';
 
-export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?: number) {
+export function useRedisKeys(connectionId: number | null, pattern = '*', cursor?: number) {
   return useQuery({
     queryKey: QUERY_KEYS.REDIS_KEYS(connectionId!, pattern, cursor),
     queryFn: () =>
@@ -18,7 +18,7 @@ export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?
   });
 }
 
-export function useRedisKeyDetails(connectionId: string | null, key: string | null) {
+export function useRedisKeyDetails(connectionId: number | null, key: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.REDIS_KEY(connectionId!, key!),
     queryFn: () =>
@@ -34,7 +34,7 @@ export function useRedisKeyDetails(connectionId: string | null, key: string | nu
   });
 }
 
-export function useRedisStats(connectionId: string | null, enabled = true) {
+export function useRedisStats(connectionId: number | null, enabled = true) {
   return useQuery({
     queryKey: QUERY_KEYS.REDIS_STATS(connectionId),
     queryFn: () => api.getRedisStats(connectionId!),

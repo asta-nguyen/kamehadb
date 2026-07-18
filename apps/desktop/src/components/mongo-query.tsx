@@ -26,7 +26,7 @@ const Editor = lazy(() => import('@monaco-editor/react').then((m) => ({ default:
 
 type MongoQueryProps = {
   tab: WorkspaceTab & { pipeline?: string };
-  connectionId: string;
+  connectionId: number;
 };
 
 type MongoQueryState = {

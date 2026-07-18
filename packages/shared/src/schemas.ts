@@ -140,7 +140,7 @@ export function resolveDialect(kind: DbKind): string {
 
 // Connection profile (without secret)
 export type ConnectionProfile = {
-  id: string;
+  id: number;
   name: string;
   kind: DbKind;
   host?: string;

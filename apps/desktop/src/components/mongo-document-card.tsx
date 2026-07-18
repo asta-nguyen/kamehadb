@@ -10,7 +10,7 @@ interface DocumentCardProps {
   onToggle: () => void;
   onDelete: () => void;
   onUpdate: () => void;
-  connectionId: string;
+  connectionId: number;
   collection: string;
   database: string;
   tabIndex?: number;
