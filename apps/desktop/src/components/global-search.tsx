@@ -21,7 +21,7 @@ import {
 import { getApiBase } from '@/lib/api-client';
 import { DbIcon } from '@/components/db-icon';
 import { useStore } from '@tanstack/react-store';
-import { BarChart3, Database, FileText, Keyboard, Share2, Sparkles, Table2, Terminal } from 'lucide-react';
+import { BarChart3, Database, FileText, GitCompare, Keyboard, Share2, Sparkles, Table2, Terminal } from 'lucide-react';
 import type { SchemaSearchMatch } from '@kamehadb/shared';
 
 import { isSqlKind } from '@/lib/constants';
@@ -191,7 +191,7 @@ export function GlobalSearch({
             value="federated query union sql connections"
             onSelect={() => select(() => openFederatedQueryTab())}
           >
-            <Share2 className="size-4" />
+            <GitCompare className="size-4" />
             <span>Federated Query</span>
             <CommandShortcut>Ctrl+Shift+F</CommandShortcut>
           </CommandItem>

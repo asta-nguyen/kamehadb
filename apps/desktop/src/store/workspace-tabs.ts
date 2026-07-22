@@ -367,6 +367,84 @@ export function closeAllTabs(): void {
   appStore.setState((state) => ({ ...state, openedTabs: [], activeTabId: null }));
 }
 
+/** Close every tab except the one with the given id and any pinned tabs. The
+ * surviving tab becomes active so the workspace doesn't jump to an empty state. */
+export function closeOtherTabs(keepTabId: string): void {
+  appStore.setState((state) => {
+    const tabs = state.openedTabs.filter((tab) => tab.id === keepTabId || tab.pinned);
+    if (tabs.length === state.openedTabs.length) return state;
+    const kept = tabs.find((tab) => tab.id === keepTabId);
+    return {
+      ...state,
+      openedTabs: tabs,
+      activeTabId: keepTabId,
+      activeConnectionId: kept && 'connectionId' in kept ? kept.connectionId : null,
+    };
+  });
+}
+
+/** Close all unpinned tabs to the right of the tab with the given id (by index).
+ * The active tab is only changed if it was among the closed ones. */
+export function closeTabsToRight(tabId: string): void {
+  appStore.setState((state) => {
+    const index = state.openedTabs.findIndex((tab) => tab.id === tabId);
+    if (index < 0) return state;
+    const tabs = state.openedTabs.filter((tab, i) => i <= index || tab.pinned);
+    const activeWasClosed = state.activeTabId !== null && !tabs.some((tab) => tab.id === state.activeTabId);
+    const newActiveTab = activeWasClosed ? tabs.find((tab) => tab.id === tabId) : undefined;
+    return {
+      ...state,
+      openedTabs: tabs,
+      activeTabId: activeWasClosed ? tabId : state.activeTabId,
+      activeConnectionId:
+        newActiveTab && 'connectionId' in newActiveTab
+          ? newActiveTab.connectionId
+          : activeWasClosed
+            ? null
+            : state.activeConnectionId,
+    };
+  });
+}
+
+/** Toggle the pinned state of a tab. Pinned tabs are immune to "Close Others"
+ * and "Close to the Right", and sort to the front of the tab bar. */
+export function toggleTabPin(tabId: string): void {
+  appStore.setState((state) => {
+    const toggled = state.openedTabs.map((tab) => (tab.id === tabId ? { ...tab, pinned: !tab.pinned } : tab));
+    // Stable sort: pinned tabs first, preserving relative order within each group.
+    toggled.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    return { ...state, openedTabs: toggled };
+  });
+}
+
+/** Duplicate a tab — clone its state with a fresh id, inserted right after the
+ * original. Only meaningful for stateful tabs (query, mongo-query, redis-query,
+ * federated-query). For singleton tabs (graph, schema-timeline, etc.) this is
+ * a no-op. */
+export function duplicateTab(tabId: string): void {
+  appStore.setState((state) => {
+    const index = state.openedTabs.findIndex((tab) => tab.id === tabId);
+    if (index < 0) return state;
+    const original = state.openedTabs[index];
+    // Only duplicate tabs that carry meaningful per-instance state.
+    const duplicableTypes = ['query', 'redis-query', 'mongo-query', 'federated-query'];
+    if (!duplicableTypes.includes(original.type)) return state;
+    const clone: WorkspaceTab = {
+      ...original,
+      id: `${original.type}-${crypto.randomUUID()}`,
+      title: original.title,
+    } as WorkspaceTab;
+    const tabs = [...state.openedTabs];
+    tabs.splice(index + 1, 0, clone);
+    return {
+      ...state,
+      openedTabs: tabs,
+      activeTabId: clone.id,
+      activeConnectionId: 'connectionId' in clone ? clone.connectionId : null,
+    };
+  });
+}
+
 export function reorderTabs(fromIndex: number, toIndex: number): void {
   appStore.setState((state) => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return state;
