@@ -123,7 +123,24 @@ export function createSqlServerAdapter(connection: {
             c.IS_NULLABLE AS nullable,
             c.COLUMN_DEFAULT AS [default],
             COLUMNPROPERTY(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME, 'IsIdentity') AS is_identity,
-            CASE WHEN k.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS primary_key
+            CASE WHEN k.COLUMN_NAME IS NOT NULL THEN 1 ELSE 0 END AS primary_key,
+            CASE WHEN EXISTS (
+              SELECT 1
+              FROM sys.check_constraints chk
+              WHERE chk.parent_object_id = OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME)
+                AND chk.definition LIKE '%ISJSON%'
+                AND (
+                  (chk.parent_column_id <> 0
+                    AND chk.parent_column_id = COL_ID(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME))
+                  OR
+                  (chk.parent_column_id = 0
+                    AND EXISTS (
+                      SELECT 1 FROM sys.sql_expression_dependencies sed
+                      WHERE sed.referencing_id = chk.object_id
+                        AND sed.referenced_minor_id = COL_ID(OBJECT_ID(c.TABLE_SCHEMA + '.' + c.TABLE_NAME), c.COLUMN_NAME)
+                    ))
+                )
+            ) THEN 1 ELSE 0 END AS is_json
           FROM INFORMATION_SCHEMA.COLUMNS c
           LEFT JOIN (
             SELECT ku.COLUMN_NAME
@@ -143,6 +160,7 @@ export function createSqlServerAdapter(connection: {
         nullable: r.nullable === 'YES',
         default: r.default === null ? null : String(r.default),
         primaryKey: !!r.primary_key,
+        isJson: !!r.is_json,
       }));
     },
 

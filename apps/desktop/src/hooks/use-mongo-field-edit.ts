@@ -33,7 +33,7 @@ export function useMongoFieldEdit({
   onUpdate,
   logScope,
 }: {
-  connectionId: string;
+  connectionId: number;
   collection: string;
   database: string;
   onUpdate: () => void;

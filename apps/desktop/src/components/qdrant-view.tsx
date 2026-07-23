@@ -15,7 +15,7 @@ import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
 import { JsonValue } from '@/components/ui/json-value';
 
 interface QdrantViewProps {
-  connectionId: string;
+  connectionId: number;
   collection: string;
 }
 

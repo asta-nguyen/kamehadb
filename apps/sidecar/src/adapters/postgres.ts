@@ -89,6 +89,8 @@ const PG_TYPE_MAP: Record<number, string> = {
   1114: 'timestamp',
   1184: 'timestamptz',
   1700: 'numeric',
+  114: 'json',
+  3802: 'jsonb',
 };
 
 function pgTypeName(oid: number): string {
@@ -269,16 +271,21 @@ export function createPostgresAdapter(connection: {
       ORDER BY c.ordinal_position`;
 
       const result = await query(sql, [schema, table]);
-      return result.rows.map((r: Record<string, unknown>) => ({
-        name: r.name as string,
-        type: r.type as string,
-        nullable: !!r.nullable,
-        default: (r.default as string) ?? null,
-        primaryKey: !!r.primary_key,
-        foreignKey: r.ref_table ? { table: r.ref_table as string, column: r.ref_column as string } : undefined,
-        isVector: !!r.is_vector,
-        vectorDimensions: r.vector_dimensions != null ? Number(r.vector_dimensions) : undefined,
-      }));
+      return result.rows.map((r: Record<string, unknown>) => {
+        const type = r.type as string;
+        const lowerType = type.toLowerCase();
+        return {
+          name: r.name as string,
+          type,
+          nullable: !!r.nullable,
+          default: (r.default as string) ?? null,
+          primaryKey: !!r.primary_key,
+          foreignKey: r.ref_table ? { table: r.ref_table as string, column: r.ref_column as string } : undefined,
+          isVector: !!r.is_vector,
+          vectorDimensions: r.vector_dimensions != null ? Number(r.vector_dimensions) : undefined,
+          isJson: lowerType === 'json' || lowerType === 'jsonb',
+        };
+      });
     },
 
     async getCompletions(schema?: string): Promise<TableCompletions[]> {

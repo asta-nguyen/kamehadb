@@ -3,7 +3,7 @@ import { useMongoCollectionStats } from '@/hooks/use-mongo';
 import { Spinner } from '@/components/ui/spinner';
 
 interface MongoStatsPanelProps {
-  connectionId: string;
+  connectionId: number;
   database: string;
   collection: string;
 }

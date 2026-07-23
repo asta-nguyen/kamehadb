@@ -6,7 +6,7 @@ import { VectorMap3D } from '@/components/vector-map-3d';
 
 type SqliteVecMapProps = {
   readonly tab: Extract<WorkspaceTab, { type: 'sqlite-vec-map' }>;
-  readonly connectionId: string;
+  readonly connectionId: number;
 };
 
 export function SqliteVecMap({ tab, connectionId }: SqliteVecMapProps) {

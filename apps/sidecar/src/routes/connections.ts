@@ -64,7 +64,7 @@ function fileDatabaseErrorResponse(error: unknown): { readonly message: string; 
 }
 
 type TestConnectionParams = {
-  connectionId?: string;
+  connectionId?: number;
   kind: DbKind;
   host?: string | null;
   port?: number | null;
@@ -164,11 +164,11 @@ async function testConnectionByKind(
 }
 
 type ConnectionTestResult = Awaited<ReturnType<typeof testConnectionByKind>>;
-const activeHealthChecks = new Map<string, Promise<ConnectionTestResult>>();
+const activeHealthChecks = new Map<number, Promise<ConnectionTestResult>>();
 
 // ponytail: DB drivers lack shared cancellation, so cap each connection at one
 // probe; add per-driver abort only when its client exposes a reliable signal.
-function getActiveHealthCheck(connectionId: string, params: TestConnectionParams): Promise<ConnectionTestResult> {
+function getActiveHealthCheck(connectionId: number, params: TestConnectionParams): Promise<ConnectionTestResult> {
   const active = activeHealthChecks.get(connectionId);
   if (active) return active;
 
@@ -291,7 +291,8 @@ connectionsRouter.get('/health', async (c) => {
 // The SSE /health stream handles automatic updates, but the refresh
 // button needs an immediate result.
 connectionsRouter.get('/:id/health', async (c) => {
-  const connectionId = c.req.param('id');
+  const connectionId = Number(c.req.param('id'));
+  if (isNaN(connectionId)) return c.json({ error: 'BAD_REQUEST', message: 'Invalid connection ID' }, 400);
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   const password = metadataStore.getProfilePassword(connectionId);
@@ -316,13 +317,13 @@ connectionsRouter.get('/:id/health', async (c) => {
 });
 
 connectionsRouter.get('/:id', (c) => {
-  const profile = metadataStore.getProfile(c.req.param('id'));
+  const profile = metadataStore.getProfile(Number(c.req.param('id')));
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   return c.json(profile);
 });
 
 connectionsRouter.post('/:id/backup', zValidator('json', FileDatabaseBackupRequestSchema), async (c) => {
-  const connectionId = c.req.param('id');
+  const connectionId = Number(c.req.param('id'));
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
 
@@ -338,7 +339,7 @@ connectionsRouter.post('/:id/backup', zValidator('json', FileDatabaseBackupReque
 });
 
 connectionsRouter.post('/:id/restore', zValidator('json', FileDatabaseRestoreRequestSchema), async (c) => {
-  const connectionId = c.req.param('id');
+  const connectionId = Number(c.req.param('id'));
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
 
@@ -360,7 +361,7 @@ connectionsRouter.post('/', zValidator('json', CreateConnectionProfileSchema), a
 });
 
 connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema), async (c) => {
-  const id = c.req.param('id');
+  const id = Number(c.req.param('id'));
   const profile = metadataStore.updateProfile(id, c.req.valid('json'));
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
@@ -370,7 +371,7 @@ connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema
 });
 
 connectionsRouter.delete('/:id', (c) => {
-  const id = c.req.param('id');
+  const id = Number(c.req.param('id'));
   const deleted = metadataStore.deleteProfile(id);
   if (!deleted) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);

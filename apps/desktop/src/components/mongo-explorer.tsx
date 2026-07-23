@@ -7,7 +7,6 @@ import { useStore } from '@tanstack/react-store';
 import type { CollectionInfo } from '@kamehadb/shared';
 import { ChevronDown, ChevronRight, Clock, Database, Eye, Search, Table2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const typeIcons: Record<CollectionInfo['type'], React.ComponentType<{ className?: string }>> = {
@@ -23,7 +22,7 @@ const typeColors: Record<CollectionInfo['type'], string> = {
 };
 
 interface MongoExplorerProps {
-  connectionId: string;
+  connectionId: number;
 }
 
 export function MongoExplorer({ connectionId }: MongoExplorerProps) {
@@ -83,7 +82,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
 
 interface DatabaseNodeProps {
   dbName: string;
-  connectionId: string;
+  connectionId: number;
   expanded: boolean;
   onToggle: () => void;
   onSelect: () => void;
@@ -123,7 +122,7 @@ function DatabaseNode({
   const handleCollectionClick = useCallback(
     (collection: CollectionInfo) => {
       const newTab = {
-        id: `mongo-${nanoid()}`,
+        id: `mongo-${crypto.randomUUID()}`,
         type: 'mongo' as const,
         title: collection.name,
         connectionId,

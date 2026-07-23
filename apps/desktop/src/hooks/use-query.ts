@@ -12,7 +12,7 @@ function isReadOnlyQuery(sql: string): boolean {
   return READONLY_COMMANDS.has(firstWord);
 }
 
-export function useRunQuery(connectionId: string | null) {
+export function useRunQuery(connectionId: number | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ query, params }: { query: string; params?: unknown[] }): Promise<QueryResult> => {

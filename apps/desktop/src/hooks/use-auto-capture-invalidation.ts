@@ -13,7 +13,7 @@ import { useSchemaWatcherStatus } from './use-schema-changelog';
  * ref/effect logic. The hasSeenFirstStatusRef guard skips the initial
  * status load so a spurious toast/invalidation doesn't fire on mount.
  */
-export function useAutoCaptureInvalidation(connectionId: string): void {
+export function useAutoCaptureInvalidation(connectionId: number): void {
   const queryClient = useQueryClient();
   const { data: watcherStatus } = useSchemaWatcherStatus(connectionId);
   const prevLastCaptureRef = useRef<string | null>(null);

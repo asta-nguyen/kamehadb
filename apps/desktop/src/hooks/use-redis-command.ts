@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import type { RedisCommandResult } from '@kamehadb/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-export function useRedisCommand(connectionId: string | null) {
+export function useRedisCommand(connectionId: number | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ command }: { command: string }): Promise<RedisCommandResult> => {

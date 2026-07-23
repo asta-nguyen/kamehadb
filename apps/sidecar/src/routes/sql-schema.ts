@@ -19,22 +19,22 @@ import { schemaWatcher } from '../lib/schema-watcher.js';
 import { WATCHER_DEFAULT_INTERVAL_MS, WATCHER_MIN_INTERVAL_MS } from '../lib/constants.js';
 
 type ErrorHandler = (context: Context, error: unknown, scope: string) => Response;
-type AdapterLoader = (connectionId: string) => Promise<SqlAdapter>;
+type AdapterLoader = (connectionId: number) => Promise<SqlAdapter>;
 
-function hydrateSnapshot(snapshotId: string, raw: string): SchemaSnapshotRecord {
+function hydrateSnapshot(snapshotId: number, raw: string): SchemaSnapshotRecord {
   const parsed = JSON.parse(raw) as Omit<SchemaSnapshotRecord, 'id'> & Partial<Pick<SchemaSnapshotRecord, 'id'>>;
-  return { ...parsed, id: parsed.id ?? snapshotId };
+  return { ...parsed, id: parsed.id ?? snapshotId, connectionId: Number(parsed.connectionId) };
 }
 
-function loadSnapshot(connectionId: string, snapshotId: string): SchemaSnapshotRecord | null {
+function loadSnapshot(connectionId: number, snapshotId: number): SchemaSnapshotRecord | null {
   const raw = metadataStore.getSchemaSnapshotData(snapshotId);
   if (!raw) return null;
   const snapshot = hydrateSnapshot(snapshotId, raw);
   return snapshot.connectionId === connectionId ? snapshot : null;
 }
 
-function requireConnectionId(context: Context): string {
-  const connectionId = context.req.param('connectionId');
+function requireConnectionId(context: Context): number {
+  const connectionId = Number(context.req.param('connectionId'));
   if (!connectionId) throw new Error('Connection not found');
   return connectionId;
 }
@@ -53,10 +53,10 @@ function toSnapshotSummary(snapshot: SchemaSnapshotRecord): SchemaSnapshotSummar
  * Extracted from the POST /schema/snapshots route so the watcher can reuse
  * the exact same capture logic for auto-snapshots. */
 async function captureSnapshot(
-  connectionId: string,
+  connectionId: number,
   adapter: SqlAdapter,
   source: SchemaSnapshotSource = 'manual',
-): Promise<{ id: string; capturedAt: string; tableCount: number }> {
+): Promise<{ id: number; capturedAt: string; tableCount: number }> {
   // Capture tables from every schema, not just the default one.
   // Multi-schema databases (e.g. PostgreSQL) otherwise produce incomplete snapshots.
   const schemas = await adapter.listSchemas();
@@ -97,7 +97,7 @@ export function createSqlSchemaRouter(options: {
 
   // Inject the capture function into the watcher so it can capture snapshots
   // without importing this route file (avoids circular dependency).
-  schemaWatcher.setCaptureFn(async (connectionId: string, source: SchemaSnapshotSource) => {
+  schemaWatcher.setCaptureFn(async (connectionId: number, source: SchemaSnapshotSource) => {
     const adapter = await options.getSqlAdapter(connectionId);
     await captureSnapshot(connectionId, adapter, source);
   });
@@ -156,7 +156,10 @@ export function createSqlSchemaRouter(options: {
 
   router.post(
     '/schema/diff',
-    zValidator('json', z.object({ fromSnapshotId: z.string(), toSnapshotId: z.string() })),
+    zValidator(
+      'json',
+      z.object({ fromSnapshotId: z.number().int().positive(), toSnapshotId: z.number().int().positive() }),
+    ),
     async (context) => {
       try {
         const connectionId = requireConnectionId(context);
@@ -174,7 +177,10 @@ export function createSqlSchemaRouter(options: {
 
   router.post(
     '/schema/migrations',
-    zValidator('json', z.object({ fromSnapshotId: z.string(), toSnapshotId: z.string() })),
+    zValidator(
+      'json',
+      z.object({ fromSnapshotId: z.number().int().positive(), toSnapshotId: z.number().int().positive() }),
+    ),
     async (context) => {
       try {
         const connectionId = requireConnectionId(context);

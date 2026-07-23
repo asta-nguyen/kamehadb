@@ -29,7 +29,7 @@ function truncateQuery(query: string, maxLen = 80): string {
 }
 
 type QueryHistoryPanelProps = {
-  connectionId: string;
+  connectionId: number;
   onSelectQuery: (query: string) => void;
   onClose: () => void;
   width?: number;

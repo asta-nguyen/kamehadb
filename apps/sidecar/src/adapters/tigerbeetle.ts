@@ -1,8 +1,10 @@
 import { createClient } from 'tigerbeetle-node';
 import type { Client } from 'tigerbeetle-node';
 import { lookup as dnsLookup } from 'node:dns/promises';
-import { TB_CREATED } from '../lib/constants.js';
 import { safeErrorMessage } from '@kamehadb/shared';
+
+/** TigerBeetle "created" status code (0xFFFF_FFFF as u32). */
+const TB_CREATED = 0xffff_ffff;
 
 export type TigerBeetleAdapter = {
   testConnection(): Promise<{ success: boolean; message?: string; serverVersion?: string }>;

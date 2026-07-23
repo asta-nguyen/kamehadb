@@ -14,10 +14,10 @@ import { log } from '../lib/logger.js';
 export const sqlRouter = new Hono();
 
 // Module-level adapter cache to avoid creating + destroying connection pools per request
-const adapterCache = new Map<string, SqlAdapter>();
+const adapterCache = new Map<number, SqlAdapter>();
 
 /** Evict a cached adapter (e.g. when connection profile is updated). */
-export function invalidateAdapterCache(connectionId: string): void {
+export function invalidateAdapterCache(connectionId: number): void {
   const adapter = adapterCache.get(connectionId);
   if (adapter) {
     adapterCache.delete(connectionId);
@@ -25,7 +25,7 @@ export function invalidateAdapterCache(connectionId: string): void {
   }
 }
 
-export async function getSqlAdapter(connectionId: string) {
+export async function getSqlAdapter(connectionId: number) {
   const cached = adapterCache.get(connectionId);
   if (cached) return cached;
 
@@ -66,7 +66,7 @@ export async function getSqlAdapter(connectionId: string) {
   return adapter;
 }
 
-async function getMongoAdapter(connectionId: string) {
+async function getMongoAdapter(connectionId: number) {
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) throw new Error('Connection not found');
 
@@ -83,7 +83,7 @@ sqlRouter.route('/:connectionId', createSqlVectorSqliteRouter({ handleError }));
 
 // Databases
 sqlRouter.get('/:connectionId/databases', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const cacheKey = `sql:${connectionId}:databases`;
   const cached = getCached<unknown[]>(cacheKey);
   if (cached) return c.json(cached);
@@ -100,7 +100,7 @@ sqlRouter.get('/:connectionId/databases', async (c) => {
 
 // Schemas
 sqlRouter.get('/:connectionId/schemas', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const cacheKey = `sql:${connectionId}:schemas`;
   const cached = getCached<unknown[]>(cacheKey);
   if (cached) return c.json(cached);
@@ -117,7 +117,7 @@ sqlRouter.get('/:connectionId/schemas', async (c) => {
 
 // Tables
 sqlRouter.get('/:connectionId/tables', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const schema = c.req.query('schema') || '';
   const cacheKey = `sql:${connectionId}:tables:${schema}`;
   const cached = getCached<unknown[]>(cacheKey);
@@ -135,7 +135,7 @@ sqlRouter.get('/:connectionId/tables', async (c) => {
 
 // Table columns
 sqlRouter.get('/:connectionId/tables/:tableId/columns', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const tableId = c.req.param('tableId');
   const cacheKey = `sql:${connectionId}:columns:${tableId}`;
   const cached = getCached<unknown[]>(cacheKey);
@@ -153,7 +153,7 @@ sqlRouter.get('/:connectionId/tables/:tableId/columns', async (c) => {
 
 // Table indexes
 sqlRouter.get('/:connectionId/tables/:tableId/indexes', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const tableId = c.req.param('tableId');
   const cacheKey = `sql:${connectionId}:indexes:${tableId}`;
   const cached = getCached<unknown[]>(cacheKey);
@@ -171,7 +171,7 @@ sqlRouter.get('/:connectionId/tables/:tableId/indexes', async (c) => {
 
 // Completions schema (all tables + columns for autocomplete)
 sqlRouter.get('/:connectionId/autocomplete', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const schema = c.req.query('schema') || '';
   const cacheKey = `sql:${connectionId}:completions:${schema}`;
   const cached = getCached<{ tables: unknown[] }>(cacheKey);
@@ -190,7 +190,7 @@ sqlRouter.get('/:connectionId/autocomplete', async (c) => {
 
 // Schema search
 sqlRouter.get('/:connectionId/schema/search', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const q = c.req.query('q');
   if (!q) return c.json([]);
 
@@ -237,7 +237,7 @@ sqlRouter.post(
   ),
   async (c) => {
     try {
-      const adapter = await getSqlAdapter(c.req.param('connectionId'));
+      const adapter = await getSqlAdapter(Number(c.req.param('connectionId')));
       const result = await adapter.previewRows(c.req.valid('json'));
       return c.json(result);
     } catch (err) {
@@ -258,7 +258,7 @@ sqlRouter.post(
   ),
   async (c) => {
     try {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const profile = metadataStore.getProfile(connectionId);
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
 
@@ -273,7 +273,7 @@ sqlRouter.post(
 
 // Table stats
 sqlRouter.get('/:connectionId/tables/:tableId/stats', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const tableId = c.req.param('tableId');
   const cacheKey = `sql:${connectionId}:stats:${tableId}`;
   const cached = getCached<unknown>(cacheKey, CACHE_TTL.STATS);
@@ -312,7 +312,7 @@ sqlRouter.get('/:connectionId/tables/:tableId/stats', async (c) => {
 
 // Index stats
 sqlRouter.get('/:connectionId/tables/:tableId/indexes/stats', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const tableId = c.req.param('tableId');
   const cacheKey = `sql:${connectionId}:index-stats:${tableId}`;
   const cached = getCached<unknown>(cacheKey, CACHE_TTL.STATS);
@@ -333,7 +333,7 @@ sqlRouter.get('/:connectionId/tables/:tableId/indexes/stats', async (c) => {
 
 // Database sizes
 sqlRouter.get('/:connectionId/database/sizes', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const schema = c.req.query('schema') || '';
   const cacheKey = `sql:${connectionId}:sizes:${schema}`;
   const cached = getCached<unknown>(cacheKey, CACHE_TTL.STATS);
@@ -355,7 +355,7 @@ sqlRouter.get('/:connectionId/database/sizes', async (c) => {
 // Active connections
 sqlRouter.get('/:connectionId/sessions', async (c) => {
   try {
-    const adapter = await getSqlAdapter(c.req.param('connectionId'));
+    const adapter = await getSqlAdapter(Number(c.req.param('connectionId')));
     if (!('getActiveConnections' in adapter)) {
       return c.json([]);
     }

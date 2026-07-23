@@ -23,12 +23,12 @@ function filterTableDiffs(tableDiffs: readonly SchemaTableDiff[], filter: DiffFi
   return tableDiffs.filter((diff) => diff.type === 'changed' && diff.indexDiffs.length > 0);
 }
 
-export function SchemaDiffView({ connectionId }: { readonly connectionId: string }) {
+export function SchemaDiffView({ connectionId }: { readonly connectionId: number }) {
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useSchemaSnapshots(connectionId);
   const { mutateAsync: captureSnapshot, isPending: isCapturing } = useCaptureSchemaSnapshot();
-  const [fromSnapshotId, setFromSnapshotId] = useState('');
-  const [toSnapshotId, setToSnapshotId] = useState('');
+  const [fromSnapshotId, setFromSnapshotId] = useState<number | null>(null);
+  const [toSnapshotId, setToSnapshotId] = useState<number | null>(null);
   const [filter, setFilter] = useState<DiffFilter>('all');
   const snapshots = data?.snapshots ?? [];
 
@@ -49,11 +49,11 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
   const filteredTableDiffs = filterTableDiffs(diffQuery.data?.tableDiffs ?? [], filter);
 
   const handleFromChange = (value: string | null) => {
-    if (value !== null) setFromSnapshotId(value);
+    if (value !== null) setFromSnapshotId(Number(value));
   };
 
   const handleToChange = (value: string | null) => {
-    if (value !== null) setToSnapshotId(value);
+    if (value !== null) setToSnapshotId(Number(value));
   };
 
   const handleCapture = async () => {
@@ -120,13 +120,16 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <div className="text-xs text-muted-foreground">From</div>
-                  <Select value={fromSnapshotId} onValueChange={handleFromChange}>
+                  <Select
+                    value={fromSnapshotId !== null ? String(fromSnapshotId) : undefined}
+                    onValueChange={handleFromChange}
+                  >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Select snapshot" />
                     </SelectTrigger>
                     <SelectContent>
                       {snapshots.map((snapshot) => (
-                        <SelectItem key={snapshot.id} value={snapshot.id} className="text-xs font-mono">
+                        <SelectItem key={snapshot.id} value={String(snapshot.id)} className="text-xs font-mono">
                           {new Date(snapshot.capturedAt).toLocaleString()}
                         </SelectItem>
                       ))}
@@ -135,13 +138,16 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                 </div>
                 <div className="space-y-1.5">
                   <div className="text-xs text-muted-foreground">To</div>
-                  <Select value={toSnapshotId} onValueChange={handleToChange}>
+                  <Select
+                    value={toSnapshotId !== null ? String(toSnapshotId) : undefined}
+                    onValueChange={handleToChange}
+                  >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Select snapshot" />
                     </SelectTrigger>
                     <SelectContent>
                       {snapshots.map((snapshot) => (
-                        <SelectItem key={snapshot.id} value={snapshot.id} className="text-xs font-mono">
+                        <SelectItem key={snapshot.id} value={String(snapshot.id)} className="text-xs font-mono">
                           {new Date(snapshot.capturedAt).toLocaleString()}
                         </SelectItem>
                       ))}
@@ -224,7 +230,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                 <Button
                   size="sm"
                   className="h-7 gap-1.5 text-xs"
-                  onClick={() => openMigrationTab(connectionId, fromSnapshotId, toSnapshotId)}
+                  onClick={() => openMigrationTab(connectionId, fromSnapshotId ?? undefined, toSnapshotId ?? undefined)}
                 >
                   <Terminal className="size-3.5" />
                   Generate Migration SQL

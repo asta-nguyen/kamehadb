@@ -24,16 +24,16 @@ export type SchemaTableSnapshot = {
 export type SchemaSnapshotSource = 'manual' | 'auto-cadence' | 'auto-notify';
 
 export type SchemaSnapshotRecord = {
-  readonly id: string;
-  readonly connectionId: string;
+  readonly id: number;
+  readonly connectionId: number;
   readonly capturedAt: string;
   readonly tables: readonly SchemaTableSnapshot[];
   readonly source?: SchemaSnapshotSource;
 };
 
 export type SchemaSnapshotSummary = {
-  readonly id: string;
-  readonly connectionId: string;
+  readonly id: number;
+  readonly connectionId: number;
   readonly capturedAt: string;
   readonly tableCount: number;
   readonly source?: SchemaSnapshotSource;
@@ -65,7 +65,7 @@ export type SchemaChangeDescriptor =
     };
 
 export type SchemaChangelogEntry = {
-  readonly snapshotId: string;
+  readonly snapshotId: number;
   readonly capturedAt: string;
   readonly changes: readonly SchemaChangeDescriptor[];
 };
@@ -75,8 +75,8 @@ export type SchemaChangelog = {
 };
 
 export type SchemaDiffInput = {
-  readonly fromSnapshotId: string;
-  readonly toSnapshotId: string;
+  readonly fromSnapshotId: number;
+  readonly toSnapshotId: number;
 };
 
 export type SchemaColumnChangeField = 'type' | 'nullable' | 'default' | 'primaryKey';
@@ -144,8 +144,8 @@ export type SchemaDiffResult = {
 };
 
 export type MigrationInput = {
-  readonly fromSnapshotId: string;
-  readonly toSnapshotId: string;
+  readonly fromSnapshotId: number;
+  readonly toSnapshotId: number;
 };
 
 export type MigrationResult = {
@@ -161,7 +161,7 @@ export function quoteSqlIdentifier(identifier: string): string {
 
 /** Persisted watcher configuration per connection. Stored in the schema_watchers metadata table. */
 export type SchemaWatcherConfig = {
-  readonly connectionId: string;
+  readonly connectionId: number;
   readonly cadenceEnabled: boolean;
   readonly notifyEnabled: boolean;
   readonly intervalMs: number;

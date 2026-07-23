@@ -66,7 +66,7 @@ function renderHighlightNodes(nodes: SafeHighlightNode[], keyPrefix = 'code'): R
 }
 
 type AIChatPanelProps = {
-  connectionId: string | null;
+  connectionId: number | null;
   width?: number;
   onClose?: () => void;
 };
@@ -81,7 +81,7 @@ type ExecutableQueryBlock = {
   variant: 'executable';
   code: string;
   language: CodeLanguage;
-  connectionId: string;
+  connectionId: number;
   onInsert: () => void;
   onRun: () => void;
 };
@@ -345,7 +345,7 @@ function AssistantMessageHeader({
 
 type AssistantMessageProps = {
   msg: ChatMessage;
-  connectionId: string | null;
+  connectionId: number | null;
 };
 
 function AssistantMessage({ msg, connectionId }: AssistantMessageProps) {
@@ -488,14 +488,14 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const queryClient = useQueryClient();
 
   const clearChatHistory = useMutation({
-    mutationFn: (args: { connectionId: string; mongoDatabase?: string }) =>
+    mutationFn: (args: { connectionId: number; mongoDatabase?: string }) =>
       api.clearChatHistory(args.connectionId, args.mongoDatabase),
     onSuccess: (_data, args) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT_HISTORY(args.connectionId, args.mongoDatabase) });
     },
   });
   const clearSchemaCache = useMutation({
-    mutationFn: (args: { connectionId: string }) => api.clearSchemaCache(args.connectionId),
+    mutationFn: (args: { connectionId: number }) => api.clearSchemaCache(args.connectionId),
     onSuccess: (_data, args) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHAT_HISTORY(args.connectionId) });
     },

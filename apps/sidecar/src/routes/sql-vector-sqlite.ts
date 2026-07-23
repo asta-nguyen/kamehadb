@@ -11,7 +11,7 @@ import * as sqliteVec from 'sqlite-vec';
 
 type ErrorHandler = (context: Context, error: unknown, scope: string) => Response;
 
-function getSqliteProfile(connectionId: string | undefined) {
+function getSqliteProfile(connectionId: number | undefined) {
   if (!connectionId) throw httpError('Connection not found', 404);
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) {
@@ -66,7 +66,7 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
 
   // GET /sqlite-vec/capabilities
   router.get('/sqlite-vec/capabilities', async (c) => {
-    const connectionId = c.req.param('connectionId');
+    const connectionId = Number(c.req.param('connectionId'));
     const cacheKey = `sqlite-vec-cap:${connectionId}`;
     const cached = getCached<SqliteVecCapability>(cacheKey, CACHE_TTL.STATS);
     if (cached) return c.json(cached);
@@ -165,7 +165,7 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
       }),
     ),
     async (c) => {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const input = c.req.valid('json');
 
       try {
@@ -252,7 +252,7 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
       }),
     ),
     async (c) => {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const input = c.req.valid('json');
 
       try {
@@ -306,7 +306,7 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
       }),
     ),
     async (c) => {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const input = c.req.valid('json');
 
       try {

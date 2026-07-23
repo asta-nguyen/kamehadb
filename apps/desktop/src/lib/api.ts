@@ -6,16 +6,16 @@ export const api = {
 
   listConnections: () => request<import('@kamehadb/shared').ConnectionProfile[]>('GET', '/connections'),
 
-  getConnection: (id: string) => request<import('@kamehadb/shared').ConnectionProfile>('GET', `/connections/${id}`),
+  getConnection: (id: number) => request<import('@kamehadb/shared').ConnectionProfile>('GET', `/connections/${id}`),
 
-  backupFileDatabase: (connectionId: string, input: import('@kamehadb/shared').FileDatabaseBackupRequest) =>
+  backupFileDatabase: (connectionId: number, input: import('@kamehadb/shared').FileDatabaseBackupRequest) =>
     request<import('@kamehadb/shared').FileDatabaseMaintenanceResult>(
       'POST',
       `/connections/${connectionId}/backup`,
       input,
     ),
 
-  restoreFileDatabase: (connectionId: string, input: import('@kamehadb/shared').FileDatabaseRestoreRequest) =>
+  restoreFileDatabase: (connectionId: number, input: import('@kamehadb/shared').FileDatabaseRestoreRequest) =>
     request<import('@kamehadb/shared').FileDatabaseMaintenanceResult>(
       'POST',
       `/connections/${connectionId}/restore`,
@@ -25,15 +25,15 @@ export const api = {
   createConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
     request<import('@kamehadb/shared').ConnectionProfile>('POST', '/connections', input),
 
-  updateConnection: (id: string, input: import('@kamehadb/shared').UpdateConnectionProfileInput) =>
+  updateConnection: (id: number, input: import('@kamehadb/shared').UpdateConnectionProfileInput) =>
     request<import('@kamehadb/shared').ConnectionProfile>('PATCH', `/connections/${id}`, input),
 
-  deleteConnection: (id: string) => request<void>('DELETE', `/connections/${id}`),
+  deleteConnection: (id: number) => request<void>('DELETE', `/connections/${id}`),
 
   testConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
     request<import('@kamehadb/shared').TestConnectionResult>('POST', '/connections/test', input),
 
-  checkConnectionHealth: (id: string) =>
+  checkConnectionHealth: (id: number) =>
     request<import('@kamehadb/shared').TestConnectionResult>('GET', `/connections/${id}/health`),
 
   getAISettings: () => request<import('@kamehadb/shared').AISettings>('GET', '/ai/settings'),
@@ -47,12 +47,12 @@ export const api = {
   saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
     request<{ success: boolean }>('POST', '/ai/settings', input),
 
-  getChatHistory: (connectionId: string, limit = 50, mongoDatabase?: string) => {
+  getChatHistory: (connectionId: number, limit = 50, mongoDatabase?: string) => {
     const dbParam = mongoDatabase ? `&database=${encodeURIComponent(mongoDatabase)}` : '';
     return request<{
       messages: {
         id: string;
-        connectionId: string;
+        connectionId: number;
         mongoDatabase?: string;
         role: 'user' | 'assistant';
         content: string;
@@ -61,15 +61,15 @@ export const api = {
     }>(`GET`, `/ai/chat-history/${connectionId}?limit=${limit}${dbParam}`);
   },
 
-  clearChatHistory: (connectionId: string, mongoDatabase?: string) => {
+  clearChatHistory: (connectionId: number, mongoDatabase?: string) => {
     const dbParam = mongoDatabase ? `?database=${encodeURIComponent(mongoDatabase)}` : '';
     return request<{ success: boolean }>('DELETE', `/ai/chat-history/${connectionId}${dbParam}`);
   },
 
-  clearSchemaCache: (connectionId: string) =>
+  clearSchemaCache: (connectionId: number) =>
     request<{ success: boolean }>('POST', `/ai/clear-schema-cache/${connectionId}`),
 
-  searchSchema: (connectionId: string, query: string, schema?: string, limit?: number) => {
+  searchSchema: (connectionId: number, query: string, schema?: string, limit?: number) => {
     const params = new URLSearchParams({ q: query });
     if (schema) params.set('schema', schema);
     if (limit) params.set('limit', String(limit));
@@ -80,75 +80,75 @@ export const api = {
   },
 
   // PostgreSQL stats
-  getTableStats: (connectionId: string, tableId: string) =>
+  getTableStats: (connectionId: number, tableId: string) =>
     request<import('@kamehadb/shared').TableStats>(
       'GET',
       `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/stats`,
     ),
 
-  getIndexStats: (connectionId: string, tableId: string) =>
+  getIndexStats: (connectionId: number, tableId: string) =>
     request<import('@kamehadb/shared').IndexStats[]>(
       'GET',
       `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/indexes/stats`,
     ),
 
-  getDatabaseSizes: (connectionId: string, schema?: string) => {
+  getDatabaseSizes: (connectionId: number, schema?: string) => {
     const query = schema ? `?schema=${encodeURIComponent(schema)}` : '';
     return request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/database/sizes${query}`);
   },
 
-  getActiveConnections: (connectionId: string) =>
+  getActiveConnections: (connectionId: number) =>
     request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/sessions`),
 
-  captureSchemaSnapshot: (connectionId: string) =>
-    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/schema/snapshots`),
+  captureSchemaSnapshot: (connectionId: number) =>
+    request<{ id: number; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/schema/snapshots`),
 
-  getSchemaSnapshots: (connectionId: string) =>
+  getSchemaSnapshots: (connectionId: number) =>
     request<{ snapshots: readonly import('@kamehadb/shared').SchemaSnapshotSummary[] }>(
       'GET',
       `/sql/${connectionId}/schema/snapshots`,
     ),
 
-  getSchemaChangelog: (connectionId: string) =>
+  getSchemaChangelog: (connectionId: number) =>
     request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema/changelog`),
 
-  getSchemaDiff: (connectionId: string, input: import('@kamehadb/shared').SchemaDiffInput) =>
+  getSchemaDiff: (connectionId: number, input: import('@kamehadb/shared').SchemaDiffInput) =>
     request<import('@kamehadb/shared').SchemaDiffResult>('POST', `/sql/${connectionId}/schema/diff`, input),
 
-  generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
+  generateMigration: (connectionId: number, input: import('@kamehadb/shared').MigrationInput) =>
     request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/schema/migrations`, input),
 
-  startSchemaWatcher: (connectionId: string, intervalMs?: number) =>
+  startSchemaWatcher: (connectionId: number, intervalMs?: number) =>
     request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/start`, { intervalMs }),
 
-  stopSchemaWatcher: (connectionId: string) =>
+  stopSchemaWatcher: (connectionId: number) =>
     request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/stop`),
 
-  getSchemaWatcherStatus: (connectionId: string) =>
+  getSchemaWatcherStatus: (connectionId: number) =>
     request<import('@kamehadb/shared').SchemaWatcherStatus>('GET', `/sql/${connectionId}/schema/watcher/status`),
 
-  startSchemaNotifyWatcher: (connectionId: string) =>
+  startSchemaNotifyWatcher: (connectionId: number) =>
     request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/notify/start`),
 
-  stopSchemaNotifyWatcher: (connectionId: string) =>
+  stopSchemaNotifyWatcher: (connectionId: number) =>
     request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/notify/stop`),
 
   // PostgreSQL pgvector API
-  getPostgresVectorCapabilities: (connectionId: string) =>
+  getPostgresVectorCapabilities: (connectionId: number) =>
     request<import('@kamehadb/shared').PostgresVectorCapability>(
       'GET',
       `/sql/${connectionId}/vectors/capabilities`,
       undefined,
     ),
 
-  searchPostgresVector: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSearchInput) =>
+  searchPostgresVector: (connectionId: number, input: import('@kamehadb/shared').PostgresVectorSearchInput) =>
     request<import('@kamehadb/shared').PostgresVectorSearchResult>(
       'POST',
       `/sql/${connectionId}/vectors/search`,
       input,
     ),
 
-  getPostgresVectorSample: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSampleInput) =>
+  getPostgresVectorSample: (connectionId: number, input: import('@kamehadb/shared').PostgresVectorSampleInput) =>
     request<import('@kamehadb/shared').PostgresVectorSampleResult>(
       'POST',
       `/sql/${connectionId}/vectors/sample`,
@@ -156,30 +156,35 @@ export const api = {
     ),
 
   // sqlite-vec API
-  getSqliteVecCapabilities: (connectionId: string) =>
+  getSqliteVecCapabilities: (connectionId: number) =>
     request<import('@kamehadb/shared').SqliteVecCapability>(
       'GET',
       `/sql/${connectionId}/sqlite-vec/capabilities`,
       undefined,
     ),
 
-  searchSqliteVec: (connectionId: string, input: import('@kamehadb/shared').SqliteVecSearchInput) =>
-    request<import('@kamehadb/shared').SqliteVecSearchResult>('POST', `/sql/${connectionId}/sqlite-vec/search`, input),
+  searchSqliteVec: (connectionId: number, input: import('@kamehadb/shared').SqliteVecSearchInput) =>
+    request<import('@kamehadb/shared').SqliteVecSearchResult>(
+      'POST',
+      `/sql/${connectionId}/sqlite-vec/search`,
+      input,
+      true,
+    ),
 
-  sampleSqliteVec: (connectionId: string, input: { table: string; column: string }) =>
-    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/sqlite-vec/sample`, input),
+  sampleSqliteVec: (connectionId: number, input: { table: string; column: string }) =>
+    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/sqlite-vec/sample`, input, true),
 
-  sampleSqliteVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
+  sampleSqliteVecVectors: (connectionId: number, input: { table: string; column: string; limit: number }) =>
     request<{
       points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
       dimensions: number;
     }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input),
 
   // MongoDB API
-  listMongoDatabases: (connectionId: string) =>
-    request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined),
+  listMongoDatabases: (connectionId: number) =>
+    request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined, true),
 
-  listMongoCollections: (connectionId: string, database?: string) => {
+  listMongoCollections: (connectionId: number, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
     return request<import('@kamehadb/shared').CollectionInfo[]>(
       'GET',
@@ -188,20 +193,20 @@ export const api = {
     );
   },
 
-  findMongoDocuments: (connectionId: string, input: import('@kamehadb/shared').FindDocumentsInput) =>
-    request<import('@kamehadb/shared').DocumentResult>('POST', `/mongo/${connectionId}/find`, input),
+  findMongoDocuments: (connectionId: number, input: import('@kamehadb/shared').FindDocumentsInput) =>
+    request<import('@kamehadb/shared').DocumentResult>('POST', `/mongo/${connectionId}/find`, input, true),
 
   deleteMongoDocument: (
-    connectionId: string,
+    connectionId: number,
     input: { collection: string; database?: string; filter: Record<string, unknown> },
   ) => request<{ deletedCount: number }>('POST', `/mongo/${connectionId}/delete`, input),
 
   updateMongoDocument: (
-    connectionId: string,
+    connectionId: number,
     input: { collection: string; database?: string; filter: Record<string, unknown>; update: Record<string, unknown> },
   ) => request<{ matchedCount: number; modifiedCount: number }>('POST', `/mongo/${connectionId}/update`, input),
 
-  getMongoCollectionStats: (connectionId: string, database: string, collection: string) =>
+  getMongoCollectionStats: (connectionId: number, database: string, collection: string) =>
     request<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
       'GET',
       `/mongo/${connectionId}/stats?database=${encodeURIComponent(database)}&collection=${encodeURIComponent(collection)}`,
@@ -209,15 +214,20 @@ export const api = {
     ),
 
   // Redis API
-  getRedisStats: (connectionId: string) =>
-    request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined),
+  getRedisStats: (connectionId: number) =>
+    request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined, true),
 
-  runRedisCommand: (connectionId: string, command: string) =>
-    request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/commands`, { command }),
+  runRedisCommand: (connectionId: number, command: string) =>
+    request<import('@kamehadb/shared').RedisCommandResult>(
+      'POST',
+      `/redis/${connectionId}/commands`,
+      { command },
+      true,
+    ),
 
   // MongoDB shell
-  startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
-    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }),
+  startMongoShell: (connectionId: number, cols = 80, rows = 24) =>
+    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }, true),
 
   writeMongoShell: (sessionId: string, data: string) =>
     request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }),
@@ -242,10 +252,10 @@ export const api = {
     // MongoDB autocomplete
     request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }),
 
-  getShellStreamUrl: (connectionId: string, sessionId: string) =>
+  getShellStreamUrl: (connectionId: number, sessionId: string) =>
     `${getApiBase()}/mongo/${connectionId}/shell/${sessionId}/stream`,
 
-  getMongoCompletions: (connectionId: string, database?: string) => {
+  getMongoCompletions: (connectionId: number, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
     return request<{ collections: { name: string; fields: string[] }[] }>(
       'GET',
@@ -255,23 +265,28 @@ export const api = {
   },
 
   // MongoDB command
-  runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
-    request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }),
+  runMongoCommand: (connectionId: number, database: string, command: Record<string, unknown>) =>
+    request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }, true),
 
   // Qdrant API
-  listQdrantCollections: (connectionId: string) =>
-    request<import('@kamehadb/shared').QdrantCollection[]>('GET', `/qdrant/${connectionId}/collections`, undefined),
+  listQdrantCollections: (connectionId: number) =>
+    request<import('@kamehadb/shared').QdrantCollection[]>(
+      'GET',
+      `/qdrant/${connectionId}/collections`,
+      undefined,
+      true,
+    ),
 
-  scrollQdrantPoints: (connectionId: string, input: import('@kamehadb/shared').ScrollPointsInput) =>
-    request<import('@kamehadb/shared').QdrantPointPage>('POST', `/qdrant/${connectionId}/points`, input),
+  scrollQdrantPoints: (connectionId: number, input: import('@kamehadb/shared').ScrollPointsInput) =>
+    request<import('@kamehadb/shared').QdrantPointPage>('POST', `/qdrant/${connectionId}/points`, input, true),
 
-  searchQdrant: (connectionId: string, input: import('@kamehadb/shared').QdrantSearchInput) =>
-    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/search`, input),
+  searchQdrant: (connectionId: number, input: import('@kamehadb/shared').QdrantSearchInput) =>
+    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/search`, input, true),
 
-  recommendQdrant: (connectionId: string, input: import('@kamehadb/shared').RecommendInput) =>
-    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/recommend`, input),
+  recommendQdrant: (connectionId: number, input: import('@kamehadb/shared').RecommendInput) =>
+    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/recommend`, input, true),
 
-  getQdrantStats: (connectionId: string, collection: string) =>
+  getQdrantStats: (connectionId: number, collection: string) =>
     request<import('@kamehadb/shared').QdrantStats>(
       'GET',
       `/qdrant/${connectionId}/stats?collection=${encodeURIComponent(collection)}`,
@@ -282,7 +297,7 @@ export const api = {
     request<{ vector: number[]; dimensions: number }>('POST', `/ai/embed`, { text, model }),
 
   // TigerBeetle API
-  tbListAccounts: (connectionId: string, limit?: number) => {
+  tbListAccounts: (connectionId: number, limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
     return request<{ accounts: import('@kamehadb/shared').TigerBeetleAccount[] }>(
       'GET',
@@ -291,21 +306,21 @@ export const api = {
     );
   },
 
-  tbLookupAccount: (connectionId: string, id: string) =>
+  tbLookupAccount: (connectionId: number, id: string) =>
     request<import('@kamehadb/shared').TigerBeetleAccount>(
       'GET',
       `/tigerbeetle/${connectionId}/accounts/${id}`,
       undefined,
     ),
 
-  tbCreateAccounts: (connectionId: string, accounts: import('@kamehadb/shared').CreateTigerBeetleAccountInput[]) =>
+  tbCreateAccounts: (connectionId: number, accounts: import('@kamehadb/shared').CreateTigerBeetleAccountInput[]) =>
     request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
       'POST',
       `/tigerbeetle/${connectionId}/accounts`,
       { accounts },
     ),
 
-  tbGetTransfers: (connectionId: string, accountId: string, limit?: number) => {
+  tbGetTransfers: (connectionId: number, accountId: string, limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
     return request<{ transfers: import('@kamehadb/shared').TigerBeetleTransfer[] }>(
       'GET',
@@ -314,14 +329,14 @@ export const api = {
     );
   },
 
-  tbGetBalances: (connectionId: string, accountId: string) =>
+  tbGetBalances: (connectionId: number, accountId: string) =>
     request<{ balances: import('@kamehadb/shared').TigerBeetleAccountBalance[] }>(
       'GET',
       `/tigerbeetle/${connectionId}/balances/${accountId}`,
       undefined,
     ),
 
-  tbCreateTransfers: (connectionId: string, transfers: import('@kamehadb/shared').CreateTigerBeetleTransferInput[]) =>
+  tbCreateTransfers: (connectionId: number, transfers: import('@kamehadb/shared').CreateTigerBeetleTransferInput[]) =>
     request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
       'POST',
       `/tigerbeetle/${connectionId}/transfers`,

@@ -27,20 +27,6 @@ services:
       - mysql_data:/var/lib/mysql
       - ./docker-init/mysql:/docker-entrypoint-initdb.d
 
-  mariadb:
-    image: mariadb:11.4
-    restart: unless-stopped
-    environment:
-      MARIADB_ROOT_PASSWORD: kameha
-      MARIADB_DATABASE: kamehadb
-      MARIADB_USER: kameha
-      MARIADB_PASSWORD: kameha
-    ports:
-      - "3307:3306"
-    volumes:
-      - mariadb_data:/var/lib/mysql
-      - ./docker-init/mariadb:/docker-entrypoint-initdb.d
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -48,14 +34,6 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-
-  duckdb:
-    image: duckdb/duckdb:latest
-    restart: unless-stopped
-    ports:
-      - "5433:5432"
-    volumes:
-      - duckdb_data:/data
 
   tigerbeetle:
     image: ghcr.io/tigerbeetle/tigerbeetle:latest
@@ -93,9 +71,7 @@ services:
 volumes:
   postgres_data:
   mysql_data:
-  mariadb_data:
   redis_data:
-  duckdb_data:
   tigerbeetle_data:
   mongodb_data:
   qdrant_data:

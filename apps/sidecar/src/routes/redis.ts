@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { createRedisDbAdapter } from '../adapters/factory.js';
@@ -10,7 +11,13 @@ import * as metadataStore from '../db/metadata-store.js';
 
 export const redisRouter = new Hono();
 
-async function getAdapter(connectionId: string) {
+function resolveConnectionId(c: Context): number | null {
+  const id = Number(c.req.param('connectionId'));
+  if (!Number.isInteger(id) || id <= 0 || !Number.isSafeInteger(id)) return null;
+  return id;
+}
+
+async function getAdapter(connectionId: number) {
   return getNonSqlAdapter(connectionId, KIND.REDIS, (profile) =>
     createRedisDbAdapter(profile, metadataStore.getProfilePassword(connectionId) ?? undefined),
   );
@@ -19,7 +26,9 @@ async function getAdapter(connectionId: string) {
 // GET /redis/:connectionId/test
 redisRouter.get('/:connectionId/test', async (c) => {
   try {
-    const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) => adapter.testConnection());
+    const connectionId = resolveConnectionId(c);
+    if (!connectionId) return c.json({ error: 'BAD_REQUEST', message: 'Invalid connection ID' }, 400);
+    const result = await withAdapter(getAdapter, connectionId, (adapter) => adapter.testConnection());
     return c.json(result);
   } catch (err) {
     return handleError(c, err, 'testConnection');
@@ -39,9 +48,9 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
-        adapter.scanKeys(c.req.valid('json')),
-      );
+      const connectionId = resolveConnectionId(c);
+      if (!connectionId) return c.json({ error: 'BAD_REQUEST', message: 'Invalid connection ID' }, 400);
+      const result = await withAdapter(getAdapter, connectionId, (adapter) => adapter.scanKeys(c.req.valid('json')));
       return c.json(result);
     } catch (err) {
       return handleError(c, err, 'scanKeys');
@@ -60,9 +69,9 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
-        adapter.getKey(c.req.valid('json')),
-      );
+      const connectionId = resolveConnectionId(c);
+      if (!connectionId) return c.json({ error: 'BAD_REQUEST', message: 'Invalid connection ID' }, 400);
+      const result = await withAdapter(getAdapter, connectionId, (adapter) => adapter.getKey(c.req.valid('json')));
       return c.json(result);
     } catch (err) {
       return handleError(c, err, 'getKey');
@@ -81,9 +90,9 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const ttl = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
-        adapter.getTtl(c.req.valid('json')),
-      );
+      const connectionId = resolveConnectionId(c);
+      if (!connectionId) return c.json({ error: 'BAD_REQUEST', message: 'Invalid connection ID' }, 400);
+      const ttl = await withAdapter(getAdapter, connectionId, (adapter) => adapter.getTtl(c.req.valid('json')));
       return c.json({ ttl });
     } catch (err) {
       return handleError(c, err, 'getTtl');
@@ -105,7 +114,9 @@ redisRouter.post(
   ),
   async (c) => {
     try {
-      const result = await withAdapter(getAdapter, c.req.param('connectionId'), (adapter) =>
+      const connectionId = resolveConnectionId(c);
+      if (!connectionId) return c.json({ error: 'BAD_REQUEST', message: 'Invalid connection ID' }, 400);
+      const result = await withAdapter(getAdapter, connectionId, (adapter) =>
         adapter.runCommand(c.req.valid('json').command),
       );
       return c.json(result);
@@ -117,7 +128,8 @@ redisRouter.post(
 
 // GET /redis/:connectionId/stats
 redisRouter.get('/:connectionId/stats', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = resolveConnectionId(c);
+  if (!connectionId) return c.json({ error: 'BAD_REQUEST', message: 'Invalid connection ID' }, 400);
   const cacheKey = `redis:${connectionId}:stats`;
   const cached = getCached<RedisStats>(cacheKey, CACHE_TTL.STATS);
   if (cached) return c.json(cached);

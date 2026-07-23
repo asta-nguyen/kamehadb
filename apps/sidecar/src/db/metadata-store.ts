@@ -1,7 +1,6 @@
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
-import { nanoid } from 'nanoid';
 import type {
   ConnectionProfile,
   AIProvider,
@@ -9,7 +8,6 @@ import type {
   AIProviderConfig,
   SchemaWatcherConfig,
 } from '@kamehadb/shared';
-import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
 
 let db: Database.Database | null = null;
@@ -17,7 +15,7 @@ const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 6
 
 function createDefaultAISettings(): AISettings {
   return {
-    activeProvider: DEFAULT_AI_PROVIDER,
+    activeProvider: 'openai',
     providers: {
       'ollama-local': {
         enabled: false,
@@ -69,173 +67,159 @@ export function initMetadataStore(dbPath: string): void {
     log.warn({ err: e }, 'sqlite-vec extension failed to load');
   }
 
+  // Detect old TEXT-primary-key schema and migrate to INTEGER AUTOINCREMENT.
+  const profilesInfo = db.prepare('PRAGMA table_info(connection_profiles)').all() as { name: string; type: string }[];
+  const idCol = profilesInfo.find((c) => c.name === 'id');
+  const needsIntMigration = idCol && idCol.type === 'TEXT';
+
+  if (needsIntMigration) {
+    log.info('Migrating metadata store from TEXT primary keys to INTEGER AUTOINCREMENT');
+
+    // Determine which columns exist in the legacy connection_profiles table so we
+    // only select confirmed columns (older schemas may lack some optional columns).
+    const legacyProfileCols = new Set(
+      (db.prepare('PRAGMA table_info(connection_profiles)').all() as { name: string }[]).map((c) => c.name),
+    );
+    const profileColumns = [
+      'name',
+      'kind',
+      'host',
+      'port',
+      'database',
+      'username',
+      'password',
+      'ssl',
+      'file_path',
+      'color',
+      'connection_string',
+      'created_at',
+      'updated_at',
+    ].filter((c) => legacyProfileCols.has(c));
+    const profileColList = profileColumns.join(', ');
+    const profileInsertCols = profileColumns.join(', ');
+
+    db.exec(`
+      BEGIN TRANSACTION;
+
+      CREATE TEMP TABLE conn_id_map (old_id TEXT, new_id INTEGER);
+
+      CREATE TABLE connection_profiles_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
+        host TEXT, port INTEGER, database TEXT, username TEXT, password TEXT,
+        ssl INTEGER DEFAULT 0, file_path TEXT, color TEXT, connection_string TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        _old_id TEXT
+      );
+
+      INSERT INTO connection_profiles_new (${profileInsertCols}, _old_id)
+      SELECT ${profileColList}, id
+      FROM connection_profiles ORDER BY created_at;
+
+      INSERT INTO conn_id_map (old_id, new_id) SELECT _old_id, id FROM connection_profiles_new;
+      ALTER TABLE connection_profiles_new DROP COLUMN _old_id;
+
+      CREATE TABLE chat_messages_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        connection_id INTEGER NOT NULL,
+        mongo_database TEXT,
+        role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO chat_messages_new (connection_id, mongo_database, role, content, created_at)
+      SELECT map.new_id, m.mongo_database, m.role, m.content, m.created_at
+      FROM chat_messages m JOIN conn_id_map map ON map.old_id = m.connection_id;
+
+      CREATE TABLE query_history_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        connection_id INTEGER NOT NULL,
+        query TEXT NOT NULL,
+        executed_at TEXT NOT NULL,
+        duration_ms INTEGER,
+        row_count INTEGER,
+        favorite INTEGER NOT NULL DEFAULT 0,
+        name TEXT
+      );
+      INSERT INTO query_history_new (connection_id, query, executed_at, duration_ms, row_count, favorite, name)
+      SELECT map.new_id, q.query, q.executed_at, q.duration_ms, q.row_count, q.favorite, q.name
+      FROM query_history q JOIN conn_id_map map ON map.old_id = q.connection_id;
+
+      CREATE TABLE schema_snapshots_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        connection_id INTEGER NOT NULL,
+        captured_at TEXT NOT NULL,
+        snapshot_data TEXT NOT NULL
+      );
+      INSERT INTO schema_snapshots_new (connection_id, captured_at, snapshot_data)
+      SELECT map.new_id, s.captured_at, s.snapshot_data
+      FROM schema_snapshots s JOIN conn_id_map map ON map.old_id = s.connection_id;
+
+      CREATE TABLE schema_embeddings_new (
+        connection_id INTEGER NOT NULL,
+        table_id TEXT NOT NULL,
+        ddl TEXT NOT NULL,
+        hash TEXT NOT NULL,
+        PRIMARY KEY (connection_id, table_id)
+      );
+      INSERT INTO schema_embeddings_new (connection_id, table_id, ddl, hash)
+      SELECT map.new_id, e.table_id, e.ddl, e.hash
+      FROM schema_embeddings e JOIN conn_id_map map ON map.old_id = e.connection_id;
+
+      DROP TABLE connection_profiles;
+      DROP TABLE chat_messages;
+      DROP TABLE query_history;
+      DROP TABLE schema_snapshots;
+      DROP TABLE schema_embeddings;
+
+      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
+      ALTER TABLE chat_messages_new RENAME TO chat_messages;
+      ALTER TABLE query_history_new RENAME TO query_history;
+      ALTER TABLE schema_snapshots_new RENAME TO schema_snapshots;
+      ALTER TABLE schema_embeddings_new RENAME TO schema_embeddings;
+
+      CREATE INDEX IF NOT EXISTS idx_chat_connection ON chat_messages(connection_id);
+      CREATE INDEX IF NOT EXISTS idx_query_history_connection ON query_history(connection_id);
+      CREATE INDEX IF NOT EXISTS idx_query_history_favorite ON query_history(connection_id, favorite);
+      CREATE INDEX IF NOT EXISTS idx_schema_snaps_conn ON schema_snapshots(connection_id);
+      CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
+
+      DROP TABLE conn_id_map;
+      COMMIT;
+    `);
+
+    // schema_vec is a sqlite-vec virtual table whose connection_id values still
+    // reference the old TEXT IDs. Clear stale rows so embeddings are reindexed
+    // fresh against the remapped numeric connection IDs.
+    try {
+      db.exec('DROP TABLE IF EXISTS schema_vec');
+    } catch {
+      // schema_vec may not exist or extension unavailable; ignore
+    }
+
+    log.info('Metadata store migration complete');
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS connection_profiles (
-      id TEXT PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
+      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
       host TEXT,
       port INTEGER,
       database TEXT,
       username TEXT,
       password TEXT,
       ssl INTEGER DEFAULT 0,
-          file_path TEXT,
-          color TEXT,
+      file_path TEXT,
+      color TEXT,
       connection_string TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
-
-  // Migration: Add password column if it doesn't exist
-  try {
-    db.exec('ALTER TABLE connection_profiles ADD COLUMN password TEXT');
-  } catch {
-    // Column already exists, ignore
-  }
-
-  // Migration: Add color column if it doesn't exist
-  try {
-    db.exec('ALTER TABLE connection_profiles ADD COLUMN color TEXT');
-  } catch {
-    // Column already exists, ignore
-  }
-
-  // Migration: Add connection_string column if it doesn't exist
-  try {
-    db.exec('ALTER TABLE connection_profiles ADD COLUMN connection_string TEXT');
-  } catch {
-    // Column already exists, ignore
-  }
-
-  // Migration: widen the kind CHECK constraint to include newer engines (e.g. qdrant).
-  // SQLite bakes CHECK constraints into the table definition, so existing databases
-  // must rebuild the table to accept the new kind. Runs after the column migrations
-  // above so every column exists to copy.
-  const profilesSql = (
-    db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='connection_profiles'").get() as
-      | { sql: string }
-      | undefined
-  )?.sql;
-  // Migration: widen the kind CHECK constraint to include sqlserver/oracle/clickhouse.
-  if (profilesSql && !profilesSql.includes('clickhouse')) {
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE connection_profiles_new (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','tigerbeetle')),
-        host TEXT,
-        port INTEGER,
-        database TEXT,
-        username TEXT,
-        password TEXT,
-        ssl INTEGER DEFAULT 0,
-        file_path TEXT,
-        color TEXT,
-        connection_string TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      INSERT INTO connection_profiles_new
-        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               color, connection_string, created_at, updated_at
-        FROM connection_profiles;
-      DROP TABLE connection_profiles;
-      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
-      COMMIT;
-    `);
-  }
-
-  if (profilesSql && !profilesSql.includes('qdrant')) {
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE connection_profiles_new (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
-        host TEXT,
-        port INTEGER,
-        database TEXT,
-        username TEXT,
-        password TEXT,
-        ssl INTEGER DEFAULT 0,
-        file_path TEXT,
-        color TEXT,
-        connection_string TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      INSERT INTO connection_profiles_new
-        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               color, connection_string, created_at, updated_at
-        FROM connection_profiles;
-      DROP TABLE connection_profiles;
-      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
-      COMMIT;
-    `);
-  }
-
-  // Migration: widen the kind CHECK constraint to include mariadb and duckdb.
-  if (profilesSql && !profilesSql.includes('mariadb')) {
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE connection_profiles_new (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
-        host TEXT,
-        port INTEGER,
-        database TEXT,
-        username TEXT,
-        password TEXT,
-        ssl INTEGER DEFAULT 0,
-        file_path TEXT,
-        color TEXT,
-        connection_string TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      INSERT INTO connection_profiles_new
-        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               color, connection_string, created_at, updated_at
-        FROM connection_profiles;
-      DROP TABLE connection_profiles;
-      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
-      COMMIT;
-    `);
-  }
-
-  // Migration: widen the kind CHECK constraint to include tigerbeetle.
-  if (profilesSql && !profilesSql.includes('tigerbeetle')) {
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE connection_profiles_new (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse','mariadb','duckdb','tigerbeetle')),
-        host TEXT,
-        port INTEGER,
-        database TEXT,
-        username TEXT,
-        password TEXT,
-        ssl INTEGER DEFAULT 0,
-        file_path TEXT,
-        color TEXT,
-        connection_string TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-      INSERT INTO connection_profiles_new
-        SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-               color, connection_string, created_at, updated_at
-        FROM connection_profiles;
-      DROP TABLE connection_profiles;
-      ALTER TABLE connection_profiles_new RENAME TO connection_profiles;
-      COMMIT;
-    `);
-  }
 
   // Migrate ai_settings from old single-column schema if needed
   const hasOldSettings = db
@@ -268,8 +252,8 @@ export function initMetadataStore(dbPath: string): void {
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS chat_messages (
-      id TEXT PRIMARY KEY,
-      connection_id TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      connection_id INTEGER NOT NULL,
       mongo_database TEXT,
       role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
       content TEXT NOT NULL,
@@ -283,8 +267,8 @@ export function initMetadataStore(dbPath: string): void {
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS query_history (
-      id TEXT PRIMARY KEY,
-      connection_id TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      connection_id INTEGER NOT NULL,
       query TEXT NOT NULL,
       executed_at TEXT NOT NULL,
       duration_ms INTEGER,
@@ -304,8 +288,8 @@ export function initMetadataStore(dbPath: string): void {
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_snapshots (
-      id TEXT PRIMARY KEY,
-      connection_id TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      connection_id INTEGER NOT NULL,
       captured_at TEXT NOT NULL,
       snapshot_data TEXT NOT NULL
     );
@@ -355,7 +339,7 @@ export function initMetadataStore(dbPath: string): void {
   // with the correct embedding dimension for the active AI provider.
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_embeddings (
-      connection_id TEXT NOT NULL,
+      connection_id INTEGER NOT NULL,
       table_id TEXT NOT NULL,
       ddl TEXT NOT NULL,
       hash TEXT NOT NULL,
@@ -387,7 +371,7 @@ export function listProfiles(): ConnectionProfile[] {
   return rows.map(rowToProfile);
 }
 
-export function getProfile(id: string): ConnectionProfile | null {
+export function getProfile(id: number): ConnectionProfile | null {
   const row = getDb().prepare('SELECT * FROM connection_profiles WHERE id = ?').get(id) as
     | Record<string, unknown>
     | undefined;
@@ -395,7 +379,7 @@ export function getProfile(id: string): ConnectionProfile | null {
   return row ? rowToProfile(row) : null;
 }
 
-export function getProfilePassword(id: string): string | undefined {
+export function getProfilePassword(id: number): string | undefined {
   const row = getDb().prepare('SELECT password FROM connection_profiles WHERE id = ?').get(id) as
     | { password: string | null }
     | undefined;
@@ -416,16 +400,14 @@ export function createProfile(input: {
   color?: string;
   connectionString?: string;
 }): ConnectionProfile {
-  const id = nanoid();
   const now = new Date().toISOString();
 
-  getDb()
+  const result = getDb()
     .prepare(
-      `INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password, ssl, file_path, color, connection_string, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO connection_profiles (name, kind, host, port, database, username, password, ssl, file_path, color, connection_string, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
-      id,
       input.name,
       input.kind,
       input.host ?? null,
@@ -441,11 +423,11 @@ export function createProfile(input: {
       now,
     );
 
-  return getProfile(id)!;
+  return getProfile(result.lastInsertRowid as number)!;
 }
 
 export function updateProfile(
-  id: string,
+  id: number,
   input: {
     name?: string;
     kind?: string;
@@ -491,14 +473,14 @@ export function updateProfile(
   return getProfile(id);
 }
 
-export function deleteProfile(id: string): boolean {
+export function deleteProfile(id: number): boolean {
   const result = getDb().prepare('DELETE FROM connection_profiles WHERE id = ?').run(id);
   return result.changes > 0;
 }
 
 function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
   return {
-    id: row.id as string,
+    id: row.id as number,
     name: row.name as string,
     kind: row.kind as ConnectionProfile['kind'],
     host: (row.host as string) ?? undefined,
@@ -580,7 +562,7 @@ function normalizeAISettings(input: AISettings): AISettings {
     };
   }
 
-  normalized.activeProvider = input.activeProvider in normalized.providers ? input.activeProvider : DEFAULT_AI_PROVIDER;
+  normalized.activeProvider = input.activeProvider in normalized.providers ? input.activeProvider : 'openai';
 
   return normalized;
 }
@@ -652,8 +634,8 @@ export function closeMetadataStore(): void {
 
 // Chat message functions
 export interface ChatMessage {
-  id: string;
-  connectionId: string;
+  id: number;
+  connectionId: number;
   mongoDatabase?: string | null;
   role: 'user' | 'assistant';
   content: string;
@@ -661,25 +643,24 @@ export interface ChatMessage {
 }
 
 export function saveChatMessage(
-  connectionId: string,
+  connectionId: number,
   role: 'user' | 'assistant',
   content: string,
   mongoDatabase?: string | null,
 ): ChatMessage {
-  const id = nanoid();
   const now = new Date().toISOString();
 
-  getDb()
+  const result = getDb()
     .prepare(
-      `INSERT INTO chat_messages (id, connection_id, mongo_database, role, content, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO chat_messages (connection_id, mongo_database, role, content, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
     )
-    .run(id, connectionId, mongoDatabase ?? null, role, content, now);
+    .run(connectionId, mongoDatabase ?? null, role, content, now);
 
-  return { id, connectionId, mongoDatabase, role, content, createdAt: now };
+  return { id: result.lastInsertRowid as number, connectionId, mongoDatabase, role, content, createdAt: now };
 }
 
-export function getChatMessages(connectionId: string, limit = 50, mongoDatabase?: string | null): ChatMessage[] {
+export function getChatMessages(connectionId: number, limit = 50, mongoDatabase?: string | null): ChatMessage[] {
   const rows = getDb()
     .prepare(
       `SELECT id, connection_id, mongo_database, role, content, created_at
@@ -691,8 +672,8 @@ export function getChatMessages(connectionId: string, limit = 50, mongoDatabase?
     .all(connectionId, mongoDatabase ?? null, mongoDatabase ?? null, limit) as Record<string, unknown>[];
 
   return rows.map((row) => ({
-    id: row.id as string,
-    connectionId: row.connection_id as string,
+    id: row.id as number,
+    connectionId: row.connection_id as number,
     mongoDatabase: row.mongo_database as string | null,
     role: row.role as 'user' | 'assistant',
     content: row.content as string,
@@ -701,19 +682,18 @@ export function getChatMessages(connectionId: string, limit = 50, mongoDatabase?
 }
 
 export function saveQueryHistory(
-  connectionId: string,
+  connectionId: number,
   input: import('@kamehadb/shared').SaveQueryHistoryInput,
 ): import('@kamehadb/shared').QueryHistoryEntry {
-  const id = nanoid();
   const now = new Date().toISOString();
-  getDb()
+  const result = getDb()
     .prepare(
-      `INSERT INTO query_history (id, connection_id, query, executed_at, duration_ms, row_count)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO query_history (connection_id, query, executed_at, duration_ms, row_count)
+       VALUES (?, ?, ?, ?, ?)`,
     )
-    .run(id, connectionId, input.query, now, input.durationMs ?? null, input.rowCount ?? null);
+    .run(connectionId, input.query, now, input.durationMs ?? null, input.rowCount ?? null);
   return {
-    id,
+    id: result.lastInsertRowid as number,
     connectionId,
     query: input.query,
     executedAt: now,
@@ -724,7 +704,7 @@ export function saveQueryHistory(
 }
 
 export function getQueryHistory(
-  connectionId: string,
+  connectionId: number,
   limit = 50,
   favoritesOnly = false,
 ): import('@kamehadb/shared').QueryHistoryEntry[] {
@@ -754,8 +734,8 @@ export function getQueryHistory(
 
 function mapQueryRow(row: Record<string, unknown>): import('@kamehadb/shared').QueryHistoryEntry {
   return {
-    id: row.id as string,
-    connectionId: row.connection_id as string,
+    id: row.id as number,
+    connectionId: row.connection_id as number,
     query: row.query as string,
     executedAt: row.executed_at as string,
     durationMs: row.duration_ms as number | undefined,
@@ -765,7 +745,7 @@ function mapQueryRow(row: Record<string, unknown>): import('@kamehadb/shared').Q
   };
 }
 
-export function updateQueryHistory(id: string, input: import('@kamehadb/shared').UpdateQueryHistoryInput): void {
+export function updateQueryHistory(id: number, input: import('@kamehadb/shared').UpdateQueryHistoryInput): void {
   if (input.favorite !== undefined) {
     getDb()
       .prepare('UPDATE query_history SET favorite = ? WHERE id = ?')
@@ -776,11 +756,11 @@ export function updateQueryHistory(id: string, input: import('@kamehadb/shared')
   }
 }
 
-export function deleteQueryHistory(id: string): void {
+export function deleteQueryHistory(id: number): void {
   getDb().prepare('DELETE FROM query_history WHERE id = ?').run(id);
 }
 
-export function clearChatMessages(connectionId: string, mongoDatabase?: string | null): void {
+export function clearChatMessages(connectionId: number, mongoDatabase?: string | null): void {
   if (mongoDatabase) {
     getDb()
       .prepare('DELETE FROM chat_messages WHERE connection_id = ? AND mongo_database = ?')
@@ -790,29 +770,28 @@ export function clearChatMessages(connectionId: string, mongoDatabase?: string |
   }
 }
 
-export function saveSchemaSnapshot(connectionId: string, snapshotData: string): string {
-  const id = nanoid();
-  getDb()
-    .prepare('INSERT INTO schema_snapshots (id, connection_id, captured_at, snapshot_data) VALUES (?, ?, ?, ?)')
-    .run(id, connectionId, new Date().toISOString(), snapshotData);
-  return id;
+export function saveSchemaSnapshot(connectionId: number, snapshotData: string): number {
+  const result = getDb()
+    .prepare('INSERT INTO schema_snapshots (connection_id, captured_at, snapshot_data) VALUES (?, ?, ?)')
+    .run(connectionId, new Date().toISOString(), snapshotData);
+  return result.lastInsertRowid as number;
 }
 
-export function getSchemaSnapshots(connectionId: string): { id: string; capturedAt: string }[] {
+export function getSchemaSnapshots(connectionId: number): { id: number; capturedAt: string }[] {
   const rows = getDb()
     .prepare('SELECT id, captured_at FROM schema_snapshots WHERE connection_id = ? ORDER BY captured_at ASC')
-    .all(connectionId) as { id: string; captured_at: string }[];
+    .all(connectionId) as { id: number; captured_at: string }[];
   return rows.map((r) => ({ id: r.id, capturedAt: r.captured_at }));
 }
 
-export function getSchemaSnapshotData(id: string): string | null {
+export function getSchemaSnapshotData(id: number): string | null {
   const row = getDb().prepare('SELECT snapshot_data FROM schema_snapshots WHERE id = ?').get(id) as
     | { snapshot_data: string }
     | undefined;
   return row?.snapshot_data ?? null;
 }
 
-export function deleteOldSchemaSnapshots(connectionId: string, keep: number): void {
+export function deleteOldSchemaSnapshots(connectionId: number, keep: number): void {
   getDb()
     .prepare(
       `DELETE FROM schema_snapshots WHERE connection_id = ? AND id NOT IN (
@@ -822,9 +801,9 @@ export function deleteOldSchemaSnapshots(connectionId: string, keep: number): vo
     .run(connectionId, connectionId, keep);
 }
 
-export function getSchemaWatcher(connectionId: string): SchemaWatcherConfig | null {
+export function getSchemaWatcher(connectionId: number): SchemaWatcherConfig | null {
   const row = getDb().prepare('SELECT * FROM schema_watchers WHERE connection_id = ?').get(connectionId) as
-    | { connection_id: string; cadence_enabled: number; notify_enabled: number; interval_ms: number }
+    | { connection_id: number; cadence_enabled: number; notify_enabled: number; interval_ms: number }
     | undefined;
   if (!row) return null;
   return {
@@ -856,14 +835,14 @@ export function upsertSchemaWatcher(config: SchemaWatcherConfig): void {
     );
 }
 
-export function deleteSchemaWatcher(connectionId: string): void {
+export function deleteSchemaWatcher(connectionId: number): void {
   getDb().prepare('DELETE FROM schema_watchers WHERE connection_id = ?').run(connectionId);
 }
 
 export function listEnabledSchemaWatchers(): SchemaWatcherConfig[] {
   const rows = getDb()
     .prepare('SELECT * FROM schema_watchers WHERE cadence_enabled = 1 OR notify_enabled = 1')
-    .all() as { connection_id: string; cadence_enabled: number; notify_enabled: number; interval_ms: number }[];
+    .all() as { connection_id: number; cadence_enabled: number; notify_enabled: number; interval_ms: number }[];
   return rows.map((row) => ({
     connectionId: row.connection_id,
     cadenceEnabled: row.cadence_enabled === 1,

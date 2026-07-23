@@ -16,13 +16,13 @@ export function MigrationAssistant({
   fromSnapshotId,
   toSnapshotId,
 }: {
-  connectionId: string;
-  fromSnapshotId?: string;
-  toSnapshotId?: string;
+  connectionId: number;
+  fromSnapshotId?: number;
+  toSnapshotId?: number;
 }) {
   const { data, isLoading: loading } = useSchemaSnapshots(connectionId);
-  const [fromId, setFromId] = useState(fromSnapshotId ?? '');
-  const [toId, setToId] = useState(toSnapshotId ?? '');
+  const [fromId, setFromId] = useState<number | null>(fromSnapshotId ?? null);
+  const [toId, setToId] = useState<number | null>(toSnapshotId ?? null);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{
     statements: readonly string[];
@@ -109,13 +109,16 @@ export function MigrationAssistant({
             <div className="grid gap-4 sm:grid-cols-2 items-end">
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">From (before)</Label>
-                <Select value={fromId} onValueChange={(value) => value !== null && setFromId(value)}>
+                <Select
+                  value={fromId !== null ? String(fromId) : undefined}
+                  onValueChange={(value) => setFromId(Number(value))}
+                >
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
                     {snapshots.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="text-xs font-mono">
+                      <SelectItem key={s.id} value={String(s.id)} className="text-xs font-mono">
                         {new Date(s.capturedAt).toLocaleString()}
                       </SelectItem>
                     ))}
@@ -124,13 +127,16 @@ export function MigrationAssistant({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">To (after)</Label>
-                <Select value={toId} onValueChange={(value) => value !== null && setToId(value)}>
+                <Select
+                  value={toId !== null ? String(toId) : undefined}
+                  onValueChange={(value) => setToId(Number(value))}
+                >
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
                     {snapshots.map((s) => (
-                      <SelectItem key={s.id} value={s.id} className="text-xs font-mono">
+                      <SelectItem key={s.id} value={String(s.id)} className="text-xs font-mono">
                         {new Date(s.capturedAt).toLocaleString()}
                       </SelectItem>
                     ))}

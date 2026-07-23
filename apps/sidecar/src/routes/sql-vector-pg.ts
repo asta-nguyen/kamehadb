@@ -18,7 +18,7 @@ import { handleError, httpError, quoteSqlIdentifier } from '../lib/route-utils.j
 
 type ErrorHandler = (context: Context, error: unknown, scope: string) => Response;
 
-function getPgProfile(connectionId: string | undefined) {
+function getPgProfile(connectionId: number | undefined) {
   if (!connectionId) throw httpError('Connection not found', 404);
   const profile = metadataStore.getProfile(connectionId);
   if (!profile) {
@@ -54,14 +54,14 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
   // Returns pgvector availability, vector columns, and vector indexes.
   // Results are cached for STATS_TTL since schema changes infrequently.
   router.get('/vectors/capabilities', async (c) => {
-    const connectionId = c.req.param('connectionId');
+    const connectionId = Number(c.req.param('connectionId'));
     const cacheKey = `pgvector-cap:${connectionId}`;
     const cached = getCached<PostgresVectorCapability>(cacheKey, CACHE_TTL.STATS);
     if (cached) return c.json(cached);
 
     try {
       const profile = getPgProfile(connectionId);
-      const password = metadataStore.getProfilePassword(connectionId!);
+      const password = metadataStore.getProfilePassword(connectionId);
       const config = getPgConnConfig(profile, password);
       const capability = await detectPgVectorCapability(config);
       setCache(cacheKey, capability);
@@ -89,13 +89,13 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
       }),
     ),
     async (c) => {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const body = c.req.valid('json');
 
       let pool: pg.Pool | null = null;
       try {
         const profile = getPgProfile(connectionId);
-        const password = metadataStore.getProfilePassword(connectionId!) ?? '';
+        const password = metadataStore.getProfilePassword(connectionId) ?? '';
 
         pool = new pg.Pool({
           host: profile.host || 'localhost',
@@ -235,13 +235,13 @@ export function createSqlVectorPgRouter(options: { readonly handleError: ErrorHa
       }),
     ),
     async (c) => {
-      const connectionId = c.req.param('connectionId');
+      const connectionId = Number(c.req.param('connectionId'));
       const body = c.req.valid('json');
 
       let pool: pg.Pool | null = null;
       try {
         const profile = getPgProfile(connectionId);
-        const password = metadataStore.getProfilePassword(connectionId!) ?? '';
+        const password = metadataStore.getProfilePassword(connectionId) ?? '';
 
         pool = new pg.Pool({
           host: profile.host || 'localhost',

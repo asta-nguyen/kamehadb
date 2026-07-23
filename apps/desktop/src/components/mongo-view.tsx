@@ -28,7 +28,7 @@ function parseJsonSafe(text: string): Record<string, unknown> | null {
 
 interface MongoViewProps {
   tab: Extract<WorkspaceTab, { type: 'mongo' }>;
-  connectionId: string;
+  connectionId: number;
 }
 
 // Group all list/table/search state into a single reducer so a single
@@ -366,7 +366,7 @@ interface DocumentsPanelProps {
   durationMs: number;
   isFetching: boolean;
   sortStr: string;
-  connectionId: string;
+  connectionId: number;
   database: string;
   collection: string;
   expandedDocs: Set<number>;

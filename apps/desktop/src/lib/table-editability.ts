@@ -146,10 +146,20 @@ export function buildRowUpdateQuery(input: {
   let setClause: string;
   if (input.newValue === '') {
     setClause = `${quoteSqlIdentifier(input.column)} = NULL`;
-  } else if (input.columnType && input.dateColumns.has(input.column)) {
+  } else if (input.columnType) {
     const lowerType = input.columnType.toLowerCase();
-    const castTo = lowerType.includes('timestamp') || lowerType === 'timestamptz' ? 'timestamp' : 'date';
-    setClause = `${quoteSqlIdentifier(input.column)} = '${input.newValue.replace(/'/g, "''")}'::${castTo}`;
+    if (lowerType === 'jsonb') {
+      // jsonb is Postgres-exclusive and requires an explicit cast from text.
+      setClause = `${quoteSqlIdentifier(input.column)} = '${input.newValue.replace(/'/g, "''")}'::jsonb`;
+    } else if (input.dateColumns.has(input.column)) {
+      const castTo = lowerType.includes('timestamp') || lowerType === 'timestamptz' ? 'timestamp' : 'date';
+      setClause = `${quoteSqlIdentifier(input.column)} = '${input.newValue.replace(/'/g, "''")}'::${castTo}`;
+    } else {
+      // json (non-jsonb) and other types: plain string literal. Postgres has
+      // an assignment cast from text to json; MySQL/SQLite/DuckDB/ClickHouse
+      // all accept string literals for JSON columns without an explicit cast.
+      setClause = `${quoteSqlIdentifier(input.column)} = ${escapeSqlValue(input.newValue)}`;
+    }
   } else {
     setClause = `${quoteSqlIdentifier(input.column)} = ${escapeSqlValue(input.newValue)}`;
   }

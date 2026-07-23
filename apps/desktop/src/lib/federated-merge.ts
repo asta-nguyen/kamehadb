@@ -3,7 +3,7 @@ import type { QueryColumn, QueryResult } from '@kamehadb/shared';
 // One connection's outcome from the parallel federated dispatch.
 // `result` is null when the query failed for that connection; `error` carries the message.
 export type PerConnectionResult = {
-  readonly connectionId: string;
+  readonly connectionId: number;
   readonly connectionName: string;
   readonly result: QueryResult | null;
   readonly error: string | null;

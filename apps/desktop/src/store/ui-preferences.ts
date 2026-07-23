@@ -3,7 +3,7 @@ import { appStore } from './state';
 
 const LATENCY_SLOW_THRESHOLD = 500;
 
-export function openAiChatPanel(connectionId: string): void {
+export function openAiChatPanel(connectionId: number): void {
   appStore.setState((state) => ({ ...state, activeConnectionId: connectionId, aiPanelConnectionId: connectionId }));
 }
 
@@ -36,7 +36,7 @@ appStore.subscribe(() => {
   } catch {}
 });
 
-export function togglePinnedConnection(id: string): void {
+export function togglePinnedConnection(id: number): void {
   appStore.setState((state) => {
     const pinned = state.pinnedConnections.includes(id)
       ? state.pinnedConnections.filter((value) => value !== id)
@@ -46,7 +46,7 @@ export function togglePinnedConnection(id: string): void {
   });
 }
 
-export function toggleExpandedConnection(id: string): void {
+export function toggleExpandedConnection(id: number): void {
   appStore.setState((state) => {
     const expanded = state.expandedConnections.includes(id)
       ? state.expandedConnections.filter((value) => value !== id)
@@ -55,14 +55,14 @@ export function toggleExpandedConnection(id: string): void {
   });
 }
 
-export function setConnectionStatus(id: string, status: 'connected' | 'slow' | 'disconnected' | 'reconnecting'): void {
+export function setConnectionStatus(id: number, status: 'connected' | 'slow' | 'disconnected' | 'reconnecting'): void {
   appStore.setState((state) => {
     if (state.connectionStatus[id] === status) return state;
     return { ...state, connectionStatus: { ...state.connectionStatus, [id]: status } };
   });
 }
 
-export function setConnectionLatency(id: string, latencyMs: number): void {
+export function setConnectionLatency(id: number, latencyMs: number): void {
   appStore.setState((state) => ({
     ...state,
     connectionLatency: { ...state.connectionLatency, [id]: latencyMs },

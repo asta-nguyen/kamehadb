@@ -11,7 +11,7 @@ const SAMPLE_LIMIT = 500;
 
 interface QdrantVectorMapProps {
   tab: WorkspaceTab & { type: 'qdrant-graph' };
-  connectionId: string;
+  connectionId: number;
   collection: string;
   vectorName?: string;
 }

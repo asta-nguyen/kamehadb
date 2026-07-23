@@ -36,8 +36,8 @@ export function GlobalSearch({
   onShortcutsOpen?: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [schemaResults, setSchemaResults] = useState<Map<string, SchemaSearchMatch[]>>(new Map());
-  const [unsupportedConns, setUnsupportedConns] = useState<Set<string>>(new Set());
+  const [schemaResults, setSchemaResults] = useState<Map<number, SchemaSearchMatch[]>>(new Map());
+  const [unsupportedConns, setUnsupportedConns] = useState<Set<number>>(new Set());
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -73,9 +73,9 @@ export function GlobalSearch({
       abortRef.current = abort;
 
       const sqlConns = connections.filter((c) => isSqlKind(c.kind));
-      const results = new Map<string, SchemaSearchMatch[]>();
+      const results = new Map<number, SchemaSearchMatch[]>();
 
-      const unsupported = new Set<string>();
+      const unsupported = new Set<number>();
 
       await Promise.all(
         sqlConns.map(async (conn) => {

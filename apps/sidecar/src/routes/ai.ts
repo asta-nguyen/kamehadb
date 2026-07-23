@@ -109,7 +109,7 @@ async function buildMongoSchemaContext(
   }
 }
 
-async function resolvePostgresVectorPrompt(connectionId: string, profile: ConnectionProfile): Promise<string | null> {
+async function resolvePostgresVectorPrompt(connectionId: number, profile: ConnectionProfile): Promise<string | null> {
   const vectorCacheKey = `ai-pgvector:${connectionId}`;
   const cached = getCached<string>(vectorCacheKey, CACHE_TTL.AI_SCHEMA);
   if (cached) return cached;
@@ -128,7 +128,7 @@ async function resolvePostgresVectorPrompt(connectionId: string, profile: Connec
 }
 
 function buildPostgresVectorPrompt(
-  connectionId: string,
+  connectionId: number,
   capability: Awaited<ReturnType<typeof detectPgVectorCapability>>,
 ): string | null {
   if (!capability.available || capability.columns.length === 0) return null;
@@ -217,7 +217,7 @@ aiRouter.post(
   zValidator(
     'json',
     z.object({
-      connectionId: z.string().optional(),
+      connectionId: z.coerce.number().int().positive().optional(),
       mongoDatabase: z.string().optional(),
       tableId: z.string().optional(),
       messages: z.array(z.object({ role: z.string(), content: z.string() }).passthrough()),
@@ -228,7 +228,8 @@ aiRouter.post(
   async (c) => {
     try {
       const body = c.req.valid('json');
-      const { connectionId, mongoDatabase, tableId } = body;
+      const connectionId = body.connectionId;
+      const { mongoDatabase, tableId } = body;
 
       const latestUserMsg = body.messages.filter((m) => m.role === 'user').at(-1)?.content;
       if (connectionId && latestUserMsg) {
@@ -598,7 +599,7 @@ aiRouter.post(
 
 // GET /ai/chat-history/:connectionId
 aiRouter.get('/chat-history/:connectionId', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const parsed = parseInt(c.req.query('limit') ?? '50', 10);
   const limit = Number.isNaN(parsed) ? 50 : Math.min(Math.max(parsed, 1), 200);
   const mongoDatabase = c.req.query('database') || undefined;
@@ -608,7 +609,7 @@ aiRouter.get('/chat-history/:connectionId', async (c) => {
 
 // DELETE /ai/chat-history/:connectionId
 aiRouter.delete('/chat-history/:connectionId', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const mongoDatabase = c.req.query('database') || undefined;
   metadataStore.clearChatMessages(connectionId, mongoDatabase);
   return c.json({ success: true });
@@ -616,7 +617,7 @@ aiRouter.delete('/chat-history/:connectionId', async (c) => {
 
 // POST /ai/clear-schema-cache/:connectionId
 aiRouter.post('/clear-schema-cache/:connectionId', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const mongoDatabase = c.req.query('database') || undefined;
   clearSchemaCache(connectionId, mongoDatabase);
   return c.json({ success: true });

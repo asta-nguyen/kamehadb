@@ -13,13 +13,13 @@ function safeLimit(raw: string | undefined, fallback = 100): number {
   return Math.min(Math.floor(n), 1000);
 }
 
-async function getAdapter(connectionId: string) {
+async function getAdapter(connectionId: number) {
   return getNonSqlAdapter(connectionId, KIND.TIGERBEETLE, createTigerBeetleDbAdapter);
 }
 
 // GET /tigerbeetle/:connectionId/accounts
 tigerbeetleRouter.get('/:connectionId/accounts', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const limit = safeLimit(c.req.query('limit'));
   try {
     const accounts = await withAdapter(getAdapter, connectionId, (adapter) => adapter.queryAccounts(limit));
@@ -31,7 +31,7 @@ tigerbeetleRouter.get('/:connectionId/accounts', async (c) => {
 
 // GET /tigerbeetle/:connectionId/accounts/:id
 tigerbeetleRouter.get('/:connectionId/accounts/:id', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const id = c.req.param('id');
   try {
     return await withAdapter(getAdapter, connectionId, async (adapter) => {
@@ -61,7 +61,7 @@ const CreateAccountsSchema = z.object({
 });
 
 tigerbeetleRouter.post('/:connectionId/accounts', zValidator('json', CreateAccountsSchema), async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const { accounts } = c.req.valid('json');
   try {
     const results = await withAdapter(getAdapter, connectionId, (adapter) => adapter.createAccounts(accounts));
@@ -73,7 +73,7 @@ tigerbeetleRouter.post('/:connectionId/accounts', zValidator('json', CreateAccou
 
 // GET /tigerbeetle/:connectionId/transfers/:accountId
 tigerbeetleRouter.get('/:connectionId/transfers/:accountId', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const accountId = c.req.param('accountId');
   const limit = safeLimit(c.req.query('limit'));
   try {
@@ -88,7 +88,7 @@ tigerbeetleRouter.get('/:connectionId/transfers/:accountId', async (c) => {
 
 // GET /tigerbeetle/:connectionId/balances/:accountId
 tigerbeetleRouter.get('/:connectionId/balances/:accountId', async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const accountId = c.req.param('accountId');
   try {
     const balances = await withAdapter(getAdapter, connectionId, (adapter) => adapter.getAccountBalances(accountId));
@@ -119,7 +119,7 @@ const CreateTransfersSchema = z.object({
 });
 
 tigerbeetleRouter.post('/:connectionId/transfers', zValidator('json', CreateTransfersSchema), async (c) => {
-  const connectionId = c.req.param('connectionId');
+  const connectionId = Number(c.req.param('connectionId'));
   const { transfers } = c.req.valid('json');
   try {
     const results = await withAdapter(getAdapter, connectionId, (adapter) => adapter.createTransfers(transfers));

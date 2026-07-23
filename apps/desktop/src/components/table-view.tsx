@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { DataTable, type ColumnDef } from '@/components/data-table';
@@ -43,9 +44,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { buildRowUpdateQuery } from '@/lib/table-editability';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
+import { toast } from 'sonner';
 
 type TableViewProps = {
-  connectionId: string;
+  connectionId: number;
   tableId: string;
 };
 
@@ -99,7 +101,7 @@ function dataGridReducer(state: DataGridState, action: DataGridAction): DataGrid
   }
 }
 
-function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: string }) {
+function DataGrid({ connectionId, tableId }: { connectionId: number; tableId: string }) {
   const [state, dispatch] = useReducer(dataGridReducer, {
     offset: 0,
     pageSize: 50,
@@ -173,14 +175,48 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     [displayColumns],
   );
 
+  // Detect json/jsonb columns so the editing cell renders a multiline JSON
+  // textarea, validates the payload before saving, and casts on update.
+  // Uses the adapter-populated isJson flag (covers MariaDB JSON_VALID and
+  // SQL Server ISJSON constraints) plus a type-name fallback for safety.
+  const jsonColumns = useMemo(
+    () =>
+      new Set(
+        displayColumns
+          .filter((c) => {
+            const t = c.type.toLowerCase();
+            return c.isJson || t === 'json' || t === 'jsonb';
+          })
+          .map((c) => c.name),
+      ),
+    [displayColumns],
+  );
+
   const saveCellEdit = useCallback(
-    (rowIndex: number, column: string, newValue: string, colType?: string) => {
-      setEditingCell(null);
-      if (!result) return;
+    async (
+      rowIndex: number,
+      column: string,
+      newValue: string,
+      colType?: string,
+      colIsJson?: boolean,
+    ): Promise<boolean> => {
+      if (!result) return false;
       const row = result.rows[rowIndex];
-      if (!row) return;
+      if (!row) return false;
+      // Validate JSON payloads before saving so invalid edits stay editable.
+      const lowerType = colType?.toLowerCase();
+      const isJsonCol = colIsJson || lowerType === 'json' || lowerType === 'jsonb';
+      if (isJsonCol && newValue !== '') {
+        try {
+          JSON.parse(newValue);
+        } catch (err) {
+          toast.error('Invalid JSON', { description: (err as Error).message });
+          return false;
+        }
+      }
+      setEditingCell(null);
       const oldValue = row[column];
-      if (String(oldValue ?? '') === newValue) return;
+      if (String(oldValue ?? '') === newValue) return true;
       const sql = buildRowUpdateQuery({
         tableId,
         row,
@@ -192,18 +228,15 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         dateColumns,
       });
 
-      runQuery.mutate(
-        { query: sql },
-        {
-          onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
-          },
-          onError: (err) => {
-            console.error('Failed to update row:', err);
-            queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
-          },
-        },
-      );
+      try {
+        await runQuery.mutateAsync({ query: sql });
+        queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
+        return true;
+      } catch (err) {
+        console.error('Failed to update row:', err);
+        queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
+        return false;
+      }
     },
     [result, pkColumns, dateColumns, runQuery, queryClient, connectionId, tableId, displayColumnNames],
   );
@@ -218,7 +251,41 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
       render: (value, _row, rowIndex) => {
         const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.column === col.name;
         const isDate = dateColumns.has(col.name);
+        const isJson = jsonColumns.has(col.name);
         if (isEditing) {
+          if (isJson) {
+            // JSON/JSONB cells edit in a multiline textarea pre-filled with
+            // pretty-printed JSON. node-postgres parses jsonb into objects, so
+            // we re-stringify here; empty input saves NULL.
+            const formatJsonDefault = (v: unknown): string => {
+              if (v === null || v === undefined) return '';
+              if (typeof v === 'object') return JSON.stringify(v, null, 2);
+              const s = String(v);
+              try {
+                return JSON.stringify(JSON.parse(s), null, 2);
+              } catch {
+                return s;
+              }
+            };
+            return (
+              <Textarea
+                autoFocus
+                defaultValue={formatJsonDefault(value)}
+                className="text-xs min-w-0 max-h-48 resize-y font-mono"
+                onClick={(e) => e.stopPropagation()}
+                onBlur={(e) =>
+                  setTimeout(() => saveCellEdit(rowIndex, col.name, e.target.value, col.type, col.isJson), 150)
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.currentTarget.blur();
+                  } else if (e.key === 'Escape') {
+                    setEditingCell(null);
+                  }
+                }}
+              />
+            );
+          }
           const inputType =
             isDate && typeof value === 'string'
               ? col.type.toLowerCase() === 'date'
@@ -237,15 +304,39 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
             }
             return s;
           };
+          if (isDate) {
+            return (
+              <Input
+                ref={editInputRef}
+                type={inputType}
+                defaultValue={formatDefault(value)}
+                autoFocus
+                className="h-7 text-xs min-w-0"
+                onClick={(e) => e.stopPropagation()}
+                onBlur={(e) =>
+                  setTimeout(() => saveCellEdit(rowIndex, col.name, e.target.value, col.type, col.isJson), 150)
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  } else if (e.key === 'Escape') {
+                    setEditingCell(null);
+                  }
+                }}
+              />
+            );
+          }
           return (
             <Input
               ref={editInputRef}
-              type={inputType}
+              type="text"
               defaultValue={formatDefault(value)}
               autoFocus
               className="h-7 text-xs min-w-0"
               onClick={(e) => e.stopPropagation()}
-              onBlur={(e) => setTimeout(() => saveCellEdit(rowIndex, col.name, e.target.value, col.type), 150)}
+              onBlur={(e) =>
+                setTimeout(() => saveCellEdit(rowIndex, col.name, e.target.value, col.type, col.isJson), 150)
+              }
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.currentTarget.blur();
@@ -485,7 +576,21 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               Record #{state.selectedRow && result ? state.offset + result.rows.indexOf(state.selectedRow) + 1 : ''}
             </SheetTitle>
           </SheetHeader>
-          <RecordDetailTabs selectedRow={state.selectedRow} />
+          <RecordDetailTabs
+            selectedRow={state.selectedRow}
+            canEdit={pkColumns.length > 0 && !isView}
+            editableColumns={pkColumns.length > 0 && !isView ? displayColumns : undefined}
+            onSaveField={
+              pkColumns.length > 0 && !isView && result && state.selectedRow
+                ? async (key, newValue) => {
+                    const rowIndex = result.rows.indexOf(state.selectedRow!);
+                    if (rowIndex < 0) return false;
+                    const col = displayColumns.find((c) => c.name === key);
+                    return saveCellEdit(rowIndex, key, newValue, col?.type, col?.isJson);
+                  }
+                : undefined
+            }
+          />
         </SheetContent>
       </Sheet>
     </div>

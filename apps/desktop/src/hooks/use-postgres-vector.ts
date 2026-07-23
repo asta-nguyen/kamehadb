@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import type { PostgresVectorSampleInput, PostgresVectorSearchInput } from '@kamehadb/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
-export function usePostgresVectorCapabilities(connectionId: string | null) {
+export function usePostgresVectorCapabilities(connectionId: number | null) {
   return useQuery({
     queryKey: QUERY_KEYS.POSTGRES_VECTOR_CAPABILITIES(connectionId),
     queryFn: () => api.getPostgresVectorCapabilities(connectionId!),
@@ -13,7 +13,7 @@ export function usePostgresVectorCapabilities(connectionId: string | null) {
   });
 }
 
-export function usePostgresVectorSearch(connectionId: string | null) {
+export function usePostgresVectorSearch(connectionId: number | null) {
   return useMutation({
     mutationFn: (input: PostgresVectorSearchInput) => {
       if (!connectionId) return Promise.reject(new Error('No connectionId'));
@@ -22,7 +22,7 @@ export function usePostgresVectorSearch(connectionId: string | null) {
   });
 }
 
-export function usePostgresVectorSample(connectionId: string | null, input: PostgresVectorSampleInput | null) {
+export function usePostgresVectorSample(connectionId: number | null, input: PostgresVectorSampleInput | null) {
   return useQuery({
     queryKey: QUERY_KEYS.POSTGRES_VECTOR_SAMPLE(connectionId, input),
     queryFn: () => {

@@ -47,7 +47,7 @@ function formatValue(value: unknown, type: string): ReactNode {
 }
 
 interface RedisExplorerProps {
-  connectionId: string;
+  connectionId: number;
 }
 
 export function RedisExplorer({ connectionId }: RedisExplorerProps) {

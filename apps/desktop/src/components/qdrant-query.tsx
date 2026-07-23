@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { QdrantFilterBuilder } from '@/components/qdrant-filter-builder';
-import { simpleEmbed } from '@/lib/simple-embed';
+import { localEmbedding } from '@kamehadb/shared';
 import { Play } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { appendFrontendLog } from '@/lib/app-logs';
@@ -18,7 +18,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 
 interface QdrantQueryProps {
   tab: Extract<WorkspaceTab, { type: 'qdrant-search' }>;
-  connectionId: string;
+  connectionId: number;
 }
 
 type Mode = 'text' | 'similar' | 'raw';
@@ -189,7 +189,7 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
           dispatch({ type: 'endRun' });
           return;
         }
-        const vector = simpleEmbed(state.text, vectorSize);
+        const vector = localEmbedding(state.text, vectorSize);
         const res = await search.mutateAsync({
           collection: state.collection,
           vector,
@@ -197,7 +197,11 @@ export function QdrantQuery({ tab, connectionId }: QdrantQueryProps) {
           filter: state.filter,
           withPayload: true,
         });
-        dispatch({ type: 'finishRun', result: res, info: `Embedded to ${vectorSize} dimensions (local hash-based)` });
+        dispatch({
+          type: 'finishRun',
+          result: res,
+          info: `Embedded to ${vectorSize} dimensions (local hash-based). Note: the hash tokenizer was updated to support Unicode text; collections previously indexed with the older ASCII-only localEmbedding may need reindexing for non-ASCII queries.`,
+        });
       } else if (state.mode === 'similar') {
         if (!state.pointId.trim()) {
           dispatch({ type: 'setError', value: 'Enter a point ID' });

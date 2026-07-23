@@ -24,7 +24,7 @@ export function setCache(key: string, data: unknown) {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
-export function clearConnectionCache(connectionId: string) {
+export function clearConnectionCache(connectionId: number) {
   for (const key of cache.keys()) {
     if (key.includes(`:${connectionId}:`) || key.endsWith(`:${connectionId}`)) {
       cache.delete(key);
@@ -32,7 +32,7 @@ export function clearConnectionCache(connectionId: string) {
   }
 }
 
-export function clearSchemaCache(connectionId: string, mongoDatabase?: string) {
+export function clearSchemaCache(connectionId: number, mongoDatabase?: string) {
   if (mongoDatabase) {
     cache.delete(`ai-schema:${connectionId}:mongo:${mongoDatabase}`);
   } else {
