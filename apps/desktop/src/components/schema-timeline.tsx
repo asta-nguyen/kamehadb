@@ -21,7 +21,7 @@ import { KIND, type SchemaChangeDescriptor, type SchemaSnapshotSource, safeError
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { openSchemaDiffTab } from '@/store';
-import { toastError, toastSuccess } from '@/lib/toast';
+import { toast, toastError, toastSuccess } from '@/lib/toast';
 import { appendFrontendLog } from '@/lib/app-logs';
 import { useAutoCaptureInvalidation } from '@/hooks/use-auto-capture-invalidation';
 

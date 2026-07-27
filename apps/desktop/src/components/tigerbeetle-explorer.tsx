@@ -37,6 +37,8 @@ export function TigerBeetleExplorer({ connectionId }: TigerBeetleExplorerProps) 
         count={accounts.length}
         onRefresh={() => void refetch()}
         isRefreshing={isFetching}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
         className="-mx-2 -mt-2"
       />
       {accounts.length === 0 ? (
