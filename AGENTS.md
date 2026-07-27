@@ -480,6 +480,46 @@ const id = Number(row.id);
 - Place the comment above the line it explains, not as a trailing line
 - Use full sentences with proper punctuation; no "TODO later" or "fix me" leftovers
 
+## OpenSpec
+
+This project uses [OpenSpec](https://openspec.pro/) for spec-driven development. Specs live in `openspec/specs/` and changes live in `openspec/changes/`.
+
+### Capability Specs
+
+Baseline specs for 14 capabilities are in `openspec/specs/<capability>/spec.md`:
+
+| Capability              | Description                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `connection-management` | Connection profile CRUD, health checks, adapter factory routing                  |
+| `sql-query`             | Monaco editor, query execution, safety checks, autocomplete, history             |
+| `schema-browse`         | Schema tree, ERD graph, preview rows, global search, index browsing              |
+| `schema-evolution`      | Schema timeline, diff view, migration assistant                                  |
+| `postgres-stats`        | Database/table/index stats, active connection monitoring                         |
+| `postgres-tools`        | Embedded psql, backup, restore, tool job lifecycle                               |
+| `vector-search`         | pgvector + sqlite-vec search, sample extraction, 3D PCA visualization            |
+| `mongodb`               | Database/collection browsing, document CRUD, aggregation, mongosh shell          |
+| `redis`                 | Key scanning, value lookup, TTL, command runner, server stats                    |
+| `qdrant`                | Collection browsing, point scroll, search, recommend, filter builder, vector map |
+| `tigerbeetle`           | Account/transfer listing and creation, balance lookup, stats                     |
+| `ai-chat`               | Multi-provider chat, schema-aware context, chat history, vector schema search    |
+| `logs-viewer`           | Merged frontend/Tauri/sidecar log viewing with filtering                         |
+| `file-db-maintenance`   | DuckDB and SQLite file backup/restore                                            |
+
+### Workflow
+
+- Use `/opsx:propose` to create a new change proposal with specs, design, and tasks.
+- Use `/opsx:explore` to investigate ideas before proposing.
+- Use `/opsx:apply` to implement tasks from a change.
+- Use `/opsx:sync` to sync delta specs into main specs after archiving.
+- Use `/opsx:archive` to archive a completed change.
+- Before modifying a capability, check its spec in `openspec/specs/<capability>/spec.md` for requirements and scenarios.
+
+### Config
+
+- `openspec/config.yaml` — project context and per-artifact rules.
+- `.windsurf/skills/openspec-*/SKILL.md` — Windsurf skill definitions.
+- `.windsurf/workflows/opsx-*.md` — Windsurf slash command workflows.
+
 ## Agent Workflows
 
 Reusable workflow definitions live in `.agents/`. When the user asks to run a workflow, read the corresponding file and follow its steps.
