@@ -91,9 +91,6 @@ const QUERY_OPERATORS = [
   '$near',
   '$nearSphere',
   '$text',
-  '$language',
-  '$caseSensitive',
-  '$diacriticSensitive',
 ];
 
 // Update operators for update operations ($set, $unset, $inc, etc.)

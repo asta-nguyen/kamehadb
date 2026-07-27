@@ -21,6 +21,7 @@ export const P95_PERCENTILE = 0.95;
  */
 export function normalizeQuery(sql: string): string {
   return sql
+    .replace(/\$\w*\$[\s\S]*?\$\w*\$/g, '?') // dollar-quoted strings ($$..$$ or $tag$..$tag$)
     .replace(/'(?:[^']|'')*'/g, '?') // single-quoted strings ('it''s' -> ?)
     .replace(/0x[0-9a-fA-F]+/g, '?') // hex literals
     .replace(/\b\d+\.\d+\b/g, '?') // decimal numbers

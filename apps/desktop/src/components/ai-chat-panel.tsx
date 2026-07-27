@@ -521,6 +521,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
       prevConnectionIdRef.current = connectionId;
       chat.setMessages([]);
       historyLoadedRef.current = false;
+      sentPromptRef.current = null;
     }
   }, [connectionId, chat]);
 
