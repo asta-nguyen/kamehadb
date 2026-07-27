@@ -1,0 +1,23 @@
+landing/og-animated.disabled/route.tsx
+  s_9c525c028b588d::t_be104485c49054 664
+  s_9c525c028b588d::t_ce7e6590f46309 21-28,81-82,88,93,112,117,126,150,632,734-735
+  s_9c525c028b588d::t_b05cb2631c3e07 3
+  s_9c525c028b588d::t_c88893e923106c 17
+  s_9c525c028b588d::t_d115c1736eeff6 2,6-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c1564ed867002a1d907853bebbece9d47434e334",
+  "prompts": {},
+  "sessions": {
+    "s_9c525c028b588d": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "295e7a51-8ded-48e1-995d-5d8fc23fd6cc",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
