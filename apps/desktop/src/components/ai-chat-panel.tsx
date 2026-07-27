@@ -1,4 +1,5 @@
 import { ChatInput } from '@/components/chat-input';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { buttonVariants } from '@/components/ui/variants';
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useChat } from '@/hooks/use-chat';
+import { useAISettings } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
 import {
   buildHighlightedCodeTree,
@@ -440,6 +442,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const [isResizing, setIsResizing] = useState(false);
   const panelWidth = widthOverride ?? width;
   const { data: connections } = useConnections();
+  const { data: aiSettings } = useAISettings();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
@@ -600,6 +603,11 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                   <Sparkles className="size-3.5" />
                 </span>
                 <span className="truncate text-sm font-medium">AI Assistant</span>
+                {aiSettings && (
+                  <Badge variant="outline" className="max-w-32 truncate text-[10px] font-normal text-muted-foreground">
+                    {aiSettings.activeProvider}
+                  </Badge>
+                )}
               </div>
             </div>
 

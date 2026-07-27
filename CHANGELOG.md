@@ -7,6 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- **AI chat** — Show the active provider in the chat panel header.
 - **MCP server**
 - **Landing UI** — Added `@radix-ui/react-avatar`, `@radix-ui/react-slot`, and `class-variance-authority` for the new UI components.
 - **Runtime reliability** — Prevented AI-generated write queries from auto-running, moved saved SQL health checks onto cached adapters/pools at a 60-second cadence, bounded timed-out probes, stopped Qdrant WebGL scene churn, and surfaced AI stream failures in chat.

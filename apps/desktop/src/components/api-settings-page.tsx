@@ -199,31 +199,40 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
         draft: {
           ...state.draft,
           activeProvider: action.provider,
-          providers: Object.fromEntries(
-            PROVIDER_ORDER.map((provider) => [
-              provider,
-              {
-                ...state.draft.providers[provider],
-                enabled: provider === action.provider,
-              },
-            ]),
-          ) as AISettings['providers'],
+          providers: {
+            ...state.draft.providers,
+            [action.provider]: {
+              ...state.draft.providers[action.provider],
+              enabled: true,
+            },
+          },
         },
       };
-    case 'updateProvider':
+    case 'updateProvider': {
+      const updated: AIProviderConfig = {
+        ...state.draft.providers[action.provider],
+        ...action.updates,
+      };
+      // Auto-enable when the provider has sufficient config so it
+      // persists as 'Configured' even before being set as active.
+      if (!updated.enabled && updated.model.trim()) {
+        const needsKey = providerNeedsApiKey(action.provider);
+        const needsUrl = providerNeedsBaseUrl(action.provider);
+        if ((!needsKey || updated.apiKey?.trim()) && (!needsUrl || updated.baseUrl?.trim())) {
+          updated.enabled = true;
+        }
+      }
       return {
         ...state,
         draft: {
           ...state.draft,
           providers: {
             ...state.draft.providers,
-            [action.provider]: {
-              ...state.draft.providers[action.provider],
-              ...action.updates,
-            },
+            [action.provider]: updated,
           },
         },
       };
+    }
     case 'resetSelected':
       return {
         ...state,
