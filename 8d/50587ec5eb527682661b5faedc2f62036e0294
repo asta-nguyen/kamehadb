@@ -1,0 +1,31 @@
+apps/desktop/src/components/api-settings-page.tsx
+  s_22b0649f33e075::t_58560c1b82f2ae 202-208,211-224,231,235
+apps/desktop/src/components/ai-chat-panel.tsx
+  s_683172d3589407::t_d32892f45fce83 2,15,445,606-610
+CHANGELOG.md
+  s_683172d3589407::t_7883c30c7abafe 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "8d50587ec5eb527682661b5faedc2f62036e0294",
+  "prompts": {},
+  "sessions": {
+    "s_22b0649f33e075": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "4ef227ad-14d1-4653-a274-daaab87dabe5",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_683172d3589407": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fa2cb-5923-7ed0-8e27-4d20b4511acd",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
