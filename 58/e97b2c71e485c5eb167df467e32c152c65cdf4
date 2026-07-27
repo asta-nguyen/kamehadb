@@ -1,0 +1,24 @@
+apps/sidecar/src/routes/connections.ts
+  s_22b0649f33e075::t_c41986b0180eca 236-255
+  s_22b0649f33e075::t_fca997edaa6648 272-284
+  s_22b0649f33e075::t_7779b06058ff93 203-207,213-216
+  s_22b0649f33e075::t_52fa1507a2a9f9 285-287
+landing/package.json
+  s_22b0649f33e075::t_855e28ec9a254f 28-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "58e97b2c71e485c5eb167df467e32c152c65cdf4",
+  "prompts": {},
+  "sessions": {
+    "s_22b0649f33e075": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "4ef227ad-14d1-4653-a274-daaab87dabe5",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
