@@ -1,0 +1,56 @@
+openspec/changes/document-existing-capabilities/specs/tigerbeetle/spec.md
+  s_b263840c69c5c5::t_fa99c7bfff3375 1-55
+openspec/changes/document-existing-capabilities/specs/schema-browse/spec.md
+  s_b263840c69c5c5::t_1ceea4f56e84c5 1-66
+openspec/changes/document-existing-capabilities/specs/redis/spec.md
+  s_b263840c69c5c5::t_bc26809681caee 1-66
+openspec/changes/document-existing-capabilities/README.md
+  s_b263840c69c5c5::t_ee30ddcb4c60ce 1-3
+openspec/changes/document-existing-capabilities/specs/logs-viewer/spec.md
+  s_b263840c69c5c5::t_2446316b06b5c3 1-56
+AGENTS.md
+  s_b263840c69c5c5::t_b7164904700555 483-491,493-522
+  s_b263840c69c5c5::t_3636e88e7891ea 492
+openspec/changes/document-existing-capabilities/proposal.md
+  s_b263840c69c5c5::t_fe7ece230ef3fb 1-37
+openspec/changes/document-existing-capabilities/specs/postgres-stats/spec.md
+  s_b263840c69c5c5::t_6174b63028783b 1-42
+openspec/changes/document-existing-capabilities/.openspec.yaml
+  s_b263840c69c5c5::t_ee30ddcb4c60ce 1-3
+openspec/changes/document-existing-capabilities/specs/mongodb/spec.md
+  s_b263840c69c5c5::t_f61996a0de746b 1-75
+openspec/changes/document-existing-capabilities/specs/sql-query/spec.md
+  s_b263840c69c5c5::t_c20c9167b61fc5 1-86
+openspec/changes/document-existing-capabilities/specs/qdrant/spec.md
+  s_b263840c69c5c5::t_6d11575ccbdc5a 1-74
+openspec/changes/document-existing-capabilities/specs/connection-management/spec.md
+  s_b263840c69c5c5::t_34c3a5905f1335 1-81
+openspec/changes/document-existing-capabilities/specs/vector-search/spec.md
+  s_b263840c69c5c5::t_24c052362f211d 1-70
+openspec/config.yaml
+  s_b263840c69c5c5::t_4ac2eeca1d274c 1-20
+openspec/changes/document-existing-capabilities/specs/schema-evolution/spec.md
+  s_b263840c69c5c5::t_5b49afe87f1611 1-48
+openspec/changes/document-existing-capabilities/specs/ai-chat/spec.md
+  s_b263840c69c5c5::t_ed9316b6bdde34 1-91
+openspec/changes/document-existing-capabilities/specs/file-db-maintenance/spec.md
+  s_b263840c69c5c5::t_0ef5a1730780e0 1-48
+openspec/changes/document-existing-capabilities/specs/postgres-tools/spec.md
+  s_b263840c69c5c5::t_ad8657ce92796a 1-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7aabadf590a4ef5decd35ca6744dec82a58eed1a",
+  "prompts": {},
+  "sessions": {
+    "s_b263840c69c5c5": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "6b797060-6d6b-43fe-b8f7-2e427b134fd4",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
