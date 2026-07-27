@@ -1,11 +1,10 @@
 import { NextRequest } from 'next/server';
-import { Renderer } from 'takumi-js/wasm';
-import init, { type InitInput } from '@takumi-rs/wasm';
-import wasmModule from '@takumi-rs/wasm/next';
+import { Renderer, initSync } from '@takumi-rs/wasm';
 import { fromJsx } from '@takumi-rs/helpers/jsx';
 import { readFileSync, existsSync } from 'node:fs';
 import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
@@ -15,8 +14,7 @@ const execFileAsync = promisify(execFile);
 const ffmpegBin = ffmpegStatic && existsSync(ffmpegStatic) ? ffmpegStatic : 'ffmpeg';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-static';
-export const revalidate = false; // Never revalidate — fully static at build time
+export const dynamic = 'force-dynamic';
 
 const SITE_URL = 'https://kamehadb.astalife.co';
 
