@@ -1,0 +1,26 @@
+apps/desktop/src/lib/query-normalize.ts
+  s_22b0649f33e075::t_5fc4850d5d0bb7 24
+landing/scripts/capture-images.mjs
+  s_22b0649f33e075::t_e538fba10a4283 135-149,154
+  s_22b0649f33e075::t_96e3bbcc713997 68
+apps/desktop/src/lib/query-normalize.test.ts
+  s_22b0649f33e075::t_9d82e825c6f468 45-59
+apps/desktop/src/components/ai-chat-panel.tsx
+  s_22b0649f33e075::t_69d50f2e9cb959 524
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "3dde652f8586ee3ba46aafe3c44e7b8d0e92fce0",
+  "prompts": {},
+  "sessions": {
+    "s_22b0649f33e075": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "4ef227ad-14d1-4653-a274-daaab87dabe5",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
