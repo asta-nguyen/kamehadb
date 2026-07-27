@@ -200,13 +200,20 @@ connectionsRouter.get('/health', async (c) => {
 
   // Clear the losing timer after every race; the shared in-flight map above
   // bounds adapters without native cancellation to one probe per connection.
-  const withTimeout = async (promise: Promise<ConnectionTestResult>, ms: number): Promise<ConnectionTestResult> => {
+  const withTimeout = async (
+    promise: Promise<ConnectionTestResult>,
+    ms: number,
+    onTimeout?: () => void,
+  ): Promise<ConnectionTestResult> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([
         promise,
         new Promise<ConnectionTestResult>((resolve) => {
-          timer = setTimeout(() => resolve({ success: false, message: `Timeout after ${ms}ms` }), ms);
+          timer = setTimeout(() => {
+            onTimeout?.();
+            resolve({ success: false, message: `Timeout after ${ms}ms` });
+          }, ms);
         }),
       ]);
     } finally {
@@ -226,21 +233,26 @@ connectionsRouter.get('/health', async (c) => {
           const password = metadataStore.getProfilePassword(profile.id);
           try {
             const start = performance.now();
-            const result = await withTimeout(
-              getActiveHealthCheck(profile.id, {
-                connectionId: profile.id,
-                kind: profile.kind,
-                host: profile.host,
-                port: profile.port,
-                database: profile.database,
-                username: profile.username,
-                password: password ?? undefined,
-                ssl: profile.ssl,
-                connectionString: profile.connectionString,
-                filePath: profile.filePath,
-              }),
-              PER_CHECK_TIMEOUT,
-            );
+            const probe = getActiveHealthCheck(profile.id, {
+              connectionId: profile.id,
+              kind: profile.kind,
+              host: profile.host,
+              port: profile.port,
+              database: profile.database,
+              username: profile.username,
+              password: password ?? undefined,
+              ssl: profile.ssl,
+              connectionString: profile.connectionString,
+              filePath: profile.filePath,
+            });
+            const result = await withTimeout(probe, PER_CHECK_TIMEOUT, () => {
+              // Evict the timed-out probe so the next round starts a
+              // fresh testConnectionByKind instead of reusing the hung
+              // promise. Identity check avoids removing a newer replacement.
+              if (activeHealthChecks.get(profile.id) === probe) {
+                activeHealthChecks.delete(profile.id);
+              }
+            });
             result.latencyMs = Math.round(performance.now() - start);
             results[profile.id] = result;
           } catch (err) {
@@ -257,7 +269,23 @@ connectionsRouter.get('/health', async (c) => {
       yield `data: ${JSON.stringify(results)}\n\n`;
 
       // Wait before the next round so saved connections do not get hammered.
-      await new Promise((resolve) => setTimeout(resolve, CONNECTION_HEALTH_INTERVAL_MS));
+      // Race the delay against the abort signal so cancel() interrupts
+      // the wait immediately instead of blocking for the full interval.
+      await new Promise<void>((resolve) => {
+        if (abortController.signal.aborted) return resolve();
+        const timer = setTimeout(resolve, CONNECTION_HEALTH_INTERVAL_MS);
+        abortController.signal.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(timer);
+            resolve();
+          },
+          { once: true },
+        );
+      });
+      // Re-check after the delay — if cancelled during the wait, skip
+      // the next health-check round and proceed to cleanup.
+      if (abortController.signal.aborted) break;
     }
   };
 
