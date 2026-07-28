@@ -150,8 +150,8 @@ class SchemaWatcherManager {
       entry.stopped = true;
       try {
         await client.end();
-      } catch {
-        // ignore — client may not have connected
+      } catch (err) {
+        log.debug({ err }, 'schema-watcher: client.end failed during startup cleanup');
       }
       throw err;
     }
@@ -197,8 +197,8 @@ class SchemaWatcherManager {
       old.stopped = true;
       try {
         await old.client.end();
-      } catch {
-        // ignore — client may already be disconnected
+      } catch (err) {
+        log.debug({ err }, 'schema-watcher: client.end failed during reconnect');
       }
       this.notifyListeners.delete(connectionId);
     }

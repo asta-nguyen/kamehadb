@@ -217,37 +217,38 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
   try {
     const data = await withAdapter(getAdapter, connectionId, async (adapter) => {
       const collections = await adapter.listCollections(database || undefined);
-      const result = [];
-      for (const coll of collections) {
-        let fields: string[] = [];
-        try {
-          const sample = await adapter.findDocuments({
-            collection: coll.name,
-            database: database || undefined,
-            limit: 1,
-          });
-          if (sample.documents.length > 0) {
-            fields = Object.keys(sample.documents[0]);
-          } else {
-            // Collection is empty — fall back to index keys for field hints
-            try {
-              const stats = await adapter.getCollectionStats(database || '', coll.name);
-              const indexFields = new Set<string>();
-              for (const idx of stats.indexes) {
-                for (const key of Object.keys(idx.key)) {
-                  if (key !== '_id') indexFields.add(key);
+      const result = await Promise.all(
+        collections.map(async (coll) => {
+          let fields: string[] = [];
+          try {
+            const sample = await adapter.findDocuments({
+              collection: coll.name,
+              database: database || undefined,
+              limit: 1,
+            });
+            if (sample.documents.length > 0) {
+              fields = Object.keys(sample.documents[0]);
+            } else {
+              // Collection is empty — fall back to index keys for field hints
+              try {
+                const stats = await adapter.getCollectionStats(database || '', coll.name);
+                const indexFields = new Set<string>();
+                for (const idx of stats.indexes) {
+                  for (const key of Object.keys(idx.key)) {
+                    if (key !== '_id') indexFields.add(key);
+                  }
                 }
+                fields = Array.from(indexFields);
+              } catch (err) {
+                log.warn({ err }, 'mongo: collection stats failed');
               }
-              fields = Array.from(indexFields);
-            } catch {
-              // skip if stats fail
             }
+          } catch (err) {
+            log.warn({ err }, 'mongo: collection sampling failed');
           }
-        } catch {
-          // skip collections we can't sample
-        }
-        result.push({ name: coll.name, fields });
-      }
+          return { name: coll.name, fields };
+        }),
+      );
       return { collections: result };
     });
     setCache(cacheKey, data);
@@ -318,7 +319,9 @@ mongoRouter.post('/:connectionId/shell', async (c) => {
     const body = await c.req.json<{ cols?: number; rows?: number }>();
     if (body.cols) cols = body.cols;
     if (body.rows) rows = body.rows;
-  } catch {}
+  } catch (err) {
+    log.debug({ err }, 'mongo: shell body parse failed, using defaults');
+  }
   const connStr = profile.connectionString || '';
   const sessionId = nanoid();
   const mongoshCommand = await resolveMongoshCommand();

@@ -277,7 +277,7 @@ import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autoc
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
-import { safeErrorMessage } from '@kamehadb/shared';
+import { isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
 import {
   AlertCircle,
@@ -663,6 +663,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           // Apply LIMIT per individual statement so multi-statement SQL never
           // produces a standalone "LIMIT N" after the split.
           const stmt = queryWithLimit(statements[i], queryLimit);
+          const safety = isQuerySafe(stmt);
+          if (!safety.safe) {
+            setError(safety.reason ?? 'Query blocked by safety check');
+            setIsExecutingBatch(false);
+            return;
+          }
           const res = await runQuery.mutateAsync({ query: stmt });
           saveHistory.mutate({ query: stmt, durationMs: res.durationMs, rowCount: res.rowCount });
           allResults.push(res);

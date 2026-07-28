@@ -21,7 +21,7 @@ export function invalidateAdapterCache(connectionId: string): void {
   const adapter = adapterCache.get(connectionId);
   if (adapter) {
     adapterCache.delete(connectionId);
-    adapter.close().catch(() => {});
+    adapter.close().catch((err) => log.warn({ err }, 'sql: adapter close failed during cache invalidation'));
   }
 }
 
@@ -263,7 +263,12 @@ sqlRouter.post(
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
 
       const adapter = await getSqlAdapter(connectionId);
-      const result = await adapter.runQuery(c.req.valid('json'));
+      const body = c.req.valid('json');
+      const safety = isQuerySafe(body.query);
+      if (!safety.safe) {
+        return c.json({ error: 'UNSAFE', message: safety.reason }, 400);
+      }
+      const result = await adapter.runQuery(body);
       return c.json(result);
     } catch (err) {
       return handleError(c, err, 'runQuery');

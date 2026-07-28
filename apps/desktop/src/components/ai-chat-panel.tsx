@@ -40,7 +40,7 @@ import {
   X,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { useCallback, useEffect, useRef, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -450,15 +450,21 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const historyLoadedRef = useRef(false);
   const prevConnectionIdRef = useRef(connectionId);
 
-  const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
+  const currentConnection = useMemo(
+    () => connections?.find((c: (typeof connections)[number]) => c.id === connectionId),
+    [connections, connectionId],
+  );
   const isMongoDb = currentConnection?.kind === 'mongodb';
   const mongoDatabase = isMongoDb ? (appStore.state.activeMongoDatabase ?? undefined) : undefined;
-  const chatMode =
-    currentConnection?.kind === 'mongodb'
-      ? CHAT_MODE_CONFIG.mongodb
-      : currentConnection?.kind === 'redis'
-        ? CHAT_MODE_CONFIG.redis
-        : CHAT_MODE_CONFIG.sql;
+  const chatMode = useMemo(
+    () =>
+      currentConnection?.kind === 'mongodb'
+        ? CHAT_MODE_CONFIG.mongodb
+        : currentConnection?.kind === 'redis'
+          ? CHAT_MODE_CONFIG.redis
+          : CHAT_MODE_CONFIG.sql,
+    [currentConnection?.kind],
+  );
 
   // Consume a pending AI prompt queued by a schema-tree right-click action.
   // The schema-tree handler calls setPendingAiPrompt + openAiChatPanel; this
@@ -528,31 +534,37 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     }
   }, [connectionId, chat]);
 
-  function handleSuggestionClick(text: string) {
-    chat.sendMessage(text);
-  }
+  const handleSuggestionClick = useCallback(
+    (text: string) => {
+      chat.sendMessage(text);
+    },
+    [chat],
+  );
 
-  function handleStop() {
+  const handleStop = useCallback(() => {
     chat.stop();
-  }
+  }, [chat]);
 
-  function handleClearHistory() {
+  const handleClearHistory = useCallback(() => {
     if (!connectionId) return;
     clearChatHistory.mutate({ connectionId, mongoDatabase });
     chat.setMessages([]);
-  }
+  }, [connectionId, mongoDatabase, clearChatHistory, chat]);
 
-  function handleRefreshSchema() {
+  const handleRefreshSchema = useCallback(() => {
     if (!connectionId) return;
     clearSchemaCache.mutate({ connectionId });
-  }
+  }, [connectionId, clearSchemaCache]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    startXRef.current = e.clientX;
-    startWidthRef.current = panelWidth;
-  };
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+      startXRef.current = e.clientX;
+      startWidthRef.current = panelWidth;
+    },
+    [panelWidth],
+  );
 
   useEffect(() => {
     if (!isResizing) return;

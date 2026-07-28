@@ -91,22 +91,18 @@ export function initMetadataStore(dbPath: string): void {
   // Migration: Add password column if it doesn't exist
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN password TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    log.debug({ err }, 'migration: password column already exists');
   }
-
-  // Migration: Add color column if it doesn't exist
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN color TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    log.debug({ err }, 'migration: color column already exists');
   }
-
-  // Migration: Add connection_string column if it doesn't exist
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN connection_string TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    log.debug({ err }, 'migration: connection_string column already exists');
   }
 
   // Migration: widen the kind CHECK constraint to include newer engines (e.g. qdrant).
@@ -328,8 +324,8 @@ export function initMetadataStore(dbPath: string): void {
   // Migration: Add mongo_database column if it doesn't exist
   try {
     db.exec('ALTER TABLE chat_messages ADD COLUMN mongo_database TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    log.debug({ err }, 'migration: mongo_database column already exists');
   }
 
   // Migration: Normalize chat_messages.created_at to ISO 8601 format
@@ -346,8 +342,8 @@ export function initMetadataStore(dbPath: string): void {
       `,
       )
       .run();
-  } catch {
-    // Migration already applied or no rows to update
+  } catch (err) {
+    log.debug({ err }, 'migration: normalize chat_messages.created_at already applied');
   }
 
   // schema_embeddings table stores the DDL text and hash for each indexed table.

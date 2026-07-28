@@ -174,12 +174,18 @@ export function VectorMap3D({
     // existing GPU buffer and never destroys the scene or resets the camera.
     const colors = new Float32Array(positions.length);
     const c = new THREE.Color();
+    const colorCache = new Map<string, { r: number; g: number; b: number }>();
     for (let i = 0; i < pointsRef.current.length; i++) {
       const color = colorByRef.current && colorValueRef.current ? colorValueRef.current(i) : VECTOR_PALETTE[0];
-      setTokenColor(c, color);
-      colors[i * 3] = c.r;
-      colors[i * 3 + 1] = c.g;
-      colors[i * 3 + 2] = c.b;
+      let rgb = colorCache.get(color);
+      if (!rgb) {
+        setTokenColor(c, color);
+        rgb = { r: c.r, g: c.g, b: c.b };
+        colorCache.set(color, rgb);
+      }
+      colors[i * 3] = rgb.r;
+      colors[i * 3 + 1] = rgb.g;
+      colors[i * 3 + 2] = rgb.b;
     }
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometryRef.current = geometry;
@@ -272,9 +278,16 @@ export function VectorMap3D({
     const attr = geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
     if (!attr) return;
     const c = new THREE.Color();
+    const colorCache = new Map<string, { r: number; g: number; b: number }>();
     for (let i = 0; i < points.length; i++) {
-      setTokenColor(c, colorBy ? colorValue(i) : VECTOR_PALETTE[0]);
-      attr.setXYZ(i, c.r, c.g, c.b);
+      const color = colorBy ? colorValue(i) : VECTOR_PALETTE[0];
+      let rgb = colorCache.get(color);
+      if (!rgb) {
+        setTokenColor(c, color);
+        rgb = { r: c.r, g: c.g, b: c.b };
+        colorCache.set(color, rgb);
+      }
+      attr.setXYZ(i, rgb.r, rgb.g, rgb.b);
     }
     attr.needsUpdate = true;
   }, [colorBy, points, colorValue, isDark]);

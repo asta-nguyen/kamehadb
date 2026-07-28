@@ -39,29 +39,36 @@ async function buildMongoSchemaContext(
       lines.push(`## Database: ${database}`);
       const collections = await adapter.listCollections(database);
 
-      for (const coll of collections.slice(0, 10)) {
-        const stats = await adapter.getCollectionStats(database, coll.name);
-        lines.push(`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`);
+      const collResults = await Promise.all(
+        collections.slice(0, 10).map(async (coll) => {
+          const stats = await adapter.getCollectionStats(database, coll.name);
+          const section: string[] = [`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`];
 
-        if (stats.documentCount > 0) {
-          const result = await adapter.findDocuments({
-            collection: coll.name,
-            database,
-            limit: 1,
-          });
-          if (result.documents.length > 0) {
-            const sample = result.documents[0];
-            const fields = Object.keys(sample)
-              .slice(0, 15)
-              .map((k) => {
-                const v = sample[k];
-                const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
-                return `  ${k}: ${type}`;
-              });
-            lines.push('Fields:');
-            lines.push(fields.join('\n'));
+          if (stats.documentCount > 0) {
+            const result = await adapter.findDocuments({
+              collection: coll.name,
+              database,
+              limit: 1,
+            });
+            if (result.documents.length > 0) {
+              const sample = result.documents[0];
+              const fields = Object.keys(sample)
+                .slice(0, 15)
+                .map((k) => {
+                  const v = sample[k];
+                  const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+                  return `  ${k}: ${type}`;
+                });
+              section.push('Fields:');
+              section.push(fields.join('\n'));
+            }
           }
-        }
+          return section;
+        }),
+      );
+      for (const section of collResults) {
+        lines.push(...section);
+        lines.push('');
       }
     } else {
       // Get schema for all databases (fallback)
@@ -104,7 +111,8 @@ async function buildMongoSchemaContext(
     }
 
     return lines.join('\n');
-  } catch {
+  } catch (err) {
+    log.error({ err }, 'buildSchemaContext failed');
     return null;
   }
 }
@@ -326,8 +334,8 @@ aiRouter.post(
                 }
               }
             }
-          } catch {
-            // Silently fail, LLM can work without schema
+          } catch (err) {
+            log.warn({ err }, 'ai: schema context build failed, continuing without schema');
           }
         }
 
