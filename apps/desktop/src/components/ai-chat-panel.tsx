@@ -45,6 +45,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
+import { KIND } from '@kamehadb/shared';
 import type { PendingAiPrompt } from '@/lib/types';
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
@@ -454,13 +455,13 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     () => connections?.find((c: (typeof connections)[number]) => c.id === connectionId),
     [connections, connectionId],
   );
-  const isMongoDb = currentConnection?.kind === 'mongodb';
+  const isMongoDb = currentConnection?.kind === KIND.MONGODB;
   const mongoDatabase = isMongoDb ? (appStore.state.activeMongoDatabase ?? undefined) : undefined;
   const chatMode = useMemo(
     () =>
-      currentConnection?.kind === 'mongodb'
+      currentConnection?.kind === KIND.MONGODB
         ? CHAT_MODE_CONFIG.mongodb
-        : currentConnection?.kind === 'redis'
+        : currentConnection?.kind === KIND.REDIS
           ? CHAT_MODE_CONFIG.redis
           : CHAT_MODE_CONFIG.sql,
     [currentConnection?.kind],
@@ -487,13 +488,30 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     forwardedProps: connectionId ? { connectionId, mongoDatabase, tableId: pendingAiPrompt?.tableId } : undefined,
   });
 
+  // Connection reset — must run BEFORE the pending-prompt effect so that
+  // when connectionId changes, messages are cleared and sentPromptRef is
+  // nulled before the prompt effect gets a chance to fire. The prompt
+  // effect will then re-fire on the next render with empty messages.
+  useEffect(() => {
+    if (prevConnectionIdRef.current !== connectionId) {
+      prevConnectionIdRef.current = connectionId;
+      setChatMessages([]);
+      historyLoadedRef.current = false;
+      sentPromptRef.current = null;
+    }
+  }, [connectionId, setChatMessages]);
+
   useEffect(() => {
     if (!pendingAiPrompt) return;
     if (sentPromptRef.current === pendingAiPrompt) return;
+    // If the connection just changed, skip — the reset effect above nulled
+    // sentPromptRef and cleared messages. The next render will re-enter
+    // this effect with the correct connection's empty message list.
+    if (prevConnectionIdRef.current !== connectionId) return;
     sentPromptRef.current = pendingAiPrompt;
     sendMessage(pendingAiPrompt.prompt);
     clearPendingAiPrompt();
-  }, [pendingAiPrompt, sendMessage]);
+  }, [pendingAiPrompt, sendMessage, connectionId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -531,15 +549,6 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
       setChatMessages(uiMessages);
     }
   }, [chatHistory, chatMessages, setChatMessages]);
-
-  useEffect(() => {
-    if (prevConnectionIdRef.current !== connectionId) {
-      prevConnectionIdRef.current = connectionId;
-      setChatMessages([]);
-      historyLoadedRef.current = false;
-      sentPromptRef.current = null;
-    }
-  }, [connectionId, setChatMessages]);
 
   const handleSuggestionClick = useCallback(
     (text: string) => {

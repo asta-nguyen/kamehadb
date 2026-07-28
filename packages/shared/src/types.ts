@@ -604,8 +604,30 @@ export const DESTRUCTIVE_KEYWORDS = [
 
 export const SAFE_KEYWORDS = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
 
+/**
+ * Remove SQL noise (string literals, comments, dollar-quoted text) so that
+ * keyword checks only inspect actual SQL tokens. Replaces noise with spaces
+ * to preserve word boundaries. This is a heuristic, not a parser.
+ */
+function stripSqlNoise(sql: string): string {
+  return (
+    sql
+      // Dollar-quoted strings: $$...$$ or $tag$...$tag$ — backreference ensures matching delimiters
+      .replace(/(\$\w*\$)[\s\S]*?\1/g, ' ')
+      // Block comments: /* ... */
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      // Line comments: -- ... to end of line
+      .replace(/--[^\n]*/g, ' ')
+      // Single-quoted strings: '...' (with '' as escaped quote)
+      .replace(/'(?:[^']|'')*'/g, ' ')
+      // Double-quoted identifiers: "..." (with "" as escaped quote)
+      .replace(/"(?:[^"]|"")*"/g, ' ')
+  );
+}
+
 export function isQuerySafe(sql: string): { safe: boolean; reason?: string } {
-  const normalized = sql.trim().toUpperCase();
+  const stripped = stripSqlNoise(sql);
+  const normalized = stripped.trim().toUpperCase();
 
   if (!normalized) return { safe: true };
 
