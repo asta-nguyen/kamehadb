@@ -594,6 +594,7 @@ export const DESTRUCTIVE_KEYWORDS = [
   'ALTER',
   'CREATE',
   'INSERT',
+  'INTO',
   'UPDATE',
   'DELETE',
   'MERGE',

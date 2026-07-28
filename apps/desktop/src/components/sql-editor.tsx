@@ -665,6 +665,19 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           const stmt = queryWithLimit(statements[i], queryLimit);
           const safety = isQuerySafe(stmt);
           if (!safety.safe) {
+            // Show results from statements that already executed before
+            // hitting the blocked one, so the user doesn't lose them.
+            if (allResults.length > 0) {
+              resultKeyRef.current++;
+              if (allResults.length === 1) {
+                setResult(allResults[0]);
+                setExecutedStatements([statements[0]]);
+              } else {
+                setResults(allResults);
+                setExecutedStatements(statements.slice(0, allResults.length));
+                setActiveResultIndex(0);
+              }
+            }
             setError(safety.reason ?? 'Query blocked by safety check');
             setIsExecutingBatch(false);
             return;
