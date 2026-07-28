@@ -273,15 +273,16 @@ connectionsRouter.get('/health', async (c) => {
       // the wait immediately instead of blocking for the full interval.
       await new Promise<void>((resolve) => {
         if (abortController.signal.aborted) return resolve();
-        const timer = setTimeout(resolve, CONNECTION_HEALTH_INTERVAL_MS);
-        abortController.signal.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
+        let timer: ReturnType<typeof setTimeout>;
+        const onAbort = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        timer = setTimeout(() => {
+          abortController.signal.removeEventListener('abort', onAbort);
+          resolve();
+        }, CONNECTION_HEALTH_INTERVAL_MS);
+        abortController.signal.addEventListener('abort', onAbort, { once: true });
       });
       // Re-check after the delay — if cancelled during the wait, skip
       // the next health-check round and proceed to cleanup.
