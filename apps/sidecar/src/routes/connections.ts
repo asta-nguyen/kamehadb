@@ -166,8 +166,11 @@ async function testConnectionByKind(
 type ConnectionTestResult = Awaited<ReturnType<typeof testConnectionByKind>>;
 const activeHealthChecks = new Map<string, Promise<ConnectionTestResult>>();
 
-// ponytail: DB drivers lack shared cancellation, so cap each connection at one
-// probe; add per-driver abort only when its client exposes a reliable signal.
+// DB drivers lack shared cancellation, so cap each connection at one probe.
+// A timed-out probe stays in the map until it settles — this prevents
+// unbounded concurrent probes for hung drivers. withTimeout still returns a
+// timeout result to the caller, but the underlying operation is reused on the
+// next round. Add per-driver abort only when its client exposes a reliable signal.
 function getActiveHealthCheck(connectionId: string, params: TestConnectionParams): Promise<ConnectionTestResult> {
   const active = activeHealthChecks.get(connectionId);
   if (active) return active;
@@ -200,20 +203,13 @@ connectionsRouter.get('/health', async (c) => {
 
   // Clear the losing timer after every race; the shared in-flight map above
   // bounds adapters without native cancellation to one probe per connection.
-  const withTimeout = async (
-    promise: Promise<ConnectionTestResult>,
-    ms: number,
-    onTimeout?: () => void,
-  ): Promise<ConnectionTestResult> => {
+  const withTimeout = async (promise: Promise<ConnectionTestResult>, ms: number): Promise<ConnectionTestResult> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([
         promise,
         new Promise<ConnectionTestResult>((resolve) => {
-          timer = setTimeout(() => {
-            onTimeout?.();
-            resolve({ success: false, message: `Timeout after ${ms}ms` });
-          }, ms);
+          timer = setTimeout(() => resolve({ success: false, message: `Timeout after ${ms}ms` }), ms);
         }),
       ]);
     } finally {
@@ -233,26 +229,21 @@ connectionsRouter.get('/health', async (c) => {
           const password = metadataStore.getProfilePassword(profile.id);
           try {
             const start = performance.now();
-            const probe = getActiveHealthCheck(profile.id, {
-              connectionId: profile.id,
-              kind: profile.kind,
-              host: profile.host,
-              port: profile.port,
-              database: profile.database,
-              username: profile.username,
-              password: password ?? undefined,
-              ssl: profile.ssl,
-              connectionString: profile.connectionString,
-              filePath: profile.filePath,
-            });
-            const result = await withTimeout(probe, PER_CHECK_TIMEOUT, () => {
-              // Evict the timed-out probe so the next round starts a
-              // fresh testConnectionByKind instead of reusing the hung
-              // promise. Identity check avoids removing a newer replacement.
-              if (activeHealthChecks.get(profile.id) === probe) {
-                activeHealthChecks.delete(profile.id);
-              }
-            });
+            const result = await withTimeout(
+              getActiveHealthCheck(profile.id, {
+                connectionId: profile.id,
+                kind: profile.kind,
+                host: profile.host,
+                port: profile.port,
+                database: profile.database,
+                username: profile.username,
+                password: password ?? undefined,
+                ssl: profile.ssl,
+                connectionString: profile.connectionString,
+                filePath: profile.filePath,
+              }),
+              PER_CHECK_TIMEOUT,
+            );
             result.latencyMs = Math.round(performance.now() - start);
             results[profile.id] = result;
           } catch (err) {

@@ -57,6 +57,14 @@ describe('normalizeQuery', () => {
     expect(normalizeQuery(a)).toBe(normalizeQuery(b));
   });
 
+  it('handles dollar-quoted body containing a different embedded delimiter-like sequence', () => {
+    // $tag$ body contains $$ which should NOT close the literal —
+    // the closing delimiter must be $tag$, not $$.
+    expect(normalizeQuery('SELECT $tag$ hello $$ world $tag$ FROM t')).toBe('SELECT ? FROM t');
+    // Symmetric: $$ body contains $tag$ which should NOT close it.
+    expect(normalizeQuery('SELECT $$ hello $tag$ world $$ FROM t')).toBe('SELECT ? FROM t');
+  });
+
   it('groups semantically equivalent queries to the same pattern', () => {
     const a = "SELECT * FROM orders WHERE total > 100 AND status = 'shipped'";
     const b = "SELECT * FROM orders WHERE total > 250 AND status = 'pending'";
