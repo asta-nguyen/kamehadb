@@ -1,0 +1,45 @@
+openspec/specs/qdrant/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-74
+openspec/specs/schema-browse/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-66
+openspec/specs/schema-evolution/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-48
+openspec/specs/connection-management/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-81
+openspec/specs/logs-viewer/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-56
+openspec/specs/postgres-stats/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-42
+openspec/specs/tigerbeetle/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-55
+openspec/specs/file-db-maintenance/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-48
+openspec/specs/mongodb/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-75
+openspec/specs/postgres-tools/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-72
+openspec/specs/redis/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-66
+openspec/specs/sql-query/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-86
+openspec/specs/vector-search/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-70
+openspec/specs/ai-chat/spec.md
+  s_22b0649f33e075::t_eb65fc4d59473d 1-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "498302d71f549a2a100e2dbea0e08440c898cbd5",
+  "prompts": {},
+  "sessions": {
+    "s_22b0649f33e075": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "4ef227ad-14d1-4653-a274-daaab87dabe5",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
