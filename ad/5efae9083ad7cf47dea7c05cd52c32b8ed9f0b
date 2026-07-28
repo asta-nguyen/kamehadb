@@ -1,0 +1,24 @@
+apps/desktop/src/lib/query-normalize.test.ts
+  s_22b0649f33e075::t_da8e30dd4e1e00 60-67
+apps/desktop/src/lib/query-normalize.ts
+  s_22b0649f33e075::t_e381092620d3e6 24
+apps/sidecar/src/routes/connections.ts
+  s_22b0649f33e075::t_d890d0f8bd57da 206,212,232-246
+  s_22b0649f33e075::t_a7a87b510bcd3d 169-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ad5efae9083ad7cf47dea7c05cd52c32b8ed9f0b",
+  "prompts": {},
+  "sessions": {
+    "s_22b0649f33e075": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "4ef227ad-14d1-4653-a274-daaab87dabe5",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
