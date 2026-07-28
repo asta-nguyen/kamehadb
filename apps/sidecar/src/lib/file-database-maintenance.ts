@@ -48,6 +48,9 @@ function relatedSuffixes(kind: SupportedFileDatabaseProfile['kind']): readonly s
 
 async function pathExists(filePath: string): Promise<boolean> {
   try {
+    if (filePath.includes('..') || path.isAbsolute(filePath)) {
+      return false;
+    }
     await access(filePath);
     return true;
   } catch {
