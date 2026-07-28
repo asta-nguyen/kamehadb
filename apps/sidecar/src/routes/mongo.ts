@@ -217,8 +217,17 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
   try {
     const data = await withAdapter(getAdapter, connectionId, async (adapter) => {
       const collections = await adapter.listCollections(database || undefined);
-      const result = await Promise.all(
-        collections.map(async (coll) => {
+
+      // Bounded worker pool — limits concurrent MongoDB queries to avoid
+      // overwhelming the connection when a database has many collections.
+      const CONCURRENCY = 8;
+      const result: { name: string; fields: string[] }[] = new Array(collections.length);
+      let nextIndex = 0;
+      async function worker() {
+        while (true) {
+          const i = nextIndex++;
+          if (i >= collections.length) break;
+          const coll = collections[i];
           let fields: string[] = [];
           try {
             const sample = await adapter.findDocuments({
@@ -246,9 +255,11 @@ mongoRouter.get('/:connectionId/autocomplete', async (c) => {
           } catch (err) {
             log.warn({ err }, 'mongo: collection sampling failed');
           }
-          return { name: coll.name, fields };
-        }),
-      );
+          result[i] = { name: coll.name, fields };
+        }
+      }
+      const workers = Array.from({ length: Math.min(CONCURRENCY, collections.length) }, () => worker());
+      await Promise.all(workers);
       return { collections: result };
     });
     setCache(cacheKey, data);
