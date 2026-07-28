@@ -1,0 +1,25 @@
+packages/shared/src/types.ts
+  s_22b0649f33e075::t_9748ee1199ff86 597
+apps/desktop/src/components/sql-editor.tsx
+  s_22b0649f33e075::t_2c63438d54fbc8 668-680
+apps/desktop/src/components/ai-chat-panel.tsx
+  s_22b0649f33e075::t_177138852dbed0 478-485,494,496,502,528,531,533,538,542,546,548,552-553,558-559,656,703,719,729-730,732,743,745
+apps/desktop/src/lib/sql-safety.test.ts
+  s_22b0649f33e075::t_78618949d433a5 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "01ebe2b89b5b7ea8ea219e40e79a2abb08d2d7a1",
+  "prompts": {},
+  "sessions": {
+    "s_22b0649f33e075": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "4ef227ad-14d1-4653-a274-daaab87dabe5",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
