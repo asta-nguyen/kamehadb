@@ -104,8 +104,19 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const skip = input.skip || 0;
       const limit = Math.min(input.limit || 100, 1000);
 
+      // Sanitize filter to prevent NoSQL injection
+      const sanitizedFilter: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(filter)) {
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          // If value is an object, wrap it in $eq to prevent operator injection
+          sanitizedFilter[key] = { $eq: value };
+        } else {
+          sanitizedFilter[key] = value;
+        }
+      }
+
       // Server-side text search across string fields
-      let queryFilter: Record<string, unknown> = { ...filter };
+      let queryFilter: Record<string, unknown> = { ...sanitizedFilter };
       if (input.search) {
         const sampleDoc = await collection.findOne();
         if (sampleDoc) {
@@ -177,7 +188,17 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const mongoClient = await ensureConnected();
       const targetDb = mongoClient.db(database || activeDbName || config.database);
       const coll = targetDb.collection(collection);
-      const result = await coll.updateOne(filter, { $set: update });
+      // Sanitize filter to prevent NoSQL injection
+      const sanitizedFilter: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(filter)) {
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          // If value is an object, wrap it in $eq to prevent operator injection
+          sanitizedFilter[key] = { $eq: value };
+        } else {
+          sanitizedFilter[key] = value;
+        }
+      }
+      const result = await coll.updateOne(sanitizedFilter, { $set: update });
       return {
         matchedCount: result.matchedCount,
         modifiedCount: result.modifiedCount,
@@ -194,7 +215,17 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       if (!targetDb) throw new Error('No database selected');
 
       const coll = targetDb.collection(collection);
-      const result = await coll.deleteOne(filter);
+      // Sanitize filter to prevent NoSQL injection
+      const sanitizedFilter: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(filter)) {
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          // If value is an object, wrap it in $eq to prevent operator injection
+          sanitizedFilter[key] = { $eq: value };
+        } else {
+          sanitizedFilter[key] = value;
+        }
+      }
+      const result = await coll.deleteOne(sanitizedFilter);
       return { deletedCount: result.deletedCount };
     },
 
