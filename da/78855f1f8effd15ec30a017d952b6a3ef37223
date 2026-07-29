@@ -1,0 +1,25 @@
+apps/sidecar/src/adapters/mongodb.ts
+  s_aac8b5ce4f830c::t_9b86eb8aa231cb 32-50,127,202,220
+apps/desktop/src/components/api-settings-page.tsx
+  s_aac8b5ce4f830c::t_b9acbf3055fde2 538
+apps/desktop/src/components/ai-chat-panel.tsx
+  s_aac8b5ce4f830c::t_93ea2520f80bdd 495-496
+apps/desktop/src/hooks/use-chat.ts
+  s_aac8b5ce4f830c::t_d78403bd8cd38d 208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "da78855f1f8effd15ec30a017d952b6a3ef37223",
+  "prompts": {},
+  "sessions": {
+    "s_aac8b5ce4f830c": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "51c268ae-31ed-426b-95f4-9360e1046a64",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
