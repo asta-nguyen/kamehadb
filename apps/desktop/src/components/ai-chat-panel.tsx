@@ -482,6 +482,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     sendMessage,
     stop,
     setMessages: setChatMessages,
+    reset: resetChat,
     resendFrom,
   } = useChat({
     url: '/ai/chat',
@@ -489,17 +490,18 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   });
 
   // Connection reset — must run BEFORE the pending-prompt effect so that
-  // when connectionId changes, messages are cleared and sentPromptRef is
-  // nulled before the prompt effect gets a chance to fire. The prompt
-  // effect will then re-fire on the next render with empty messages.
+  // when connectionId changes, messages are cleared atomically (both the
+  // ref and state) and sentPromptRef is nulled before the prompt effect
+  // gets a chance to fire. The prompt effect will then re-fire on the
+  // next render with an empty message list.
   useEffect(() => {
     if (prevConnectionIdRef.current !== connectionId) {
       prevConnectionIdRef.current = connectionId;
-      setChatMessages([]);
+      resetChat();
       historyLoadedRef.current = false;
       sentPromptRef.current = null;
     }
-  }, [connectionId, setChatMessages]);
+  }, [connectionId, resetChat]);
 
   useEffect(() => {
     if (!pendingAiPrompt) return;

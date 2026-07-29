@@ -203,5 +203,11 @@ export function useChat(options: UseChatOptions) {
     [options.url, options.forwardedProps],
   );
 
-  return { messages, isLoading, sendMessage, stop, setMessages, resendFrom };
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    messagesRef.current = [];
+    setMessages([]);
+  }, []);
+
+  return { messages, isLoading, sendMessage, stop, setMessages, reset, resendFrom };
 }
