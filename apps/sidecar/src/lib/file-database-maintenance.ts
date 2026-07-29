@@ -46,18 +46,6 @@ function relatedSuffixes(kind: SupportedFileDatabaseProfile['kind']): readonly s
   return kind === 'sqlite' ? SQLITE_RELATED_SUFFIXES : DUCKDB_RELATED_SUFFIXES;
 }
 
-async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    if (filePath.includes('..') || path.isAbsolute(filePath)) {
-      return false;
-    }
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function ensureParentDirectory(filePath: string): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
 }

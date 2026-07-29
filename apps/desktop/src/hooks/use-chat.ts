@@ -205,6 +205,7 @@ export function useChat(options: UseChatOptions) {
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
+    requestSeqRef.current++;
     messagesRef.current = [];
     setMessages([]);
   }, []);

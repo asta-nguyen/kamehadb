@@ -1,5 +1,4 @@
-import { useReducer, useMemo, type ReactNode } from 'react';
-import * as React from 'react';
+import { useReducer, useMemo, useState, type ReactNode } from 'react';
 import { ArrowLeft, Bot, Cloud, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
@@ -536,7 +535,7 @@ export function ApiSettingsPage() {
   // Reset the draft and snapshot whenever the server's saved settings change.
   // Adjusting state inline (per react.dev/learn/you-might-not-need-an-effect)
   // so we don't briefly render stale data.
-  const [prevSavedSettings, setPrevSavedSettings] = React.useState(savedSettings);
+  const [prevSavedSettings, setPrevSavedSettings] = useState(savedSettings);
   if (savedSettings !== prevSavedSettings) {
     setPrevSavedSettings(savedSettings);
     if (savedSettings) {
