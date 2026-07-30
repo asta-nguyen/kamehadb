@@ -234,30 +234,28 @@ function deleteOrphanedRows(connectionId: string, validTableIds: Set<string>): v
   tx(orphans);
 }
 
-export async function buildSchemaIndex(
-  adapter: SqlAdapter,
+/** A schema item to be embedded and stored in the vec0 index. `tableId` is
+ * the stable key (table id, collection name, key pattern, etc.), `enriched`
+ * is the text sent to the embedding model, and `hash` detects changes. */
+export type SchemaItem = { tableId: string; enriched: string; hash: string };
+
+/** Generic embedding + storage loop shared by all engine-specific index
+ * builders. Takes pre-built schema items, embeds them in batches, and upserts
+ * into schema_embeddings + schema_vec. Returns the number of items embedded. */
+export async function indexSchemaItems(
   connectionId: string,
+  items: SchemaItem[],
   provider: AIProvider,
   config: AIProviderConfig,
   force: boolean = false,
 ): Promise<number> {
-  const schemas = await adapter.listSchemas();
-  const items: { tableId: string; enriched: string; hash: string }[] = [];
-
-  for (const schema of schemas) {
-    const tables = await adapter.listTables(schema.name);
-    for (const table of tables) {
-      const [columns, indexes] = await Promise.all([
-        adapter.getTableColumns(table.id),
-        adapter.getTableIndexes(table.id),
-      ]);
-      const hash = computeTableHash(table, columns, indexes);
-      const enriched = buildEnrichedText(table, columns, indexes);
-      items.push({ tableId: table.id, enriched, hash });
-    }
+  if (items.length === 0) {
+    // Schema is empty (e.g. all collections dropped, connection emptied).
+    // Clear any previously stored embeddings so stale AI context does not
+    // linger indefinitely. An empty validTableIds set removes every row.
+    deleteOrphanedRows(connectionId, new Set());
+    return 0;
   }
-
-  if (items.length === 0) return 0;
 
   const existingMap = force ? null : getExistingHashes(connectionId);
 
@@ -308,6 +306,32 @@ export async function buildSchemaIndex(
   }
 
   return toEmbed.length;
+}
+
+export async function buildSchemaIndex(
+  adapter: SqlAdapter,
+  connectionId: string,
+  provider: AIProvider,
+  config: AIProviderConfig,
+  force: boolean = false,
+): Promise<number> {
+  const schemas = await adapter.listSchemas();
+  const items: SchemaItem[] = [];
+
+  for (const schema of schemas) {
+    const tables = await adapter.listTables(schema.name);
+    for (const table of tables) {
+      const [columns, indexes] = await Promise.all([
+        adapter.getTableColumns(table.id),
+        adapter.getTableIndexes(table.id),
+      ]);
+      const hash = computeTableHash(table, columns, indexes);
+      const enriched = buildEnrichedText(table, columns, indexes);
+      items.push({ tableId: table.id, enriched, hash });
+    }
+  }
+
+  return indexSchemaItems(connectionId, items, provider, config, force);
 }
 
 export async function searchRelevantSchema(
