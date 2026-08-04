@@ -28,6 +28,7 @@ There is also a separate marketing/docs site in `landing/`, but it is not part o
 - `landing/` has its own `package-lock.json` and is managed separately with npm.
 - Most root scripts target the pnpm workspace only. Do not assume they affect `landing/` unless they explicitly use `npm --prefix landing`.
 - Landing site image generation: use `node scripts/capture-images.mjs` to update the AI Compare panel screenshots in `public/images/`.
+- Landing animated OG image: use `npm --prefix landing run render:og` to regenerate `public/og-animated.gif` (requires `ffmpeg-static`, runs locally — not a Vercel runtime route).
 
 ## Commands
 
