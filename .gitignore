@@ -58,3 +58,5 @@ dist/
 plans/data/
 
 .windsurf/
+
+.omo/run-continuation
