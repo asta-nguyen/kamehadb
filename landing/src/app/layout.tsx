@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { getBaseUrl } from '@/lib/url';
 import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
@@ -129,6 +130,11 @@ export default async function RootLayout({
               },
             }).replace(/</g, '\\u003c'), // XSS sanitization per Next.js JSON-LD guide
           }}
+        />
+        <Script
+          src="https://umami.n2q.site/script.js"
+          data-website-id="9c2e69ba-5f6f-49f0-8813-2753fccefd4b"
+          strategy="afterInteractive"
         />
         <Providers>{children}</Providers>
       </body>
