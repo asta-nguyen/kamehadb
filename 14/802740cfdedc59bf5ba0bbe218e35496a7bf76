@@ -1,0 +1,30 @@
+landing/src/app/layout.tsx
+  s_20447b50b28f59::t_9fcd276326c762 134-138
+  s_20447b50b28f59::t_8ce691c0fa7216 2
+landing/package-lock.json
+  s_fb4f32c665b8c6::t_584213a29109df 34-35,42,332,2881,3278,3365,3458,3668,3795,4501,4948,4958,4965,5036,6111,6482-6483,6616,6712,6870,7197,7659,7818
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "14802740cfdedc59bf5ba0bbe218e35496a7bf76",
+  "prompts": {},
+  "sessions": {
+    "s_20447b50b28f59": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "yellow-amethyst",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_fb4f32c665b8c6": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "fragrant-bugle",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
