@@ -1,0 +1,69 @@
+packages/shared/src/types.ts
+  s_73ea12894aa36f::t_159a8d27b79c09 609-612
+apps/sidecar/src/lib/sidecar-auth.ts
+  s_73ea12894aa36f::t_d5ef59ff008706 9-14
+apps/sidecar/package.json
+  s_73ea12894aa36f::t_48209b2447eaa5 9,49-50
+apps/sidecar/src/adapters/sqlite.ts
+  s_73ea12894aa36f::t_886d604612723f 214
+apps/sidecar/src/routes/sql.ts
+  s_73ea12894aa36f::t_4400dc081ee1a0 2,225,241-248
+  s_73ea12894aa36f::t_17b5dd5d863fed 249-251
+apps/sidecar/src/routes/sql-schema.test.ts
+  s_73ea12894aa36f::t_48209b2447eaa5 2-3
+apps/desktop/src/components/sql-editor.test.ts
+  s_73ea12894aa36f::t_7f269ad1069cfe 10-11,22-25
+  s_73ea12894aa36f::t_daef91a54e9322 1-9
+  s_73ea12894aa36f::t_df58c5f76728ee 12-21,26-27
+apps/desktop/src/lib/sidecar-auth.test.ts
+  s_73ea12894aa36f::t_467b52c48fa95c 2,14-18
+  s_73ea12894aa36f::t_96738d0fad1039 19
+.github/workflows/ci.yml
+  s_35ee65689c5369::t_77c1bc8c900c27 33-35
+apps/desktop/src/components/schema-graph.tsx
+  s_73ea12894aa36f::t_2622ada0604811 158-159
+  s_73ea12894aa36f::t_ab9d63a0c52a91 160-161
+  s_73ea12894aa36f::t_2737f1a1d2479a 157
+  s_73ea12894aa36f::t_16eeebdee63a1e 156
+apps/sidecar/src/index.ts
+  s_73ea12894aa36f::t_cd38f33ca610de 2
+  s_73ea12894aa36f::t_d5ef59ff008706 19,83-85
+apps/sidecar/src/routes/ai.ts
+  s_73ea12894aa36f::t_5a7cf4509cfce8 358-361
+  s_73ea12894aa36f::t_365a6fde52a3eb 362-363
+apps/sidecar/src/adapters/postgres.ts
+  s_73ea12894aa36f::t_886d604612723f 442
+  s_73ea12894aa36f::t_2737f1a1d2479a 258-263,269-278
+apps/desktop/src/components/sql-editor.tsx
+  s_73ea12894aa36f::t_7f269ad1069cfe 260-262,655
+  s_73ea12894aa36f::t_5f6039d74e13e4 251,255-257
+  s_73ea12894aa36f::t_990673e06fcc5b 258
+apps/desktop/src/lib/sql-safety.test.ts
+  s_73ea12894aa36f::t_94d9a7bc9bd9ed 2,41-46
+pnpm-lock.yaml
+  s_73ea12894aa36f::t_449f6f2737d115 304-306
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "979b97e7b71212c560545e6bb5777fcfc323ba39",
+  "prompts": {},
+  "sessions": {
+    "s_35ee65689c5369": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "purring-boar",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_73ea12894aa36f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019feef1-265d-7c70-a908-af44c6888aef",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
