@@ -1,5 +1,6 @@
 ---
-description: Bump app version across all package files and update CHANGELOG
+name: bump-version
+description: Bump the KamehaDB app version across all 6 package files (package.json, desktop/sidecar/shared package.json, tauri.conf.json, Cargo.toml) and update CHANGELOG.md. Use when the user wants to release a new version, bump the version, cut a release tag, or update the changelog.
 ---
 
 # Bump Version

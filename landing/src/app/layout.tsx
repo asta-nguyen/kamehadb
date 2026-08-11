@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { getBaseUrl } from '@/lib/url';
 import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
@@ -53,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
         'One local-first desktop GUI for PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle, with AI built in.',
       images: [
         {
-          url: '/og-animated',
+          url: '/og-animated.gif',
           width: 1200,
           height: 630,
           alt: 'KamehaDB — Local-first desktop database workspace',
@@ -68,7 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: 'KamehaDB — Local-first desktop database workspace',
       description:
         'One local-first desktop GUI for SQL, document, cache, vector, and ledger systems, with AI built in.',
-      images: [`${baseUrl}/og-animated`],
+      images: [`${baseUrl}/og-animated.gif`],
     },
     robots: {
       index: true,
@@ -129,6 +130,11 @@ export default async function RootLayout({
               },
             }).replace(/</g, '\\u003c'), // XSS sanitization per Next.js JSON-LD guide
           }}
+        />
+        <Script
+          src="https://umami.n2q.site/script.js"
+          data-website-id="9c2e69ba-5f6f-49f0-8813-2753fccefd4b"
+          strategy="afterInteractive"
         />
         <Providers>{children}</Providers>
       </body>
