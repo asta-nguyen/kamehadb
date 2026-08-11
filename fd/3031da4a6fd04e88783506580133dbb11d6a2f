@@ -1,0 +1,54 @@
+apps/desktop/src/hooks/use-chat.ts
+  s_73ea12894aa36f::t_2a7421014a8bbb 4,53
+CHANGELOG.md
+  s_73ea12894aa36f::t_420a07d7ae339a 11
+apps/desktop/src-tauri/src/lib.rs
+  s_73ea12894aa36f::t_2a7421014a8bbb 11,72,81,222,287,304,370,380
+apps/desktop/src/lib/sql-schema-router.test.ts
+  s_73ea12894aa36f::t_25e2c30effa9af 2
+packages/shared/src/types.ts
+  s_73ea12894aa36f::t_0258b971eca895 606,609-614
+  s_73ea12894aa36f::t_a5b65c396cf441 607-608
+apps/sidecar/src/routes/sql.ts
+  s_73ea12894aa36f::t_0258b971eca895 2,225
+apps/desktop/src-tauri/tauri.conf.json
+  s_73ea12894aa36f::t_2a7421014a8bbb 23
+apps/desktop/src/components/sidebar.tsx
+  s_73ea12894aa36f::t_2a7421014a8bbb 5,278
+apps/desktop/src/hooks/use-sidecar.ts
+  s_73ea12894aa36f::t_2a7421014a8bbb 1,8,15,45
+apps/desktop/src/lib/sidecar-auth.test.ts
+  s_73ea12894aa36f::t_f1628532489e85 1-14
+apps/desktop/src/components/global-search.tsx
+  s_73ea12894aa36f::t_2a7421014a8bbb 21,84
+apps/sidecar/src/lib/sidecar-auth.ts
+  s_73ea12894aa36f::t_2a7421014a8bbb 1-5
+  s_73ea12894aa36f::t_6ac68e1226b6d1 6-8
+apps/sidecar/src/index.ts
+  s_73ea12894aa36f::t_2a7421014a8bbb 21-28,75-88
+  s_73ea12894aa36f::t_a5b65c396cf441 2,19
+apps/desktop/src/lib/api.ts
+  s_73ea12894aa36f::t_2a7421014a8bbb 1,231,246
+apps/desktop/src/lib/api-client.ts
+  s_73ea12894aa36f::t_a5b65c396cf441 1-2,22,27
+  s_73ea12894aa36f::t_2a7421014a8bbb 9,15,18-21,23-26,28,41
+apps/desktop/src/lib/sql-safety.test.ts
+  s_73ea12894aa36f::t_93cc513f746f73 2,40-44
+  s_73ea12894aa36f::t_95e75d96f13a71 45-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "fd3031da4a6fd04e88783506580133dbb11d6a2f",
+  "prompts": {},
+  "sessions": {
+    "s_73ea12894aa36f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019feef1-265d-7c70-a908-af44c6888aef",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
