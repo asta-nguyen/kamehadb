@@ -1,0 +1,124 @@
+.agents/skills/brainstorming/SKILL.md
+  h_611058a46223af 1-152
+.agents/skills/brainstorming/scripts/frame-template.html
+  h_611058a46223af 1-213
+.agents/skills/brainstorming/scripts/helper.js
+  h_611058a46223af 1-167
+.agents/skills/brainstorming/scripts/server.cjs
+  h_611058a46223af 1-723
+.agents/skills/brainstorming/scripts/start-server.sh
+  h_611058a46223af 1-209
+.agents/skills/brainstorming/scripts/stop-server.sh
+  h_611058a46223af 1-120
+.agents/skills/brainstorming/spec-document-reviewer-prompt.md
+  h_611058a46223af 1-49
+.agents/skills/brainstorming/visual-companion.md
+  h_611058a46223af 1-312
+.agents/skills/bump-version/SKILL.md
+  h_611058a46223af 2-3
+.agents/skills/dispatching-parallel-agents/SKILL.md
+  h_611058a46223af 1-177
+.agents/skills/executing-plans/SKILL.md
+  h_611058a46223af 1-70
+.agents/skills/finishing-a-development-branch/SKILL.md
+  h_611058a46223af 1-201
+.agents/skills/receiving-code-review/SKILL.md
+  h_611058a46223af 1-218
+.agents/skills/requesting-code-review/SKILL.md
+  h_611058a46223af 1-102
+.agents/skills/requesting-code-review/code-reviewer.md
+  h_611058a46223af 1-173
+.agents/skills/subagent-driven-development/SKILL.md
+  h_611058a46223af 1-506
+.agents/skills/subagent-driven-development/implementer-prompt.md
+  h_611058a46223af 1-142
+.agents/skills/subagent-driven-development/re-review-prompt.md
+  h_611058a46223af 1-107
+.agents/skills/subagent-driven-development/scripts/review-package
+  h_611058a46223af 1-46
+.agents/skills/subagent-driven-development/scripts/sdd-workspace
+  h_611058a46223af 1-40
+.agents/skills/subagent-driven-development/scripts/task-brief
+  h_611058a46223af 1-41
+.agents/skills/subagent-driven-development/task-reviewer-prompt.md
+  h_611058a46223af 1-186
+.agents/skills/systematic-debugging/CREATION-LOG.md
+  h_611058a46223af 1-133
+.agents/skills/systematic-debugging/SKILL.md
+  h_611058a46223af 1-290
+.agents/skills/systematic-debugging/condition-based-waiting-example.ts
+  h_611058a46223af 1-158
+.agents/skills/systematic-debugging/condition-based-waiting.md
+  h_611058a46223af 1-120
+.agents/skills/systematic-debugging/defense-in-depth.md
+  h_611058a46223af 1-128
+.agents/skills/systematic-debugging/find-polluter.sh
+  h_611058a46223af 1-72
+.agents/skills/systematic-debugging/root-cause-tracing.md
+  h_611058a46223af 1-183
+.agents/skills/systematic-debugging/test-academic.md
+  h_611058a46223af 1-14
+.agents/skills/systematic-debugging/test-pressure-1.md
+  h_611058a46223af 1-65
+.agents/skills/systematic-debugging/test-pressure-2.md
+  h_611058a46223af 1-75
+.agents/skills/systematic-debugging/test-pressure-3.md
+  h_611058a46223af 1-75
+.agents/skills/test-driven-development/SKILL.md
+  h_611058a46223af 1-334
+.agents/skills/test-driven-development/writing-good-tests.md
+  h_611058a46223af 1-198
+.agents/skills/using-git-worktrees/SKILL.md
+  h_611058a46223af 1-170
+.agents/skills/using-superpowers/SKILL.md
+  h_611058a46223af 1-62
+.agents/skills/using-superpowers/references/antigravity-tools.md
+  h_611058a46223af 1-23
+.agents/skills/using-superpowers/references/codex-tools.md
+  h_611058a46223af 1-39
+.agents/skills/using-superpowers/references/gemini-tools.md
+  h_611058a46223af 1-63
+.agents/skills/using-superpowers/references/pi-tools.md
+  h_611058a46223af 1-16
+.agents/skills/verification-before-completion/SKILL.md
+  h_611058a46223af 1-127
+.agents/skills/writing-plans/SKILL.md
+  h_611058a46223af 1-175
+.agents/skills/writing-plans/plan-document-reviewer-prompt.md
+  h_611058a46223af 1-49
+.agents/skills/writing-skills/SKILL.md
+  h_611058a46223af 1-741
+.agents/skills/writing-skills/anthropic-best-practices.md
+  h_611058a46223af 1-1176
+.agents/skills/writing-skills/examples/CLAUDE_MD_TESTING.md
+  h_611058a46223af 1-200
+.agents/skills/writing-skills/graphviz-conventions.dot
+  h_611058a46223af 1-172
+.agents/skills/writing-skills/persuasion-principles.md
+  h_611058a46223af 1-220
+.agents/skills/writing-skills/render-graphs.js
+  h_611058a46223af 1-168
+.agents/skills/writing-skills/testing-skills-with-subagents.md
+  h_611058a46223af 1-404
+.gitignore
+  h_611058a46223af 60
+AGENTS.md
+  h_611058a46223af 31
+landing/package.json
+  h_611058a46223af 9-10,36-37,44
+landing/scripts/render-og-animated.mjs
+  h_611058a46223af 2,15-17,52,71-72,77,81-86,92-94,96,105,107,109-153,155-168,170-172,174,177,179-180,183,190,194,196,203,205,210-212,219,225,231,239-240,249,255-259,261,264,269-273
+landing/src/app/layout.tsx
+  h_611058a46223af 2,57,72,134-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "a8146f01f54a90a18cc08c836a2f613476ad1552",
+  "prompts": {},
+  "humans": {
+    "h_611058a46223af": {
+      "author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
