@@ -8,6 +8,10 @@ describe('isQuerySafe', () => {
     expect(isQuerySafe('UPDATE users SET admin = true').safe).toBe(false);
     expect(isQuerySafe('CALL grant_admin()').safe).toBe(false);
     expect(isQuerySafe('SELECT 1; CALL grant_admin()').safe).toBe(false);
+    expect(isQuerySafe('SELECT 1; SELECT 2')).toEqual({
+      safe: false,
+      reason: 'Only one read-only statement can run automatically',
+    });
     expect(isQuerySafe('SELECT * INTO copied FROM source').safe).toBe(false);
   });
 

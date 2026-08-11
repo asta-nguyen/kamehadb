@@ -15,6 +15,10 @@ import { log } from '../lib/logger.js';
 let db: Database.Database | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
 
+function isDuplicateColumnError(error: unknown, column: string): boolean {
+  return error instanceof Error && new RegExp(`duplicate column name:\\s*${column}\\b`, 'i').test(error.message);
+}
+
 function createDefaultAISettings(): AISettings {
   return {
     activeProvider: DEFAULT_AI_PROVIDER,
@@ -92,16 +96,19 @@ export function initMetadataStore(dbPath: string): void {
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN password TEXT');
   } catch (err) {
+    if (!isDuplicateColumnError(err, 'password')) throw err;
     log.debug({ err }, 'migration: password column already exists');
   }
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN color TEXT');
   } catch (err) {
+    if (!isDuplicateColumnError(err, 'color')) throw err;
     log.debug({ err }, 'migration: color column already exists');
   }
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN connection_string TEXT');
   } catch (err) {
+    if (!isDuplicateColumnError(err, 'connection_string')) throw err;
     log.debug({ err }, 'migration: connection_string column already exists');
   }
 

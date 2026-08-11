@@ -27,10 +27,14 @@ const providerConfigSchema = z.object({
   apiKey: z.string().optional(),
 });
 
+type MongoSchemaContextResult =
+  | { status: 'available'; schema: string | null }
+  | { status: 'unavailable'; error: unknown };
+
 async function buildMongoSchemaContext(
   adapter: ReturnType<typeof createMongoDbAdapter>,
   database?: string,
-): Promise<string | null> {
+): Promise<MongoSchemaContextResult> {
   try {
     const lines: string[] = [];
 
@@ -41,39 +45,45 @@ async function buildMongoSchemaContext(
 
       const collResults = await Promise.all(
         collections.slice(0, 10).map(async (coll) => {
-          const stats = await adapter.getCollectionStats(database, coll.name);
-          const section: string[] = [`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`];
+          try {
+            const stats = await adapter.getCollectionStats(database, coll.name);
+            const section: string[] = [`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`];
 
-          if (stats.documentCount > 0) {
-            const result = await adapter.findDocuments({
-              collection: coll.name,
-              database,
-              limit: 1,
-            });
-            if (result.documents.length > 0) {
-              const sample = result.documents[0];
-              const fields = Object.keys(sample)
-                .slice(0, 15)
-                .map((k) => {
-                  const v = sample[k];
-                  const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
-                  return `  ${k}: ${type}`;
-                });
-              section.push('Fields:');
-              section.push(fields.join('\n'));
+            if (stats.documentCount > 0) {
+              const result = await adapter.findDocuments({
+                collection: coll.name,
+                database,
+                limit: 1,
+              });
+              if (result.documents.length > 0) {
+                const sample = result.documents[0];
+                const fields = Object.keys(sample)
+                  .slice(0, 15)
+                  .map((k) => {
+                    const v = sample[k];
+                    const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+                    return `  ${k}: ${type}`;
+                  });
+                section.push('Fields:');
+                section.push(fields.join('\n'));
+              }
             }
+            return section;
+          } catch (err) {
+            log.warn({ err, database, collection: coll.name }, 'ai: MongoDB collection schema context failed');
+            return null;
           }
-          return section;
         }),
       );
       for (const section of collResults) {
+        if (!section) continue;
         lines.push(...section);
         lines.push('');
       }
     } else {
       // Get schema for all databases (fallback)
       const databases = await adapter.listDatabases();
-      if (databases.length === 0) return null;
+      if (databases.length === 0) return { status: 'available', schema: null };
 
       lines.push('MongoDB Databases:');
       const userDatabases = databases.filter((db) => !['admin', 'local', 'config'].includes(db.name));
@@ -110,10 +120,9 @@ async function buildMongoSchemaContext(
       }
     }
 
-    return lines.join('\n');
+    return { status: 'available', schema: lines.join('\n') };
   } catch (err) {
-    log.error({ err }, 'buildSchemaContext failed');
-    return null;
+    return { status: 'unavailable', error: err };
   }
 }
 
@@ -288,7 +297,9 @@ aiRouter.post(
               if (profile.kind === 'mongodb') {
                 const adapter = createMongoDbAdapter(profile);
                 try {
-                  mongoSchema = await buildMongoSchemaContext(adapter, mongoDatabase);
+                  const schemaContext = await buildMongoSchemaContext(adapter, mongoDatabase);
+                  if (schemaContext.status === 'unavailable') throw schemaContext.error;
+                  mongoSchema = schemaContext.schema;
                   setCache(cacheKey, mongoSchema);
                 } finally {
                   await adapter.close();
@@ -335,7 +346,11 @@ aiRouter.post(
               }
             }
           } catch (err) {
-            log.warn({ err }, 'ai: schema context build failed, continuing without schema');
+            log.error({ err }, 'buildSchemaContext');
+            return c.json(
+              { error: 'SCHEMA_CONTEXT_UNAVAILABLE', message: 'Schema context is unavailable due to an error.' },
+              503,
+            );
           }
         }
 

@@ -651,6 +651,15 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         monaco.editor.setModelMarkers(model, 'sql-error', []);
       }
 
+      // Validate the original input before splitting so a semicolon-delimited
+      // batch cannot bypass the one-statement safety policy.
+      const originalSafety = isQuerySafe(querySql);
+      if (!originalSafety.safe) {
+        setError(originalSafety.reason ?? 'Query blocked by safety check');
+        setIsExecutingBatch(false);
+        return;
+      }
+
       const statements = splitSqlStatements(querySql);
       if (statements.length === 0) {
         setIsExecutingBatch(false);

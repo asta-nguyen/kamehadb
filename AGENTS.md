@@ -504,9 +504,21 @@ This repo uses [Superpowers](https://github.com/obra/superpowers) for spec-drive
 | `verification-before-completion` | Run verification commands before claiming work is done               |
 | `writing-skills`                 | Create and edit skills                                               |
 | `bump-version`                   | Bump app version across all 6 files and update CHANGELOG             |
+| `preparing-releases`             | Prepare and verify releases before any tag, push, or publication     |
 
 ### How To Use
 
 - Skills are invoked automatically by Cascade when relevant to the task.
 - To manually trigger a skill, mention its name or trigger phrase.
 - User instructions (AGENTS.md, direct requests) take precedence over skills.
+
+<!-- openez:start -->
+
+## OpenEZ workflow
+
+- Before code work in a new session, call `memory_recall` using 1–3 keywords from the task.
+- Use `code_query` before filesystem search.
+- Use `code_context` for symbol/file relationships.
+- Call `memory_write` after an architectural decision or a non-obvious constraint is confirmed.
+- Use explicit workspace scope for cross-workspace work.
+<!-- openez:end -->
