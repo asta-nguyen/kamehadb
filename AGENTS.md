@@ -481,50 +481,32 @@ const id = Number(row.id);
 - Place the comment above the line it explains, not as a trailing line
 - Use full sentences with proper punctuation; no "TODO later" or "fix me" leftovers
 
-## OpenSpec
+## Superpowers Skills
 
-This project uses [OpenSpec](https://openspec.pro/) for spec-driven development. Specs live in `openspec/specs/` and changes live in `openspec/changes/`.
+This repo uses [Superpowers](https://github.com/obra/superpowers) for spec-driven agent workflows. Skills live in `.agents/skills/` and are automatically discovered by Cascade.
 
-### Capability Specs
+### Available Skills
 
-Baseline specs for 14 capabilities are in `openspec/specs/<capability>/spec.md`:
+| Skill                            | Description                                                          |
+| -------------------------------- | -------------------------------------------------------------------- |
+| `using-superpowers`              | Meta-skill: invoke relevant skills before any response or action     |
+| `brainstorming`                  | Explore user intent, requirements, and design before implementation  |
+| `writing-plans`                  | Turn a spec or requirements into a multi-step implementation plan    |
+| `executing-plans`                | Execute a written plan in a separate session with review checkpoints |
+| `test-driven-development`        | Write tests before implementation code                               |
+| `systematic-debugging`           | Diagnose bugs and performance regressions methodically               |
+| `dispatching-parallel-agents`    | Dispatch 2+ independent tasks to parallel subagents                  |
+| `subagent-driven-development`    | Execute implementation plans with independent tasks via subagents    |
+| `using-git-worktrees`            | Isolate feature work via git worktrees                               |
+| `requesting-code-review`         | Verify work meets requirements before merging                        |
+| `receiving-code-review`          | Process code review feedback with technical rigor                    |
+| `finishing-a-development-branch` | Decide how to integrate completed work                               |
+| `verification-before-completion` | Run verification commands before claiming work is done               |
+| `writing-skills`                 | Create and edit skills                                               |
+| `bump-version`                   | Bump app version across all 6 files and update CHANGELOG             |
 
-| Capability              | Description                                                                      |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| `connection-management` | Connection profile CRUD, health checks, adapter factory routing                  |
-| `sql-query`             | Monaco editor, query execution, safety checks, autocomplete, history             |
-| `schema-browse`         | Schema tree, ERD graph, preview rows, global search, index browsing              |
-| `schema-evolution`      | Schema timeline, diff view, migration assistant                                  |
-| `postgres-stats`        | Database/table/index stats, active connection monitoring                         |
-| `postgres-tools`        | Embedded psql, backup, restore, tool job lifecycle                               |
-| `vector-search`         | pgvector + sqlite-vec search, sample extraction, 3D PCA visualization            |
-| `mongodb`               | Database/collection browsing, document CRUD, aggregation, mongosh shell          |
-| `redis`                 | Key scanning, value lookup, TTL, command runner, server stats                    |
-| `qdrant`                | Collection browsing, point scroll, search, recommend, filter builder, vector map |
-| `tigerbeetle`           | Account/transfer listing and creation, balance lookup, stats                     |
-| `ai-chat`               | Multi-provider chat, schema-aware context, chat history, vector schema search    |
-| `logs-viewer`           | Merged frontend/Tauri/sidecar log viewing with filtering                         |
-| `file-db-maintenance`   | DuckDB and SQLite file backup/restore                                            |
+### How To Use
 
-### Workflow
-
-- Use `/opsx:propose` to create a new change proposal with specs, design, and tasks.
-- Use `/opsx:explore` to investigate ideas before proposing.
-- Use `/opsx:apply` to implement tasks from a change.
-- Use `/opsx:sync` to sync delta specs into main specs after archiving.
-- Use `/opsx:archive` to archive a completed change.
-- Before modifying a capability, check its spec in `openspec/specs/<capability>/spec.md` for requirements and scenarios.
-
-### Config
-
-- `openspec/config.yaml` — project context and per-artifact rules.
-- `.windsurf/skills/openspec-*/SKILL.md` — Windsurf skill definitions.
-- `.windsurf/workflows/opsx-*.md` — Windsurf slash command workflows.
-
-## Agent Workflows
-
-Reusable workflow definitions live in `.agents/`. When the user asks to run a workflow, read the corresponding file and follow its steps.
-
-| Trigger phrase                   | File                      | Description                                              |
-| -------------------------------- | ------------------------- | -------------------------------------------------------- |
-| "bump version", "update version" | `.agents/bump-version.md` | Bump app version across all 6 files and update CHANGELOG |
+- Skills are invoked automatically by Cascade when relevant to the task.
+- To manually trigger a skill, mention its name or trigger phrase.
+- User instructions (AGENTS.md, direct requests) take precedence over skills.
