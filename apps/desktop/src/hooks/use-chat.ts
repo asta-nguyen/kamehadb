@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { safeErrorMessage } from '@kamehadb/shared';
 import type { ChatMessage } from '@/lib/ai-chat-helpers';
-import { getApiBase } from '@/lib/api-client';
+import { getApiHeaders, getApiBase } from '@/lib/api-client';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 type UseChatOptions = {
@@ -50,7 +50,7 @@ export function useChat(options: UseChatOptions) {
 
       const res = await fetch(`${getApiBase()}${options.url}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getApiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
         signal: ac.signal,
       });

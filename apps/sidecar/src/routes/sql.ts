@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { isQuerySafe, KIND, isPasswordRequired, type SqlAdapter } from '@kamehadb/shared';
+import { isQuerySafe, isSafeSqlIdentifier, KIND, isPasswordRequired, type SqlAdapter } from '@kamehadb/shared';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
@@ -222,7 +222,7 @@ sqlRouter.post(
       offset: z.number().optional(),
       limit: z.number().optional(),
       search: z.string().optional(),
-      sortColumn: z.string().optional(),
+      sortColumn: z.string().refine(isSafeSqlIdentifier, 'Sort column must be a SQL identifier').optional(),
       sortDirection: z.enum(['asc', 'desc']).optional(),
       filters: z
         .array(

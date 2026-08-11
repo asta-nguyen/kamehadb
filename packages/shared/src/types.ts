@@ -603,6 +603,15 @@ export const DESTRUCTIVE_KEYWORDS = [
 ];
 
 export const SAFE_KEYWORDS = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
+export const SQL_IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export const SIDECAR_AUTH_HEADER = 'X-KamehaDB-Token';
+export const SIDECAR_AUTH_TOKEN_QUERY_PARAM = 'token';
+
+// ORDER BY identifiers cannot be parameterized, so validate raw API input
+// before any adapter interpolates it into a SQL statement.
+export function isSafeSqlIdentifier(value: string): boolean {
+  return SQL_IDENTIFIER_PATTERN.test(value);
+}
 
 /**
  * Remove SQL noise (string literals, comments, dollar-quoted text) so that

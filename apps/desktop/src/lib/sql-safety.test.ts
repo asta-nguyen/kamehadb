@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isQuerySafe } from '../../../../packages/shared/src/types';
+import { isQuerySafe, isSafeSqlIdentifier } from '../../../../packages/shared/src/types';
 
 describe('isQuerySafe', () => {
   it('only accepts single read-only statements', () => {
@@ -35,5 +35,12 @@ describe('isQuerySafe', () => {
     expect(isQuerySafe('DROP TABLE users -- just kidding').safe).toBe(false);
     expect(isQuerySafe('/* comment */ DELETE FROM users').safe).toBe(false);
     expect(isQuerySafe('SELECT 1; DROP TABLE users').safe).toBe(false);
+  });
+});
+
+describe('isSafeSqlIdentifier', () => {
+  it('rejects sort expressions instead of treating them as column names', () => {
+    expect(isSafeSqlIdentifier('created_at')).toBe(true);
+    expect(isSafeSqlIdentifier('"created_at" DESC; DROP TABLE users; --')).toBe(false);
   });
 });

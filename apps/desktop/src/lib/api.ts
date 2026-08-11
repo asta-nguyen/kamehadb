@@ -1,4 +1,4 @@
-import { getApiBase, request } from './api-client';
+import { getApiHeaders, getApiBase, getAuthenticatedApiUrl, request } from './api-client';
 
 export const api = {
   request,
@@ -228,7 +228,7 @@ export const api = {
   pingMongoShell: (sessionId: string) =>
     fetch(`${getApiBase()}/mongo/shell/${sessionId}/write`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getApiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ data: '' }),
     }).then((r) => {
       if (r.ok) return true;
@@ -243,7 +243,7 @@ export const api = {
     request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }),
 
   getShellStreamUrl: (connectionId: string, sessionId: string) =>
-    `${getApiBase()}/mongo/${connectionId}/shell/${sessionId}/stream`,
+    getAuthenticatedApiUrl(`/mongo/${connectionId}/shell/${sessionId}/stream`),
 
   getMongoCompletions: (connectionId: string, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';

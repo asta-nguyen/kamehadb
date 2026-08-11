@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
-import { getApiBase } from '@/lib/api-client';
+import { getAuthenticatedApiUrl } from '@/lib/api-client';
 import {
   SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
   GROUP_LABELS,
@@ -275,7 +275,7 @@ export function Sidebar() {
 
   // Single SSE stream for all connection health — replaces per-item polling
   useEffect(() => {
-    const es = new EventSource(`${getApiBase()}/connections/health`);
+    const es = new EventSource(getAuthenticatedApiUrl('/connections/health'));
     const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     es.onmessage = (event) => {

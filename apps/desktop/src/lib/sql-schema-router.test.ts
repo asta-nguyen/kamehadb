@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Hono } from '../../../sidecar/node_modules/hono/dist/index.js';
+import { Hono } from '../../../sidecar/node_modules/hono';
 import { createSqlSchemaRouter } from '../../../sidecar/src/routes/sql-schema.js';
 
 describe('schema watcher start', () => {

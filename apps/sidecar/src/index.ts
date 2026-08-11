@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { SIDECAR_AUTH_HEADER } from '@kamehadb/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { fileURLToPath } from 'url';
@@ -15,8 +16,16 @@ import { queryHistoryRouter } from './routes/query-history.js';
 import { indexAllConnections } from './ai/indexer.js';
 import { log } from './lib/logger.js';
 import { schemaWatcher } from './lib/schema-watcher.js';
+import { isAuthorizedSidecarRequest } from './lib/sidecar-auth.js';
 
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:5173', 'file://'];
+const allowedOrigins = new Set([
+  'http://localhost:1420',
+  'http://127.0.0.1:1420',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://tauri.localhost',
+]);
+const sidecarToken = process.env.KAMEHADB_SIDECAR_TOKEN;
 const sidecarDir = dirname(fileURLToPath(import.meta.url));
 
 const app = new Hono();
@@ -63,7 +72,20 @@ app.use('*', async (c, next) => {
     }
   }
 });
-app.use('*', cors({ origin: '*' }));
+app.use(
+  '*',
+  cors({
+    origin: (origin) => (allowedOrigins.has(origin) ? origin : ''),
+    allowHeaders: ['Content-Type', SIDECAR_AUTH_HEADER],
+  }),
+);
+app.use('*', async (c, next) => {
+  const providedToken = c.req.header(SIDECAR_AUTH_HEADER) ?? c.req.query('token');
+  if (!isAuthorizedSidecarRequest(sidecarToken, providedToken)) {
+    return c.json({ error: 'UNAUTHORIZED', message: 'Sidecar authentication failed' }, 401);
+  }
+  await next();
+});
 
 // Ensure all errors return JSON so the frontend never gets unparseable HTML/text
 app.onError((err, c) => {

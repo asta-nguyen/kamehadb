@@ -1,17 +1,18 @@
-import { setApiBase } from '@/lib/api-client';
+import { getApiHeaders, setApiBase } from '@/lib/api-client';
 import { invokeTauri, isTauriRuntime } from '@/lib/tauri';
 import { useEffect, useState } from 'react';
 
 interface SidecarInfo {
   port: number;
   pid: number;
+  token: string;
 }
 
 async function waitForSidecar(port: number, maxAttempts = 30): Promise<boolean> {
   const url = `http://127.0.0.1:${port}/health`;
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getApiHeaders() });
       if (res.ok) return true;
     } catch {
       // Sidecar not ready yet
@@ -41,7 +42,7 @@ export function useSidecar() {
         if (cancelled) return;
 
         // Update API base to the actual port
-        setApiBase(info.port);
+        setApiBase(info.port, info.token);
 
         // Wait for sidecar to be ready
         const ok = await waitForSidecar(info.port);
