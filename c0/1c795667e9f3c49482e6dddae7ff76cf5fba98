@@ -1,0 +1,56 @@
+apps/desktop/src/components/sql-editor.tsx
+  s_73ea12894aa36f::t_65264ff96a37a4 654-662
+apps/desktop/src/components/schema-graph.tsx
+  s_42f7d720e4622b::t_e515de599a520a 150,158-159
+  s_42f7d720e4622b::t_e65585bcfd3e96 160-161
+.agents/skills/preparing-releases/agents/openai.yaml
+  s_73ea12894aa36f::t_a631b7c68a4f4b 1-4
+apps/sidecar/src/routes/sql-schema.ts
+  s_73ea12894aa36f::t_65264ff96a37a4 200,206-209
+.agents/skills/preparing-releases/SKILL.md
+  s_73ea12894aa36f::t_1334150e5e73ae 3,8,10,12-16,18-23,25-27,29,31-33
+  s_73ea12894aa36f::t_a631b7c68a4f4b 1-2,4-7,9,11,17,24,28,30
+apps/desktop/src/lib/sql-safety.test.ts
+  s_73ea12894aa36f::t_65264ff96a37a4 11-14
+AGENTS.md
+  s_73ea12894aa36f::t_1334150e5e73ae 507
+CHANGELOG.md
+  s_73ea12894aa36f::t_1417b51d4feb9f 11
+apps/desktop/src/lib/sql-schema-router.test.ts
+  s_73ea12894aa36f::t_abc45d822b54dc 1-27
+  s_73ea12894aa36f::t_63185b84d387a4 28-30
+apps/sidecar/src/adapters/postgres.ts
+  s_42f7d720e4622b::t_e93322dc260865 230,262,278
+  s_42f7d720e4622b::t_b76493572c24d1 279-281
+apps/sidecar/src/db/metadata-store.ts
+  s_73ea12894aa36f::t_65264ff96a37a4 18-21,99,105,111
+apps/sidecar/src/routes/ai.ts
+  s_73ea12894aa36f::t_1c86c71e359056 48-69,71-74,79
+  s_73ea12894aa36f::t_70136fea8e4385 30-33,37,86,123,125,300-302,349-353
+apps/desktop/.gitignore
+  s_73ea12894aa36f::t_2787d04ee8c9d2 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c01c795667e9f3c49482e6dddae7ff76cf5fba98",
+  "prompts": {},
+  "sessions": {
+    "s_42f7d720e4622b": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "377f890e-ea4e-4f22-94e3-a6b05c579485",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_73ea12894aa36f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019feef1-265d-7c70-a908-af44c6888aef",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
