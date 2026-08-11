@@ -1,0 +1,19 @@
+AGENTS.md
+  s_42f7d720e4622b::t_aca84f7ccaa038 484-512
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "3bd4f9138f65033f97288c1b390e7667843307ee",
+  "prompts": {},
+  "sessions": {
+    "s_42f7d720e4622b": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "377f890e-ea4e-4f22-94e3-a6b05c579485",
+        "model": "GLM-5.2 High"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
