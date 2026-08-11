@@ -248,19 +248,18 @@ function splitBlankLineGroups(sql: string): string[] {
 }
 
 /** Returns true when sql contains 2+ statements (by semicolons or blank-line keyword groups). */
-function containsMultipleStatements(sql: string): boolean {
+export function containsMultipleStatements(sql: string): boolean {
   const trimmed = sql.trim();
   if (!trimmed) return false;
 
-  // Check semicolons between non-empty parts
-  const semiParts = trimmed
-    .split(';')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  if (semiParts.length > 1) return true;
+  // Reuse the quote/comment-aware splitter so punctuation in a literal or
+  // comment cannot disable the normal single-query LIMIT behavior.
+  return splitSqlStatements(trimmed).length > 1;
+}
 
-  // Check blank-line-separated SQL keyword groups
-  return splitBlankLineGroups(trimmed).length > 1;
+/** Remove harmless trailing statement terminators before the safety check. */
+export function normalizeSqlForSafety(sql: string): string {
+  return sql.trim().replace(/;+$/, '');
 }
 
 import { DataTable, type ColumnDef } from '@/components/data-table';
@@ -653,7 +652,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
 
       // Validate the original input before splitting so a semicolon-delimited
       // batch cannot bypass the one-statement safety policy.
-      const originalSafety = isQuerySafe(querySql);
+      const originalSafety = isQuerySafe(normalizeSqlForSafety(querySql));
       if (!originalSafety.safe) {
         setError(originalSafety.reason ?? 'Query blocked by safety check');
         setIsExecutingBatch(false);

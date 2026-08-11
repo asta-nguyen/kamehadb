@@ -1,5 +1,5 @@
 import { serve } from '@hono/node-server';
-import { SIDECAR_AUTH_HEADER } from '@kamehadb/shared';
+import { SIDECAR_AUTH_HEADER, SIDECAR_AUTH_TOKEN_QUERY_PARAM } from '@kamehadb/shared';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { fileURLToPath } from 'url';
@@ -16,7 +16,7 @@ import { queryHistoryRouter } from './routes/query-history.js';
 import { indexAllConnections } from './ai/indexer.js';
 import { log } from './lib/logger.js';
 import { schemaWatcher } from './lib/schema-watcher.js';
-import { isAuthorizedSidecarRequest } from './lib/sidecar-auth.js';
+import { isAuthorizedSidecarRequest, isTokenQueryAllowed } from './lib/sidecar-auth.js';
 
 const allowedOrigins = new Set([
   'http://localhost:1420',
@@ -80,7 +80,9 @@ app.use(
   }),
 );
 app.use('*', async (c, next) => {
-  const providedToken = c.req.header(SIDECAR_AUTH_HEADER) ?? c.req.query('token');
+  const providedToken =
+    c.req.header(SIDECAR_AUTH_HEADER) ??
+    (isTokenQueryAllowed(c.req.path) ? c.req.query(SIDECAR_AUTH_TOKEN_QUERY_PARAM) : undefined);
   if (!isAuthorizedSidecarRequest(sidecarToken, providedToken)) {
     return c.json({ error: 'UNAUTHORIZED', message: 'Sidecar authentication failed' }, 401);
   }

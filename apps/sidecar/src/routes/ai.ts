@@ -248,9 +248,6 @@ aiRouter.post(
       const { connectionId, mongoDatabase, tableId } = body;
 
       const latestUserMsg = body.messages.filter((m) => m.role === 'user').at(-1)?.content;
-      if (connectionId && latestUserMsg) {
-        metadataStore.saveChatMessage(connectionId, 'user', latestUserMsg, mongoDatabase);
-      }
 
       const settings = metadataStore.getAISettings();
       // Resolve which provider config to use
@@ -284,7 +281,6 @@ aiRouter.post(
         const cacheKey = mongoDatabase
           ? `ai-schema:${connectionId}:mongo:${mongoDatabase}`
           : `ai-schema:${connectionId}:sql`;
-
         if (mongoDatabase) {
           mongoSchema = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
         } else {
@@ -357,6 +353,12 @@ aiRouter.post(
         if (profile?.kind === 'postgres' && !postgresVectorPrompt) {
           postgresVectorPrompt = await resolvePostgresVectorPrompt(connectionId, profile);
         }
+      }
+
+      // Persist the prompt only after provider validation and schema loading;
+      // schema failures must not leave an unanswered message in chat history.
+      if (connectionId && latestUserMsg) {
+        metadataStore.saveChatMessage(connectionId, 'user', latestUserMsg, mongoDatabase);
       }
 
       const systemPrompt = buildSystemPrompt(ddl, mongoSchema, connectionKind, postgresVectorPrompt);

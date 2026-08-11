@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Hono } from '../../../sidecar/node_modules/hono';
-import { createSqlSchemaRouter } from '../../../sidecar/src/routes/sql-schema.js';
+import { Hono } from 'hono';
+import { createSqlSchemaRouter } from './sql-schema.js';
 
 describe('schema watcher start', () => {
   it('rejects a null JSON body as invalid JSON', async () => {

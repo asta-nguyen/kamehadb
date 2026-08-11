@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isQuerySafe, isSafeSqlIdentifier } from '../../../../packages/shared/src/types';
+import { isAllowedSortColumn, isQuerySafe } from '../../../../packages/shared/src/types';
 
 describe('isQuerySafe', () => {
   it('only accepts single read-only statements', () => {
@@ -38,9 +38,11 @@ describe('isQuerySafe', () => {
   });
 });
 
-describe('isSafeSqlIdentifier', () => {
-  it('rejects sort expressions instead of treating them as column names', () => {
-    expect(isSafeSqlIdentifier('created_at')).toBe(true);
-    expect(isSafeSqlIdentifier('"created_at" DESC; DROP TABLE users; --')).toBe(false);
+describe('isAllowedSortColumn', () => {
+  it('accepts schema-defined names and rejects expressions', () => {
+    const columns = [{ name: 'created at' }, { name: '名前' }, { name: '1st-column' }];
+    expect(isAllowedSortColumn('created at', columns)).toBe(true);
+    expect(isAllowedSortColumn('名前', columns)).toBe(true);
+    expect(isAllowedSortColumn('"created at" DESC; DROP TABLE users; --', columns)).toBe(false);
   });
 });

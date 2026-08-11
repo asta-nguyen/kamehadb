@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "test": "vitest run",
     "bundle:tauri": "node scripts/bundle-for-tauri.mjs",
     "start": "node dist/index.js",
     "seed:tigerbeetle": "tsx scripts/seed-tigerbeetle.ts",
@@ -45,6 +46,7 @@
     "@typescript-eslint/parser": "^8",
     "eslint": "^9",
     "tsx": "^4",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.7"
   }
 }

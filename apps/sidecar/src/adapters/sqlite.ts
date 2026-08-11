@@ -211,7 +211,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       }
 
       if (input.sortColumn) {
-        sql += ` ORDER BY "${input.sortColumn}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
+        sql += ` ORDER BY "${input.sortColumn.replace(/"/g, '""')}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
       }
       params.push(limit, offset);
       sql += ` LIMIT ? OFFSET ?`;

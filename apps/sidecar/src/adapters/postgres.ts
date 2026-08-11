@@ -255,14 +255,27 @@ export function createPostgresAdapter(connection: {
       LEFT JOIN (
         SELECT ku.column_name
         FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage ku ON tc.constraint_name = ku.constraint_name
+        JOIN information_schema.key_column_usage ku
+          ON tc.constraint_catalog = ku.constraint_catalog
+          AND tc.constraint_schema = ku.constraint_schema
+          AND tc.constraint_name = ku.constraint_name
+          AND tc.table_schema = ku.table_schema
+          AND tc.table_name = ku.table_name
         WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1 AND tc.table_name = $2
       ) pk ON c.column_name = pk.column_name
       LEFT JOIN (
         SELECT ku.column_name, ccu.table_name as ref_table, ccu.column_name as ref_column, ccu.table_schema as ref_table_schema
         FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage ku ON tc.constraint_name = ku.constraint_name
-        JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name
+        JOIN information_schema.key_column_usage ku
+          ON tc.constraint_catalog = ku.constraint_catalog
+          AND tc.constraint_schema = ku.constraint_schema
+          AND tc.constraint_name = ku.constraint_name
+          AND tc.table_schema = ku.table_schema
+          AND tc.table_name = ku.table_name
+        JOIN information_schema.constraint_column_usage ccu
+          ON tc.constraint_catalog = ccu.constraint_catalog
+          AND tc.constraint_schema = ccu.constraint_schema
+          AND tc.constraint_name = ccu.constraint_name
         WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1 AND tc.table_name = $2
       ) fk ON c.column_name = fk.column_name
       WHERE c.table_schema = $1 AND c.table_name = $2
@@ -426,7 +439,7 @@ export function createPostgresAdapter(connection: {
       }
 
       if (input.sortColumn) {
-        sql += ` ORDER BY "${input.sortColumn}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
+        sql += ` ORDER BY "${input.sortColumn.replace(/"/g, '""')}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
       }
 
       params.push(limit, offset);

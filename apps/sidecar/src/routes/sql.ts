@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { isQuerySafe, isSafeSqlIdentifier, KIND, isPasswordRequired, type SqlAdapter } from '@kamehadb/shared';
+import { isAllowedSortColumn, isQuerySafe, KIND, isPasswordRequired, type SqlAdapter } from '@kamehadb/shared';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
@@ -222,7 +222,7 @@ sqlRouter.post(
       offset: z.number().optional(),
       limit: z.number().optional(),
       search: z.string().optional(),
-      sortColumn: z.string().refine(isSafeSqlIdentifier, 'Sort column must be a SQL identifier').optional(),
+      sortColumn: z.string().optional(),
       sortDirection: z.enum(['asc', 'desc']).optional(),
       filters: z
         .array(
@@ -238,7 +238,17 @@ sqlRouter.post(
   async (c) => {
     try {
       const adapter = await getSqlAdapter(c.req.param('connectionId'));
-      const result = await adapter.previewRows(c.req.valid('json'));
+      const body = c.req.valid('json');
+      if (body.sortColumn) {
+        const columns = await adapter.getTableColumns(body.tableId);
+        if (!isAllowedSortColumn(body.sortColumn, columns)) {
+          return c.json(
+            { error: 'INVALID_SORT_COLUMN', message: 'Sort column is not part of the selected table' },
+            400,
+          );
+        }
+      }
+      const result = await adapter.previewRows(body);
       return c.json(result);
     } catch (err) {
       return handleError(c, err, 'previewRows');

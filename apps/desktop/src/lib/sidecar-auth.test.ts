@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAuthorizedSidecarRequest } from '../../../sidecar/src/lib/sidecar-auth';
+import { isAuthorizedSidecarRequest, isTokenQueryAllowed } from '../../../sidecar/src/lib/sidecar-auth';
 
 describe('isAuthorizedSidecarRequest', () => {
   it('requires the launch token when one is configured', () => {
@@ -10,5 +10,11 @@ describe('isAuthorizedSidecarRequest', () => {
 
   it('keeps manually started development sidecars usable', () => {
     expect(isAuthorizedSidecarRequest(undefined, undefined)).toBe(true);
+  });
+
+  it('allows URL tokens only for streams that cannot set headers', () => {
+    expect(isTokenQueryAllowed('/connections/health')).toBe(true);
+    expect(isTokenQueryAllowed('/mongo/conn/shell/session/stream')).toBe(true);
+    expect(isTokenQueryAllowed('/connections')).toBe(false);
   });
 });
