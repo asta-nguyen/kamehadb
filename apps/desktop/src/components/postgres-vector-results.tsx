@@ -120,7 +120,7 @@ export function PostgresVectorResults({ result, onViewMap }: PostgresVectorResul
         />
         <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
           {onViewMap && (
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onViewMap}>
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={onViewMap}>
               <Network className="size-3.5 mr-1.5" />
               View map
             </Button>

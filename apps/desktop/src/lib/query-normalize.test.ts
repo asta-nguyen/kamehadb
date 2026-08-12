@@ -42,6 +42,29 @@ describe('normalizeQuery', () => {
     expect(normalizeQuery(once)).toBe(once);
   });
 
+  it('replaces dollar-quoted strings (untagged and tagged)', () => {
+    expect(normalizeQuery('SELECT $$hello world$$')).toBe('SELECT ?');
+    expect(normalizeQuery("SELECT $tag$it's a tag$tag$")).toBe('SELECT ?');
+  });
+
+  it('handles dollar-quoted strings containing single quotes', () => {
+    expect(normalizeQuery("SELECT $$WHERE x = 'foo'$$ FROM t")).toBe('SELECT ? FROM t');
+  });
+
+  it('groups queries differing only in dollar-quoted content', () => {
+    const a = 'SELECT $body$ SELECT 1 $body$ FROM t';
+    const b = 'SELECT $body$ SELECT 2 $body$ FROM t';
+    expect(normalizeQuery(a)).toBe(normalizeQuery(b));
+  });
+
+  it('handles dollar-quoted body containing a different embedded delimiter-like sequence', () => {
+    // $tag$ body contains $$ which should NOT close the literal —
+    // the closing delimiter must be $tag$, not $$.
+    expect(normalizeQuery('SELECT $tag$ hello $$ world $tag$ FROM t')).toBe('SELECT ? FROM t');
+    // Symmetric: $$ body contains $tag$ which should NOT close it.
+    expect(normalizeQuery('SELECT $$ hello $tag$ world $$ FROM t')).toBe('SELECT ? FROM t');
+  });
+
   it('groups semantically equivalent queries to the same pattern', () => {
     const a = "SELECT * FROM orders WHERE total > 100 AND status = 'shipped'";
     const b = "SELECT * FROM orders WHERE total > 250 AND status = 'pending'";

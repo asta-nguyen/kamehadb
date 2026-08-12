@@ -147,14 +147,18 @@ function buildGraph(data: CompletionsData) {
   }
 
   const tableByQualified = new Map(data.tables.map((t) => [t.schema ? `${t.schema}.${t.name}` : t.name, t]));
+  const tableByName = new Map(data.tables.map((t) => [t.name, t]));
 
   for (const table of data.tables) {
     const sourceLabel = table.schema ? `${table.schema}.${table.name}` : table.name;
     for (const col of table.columns) {
       if (!col.foreignKey) continue;
-      const qualifiedTarget =
-        tableByQualified.get(col.foreignKey.table) ??
-        (col.foreignKey.schema ? tableByQualified.get(`${col.foreignKey.schema}.${col.foreignKey.table}`) : undefined);
+      const qualifiedTarget = col.foreignKey.schema
+        ? (tableByQualified.get(`${col.foreignKey.schema}.${col.foreignKey.table}`) ??
+          tableByQualified.get(col.foreignKey.table))
+        : ((table.schema ? tableByQualified.get(`${table.schema}.${col.foreignKey.table}`) : undefined) ??
+          tableByQualified.get(col.foreignKey.table) ??
+          tableByName.get(col.foreignKey.table));
       if (!qualifiedTarget) continue;
       const targetId = qualifiedTarget.schema
         ? `${qualifiedTarget.schema}.${qualifiedTarget.name}`

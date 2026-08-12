@@ -1,4 +1,6 @@
-export type WorkspaceTab =
+export type WorkspaceTab = {
+  readonly pinned?: boolean;
+} & (
   | {
       readonly id: string;
       readonly type: 'table' | 'query' | 'redis-query' | 'redis' | 'graph' | 'stats' | 'database-stats';
@@ -130,7 +132,8 @@ export type WorkspaceTab =
       readonly title: string;
       readonly connectionIds: readonly string[];
       readonly sql?: string;
-    };
+    }
+);
 
 export type AppView = 'workspace' | 'api-settings' | 'logs';
 

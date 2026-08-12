@@ -23,10 +23,10 @@
     "motion": "^12.40.0",
     "next": "16.2.6",
     "next-themes": "^0.4.6",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
-    "simple-icons": "^16.24.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "takumi-js": "^1.8.7",
+    "simple-icons": "^16.24.1",
     "tailwind-merge": "^3.6.0",
     "thesvg": "^3.0.15",
     "three": "^0.185.0"

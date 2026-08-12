@@ -29,6 +29,25 @@ function serializeDocument(doc: Record<string, unknown>): Record<string, unknown
   return serialized;
 }
 
+function sanitizeFilterValue(value: unknown): unknown {
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    const hasOperatorKeys = Object.keys(obj).some((k) => k.startsWith('$'));
+    if (hasOperatorKeys) {
+      return { $eq: obj };
+    }
+  }
+  return value;
+}
+
+function sanitizeFilter(filter: Record<string, unknown>): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(filter)) {
+    sanitized[key] = sanitizeFilterValue(value);
+  }
+  return sanitized;
+}
+
 export function createMongoAdapter(config: MongoConfig): MongoAdapter {
   let client: MongoClient | null = null;
   let activeDbName: string | null = null;
@@ -104,8 +123,11 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const skip = input.skip || 0;
       const limit = Math.min(input.limit || 100, 1000);
 
+      // Sanitize filter to prevent NoSQL injection
+      const sanitizedFilter = sanitizeFilter(filter);
+
       // Server-side text search across string fields
-      let queryFilter: Record<string, unknown> = { ...filter };
+      let queryFilter: Record<string, unknown> = { ...sanitizedFilter };
       if (input.search) {
         const sampleDoc = await collection.findOne();
         if (sampleDoc) {
@@ -177,7 +199,8 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       const mongoClient = await ensureConnected();
       const targetDb = mongoClient.db(database || activeDbName || config.database);
       const coll = targetDb.collection(collection);
-      const result = await coll.updateOne(filter, { $set: update });
+      const sanitizedFilter = sanitizeFilter(filter);
+      const result = await coll.updateOne(sanitizedFilter, { $set: update });
       return {
         matchedCount: result.matchedCount,
         modifiedCount: result.modifiedCount,
@@ -194,7 +217,8 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
       if (!targetDb) throw new Error('No database selected');
 
       const coll = targetDb.collection(collection);
-      const result = await coll.deleteOne(filter);
+      const sanitizedFilter = sanitizeFilter(filter);
+      const result = await coll.deleteOne(sanitizedFilter);
       return { deletedCount: result.deletedCount };
     },
 

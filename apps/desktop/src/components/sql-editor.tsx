@@ -6,7 +6,6 @@ import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
 import { useTableColumns } from '@/hooks/use-schema';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
-import { TableEditabilityNotice } from '@/components/table-editability-notice';
 import { api } from '@/lib/api';
 import { buildRowUpdateQuery, getQueryResultEditabilityState, inferSimpleSelectTableId } from '@/lib/table-editability';
 import type { OnMount } from '@monaco-editor/react';
@@ -249,19 +248,18 @@ function splitBlankLineGroups(sql: string): string[] {
 }
 
 /** Returns true when sql contains 2+ statements (by semicolons or blank-line keyword groups). */
-function containsMultipleStatements(sql: string): boolean {
+export function containsMultipleStatements(sql: string): boolean {
   const trimmed = sql.trim();
   if (!trimmed) return false;
 
-  // Check semicolons between non-empty parts
-  const semiParts = trimmed
-    .split(';')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  if (semiParts.length > 1) return true;
+  // Reuse the quote/comment-aware splitter so punctuation in a literal or
+  // comment cannot disable the normal single-query LIMIT behavior.
+  return splitSqlStatements(trimmed).length > 1;
+}
 
-  // Check blank-line-separated SQL keyword groups
-  return splitBlankLineGroups(trimmed).length > 1;
+/** Remove harmless trailing statement terminators before the safety check. */
+export function normalizeSqlForSafety(sql: string): string {
+  return sql.trim().replace(/;+$/, '');
 }
 
 import { DataTable, type ColumnDef } from '@/components/data-table';
@@ -278,7 +276,7 @@ import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autoc
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
-import { safeErrorMessage } from '@kamehadb/shared';
+import { isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
 import {
   AlertCircle,
@@ -463,7 +461,7 @@ function QueryResultTable({
       return (
         <span
           onDoubleClick={editability.canEditCells ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
-          className={editability.canEditCells ? 'block w-full cursor-pointer' : 'block w-full'}
+          className={editability.canEditCells ? 'flex-1 min-w-0 truncate cursor-pointer' : 'flex-1 min-w-0 truncate'}
         >
           {value === null ? (
             <span className="text-muted-foreground italic">null</span>
@@ -482,7 +480,15 @@ function QueryResultTable({
   return (
     <div ref={tableRef} className="flex flex-col h-full min-h-0 p-4">
       {editability.warningMessage && editability.warningTone && (
-        <TableEditabilityNotice message={editability.warningMessage} tone={editability.warningTone} />
+        <div
+          className={
+            editability.warningTone === 'warning'
+              ? 'mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-600 dark:border-amber-800/40 dark:bg-amber-950/30 dark:text-amber-400'
+              : 'mb-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-700 dark:border-sky-800/40 dark:bg-sky-950/30 dark:text-sky-300'
+          }
+        >
+          {editability.warningMessage}
+        </div>
       )}
       <div className="min-h-0 overflow-hidden border border-border rounded-md">
         <div className="overflow-auto max-h-full">
@@ -531,14 +537,13 @@ function QueryResultTable({
         </div>
         <div className="flex items-center gap-1">
           <div className="flex items-center gap-0.5 mr-1">
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={offset === 0} onClick={onPrevPage}>
+            <Button variant="ghost" size="sm" disabled={offset === 0} onClick={onPrevPage}>
               <ChevronLeft className="size-3.5" />
               Prev
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs"
               disabled={queryLimit === 0 || result.rowCount < queryLimit}
               onClick={onNextPage}
             >
@@ -560,8 +565,8 @@ function QueryResultTable({
             </SelectContent>
           </Select>
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
-              <Download className="size-3" />
+            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" title="Export" />}>
+              <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
@@ -645,6 +650,15 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         monaco.editor.setModelMarkers(model, 'sql-error', []);
       }
 
+      // Validate the original input before splitting so a semicolon-delimited
+      // batch cannot bypass the one-statement safety policy.
+      const originalSafety = isQuerySafe(normalizeSqlForSafety(querySql));
+      if (!originalSafety.safe) {
+        setError(originalSafety.reason ?? 'Query blocked by safety check');
+        setIsExecutingBatch(false);
+        return;
+      }
+
       const statements = splitSqlStatements(querySql);
       if (statements.length === 0) {
         setIsExecutingBatch(false);
@@ -657,6 +671,25 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           // Apply LIMIT per individual statement so multi-statement SQL never
           // produces a standalone "LIMIT N" after the split.
           const stmt = queryWithLimit(statements[i], queryLimit);
+          const safety = isQuerySafe(stmt);
+          if (!safety.safe) {
+            // Show results from statements that already executed before
+            // hitting the blocked one, so the user doesn't lose them.
+            if (allResults.length > 0) {
+              resultKeyRef.current++;
+              if (allResults.length === 1) {
+                setResult(allResults[0]);
+                setExecutedStatements([statements[0]]);
+              } else {
+                setResults(allResults);
+                setExecutedStatements(statements.slice(0, allResults.length));
+                setActiveResultIndex(0);
+              }
+            }
+            setError(safety.reason ?? 'Query blocked by safety check');
+            setIsExecutingBatch(false);
+            return;
+          }
           const res = await runQuery.mutateAsync({ query: stmt });
           saveHistory.mutate({ query: stmt, durationMs: res.durationMs, rowCount: res.rowCount });
           allResults.push(res);
@@ -900,10 +933,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           )}
           Run
         </Button>
-        <span className="text-xs text-muted-foreground">
-          {runQuery.isPending || isExecutingBatch ? 'Running...' : 'Ctrl+Enter to run'}
-        </span>
+        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[10px] font-mono text-muted-foreground/50">
+          {runQuery.isPending || isExecutingBatch ? 'Esc' : 'Ctrl+Enter'}
+        </kbd>
         <div className="flex-1" />
+        <div className="w-px h-4 bg-border mx-0.5" />
         {result && (
           <Button
             variant="ghost"

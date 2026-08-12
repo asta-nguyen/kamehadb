@@ -1,5 +1,4 @@
-import { useReducer, useMemo, type ReactNode } from 'react';
-import * as React from 'react';
+import { useReducer, useMemo, useState, type ReactNode } from 'react';
 import { ArrowLeft, Bot, Cloud, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
 
-const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router'];
+const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini'];
 
 const PROVIDER_META: Record<
   AIProvider,
@@ -53,6 +52,20 @@ const PROVIDER_META: Record<
     baseUrlPlaceholder: 'https://router.example.com/v1',
     icon: Bot,
   },
+  deepseek: {
+    label: 'DeepSeek',
+    description: 'Direct DeepSeek API access for DeepSeek-V3 and DeepSeek-R1 models.',
+    modelPlaceholder: 'deepseek-chat',
+    baseUrlPlaceholder: 'https://api.deepseek.com/v1',
+    icon: Sparkles,
+  },
+  gemini: {
+    label: 'Gemini',
+    description: 'Google AI Studio API access for Gemini models.',
+    modelPlaceholder: 'gemini-2.5-flash',
+    baseUrlPlaceholder: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    icon: Sparkles,
+  },
 };
 
 function createEmptySettings(): AISettings {
@@ -81,6 +94,18 @@ function createEmptySettings(): AISettings {
         enabled: false,
         model: '',
         baseUrl: '',
+        apiKey: '',
+      },
+      deepseek: {
+        enabled: false,
+        model: 'deepseek-chat',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKey: '',
+      },
+      gemini: {
+        enabled: false,
+        model: 'gemini-2.5-flash',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
         apiKey: '',
       },
     },
@@ -173,31 +198,40 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
         draft: {
           ...state.draft,
           activeProvider: action.provider,
-          providers: Object.fromEntries(
-            PROVIDER_ORDER.map((provider) => [
-              provider,
-              {
-                ...state.draft.providers[provider],
-                enabled: provider === action.provider,
-              },
-            ]),
-          ) as AISettings['providers'],
+          providers: {
+            ...state.draft.providers,
+            [action.provider]: {
+              ...state.draft.providers[action.provider],
+              enabled: true,
+            },
+          },
         },
       };
-    case 'updateProvider':
+    case 'updateProvider': {
+      const updated: AIProviderConfig = {
+        ...state.draft.providers[action.provider],
+        ...action.updates,
+      };
+      // Auto-enable when the provider has sufficient config so it
+      // persists as 'Configured' even before being set as active.
+      if (!updated.enabled && updated.model.trim()) {
+        const needsKey = providerNeedsApiKey(action.provider);
+        const needsUrl = providerNeedsBaseUrl(action.provider);
+        if ((!needsKey || updated.apiKey?.trim()) && (!needsUrl || updated.baseUrl?.trim())) {
+          updated.enabled = true;
+        }
+      }
       return {
         ...state,
         draft: {
           ...state.draft,
           providers: {
             ...state.draft.providers,
-            [action.provider]: {
-              ...state.draft.providers[action.provider],
-              ...action.updates,
-            },
+            [action.provider]: updated,
           },
         },
       };
+    }
     case 'resetSelected':
       return {
         ...state,
@@ -230,6 +264,9 @@ function ApiSettingsHeader({ draft }: { draft: AISettings }) {
             <h1 className="text-lg font-semibold tracking-tight">API Settings</h1>
             <Badge variant="outline" className="bg-background/70 text-xs">
               Local user profile
+            </Badge>
+            <Badge variant="secondary" className="text-xs font-mono">
+              {__APP_VERSION__}
             </Badge>
           </div>
           <p className="max-w-3xl text-sm text-muted-foreground">
@@ -498,7 +535,7 @@ export function ApiSettingsPage() {
   // Reset the draft and snapshot whenever the server's saved settings change.
   // Adjusting state inline (per react.dev/learn/you-might-not-need-an-effect)
   // so we don't briefly render stale data.
-  const [prevSavedSettings, setPrevSavedSettings] = React.useState(savedSettings);
+  const [prevSavedSettings, setPrevSavedSettings] = useState(savedSettings);
   if (savedSettings !== prevSavedSettings) {
     setPrevSavedSettings(savedSettings);
     if (savedSettings) {
@@ -525,7 +562,9 @@ export function ApiSettingsPage() {
         selectedConfig.apiKey?.trim() || undefined,
         signal,
       ),
-    enabled: !!selectedConfig.baseUrl?.trim(),
+    enabled:
+      !!selectedConfig.baseUrl?.trim() &&
+      (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim()),
     staleTime: 0,
     gcTime: 0,
   });
@@ -584,7 +623,10 @@ export function ApiSettingsPage() {
                     dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
                   }
                   onFetchModels={() => refetchModels()}
-                  canFetchModels={!!selectedConfig.baseUrl?.trim()}
+                  canFetchModels={
+                    !!selectedConfig.baseUrl?.trim() &&
+                    (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim())
+                  }
                 />
 
                 <SettingsFooter

@@ -11,7 +11,7 @@ import { useCaptureSchemaSnapshot, useSchemaDiff, useSchemaSnapshots } from '@/h
 import { useAutoCaptureInvalidation } from '@/hooks/use-auto-capture-invalidation';
 import { openMigrationTab } from '@/store';
 import { SchemaDiffTableCard } from './schema-diff-table-card';
-import { toast } from 'sonner';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 type DiffFilter = 'all' | 'tables' | 'columns' | 'indexes';
@@ -63,10 +63,10 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_SNAPSHOTS(connectionId) }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_CHANGELOG(connectionId) }),
       ]);
-      toast.success('Schema snapshot captured');
+      toastSuccess('Schema snapshot captured');
     } catch (captureError) {
       const message = captureError instanceof Error ? captureError.message : 'Capture failed';
-      toast.error(message);
+      toastError(message);
       void appendFrontendLog({
         level: 'error',
         scope: 'schema-diff.capture',

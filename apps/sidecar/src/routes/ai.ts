@@ -27,10 +27,14 @@ const providerConfigSchema = z.object({
   apiKey: z.string().optional(),
 });
 
+type MongoSchemaContextResult =
+  | { status: 'available'; schema: string | null }
+  | { status: 'unavailable'; error: unknown };
+
 async function buildMongoSchemaContext(
   adapter: ReturnType<typeof createMongoDbAdapter>,
   database?: string,
-): Promise<string | null> {
+): Promise<MongoSchemaContextResult> {
   try {
     const lines: string[] = [];
 
@@ -39,34 +43,47 @@ async function buildMongoSchemaContext(
       lines.push(`## Database: ${database}`);
       const collections = await adapter.listCollections(database);
 
-      for (const coll of collections.slice(0, 10)) {
-        const stats = await adapter.getCollectionStats(database, coll.name);
-        lines.push(`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`);
+      const collResults = await Promise.all(
+        collections.slice(0, 10).map(async (coll) => {
+          try {
+            const stats = await adapter.getCollectionStats(database, coll.name);
+            const section: string[] = [`### ${coll.name} (${stats.documentCount.toLocaleString()} docs)`];
 
-        if (stats.documentCount > 0) {
-          const result = await adapter.findDocuments({
-            collection: coll.name,
-            database,
-            limit: 1,
-          });
-          if (result.documents.length > 0) {
-            const sample = result.documents[0];
-            const fields = Object.keys(sample)
-              .slice(0, 15)
-              .map((k) => {
-                const v = sample[k];
-                const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
-                return `  ${k}: ${type}`;
+            if (stats.documentCount > 0) {
+              const result = await adapter.findDocuments({
+                collection: coll.name,
+                database,
+                limit: 1,
               });
-            lines.push('Fields:');
-            lines.push(fields.join('\n'));
+              if (result.documents.length > 0) {
+                const sample = result.documents[0];
+                const fields = Object.keys(sample)
+                  .slice(0, 15)
+                  .map((k) => {
+                    const v = sample[k];
+                    const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+                    return `  ${k}: ${type}`;
+                  });
+                section.push('Fields:');
+                section.push(fields.join('\n'));
+              }
+            }
+            return section;
+          } catch (err) {
+            log.warn({ err, database, collection: coll.name }, 'ai: MongoDB collection schema context failed');
+            return null;
           }
-        }
+        }),
+      );
+      for (const section of collResults) {
+        if (!section) continue;
+        lines.push(...section);
+        lines.push('');
       }
     } else {
       // Get schema for all databases (fallback)
       const databases = await adapter.listDatabases();
-      if (databases.length === 0) return null;
+      if (databases.length === 0) return { status: 'available', schema: null };
 
       lines.push('MongoDB Databases:');
       const userDatabases = databases.filter((db) => !['admin', 'local', 'config'].includes(db.name));
@@ -103,9 +120,9 @@ async function buildMongoSchemaContext(
       }
     }
 
-    return lines.join('\n');
-  } catch {
-    return null;
+    return { status: 'available', schema: lines.join('\n') };
+  } catch (err) {
+    return { status: 'unavailable', error: err };
   }
 }
 
@@ -231,9 +248,6 @@ aiRouter.post(
       const { connectionId, mongoDatabase, tableId } = body;
 
       const latestUserMsg = body.messages.filter((m) => m.role === 'user').at(-1)?.content;
-      if (connectionId && latestUserMsg) {
-        metadataStore.saveChatMessage(connectionId, 'user', latestUserMsg, mongoDatabase);
-      }
 
       const settings = metadataStore.getAISettings();
       // Resolve which provider config to use
@@ -267,7 +281,6 @@ aiRouter.post(
         const cacheKey = mongoDatabase
           ? `ai-schema:${connectionId}:mongo:${mongoDatabase}`
           : `ai-schema:${connectionId}:sql`;
-
         if (mongoDatabase) {
           mongoSchema = getCached<string>(cacheKey, CACHE_TTL.AI_SCHEMA);
         } else {
@@ -280,7 +293,9 @@ aiRouter.post(
               if (profile.kind === 'mongodb') {
                 const adapter = createMongoDbAdapter(profile);
                 try {
-                  mongoSchema = await buildMongoSchemaContext(adapter, mongoDatabase);
+                  const schemaContext = await buildMongoSchemaContext(adapter, mongoDatabase);
+                  if (schemaContext.status === 'unavailable') throw schemaContext.error;
+                  mongoSchema = schemaContext.schema;
                   setCache(cacheKey, mongoSchema);
                 } finally {
                   await adapter.close();
@@ -326,14 +341,24 @@ aiRouter.post(
                 }
               }
             }
-          } catch {
-            // Silently fail, LLM can work without schema
+          } catch (err) {
+            log.error({ err }, 'buildSchemaContext');
+            return c.json(
+              { error: 'SCHEMA_CONTEXT_UNAVAILABLE', message: 'Schema context is unavailable due to an error.' },
+              503,
+            );
           }
         }
 
         if (profile?.kind === 'postgres' && !postgresVectorPrompt) {
           postgresVectorPrompt = await resolvePostgresVectorPrompt(connectionId, profile);
         }
+      }
+
+      // Persist the prompt only after provider validation and schema loading;
+      // schema failures must not leave an unanswered message in chat history.
+      if (connectionId && latestUserMsg) {
+        metadataStore.saveChatMessage(connectionId, 'user', latestUserMsg, mongoDatabase);
       }
 
       const systemPrompt = buildSystemPrompt(ddl, mongoSchema, connectionKind, postgresVectorPrompt);
@@ -374,6 +399,12 @@ aiRouter.post(
             let errorMessage: string | null = null;
 
             for (const query of sqlQueries) {
+              const safety = isQuerySafe(query);
+              if (!safety.safe) {
+                errorMessage = safety.reason ?? 'The generated query was not read-only';
+                continue;
+              }
+
               try {
                 const result = await sqlAdapter.runQuery({ query });
                 allResults.push(...(result.rows ?? []));
@@ -468,7 +499,7 @@ aiRouter.post(
     z.object({
       text: z.string().min(1),
       model: z.string().optional(),
-      provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']).optional(),
+      provider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini']).optional(),
     }),
   ),
   async (c) => {
@@ -559,12 +590,14 @@ aiRouter.post(
   zValidator(
     'json',
     z.object({
-      activeProvider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router']),
+      activeProvider: z.enum(['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini']),
       providers: z.object({
         'ollama-local': providerConfigSchema,
         'ollama-cloud': providerConfigSchema,
         openai: providerConfigSchema,
         '9router': providerConfigSchema,
+        deepseek: providerConfigSchema,
+        gemini: providerConfigSchema,
       }),
     }),
   ),

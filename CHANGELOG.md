@@ -7,8 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- **MCP server**
-- **Landing UI** — Added `@radix-ui/react-avatar`, `@radix-ui/react-slot`, and `class-variance-authority` for the new UI components.
+---
+
+## [v1.5.0] — 2026-08-12
+
+### Added
+
+- **Tab context menu** — right-click workspace tabs to close, pin, or duplicate; pinned tabs persist across reloads.
+- **Table view editing** — double-click cells to edit inline, toggle between view and edit modes.
+- **Landing dashboard milestone** — interactive engine matrix, read-only schema graph demo, and animated hero canvas.
+- **AI chat** — active provider shown in the chat panel header; providers with sufficient config auto-enable.
+
+### Changed
+
+- **Desktop UI consistency overhaul** — unified explorer toolbars, structured vector filters, nested JSON rendering, accessible loading/error states, semantic vector-map colors, and notification styling.
+- **Vector search UI unification** — shared input heights and states across pgvector/Qdrant/sqlite-vec, migrated Qdrant map to VectorMap3D.
+- **Design token foundation** — status colors, shadow tokens, and shared component patterns (EmptyState, LoadingState, ErrorState, ExplorerToolbar, FilterBar).
+- **AI chat performance** — optimized re-renders with useMemo/useCallback and cached color conversions in 3D vector map.
+
+### Fixed
+
+- **Sidecar authentication** — packaged sidecar requires a per-session token, CSP enforced, and SQL table-sort identifiers validated against schema metadata.
+- **Query safety** — strip SQL comments and string literals before destructive-keyword checks, block SELECT INTO, prevent semicolon-separated batch execution, and stop auto-running AI-generated writes.
+- **SAST security fixes** — SQL injection via string concatenation, NoSQL injection, and file inclusion attack.
+- **Health check SSE leak** — evict timed-out probes and support immediate abort on SSE cancel.
+- **MongoDB autocomplete** — limit concurrent collection sampling to 8 queries to prevent connection overload.
+- **Foreign key resolution** — improved resolution logic for schema graph and AI schema context.
+- **Chat hook reset** — atomically clear messages and ref on connection switch.
+- **Dollar-quoted strings** — ensure delimiters match in SQL safety checks to prevent false positives.
 
 ---
 
@@ -62,6 +88,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **DeepSeek AI provider** — direct DeepSeek API access for DeepSeek-V3 (`deepseek-chat`) and DeepSeek-R1 (`deepseek-reasoner`) models via OpenAI-compatible endpoint.
+- **Gemini AI provider** — Google AI Studio API access for Gemini models (`gemini-2.5-flash`, `gemini-2.5-pro`, etc.) via OpenAI-compatible endpoint.
 - **Bundled sidecar** — sidecar `dist/`, production `node_modules/`, and Node.js runtime are bundled into the Tauri app. The sidecar auto-starts on launch and is cleaned up on exit — no manual `pnpm dev:sidecar` needed.
 - **Shared package build** — `@kamehadb/shared` compiles to JS so the sidecar resolves it at runtime.
 - **Sidecar loading screen** — spinner while the sidecar starts, with an error screen if Node.js is missing or startup fails.

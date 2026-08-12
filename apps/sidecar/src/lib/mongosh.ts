@@ -127,7 +127,8 @@ function versionedMongoBinCandidates(root: string): string[] {
       .filter((entry) => entry.startsWith('mongodb') || entry.startsWith('mongosh'))
       .map((entry) => join(root, entry, 'bin', 'mongosh'))
       .reverse();
-  } catch {
+  } catch (err) {
+    log.debug({ err }, 'mongosh: readdir failed');
     return [];
   }
 }

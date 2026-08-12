@@ -136,6 +136,8 @@ Important sidecar internals:
 
 `apps/desktop/src/App.tsx` drives the top-level app views (`workspace`, `api-settings`, `logs`) and the tabbed workspace.
 
+Design system tokens and conventions are documented in `apps/desktop/DESIGN-SYSTEM.md`.
+
 Main areas:
 
 - `components/sidebar.tsx` for connection and schema navigation
@@ -479,10 +481,44 @@ const id = Number(row.id);
 - Place the comment above the line it explains, not as a trailing line
 - Use full sentences with proper punctuation; no "TODO later" or "fix me" leftovers
 
-## Agent Workflows
+## Superpowers Skills
 
-Reusable workflow definitions live in `.agents/`. When the user asks to run a workflow, read the corresponding file and follow its steps.
+This repo uses [Superpowers](https://github.com/obra/superpowers) for spec-driven agent workflows. Skills live in `.agents/skills/` and are automatically discovered by Cascade.
 
-| Trigger phrase                   | File                      | Description                                              |
-| -------------------------------- | ------------------------- | -------------------------------------------------------- |
-| "bump version", "update version" | `.agents/bump-version.md` | Bump app version across all 6 files and update CHANGELOG |
+### Available Skills
+
+| Skill                            | Description                                                          |
+| -------------------------------- | -------------------------------------------------------------------- |
+| `using-superpowers`              | Meta-skill: invoke relevant skills before any response or action     |
+| `brainstorming`                  | Explore user intent, requirements, and design before implementation  |
+| `writing-plans`                  | Turn a spec or requirements into a multi-step implementation plan    |
+| `executing-plans`                | Execute a written plan in a separate session with review checkpoints |
+| `test-driven-development`        | Write tests before implementation code                               |
+| `systematic-debugging`           | Diagnose bugs and performance regressions methodically               |
+| `dispatching-parallel-agents`    | Dispatch 2+ independent tasks to parallel subagents                  |
+| `subagent-driven-development`    | Execute implementation plans with independent tasks via subagents    |
+| `using-git-worktrees`            | Isolate feature work via git worktrees                               |
+| `requesting-code-review`         | Verify work meets requirements before merging                        |
+| `receiving-code-review`          | Process code review feedback with technical rigor                    |
+| `finishing-a-development-branch` | Decide how to integrate completed work                               |
+| `verification-before-completion` | Run verification commands before claiming work is done               |
+| `writing-skills`                 | Create and edit skills                                               |
+| `bump-version`                   | Bump app version across all 6 files and update CHANGELOG             |
+| `preparing-releases`             | Prepare and verify releases before any tag, push, or publication     |
+
+### How To Use
+
+- Skills are invoked automatically by Cascade when relevant to the task.
+- To manually trigger a skill, mention its name or trigger phrase.
+- User instructions (AGENTS.md, direct requests) take precedence over skills.
+
+<!-- openez:start -->
+
+## OpenEZ workflow
+
+- Before code work in a new session, call `memory_recall` using 1–3 keywords from the task.
+- Use `code_query` before filesystem search.
+- Use `code_context` for symbol/file relationships.
+- Call `memory_write` after an architectural decision or a non-obvious constraint is confirmed.
+- Use explicit workspace scope for cross-workspace work.
+<!-- openez:end -->

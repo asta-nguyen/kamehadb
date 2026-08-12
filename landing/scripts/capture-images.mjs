@@ -65,6 +65,7 @@ async function main() {
     cwd: landingRoot,
     stdio: 'pipe',
     shell: true,
+    detached: true,
   });
 
   devServer.stdout.on('data', (chunk) => process.stdout.write(`[next] ${chunk}`));
@@ -131,12 +132,26 @@ async function main() {
     console.log('Screenshot capture complete.');
   } finally {
     // Always kill the dev server, even if screenshot capture fails.
-    devServer.kill('SIGTERM');
+    // Because we spawned with shell: true, devServer.pid is the shell
+    // wrapper — killing only that PID leaves the Next.js child orphaned.
+    // With detached: true the shell is a process group leader, so we
+    // signal the entire group (-pid) to take down the whole tree.
+    const killGroup = (signal) => {
+      try {
+        process.kill(-devServer.pid, signal);
+      } catch {
+        // Process group may have already exited — fall back to the
+        // wrapper PID in case it's still alive.
+        try { devServer.kill(signal); } catch { /* already dead */ }
+      }
+    };
+
+    killGroup('SIGTERM');
     await new Promise((resolve) => {
       devServer.on('exit', () => resolve());
       // Force-kill after 5s if SIGTERM doesn't work.
       setTimeout(() => {
-        devServer.kill('SIGKILL');
+        killGroup('SIGKILL');
         resolve();
       }, 5000);
     });

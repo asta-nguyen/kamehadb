@@ -3,6 +3,7 @@ import type { Client } from 'tigerbeetle-node';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { TB_CREATED } from '../lib/constants.js';
 import { safeErrorMessage } from '@kamehadb/shared';
+import { log } from '../lib/logger.js';
 
 export type TigerBeetleAdapter = {
   testConnection(): Promise<{ success: boolean; message?: string; serverVersion?: string }>;
@@ -354,8 +355,8 @@ export function createTigerBeetleAdapter(config: TBConfig): TigerBeetleAdapter {
       if (client) {
         try {
           client.destroy();
-        } catch {
-          // ignore
+        } catch (err) {
+          log.debug({ err }, 'tigerbeetle: client destroy failed');
         }
         client = null;
         clientInitPromise = null;

@@ -197,8 +197,16 @@ export function createSqlSchemaRouter(options: {
   router.post('/schema/watcher/start', async (context) => {
     try {
       const connectionId = requireConnectionId(context);
-      const body = (await context.req.json().catch(() => ({}))) as { intervalMs?: number };
-      const intervalMs = body.intervalMs ?? WATCHER_DEFAULT_INTERVAL_MS;
+      let body: unknown;
+      try {
+        body = await context.req.json();
+      } catch {
+        return context.json({ error: 'INVALID_JSON', message: 'Request body must be valid JSON' }, 400);
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return context.json({ error: 'INVALID_JSON', message: 'Request body must be valid JSON' }, 400);
+      }
+      const intervalMs = (body as { intervalMs?: unknown }).intervalMs ?? WATCHER_DEFAULT_INTERVAL_MS;
       if (typeof intervalMs !== 'number' || !Number.isFinite(intervalMs) || intervalMs < WATCHER_MIN_INTERVAL_MS) {
         return context.json(
           { error: 'INVALID_INTERVAL', message: `Minimum interval is ${WATCHER_MIN_INTERVAL_MS}ms` },

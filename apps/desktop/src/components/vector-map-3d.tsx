@@ -4,7 +4,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { projectVectorsTo3d } from '@/lib/pca3d';
 import { appStore } from '@/store';
-import { Loader2 } from 'lucide-react';
+import { LoadingState } from '@/components/ui/loading-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const BG_DARK = 0x0b0b0c;
 const BG_LIGHT = 0xf8fafc;
@@ -14,6 +18,40 @@ export type VectorPoint = {
   readonly vector: number[];
   readonly payload: Record<string, unknown>;
 };
+
+export const VECTOR_PALETTE = Array.from({ length: 10 }, (_, index) => `var(--vector-${index + 1})`);
+
+// Three.js cannot parse CSS variables or OKLCH, so convert the shared token to
+// linear sRGB before writing it into the GPU while the legend stays token-driven.
+function setTokenColor(target: THREE.Color, color: string): void {
+  const tokenMatch = color.match(/^var\((--[^)]+)\)$/);
+  const resolved = tokenMatch
+    ? getComputedStyle(document.documentElement).getPropertyValue(tokenMatch[1]).trim()
+    : color;
+  const oklchMatch = resolved.match(/^oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)$/);
+  if (!oklchMatch) {
+    target.set(resolved);
+    return;
+  }
+
+  const lightness = Number(oklchMatch[1]);
+  const chroma = Number(oklchMatch[2]);
+  const hue = (Number(oklchMatch[3]) * Math.PI) / 180;
+  const a = chroma * Math.cos(hue);
+  const b = chroma * Math.sin(hue);
+  const l = Math.pow(lightness + 0.3963377774 * a + 0.2158037573 * b, 3);
+  const m = Math.pow(lightness - 0.1055613458 * a - 0.0638541728 * b, 3);
+  const s = Math.pow(lightness - 0.0894841775 * a - 1.291485548 * b, 3);
+  const clamp = (channel: number) => Math.max(0, Math.min(1, channel));
+
+  target.setRGB(
+    clamp(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    clamp(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    clamp(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+  );
+}
+
+export type LegendItem = { readonly value: string; readonly color: string };
 
 type VectorMap3DProps = {
   readonly points: VectorPoint[];
@@ -26,6 +64,12 @@ type VectorMap3DProps = {
     readonly target: [number, number, number];
   }) => void;
   readonly initialCamera?: { readonly position?: [number, number, number]; readonly target?: [number, number, number] };
+  // Color-by support (optional — used by Qdrant vector map)
+  readonly colorBy?: string;
+  readonly onColorByChange?: (value: string) => void;
+  readonly payloadKeys?: readonly string[];
+  readonly colorValue?: (i: number) => string;
+  readonly legend?: readonly LegendItem[];
 };
 
 export function VectorMap3D({
@@ -36,12 +80,23 @@ export function VectorMap3D({
   onPointClick,
   onCameraChange,
   initialCamera,
+  colorBy,
+  onColorByChange,
+  payloadKeys,
+  colorValue,
+  legend,
 }: VectorMap3DProps) {
   const theme = useStore(appStore, (state) => state.theme);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
   const mountRef = useRef<HTMLDivElement>(null);
   const pointsRef = useRef<VectorPoint[]>([]);
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
+  const geometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const colorByRef = useRef(colorBy);
+  const colorValueRef = useRef(colorValue);
+  colorByRef.current = colorBy;
+  colorValueRef.current = colorValue;
   // Capture initial camera on first render only, so camera saves don't re-create the scene
   const initialCameraRef = useRef(initialCamera);
 
@@ -79,6 +134,7 @@ export function VectorMap3D({
     const height = mount.clientHeight || 600;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(isDark ? BG_DARK : BG_LIGHT);
+    sceneRef.current = scene;
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 4000);
     if (cam?.position) {
       camera.position.set(cam.position[0], cam.position[1], cam.position[2]);
@@ -113,7 +169,28 @@ export function VectorMap3D({
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const material = new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, color: '#3b82f6' });
+
+    // Always allocate vertex colors so changing "Color by" only updates the
+    // existing GPU buffer and never destroys the scene or resets the camera.
+    const colors = new Float32Array(positions.length);
+    const c = new THREE.Color();
+    const colorCache = new Map<string, { r: number; g: number; b: number }>();
+    for (let i = 0; i < pointsRef.current.length; i++) {
+      const color = colorByRef.current && colorValueRef.current ? colorValueRef.current(i) : VECTOR_PALETTE[0];
+      let rgb = colorCache.get(color);
+      if (!rgb) {
+        setTokenColor(c, color);
+        rgb = { r: c.r, g: c.g, b: c.b };
+        colorCache.set(color, rgb);
+      }
+      colors[i * 3] = rgb.r;
+      colors[i * 3 + 1] = rgb.g;
+      colors[i * 3 + 2] = rgb.b;
+    }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometryRef.current = geometry;
+
+    const material = new THREE.PointsMaterial({ size: 3, sizeAttenuation: true, vertexColors: true });
     const cloud = new THREE.Points(geometry, material);
     scene.add(cloud);
 
@@ -182,31 +259,49 @@ export function VectorMap3D({
       material.dispose();
       renderer.dispose();
       mount.removeChild(renderer.domElement);
+      sceneRef.current = null;
     };
-  }, [isDark, positions]);
+  }, [positions]);
+
+  // Theme changes only update the existing scene background, preserving the
+  // camera and controls instead of recreating the complete WebGL scene.
+  useEffect(() => {
+    if (sceneRef.current) {
+      sceneRef.current.background = new THREE.Color(isDark ? BG_DARK : BG_LIGHT);
+    }
+  }, [isDark]);
+
+  // Reactively re-tint the geometry when colorBy changes (no full scene rebuild).
+  useEffect(() => {
+    const geometry = geometryRef.current;
+    if (!geometry || !colorValue) return;
+    const attr = geometry.getAttribute('color') as THREE.BufferAttribute | undefined;
+    if (!attr) return;
+    const c = new THREE.Color();
+    const colorCache = new Map<string, { r: number; g: number; b: number }>();
+    for (let i = 0; i < points.length; i++) {
+      const color = colorBy ? colorValue(i) : VECTOR_PALETTE[0];
+      let rgb = colorCache.get(color);
+      if (!rgb) {
+        setTokenColor(c, color);
+        rgb = { r: c.r, g: c.g, b: c.b };
+        colorCache.set(color, rgb);
+      }
+      attr.setXYZ(i, rgb.r, rgb.g, rgb.b);
+    }
+    attr.needsUpdate = true;
+  }, [colorBy, points, colorValue, isDark]);
 
   if (isLoading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (error) {
-    return (
-      <div className="p-4 text-sm text-destructive">
-        {error instanceof Error ? error.message : 'Failed to load vectors'}
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
   if (!positions || points.length < 2) {
-    return (
-      <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Need at least 2 vectors to visualize
-      </div>
-    );
+    return <EmptyState title="Need at least 2 vectors to visualize" />;
   }
 
   return (
@@ -214,7 +309,38 @@ export function VectorMap3D({
       <div className="px-3 py-2 border-b border-border flex items-center gap-3 text-xs">
         {header}
         <span className="text-muted-foreground ml-auto">{points.length} vectors (PCA → 3D)</span>
+        {onColorByChange && (
+          <Label className="flex items-center gap-1 text-muted-foreground">
+            Color by
+            <Select
+              value={colorBy || '_none'}
+              onValueChange={(v) => onColorByChange(v === '_none' || v == null ? '' : v)}
+            >
+              <SelectTrigger size="sm" className="h-6 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">none</SelectItem>
+                {payloadKeys?.map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {k}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Label>
+        )}
       </div>
+      {legend && legend.length > 0 && (
+        <div className="px-3 py-1.5 border-b border-border flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          {legend.map((l) => (
+            <span key={l.value} className="flex items-center gap-1 text-muted-foreground">
+              <span className="size-2.5 rounded-full" style={{ backgroundColor: l.color }} />
+              {l.value}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex-1 min-h-0 relative">
         <div ref={mountRef} className="absolute inset-0" />
         {hover && pointsRef.current[hover.i] && (

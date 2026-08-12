@@ -211,7 +211,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       }
 
       if (input.sortColumn) {
-        sql += ` ORDER BY "${input.sortColumn}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
+        sql += ` ORDER BY "${input.sortColumn.replace(/"/g, '""')}" ${input.sortDirection === 'desc' ? 'DESC' : 'ASC'}`;
       }
       params.push(limit, offset);
       sql += ` LIMIT ? OFFSET ?`;
@@ -305,7 +305,7 @@ export function createSqliteAdapter(filePath: string): SqlAdapter {
       }[];
 
       return indexes.map((idx) => {
-        const cols = db.prepare(`PRAGMA index_info("${idx.name}")`).all() as { name: string }[];
+        const cols = db.prepare(`SELECT * FROM pragma_index_info(?)`).all(idx.name) as { name: string }[];
 
         return {
           name: idx.name,

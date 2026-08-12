@@ -1,4 +1,5 @@
 import { ChatInput } from '@/components/chat-input';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { buttonVariants } from '@/components/ui/variants';
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useChat } from '@/hooks/use-chat';
+import { useAISettings } from '@/hooks/use-ai-chat';
 import { useConnections } from '@/hooks/use-connections';
 import {
   buildHighlightedCodeTree,
@@ -38,11 +40,12 @@ import {
   X,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { useCallback, useEffect, useRef, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
+import { KIND } from '@kamehadb/shared';
 import type { PendingAiPrompt } from '@/lib/types';
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
@@ -440,6 +443,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const [isResizing, setIsResizing] = useState(false);
   const panelWidth = widthOverride ?? width;
   const { data: connections } = useConnections();
+  const { data: aiSettings } = useAISettings();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
@@ -447,15 +451,21 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const historyLoadedRef = useRef(false);
   const prevConnectionIdRef = useRef(connectionId);
 
-  const currentConnection = connections?.find((c: (typeof connections)[number]) => c.id === connectionId);
-  const isMongoDb = currentConnection?.kind === 'mongodb';
+  const currentConnection = useMemo(
+    () => connections?.find((c: (typeof connections)[number]) => c.id === connectionId),
+    [connections, connectionId],
+  );
+  const isMongoDb = currentConnection?.kind === KIND.MONGODB;
   const mongoDatabase = isMongoDb ? (appStore.state.activeMongoDatabase ?? undefined) : undefined;
-  const chatMode =
-    currentConnection?.kind === 'mongodb'
-      ? CHAT_MODE_CONFIG.mongodb
-      : currentConnection?.kind === 'redis'
-        ? CHAT_MODE_CONFIG.redis
-        : CHAT_MODE_CONFIG.sql;
+  const chatMode = useMemo(
+    () =>
+      currentConnection?.kind === KIND.MONGODB
+        ? CHAT_MODE_CONFIG.mongodb
+        : currentConnection?.kind === KIND.REDIS
+          ? CHAT_MODE_CONFIG.redis
+          : CHAT_MODE_CONFIG.sql,
+    [currentConnection?.kind],
+  );
 
   // Consume a pending AI prompt queued by a schema-tree right-click action.
   // The schema-tree handler calls setPendingAiPrompt + openAiChatPanel; this
@@ -466,24 +476,50 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   const pendingAiPrompt = useStore(appStore, (s) => s.pendingAiPrompt);
   const sentPromptRef = useRef<PendingAiPrompt | null>(null);
 
-  const chat = useChat({
+  const {
+    messages: chatMessages,
+    isLoading: chatIsLoading,
+    sendMessage,
+    stop,
+    setMessages: setChatMessages,
+    reset: resetChat,
+    resendFrom,
+  } = useChat({
     url: '/ai/chat',
     forwardedProps: connectionId ? { connectionId, mongoDatabase, tableId: pendingAiPrompt?.tableId } : undefined,
   });
 
+  // Connection reset — must run BEFORE the pending-prompt effect so that
+  // when connectionId changes, messages are cleared atomically (both the
+  // ref and state) and sentPromptRef is nulled before the prompt effect
+  // gets a chance to fire. resetChat() calls setMessages([]), triggering
+  // a re-render where the prompt effect sees empty messages.
+  useEffect(() => {
+    if (prevConnectionIdRef.current !== connectionId) {
+      prevConnectionIdRef.current = connectionId;
+      resetChat();
+      historyLoadedRef.current = false;
+      sentPromptRef.current = null;
+    }
+  }, [connectionId, resetChat]);
+
   useEffect(() => {
     if (!pendingAiPrompt) return;
     if (sentPromptRef.current === pendingAiPrompt) return;
+    // If the connection just changed, skip — the reset effect above nulled
+    // sentPromptRef and cleared messages. The next render will re-enter
+    // this effect with the correct connection's empty message list.
+    if (prevConnectionIdRef.current !== connectionId) return;
     sentPromptRef.current = pendingAiPrompt;
-    chat.sendMessage(pendingAiPrompt.prompt);
+    sendMessage(pendingAiPrompt.prompt);
     clearPendingAiPrompt();
-  }, [pendingAiPrompt, chat]);
+  }, [pendingAiPrompt, sendMessage, connectionId]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chat.messages]);
+  }, [chatMessages]);
 
   const queryClient = useQueryClient();
 
@@ -509,46 +545,44 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
 
   useEffect(() => {
     if (sentPromptRef.current) return;
-    if (chatHistory?.messages && chat.messages.length === 0 && !historyLoadedRef.current) {
+    if (chatHistory?.messages && chatMessages.length === 0 && !historyLoadedRef.current) {
       historyLoadedRef.current = true;
       const uiMessages: ChatMessage[] = chatHistory.messages.map(toUIMessage);
-      chat.setMessages(uiMessages);
+      setChatMessages(uiMessages);
     }
-  }, [chatHistory, chat]);
+  }, [chatHistory, chatMessages, setChatMessages]);
 
-  useEffect(() => {
-    if (prevConnectionIdRef.current !== connectionId) {
-      prevConnectionIdRef.current = connectionId;
-      chat.setMessages([]);
-      historyLoadedRef.current = false;
-    }
-  }, [connectionId, chat]);
+  const handleSuggestionClick = useCallback(
+    (text: string) => {
+      sendMessage(text);
+    },
+    [sendMessage],
+  );
 
-  function handleSuggestionClick(text: string) {
-    chat.sendMessage(text);
-  }
+  const handleStop = useCallback(() => {
+    stop();
+  }, [stop]);
 
-  function handleStop() {
-    chat.stop();
-  }
-
-  function handleClearHistory() {
+  const handleClearHistory = useCallback(() => {
     if (!connectionId) return;
     clearChatHistory.mutate({ connectionId, mongoDatabase });
-    chat.setMessages([]);
-  }
+    setChatMessages([]);
+  }, [connectionId, mongoDatabase, clearChatHistory, setChatMessages]);
 
-  function handleRefreshSchema() {
+  const handleRefreshSchema = useCallback(() => {
     if (!connectionId) return;
     clearSchemaCache.mutate({ connectionId });
-  }
+  }, [connectionId, clearSchemaCache]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    startXRef.current = e.clientX;
-    startWidthRef.current = panelWidth;
-  };
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      setIsResizing(true);
+      startXRef.current = e.clientX;
+      startWidthRef.current = panelWidth;
+    },
+    [panelWidth],
+  );
 
   useEffect(() => {
     if (!isResizing) return;
@@ -599,6 +633,11 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                   <Sparkles className="size-3.5" />
                 </span>
                 <span className="truncate text-sm font-medium">AI Assistant</span>
+                {aiSettings && (
+                  <Badge variant="outline" className="max-w-32 truncate text-[10px] font-normal text-muted-foreground">
+                    {aiSettings.activeProvider}
+                  </Badge>
+                )}
               </div>
             </div>
 
@@ -625,7 +664,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                         <RefreshCw className="size-4" />
                         Refresh Schema
                       </DropdownMenuItem>
-                      {chat.messages.length > 0 && (
+                      {chatMessages.length > 0 && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={handleClearHistory} variant="destructive">
@@ -672,7 +711,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="p-3 pb-4">
-            {chat.messages.length === 0 && !chat.isLoading && (
+            {chatMessages.length === 0 && !chatIsLoading && (
               <div className="py-5 text-muted-foreground">
                 <div
                   className={`mx-auto mb-3 flex size-11 items-center justify-center rounded-xl ring-1 ${chatMode.iconClass}`}
@@ -688,7 +727,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                       variant="outline"
                       size="sm"
                       onClick={() => handleSuggestionClick(prompt)}
-                      disabled={chat.isLoading}
+                      disabled={chatIsLoading}
                       className={`rounded-full bg-muted/35 text-muted-foreground/85 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 ${chatMode.chipClass}`}
                     >
                       {prompt}
@@ -698,10 +737,10 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
               </div>
             )}
 
-            {chat.messages.map((msg, i) => {
-              const isLastAssistant = chat.isLoading && i === chat.messages.length - 1 && msg.role === 'assistant';
+            {chatMessages.map((msg, i) => {
+              const isLastAssistant = chatIsLoading && i === chatMessages.length - 1 && msg.role === 'assistant';
               if (msg.role === 'user') {
-                return <UserMessage key={msg.id} msg={msg} onResend={chat.resendFrom} disabled={chat.isLoading} />;
+                return <UserMessage key={msg.id} msg={msg} onResend={resendFrom} disabled={chatIsLoading} />;
               }
               if (isLastAssistant) {
                 return <StreamingAssistantMessage key={msg.id} msg={msg} />;
@@ -712,9 +751,9 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
         </div>
 
         <ChatInput
-          isLoading={chat.isLoading}
+          isLoading={chatIsLoading}
           placeholder={chatMode.placeholder}
-          onSend={(t) => chat.sendMessage(t)}
+          onSend={(t) => sendMessage(t)}
           onStop={handleStop}
         />
       </div>

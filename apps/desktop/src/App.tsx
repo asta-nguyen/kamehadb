@@ -23,7 +23,7 @@ import { useStore } from '@tanstack/react-store';
 import { Monitor, Moon, Search, Sun, TriangleAlert, Keyboard } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { isSqlKind } from '@/lib/constants';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { useConnections } from '@/hooks/use-connections';
 import { useSidecar } from '@/hooks/use-sidecar';
 

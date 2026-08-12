@@ -8,6 +8,7 @@ use std::process::{Child, ChildStderr, ChildStdout, Command};
 use std::sync::Mutex;
 use std::thread;
 use tauri::Manager;
+use uuid::Uuid;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -68,6 +69,7 @@ impl NoWindowExt for Command {
 struct SidecarProcess {
     child: Child,
     port: u16,
+    token: String,
 }
 
 struct SidecarState(Mutex<Option<SidecarProcess>>);
@@ -76,6 +78,7 @@ struct SidecarState(Mutex<Option<SidecarProcess>>);
 struct SidecarInfo {
     port: u16,
     pid: u32,
+    token: String,
 }
 
 #[tauri::command]
@@ -216,6 +219,7 @@ async fn start_sidecar(
                     return Ok(SidecarInfo {
                         port: process.port,
                         pid: process.child.id(),
+                        token: process.token.clone(),
                     });
                 }
                 Some(status) => {
@@ -280,6 +284,7 @@ async fn start_sidecar(
     );
 
     let requested_port = allocate_sidecar_port(&app)?;
+    let sidecar_token = Uuid::new_v4().to_string();
     let sidecar_dist = sidecar_root.join("dist");
     // On Windows, passing an absolute path with a drive letter (e.g. C:\...)
     // triggers a Node.js realpathSync bug: it splits the path by separator,
@@ -296,6 +301,7 @@ async fn start_sidecar(
         .arg(&sidecar_arg)
         .env("KAMEHADB_DATA_DIR", data_dir.to_string_lossy().to_string())
         .env("PORT", requested_port.to_string())
+        .env("KAMEHADB_SIDECAR_TOKEN", &sidecar_token)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
     if let Some(cwd) = sidecar_cwd {
@@ -361,7 +367,7 @@ async fn start_sidecar(
     };
 
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-    *guard = Some(SidecarProcess { child, port });
+    *guard = Some(SidecarProcess { child, port, token: sidecar_token.clone() });
 
     append_tauri_log(
         &app,
@@ -371,7 +377,7 @@ async fn start_sidecar(
         Some(format!("pid={pid} port={port}")),
     );
 
-    Ok(SidecarInfo { port, pid })
+    Ok(SidecarInfo { port, pid, token: sidecar_token })
 }
 
 fn allocate_sidecar_port(app: &tauri::AppHandle) -> Result<u16, String> {

@@ -13,6 +13,7 @@ import type {
   QueryColumn,
   TableCompletions,
 } from '@kamehadb/shared';
+import { log } from '../lib/logger.js';
 
 export async function testSqlServerConnection(connection: {
   host?: string;
@@ -292,7 +293,9 @@ export function createSqlServerAdapter(connection: {
     async close(): Promise<void> {
       try {
         await pool.close();
-      } catch {}
+      } catch (err) {
+        log.warn({ err }, 'sqlserver: pool close failed');
+      }
     },
   };
 }

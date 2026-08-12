@@ -34,6 +34,8 @@ export const ADAPTER_TIMEOUTS = {
 /** Timeout for a single connection test probe (ms). */
 export const CONNECTION_TEST_TIMEOUT_MS = 5_000;
 
+/** Delay between connection health stream probes (ms). */
+export const CONNECTION_HEALTH_INTERVAL_MS = 60_000;
 /** Schema watcher defaults and limits. */
 export const WATCHER_DEFAULT_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 export const WATCHER_MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — prevents excessive snapshot churn

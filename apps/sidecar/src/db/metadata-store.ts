@@ -15,6 +15,10 @@ import { log } from '../lib/logger.js';
 let db: Database.Database | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
 
+function isDuplicateColumnError(error: unknown, column: string): boolean {
+  return error instanceof Error && new RegExp(`duplicate column name:\\s*${column}\\b`, 'i').test(error.message);
+}
+
 function createDefaultAISettings(): AISettings {
   return {
     activeProvider: DEFAULT_AI_PROVIDER,
@@ -41,6 +45,18 @@ function createDefaultAISettings(): AISettings {
         enabled: false,
         model: '',
         baseUrl: '',
+        apiKey: '',
+      },
+      deepseek: {
+        enabled: false,
+        model: 'deepseek-chat',
+        baseUrl: 'https://api.deepseek.com/v1',
+        apiKey: '',
+      },
+      gemini: {
+        enabled: false,
+        model: 'gemini-2.5-flash',
+        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
         apiKey: '',
       },
     },
@@ -79,22 +95,21 @@ export function initMetadataStore(dbPath: string): void {
   // Migration: Add password column if it doesn't exist
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN password TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'password')) throw err;
+    log.debug({ err }, 'migration: password column already exists');
   }
-
-  // Migration: Add color column if it doesn't exist
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN color TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'color')) throw err;
+    log.debug({ err }, 'migration: color column already exists');
   }
-
-  // Migration: Add connection_string column if it doesn't exist
   try {
     db.exec('ALTER TABLE connection_profiles ADD COLUMN connection_string TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'connection_string')) throw err;
+    log.debug({ err }, 'migration: connection_string column already exists');
   }
 
   // Migration: widen the kind CHECK constraint to include newer engines (e.g. qdrant).
@@ -316,8 +331,8 @@ export function initMetadataStore(dbPath: string): void {
   // Migration: Add mongo_database column if it doesn't exist
   try {
     db.exec('ALTER TABLE chat_messages ADD COLUMN mongo_database TEXT');
-  } catch {
-    // Column already exists, ignore
+  } catch (err) {
+    log.debug({ err }, 'migration: mongo_database column already exists');
   }
 
   // Migration: Normalize chat_messages.created_at to ISO 8601 format
@@ -334,8 +349,8 @@ export function initMetadataStore(dbPath: string): void {
       `,
       )
       .run();
-  } catch {
-    // Migration already applied or no rows to update
+  } catch (err) {
+    log.debug({ err }, 'migration: normalize chat_messages.created_at already applied');
   }
 
   // schema_embeddings table stores the DDL text and hash for each indexed table.

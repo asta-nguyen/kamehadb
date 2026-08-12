@@ -1,13 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  useConnectionHealth,
-  useConnections,
-  useDeleteConnection,
-  useRefreshConnection,
-} from '@/hooks/use-connections';
-import { getApiBase } from '@/lib/api-client';
+import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
+import { getAuthenticatedApiUrl } from '@/lib/api-client';
 import {
   SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
   GROUP_LABELS,
@@ -38,10 +33,13 @@ import { PostgresBackupDialog } from './postgres-backup-dialog';
 import { PostgresRestoreDialog } from './postgres-restore-dialog';
 import { DeleteConfirmDialog } from './sidebar-delete-dialog';
 import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
-import { ConnectionExpansion } from './sidebar-expansion';
 import { ConnectionStatusDot } from './sidebar-status-dot';
 import { ConnectionTooltip } from './sidebar-tooltip';
 import { SpinningRefresh } from './sidebar.helpers';
+import { MongoExplorer } from './mongo-explorer';
+import { QdrantExplorer } from './qdrant-explorer';
+import { TigerBeetleExplorer } from './tigerbeetle-explorer';
+import { SchemaTree } from './schema-tree';
 
 const ConnectionItem = memo(function ConnectionItem({
   conn,
@@ -66,10 +64,8 @@ const ConnectionItem = memo(function ConnectionItem({
 
   const deleteConnection = useDeleteConnection();
   const refreshConnection = useRefreshConnection();
-  const healthCheck = useConnectionHealth(conn.id);
 
-  const status: ConnectionStatus =
-    conn.id in connectionStatus ? connectionStatus[conn.id] : (healthCheck.data ?? 'disconnected');
+  const status: ConnectionStatus = connectionStatus[conn.id] ?? 'disconnected';
   const latency = connectionLatency[conn.id];
 
   function handleRowActivate() {
@@ -119,13 +115,13 @@ const ConnectionItem = memo(function ConnectionItem({
 
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-xs"
           onClick={(e) => {
             e.stopPropagation();
             refreshConnection.mutate(conn.id);
           }}
           disabled={refreshConnection.isPending}
-          className="opacity-0 size-6 disabled:opacity-100 group-hover:opacity-100"
+          className="opacity-0 disabled:opacity-100 group-hover:opacity-100"
           title="Reload connection"
           aria-label="Reload connection"
         >
@@ -170,7 +166,31 @@ const ConnectionItem = memo(function ConnectionItem({
 
       {expanded && conn.kind !== 'redis' && (
         <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
-          <ConnectionExpansion conn={conn} activeTabId={activeTabId} />
+          {conn.kind === 'mongodb' ? (
+            <MongoExplorer key={conn.id} connectionId={conn.id} />
+          ) : conn.kind === 'qdrant' ? (
+            <QdrantExplorer key={conn.id} connectionId={conn.id} />
+          ) : conn.kind === 'tigerbeetle' ? (
+            <TigerBeetleExplorer key={conn.id} connectionId={conn.id} />
+          ) : (
+            <SchemaTree
+              key={conn.id}
+              connectionId={conn.id}
+              activeTableId={activeTabId}
+              onSelectTable={(tableId) => {
+                const tabId = `${conn.id}:${tableId}`;
+                const newTab = { id: tabId, type: 'table' as const, title: tableId, connectionId: conn.id };
+                const exists = appStore.state.openedTabs.some((t) => t.id === tabId);
+                appStore.setState((s) => ({
+                  ...s,
+                  activeConnectionId: conn.id,
+                  view: 'workspace',
+                  activeTabId: tabId,
+                  openedTabs: exists ? s.openedTabs : [...s.openedTabs, newTab],
+                }));
+              }}
+            />
+          )}
         </div>
       )}
     </div>
@@ -255,7 +275,7 @@ export function Sidebar() {
 
   // Single SSE stream for all connection health — replaces per-item polling
   useEffect(() => {
-    const es = new EventSource(`${getApiBase()}/connections/health`);
+    const es = new EventSource(getAuthenticatedApiUrl('/connections/health'));
     const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     es.onmessage = (event) => {

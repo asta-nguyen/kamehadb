@@ -1,47 +1,45 @@
 'use client';
 
+import type { LucideIcon } from 'lucide-react';
+import {
+  Activity,
+  Apple,
+  Brain,
+  Code2,
+  Database,
+  Gift,
+  History,
+  Laptop,
+  LineChart,
+  MessageSquare,
+  Monitor,
+  Search,
+  Shield,
+  Sparkles,
+  Star,
+  Workflow,
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { AnimatePresence, motion } from 'motion/react';
-import { ThemeToggle } from './theme-toggle';
-import { Footer } from './footer';
-import {
-  Database,
-  Sparkles,
-  MessageSquare,
-  Workflow,
-  Star,
-  Apple,
-  Monitor,
-  Laptop,
-  Gift,
-  Shield,
-  Brain,
-  Code2,
-  History,
-  LineChart,
-  Activity,
-  Search,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { Compare } from './ui/compare';
-import { BrandIcon } from './ui/brand-icon';
-import { EngineMatrix } from './engine-matrix';
-import { SchemaGraph3D } from './schema-graph-3d';
-import postgresql from 'thesvg/postgresql';
-import mysql from 'thesvg/mysql';
-import mariadb from 'thesvg/mariadb';
-import sqlite from 'thesvg/sqlite';
-import microsoftSqlServer from 'thesvg/microsoft-sql-server';
-import oracle from 'thesvg/oracle';
 import clickhouse from 'thesvg/clickhouse';
 import duckdb from 'thesvg/duckdb';
+import mariadb from 'thesvg/mariadb';
+import microsoftSqlServer from 'thesvg/microsoft-sql-server';
 import mongodb from 'thesvg/mongodb';
-import redis from 'thesvg/redis';
+import mysql from 'thesvg/mysql';
+import oracle from 'thesvg/oracle';
+import postgresql from 'thesvg/postgresql';
 import qdrant from 'thesvg/qdrant';
+import redis from 'thesvg/redis';
+import sqlite from 'thesvg/sqlite';
+import { EngineMatrix } from './engine-matrix';
+import { SchemaGraph3D } from './schema-graph-3d';
+import { ThemeToggle } from './theme-toggle';
+import { BrandIcon } from './ui/brand-icon';
+import { Compare } from './ui/compare';
 
 const HeroCanvas = dynamic(() => import('./hero-canvas'), { ssr: false });
 const ParticleFooter = dynamic(() => import('./particle-footer').then((m) => m.ParticleFooter), { ssr: false });

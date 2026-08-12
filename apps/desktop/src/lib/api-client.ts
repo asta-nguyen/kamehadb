@@ -1,17 +1,31 @@
+import { SIDECAR_AUTH_HEADER, SIDECAR_AUTH_TOKEN_QUERY_PARAM } from '@kamehadb/shared';
+
 const DEV_PROXY_API_BASE = 'http://127.0.0.1:3170';
 const DIRECT_SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 const SIDECAR_API_BASE = 'http://127.0.0.1:3170';
 
 let apiBase = import.meta.env.DEV ? DEV_PROXY_API_BASE : DIRECT_SIDECAR_API_BASE;
 let sidecarBase = SIDECAR_API_BASE;
+let sidecarToken: string | undefined;
 
 export function getApiBase(): string {
   return apiBase;
 }
 
-export function setApiBase(port: number): void {
+export function setApiBase(port: number, token?: string): void {
   apiBase = `http://127.0.0.1:${port}`;
   sidecarBase = `http://127.0.0.1:${port}`;
+  sidecarToken = token;
+}
+
+export function getApiHeaders(headers?: Record<string, string>): Record<string, string> {
+  return sidecarToken ? { ...headers, [SIDECAR_AUTH_HEADER]: sidecarToken } : (headers ?? {});
+}
+
+export function getAuthenticatedApiUrl(path: string, useSidecar = false): string {
+  const url = new URL(path, useSidecar ? sidecarBase : apiBase);
+  if (sidecarToken) url.searchParams.set(SIDECAR_AUTH_TOKEN_QUERY_PARAM, sidecarToken);
+  return url.toString();
 }
 
 export async function request<T>(
@@ -24,7 +38,7 @@ export async function request<T>(
   const base = useSidecar ? sidecarBase : apiBase;
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: getApiHeaders(body ? { 'Content-Type': 'application/json' } : undefined),
     body: body ? JSON.stringify(body) : undefined,
     signal,
   });

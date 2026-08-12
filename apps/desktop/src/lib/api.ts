@@ -1,4 +1,4 @@
-import { getApiBase, request } from './api-client';
+import { getApiHeaders, getApiBase, getAuthenticatedApiUrl, request } from './api-client';
 
 export const api = {
   request,
@@ -139,7 +139,6 @@ export const api = {
       'GET',
       `/sql/${connectionId}/vectors/capabilities`,
       undefined,
-      true,
     ),
 
   searchPostgresVector: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSearchInput) =>
@@ -147,7 +146,6 @@ export const api = {
       'POST',
       `/sql/${connectionId}/vectors/search`,
       input,
-      true,
     ),
 
   getPostgresVectorSample: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSampleInput) =>
@@ -155,7 +153,6 @@ export const api = {
       'POST',
       `/sql/${connectionId}/vectors/sample`,
       input,
-      true,
     ),
 
   // sqlite-vec API
@@ -164,29 +161,23 @@ export const api = {
       'GET',
       `/sql/${connectionId}/sqlite-vec/capabilities`,
       undefined,
-      true,
     ),
 
   searchSqliteVec: (connectionId: string, input: import('@kamehadb/shared').SqliteVecSearchInput) =>
-    request<import('@kamehadb/shared').SqliteVecSearchResult>(
-      'POST',
-      `/sql/${connectionId}/sqlite-vec/search`,
-      input,
-      true,
-    ),
+    request<import('@kamehadb/shared').SqliteVecSearchResult>('POST', `/sql/${connectionId}/sqlite-vec/search`, input),
 
   sampleSqliteVec: (connectionId: string, input: { table: string; column: string }) =>
-    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/sqlite-vec/sample`, input, true),
+    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/sqlite-vec/sample`, input),
 
   sampleSqliteVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
     request<{
       points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
       dimensions: number;
-    }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input, true),
+    }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input),
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
-    request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined, true),
+    request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined),
 
   listMongoCollections: (connectionId: string, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
@@ -194,49 +185,42 @@ export const api = {
       'GET',
       `/mongo/${connectionId}/collections${query}`,
       undefined,
-      true,
     );
   },
 
   findMongoDocuments: (connectionId: string, input: import('@kamehadb/shared').FindDocumentsInput) =>
-    request<import('@kamehadb/shared').DocumentResult>('POST', `/mongo/${connectionId}/find`, input, true),
+    request<import('@kamehadb/shared').DocumentResult>('POST', `/mongo/${connectionId}/find`, input),
 
   deleteMongoDocument: (
     connectionId: string,
     input: { collection: string; database?: string; filter: Record<string, unknown> },
-  ) => request<{ deletedCount: number }>('POST', `/mongo/${connectionId}/delete`, input, true),
+  ) => request<{ deletedCount: number }>('POST', `/mongo/${connectionId}/delete`, input),
 
   updateMongoDocument: (
     connectionId: string,
     input: { collection: string; database?: string; filter: Record<string, unknown>; update: Record<string, unknown> },
-  ) => request<{ matchedCount: number; modifiedCount: number }>('POST', `/mongo/${connectionId}/update`, input, true),
+  ) => request<{ matchedCount: number; modifiedCount: number }>('POST', `/mongo/${connectionId}/update`, input),
 
   getMongoCollectionStats: (connectionId: string, database: string, collection: string) =>
     request<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
       'GET',
       `/mongo/${connectionId}/stats?database=${encodeURIComponent(database)}&collection=${encodeURIComponent(collection)}`,
       undefined,
-      true,
     ),
 
   // Redis API
   getRedisStats: (connectionId: string) =>
-    request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined, true),
+    request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined),
 
   runRedisCommand: (connectionId: string, command: string) =>
-    request<import('@kamehadb/shared').RedisCommandResult>(
-      'POST',
-      `/redis/${connectionId}/commands`,
-      { command },
-      true,
-    ),
+    request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/commands`, { command }),
 
   // MongoDB shell
   startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
-    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }, true),
+    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }),
 
   writeMongoShell: (sessionId: string, data: string) =>
-    request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }, true),
+    request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }),
 
   /** Check if a shell session is still alive (204 = alive, 404 = dead).
    *  Distinguish 404 (no such session) from transient server errors — don't
@@ -244,7 +228,7 @@ export const api = {
   pingMongoShell: (sessionId: string) =>
     fetch(`${getApiBase()}/mongo/shell/${sessionId}/write`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getApiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ data: '' }),
     }).then((r) => {
       if (r.ok) return true;
@@ -252,14 +236,14 @@ export const api = {
       return true; // transient server error — keep session alive
     }),
 
-  stopMongoShell: (sessionId: string) => request<void>('DELETE', `/mongo/shell/${sessionId}`, undefined, true),
+  stopMongoShell: (sessionId: string) => request<void>('DELETE', `/mongo/shell/${sessionId}`, undefined),
 
   resizeMongoShell: (sessionId: string, cols: number, rows: number) =>
     // MongoDB autocomplete
-    request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }, true),
+    request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }),
 
   getShellStreamUrl: (connectionId: string, sessionId: string) =>
-    `${getApiBase()}/mongo/${connectionId}/shell/${sessionId}/stream`,
+    getAuthenticatedApiUrl(`/mongo/${connectionId}/shell/${sessionId}/stream`),
 
   getMongoCompletions: (connectionId: string, database?: string) => {
     const query = database ? `?database=${encodeURIComponent(database)}` : '';
@@ -267,38 +251,31 @@ export const api = {
       'GET',
       `/mongo/${connectionId}/autocomplete${query}`,
       undefined,
-      true,
     );
   },
 
   // MongoDB command
   runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
-    request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }, true),
+    request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }),
 
   // Qdrant API
   listQdrantCollections: (connectionId: string) =>
-    request<import('@kamehadb/shared').QdrantCollection[]>(
-      'GET',
-      `/qdrant/${connectionId}/collections`,
-      undefined,
-      true,
-    ),
+    request<import('@kamehadb/shared').QdrantCollection[]>('GET', `/qdrant/${connectionId}/collections`, undefined),
 
   scrollQdrantPoints: (connectionId: string, input: import('@kamehadb/shared').ScrollPointsInput) =>
-    request<import('@kamehadb/shared').QdrantPointPage>('POST', `/qdrant/${connectionId}/points`, input, true),
+    request<import('@kamehadb/shared').QdrantPointPage>('POST', `/qdrant/${connectionId}/points`, input),
 
   searchQdrant: (connectionId: string, input: import('@kamehadb/shared').QdrantSearchInput) =>
-    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/search`, input, true),
+    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/search`, input),
 
   recommendQdrant: (connectionId: string, input: import('@kamehadb/shared').RecommendInput) =>
-    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/recommend`, input, true),
+    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/recommend`, input),
 
   getQdrantStats: (connectionId: string, collection: string) =>
     request<import('@kamehadb/shared').QdrantStats>(
       'GET',
       `/qdrant/${connectionId}/stats?collection=${encodeURIComponent(collection)}`,
       undefined,
-      true,
     ),
 
   embedText: (text: string, model?: string) =>
@@ -311,7 +288,6 @@ export const api = {
       'GET',
       `/tigerbeetle/${connectionId}/accounts${query}`,
       undefined,
-      true,
     );
   },
 
@@ -320,7 +296,6 @@ export const api = {
       'GET',
       `/tigerbeetle/${connectionId}/accounts/${id}`,
       undefined,
-      true,
     ),
 
   tbCreateAccounts: (connectionId: string, accounts: import('@kamehadb/shared').CreateTigerBeetleAccountInput[]) =>
@@ -328,7 +303,6 @@ export const api = {
       'POST',
       `/tigerbeetle/${connectionId}/accounts`,
       { accounts },
-      true,
     ),
 
   tbGetTransfers: (connectionId: string, accountId: string, limit?: number) => {
@@ -337,7 +311,6 @@ export const api = {
       'GET',
       `/tigerbeetle/${connectionId}/transfers/${accountId}${query}`,
       undefined,
-      true,
     );
   },
 
@@ -346,7 +319,6 @@ export const api = {
       'GET',
       `/tigerbeetle/${connectionId}/balances/${accountId}`,
       undefined,
-      true,
     ),
 
   tbCreateTransfers: (connectionId: string, transfers: import('@kamehadb/shared').CreateTigerBeetleTransferInput[]) =>
@@ -354,6 +326,5 @@ export const api = {
       'POST',
       `/tigerbeetle/${connectionId}/transfers`,
       { transfers },
-      true,
     ),
 };

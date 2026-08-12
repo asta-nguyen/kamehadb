@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release Preparation"
+  short_description: "Prepare and verify KamehaDB releases"
+  default_prompt: "Use $preparing-releases to prepare the next KamehaDB release."

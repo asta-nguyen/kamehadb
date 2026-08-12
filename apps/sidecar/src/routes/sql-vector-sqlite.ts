@@ -8,6 +8,7 @@ import { CACHE_TTL, getCached, setCache } from '../lib/cache.js';
 import { handleError, httpError, quoteSqlIdentifier } from '../lib/route-utils.js';
 import { buildSafeFilterClauseSqlite } from '../lib/sqlite-vector-sql.js';
 import * as sqliteVec from 'sqlite-vec';
+import { log } from '../lib/logger.js';
 
 type ErrorHandler = (context: Context, error: unknown, scope: string) => Response;
 
@@ -80,8 +81,8 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
       try {
         try {
           sqliteVec.load(db);
-        } catch {
-          // sqlite-vec not available
+        } catch (err) {
+          log.warn({ err }, 'sqlite-vec: extension load failed');
         }
 
         // Check if vec0 extension is loaded
@@ -89,8 +90,8 @@ export function createSqlVectorSqliteRouter(options: { readonly handleError: Err
         try {
           const row = db.prepare('SELECT vec_version() as v').get() as { v: string };
           version = row.v;
-        } catch {
-          // not loaded
+        } catch (err) {
+          log.warn({ err }, 'sqlite-vec: version check failed');
         }
 
         const columns: SqliteVecColumn[] = [];

@@ -189,11 +189,11 @@ export function QdrantFilterBuilder({ value: _value, onChange, fields = [] }: Qd
               />
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-xs"
                 onClick={() => dispatch({ type: 'removeRow', index: i })}
                 title="Remove"
               >
-                <X className="size-3.5" />
+                <X className="size-3" />
               </Button>
             </div>
           ))}

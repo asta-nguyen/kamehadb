@@ -21,7 +21,7 @@ import { KIND, type SchemaChangeDescriptor, type SchemaSnapshotSource, safeError
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { openSchemaDiffTab } from '@/store';
-import { toast } from 'sonner';
+import { toast, toastError, toastSuccess } from '@/lib/toast';
 import { appendFrontendLog } from '@/lib/app-logs';
 import { useAutoCaptureInvalidation } from '@/hooks/use-auto-capture-invalidation';
 
@@ -189,14 +189,14 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
   const handleCapture = async () => {
     try {
       const result = await capture(connectionId);
-      toast.success(`Snapshot captured — ${result.tableCount} tables`);
+      toastSuccess(`Snapshot captured — ${result.tableCount} tables`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_SNAPSHOTS(connectionId) }),
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SCHEMA_CHANGELOG(connectionId) }),
       ]);
     } catch (err) {
       const message = safeErrorMessage(err, 'Capture failed');
-      toast.error(message);
+      toastError(message);
       void appendFrontendLog({
         level: 'error',
         scope: 'schema-timeline.capture',

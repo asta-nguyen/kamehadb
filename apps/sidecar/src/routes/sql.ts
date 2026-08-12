@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { isQuerySafe, KIND, isPasswordRequired, type SqlAdapter } from '@kamehadb/shared';
+import { isAllowedSortColumn, isQuerySafe, KIND, isPasswordRequired, type SqlAdapter } from '@kamehadb/shared';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import { createMongoDbAdapter, createSqlAdapter } from '../adapters/factory.js';
@@ -21,7 +21,7 @@ export function invalidateAdapterCache(connectionId: string): void {
   const adapter = adapterCache.get(connectionId);
   if (adapter) {
     adapterCache.delete(connectionId);
-    adapter.close().catch(() => {});
+    adapter.close().catch((err) => log.warn({ err }, 'sql: adapter close failed during cache invalidation'));
   }
 }
 
@@ -238,7 +238,17 @@ sqlRouter.post(
   async (c) => {
     try {
       const adapter = await getSqlAdapter(c.req.param('connectionId'));
-      const result = await adapter.previewRows(c.req.valid('json'));
+      const body = c.req.valid('json');
+      if (body.sortColumn) {
+        const columns = await adapter.getTableColumns(body.tableId);
+        if (!isAllowedSortColumn(body.sortColumn, columns)) {
+          return c.json(
+            { error: 'INVALID_SORT_COLUMN', message: 'Sort column is not part of the selected table' },
+            400,
+          );
+        }
+      }
+      const result = await adapter.previewRows(body);
       return c.json(result);
     } catch (err) {
       return handleError(c, err, 'previewRows');
@@ -263,7 +273,12 @@ sqlRouter.post(
       if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
 
       const adapter = await getSqlAdapter(connectionId);
-      const result = await adapter.runQuery(c.req.valid('json'));
+      const body = c.req.valid('json');
+      const safety = isQuerySafe(body.query);
+      if (!safety.safe) {
+        return c.json({ error: 'UNSAFE', message: safety.reason }, 400);
+      }
+      const result = await adapter.runQuery(body);
       return c.json(result);
     } catch (err) {
       return handleError(c, err, 'runQuery');

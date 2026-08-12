@@ -46,18 +46,6 @@ function relatedSuffixes(kind: SupportedFileDatabaseProfile['kind']): readonly s
   return kind === 'sqlite' ? SQLITE_RELATED_SUFFIXES : DUCKDB_RELATED_SUFFIXES;
 }
 
-async function pathExists(filePath: string): Promise<boolean> {
-  try {
-    if (filePath.includes('..') || path.isAbsolute(filePath)) {
-      return false;
-    }
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function ensureParentDirectory(filePath: string): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
 }
@@ -71,7 +59,9 @@ async function copyRelatedFiles(
 
   for (const suffix of suffixes) {
     const relatedSourcePath = `${sourcePath}${suffix}`;
-    if (!(await pathExists(relatedSourcePath))) {
+    try {
+      await access(relatedSourcePath);
+    } catch {
       continue;
     }
 
@@ -138,7 +128,9 @@ export async function backupFileDatabase(
 ): Promise<FileDatabaseMaintenanceResult> {
   const fileDatabaseProfile = requireFileDatabaseProfile(profile);
 
-  if (!(await pathExists(fileDatabaseProfile.filePath))) {
+  try {
+    await access(fileDatabaseProfile.filePath);
+  } catch {
     throw new FileDatabaseMaintenanceError('missing-source-file', 'The configured database file was not found');
   }
   ensureDistinctPaths(fileDatabaseProfile.filePath, request.outputPath);
@@ -156,7 +148,9 @@ export async function restoreFileDatabase(
 ): Promise<FileDatabaseMaintenanceResult> {
   const fileDatabaseProfile = requireFileDatabaseProfile(profile);
 
-  if (!(await pathExists(request.inputPath))) {
+  try {
+    await access(request.inputPath);
+  } catch {
     throw new FileDatabaseMaintenanceError('missing-source-file', 'The selected backup file was not found');
   }
   ensureDistinctPaths(request.inputPath, fileDatabaseProfile.filePath);

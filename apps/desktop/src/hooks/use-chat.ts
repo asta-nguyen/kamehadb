@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { safeErrorMessage } from '@kamehadb/shared';
 import type { ChatMessage } from '@/lib/ai-chat-helpers';
-import { getApiBase } from '@/lib/api-client';
+import { getApiHeaders, getApiBase } from '@/lib/api-client';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 type UseChatOptions = {
@@ -50,7 +50,7 @@ export function useChat(options: UseChatOptions) {
 
       const res = await fetch(`${getApiBase()}${options.url}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getApiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
         signal: ac.signal,
       });
@@ -60,7 +60,8 @@ export function useChat(options: UseChatOptions) {
         throw new Error(err.message || `HTTP ${res.status}`);
       }
 
-      const reader = res.body!.getReader();
+      if (!res.body) throw new Error('Chat response stream was empty');
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
@@ -76,21 +77,38 @@ export function useChat(options: UseChatOptions) {
           const trimmed = line.trim();
           if (!trimmed.startsWith('data: ')) continue;
 
+          let data: { type?: unknown; delta?: unknown; message?: unknown };
           try {
-            const data = JSON.parse(trimmed.slice(6));
-            if (data.type === 'content' && typeof data.delta === 'string') {
-              setMessages((prev) => appendAssistantDelta(prev, assistantId, data.delta));
-            } else if (data.type === 'error') {
-              console.error('[AI] stream error:', data.message);
-            }
+            data = JSON.parse(trimmed.slice(6)) as typeof data;
           } catch {
-            // skip malformed JSON
+            continue;
+          }
+
+          if (data.type === 'content' && typeof data.delta === 'string') {
+            const delta = data.delta;
+            setMessages((prev) => appendAssistantDelta(prev, assistantId, delta));
+          } else if (data.type === 'error') {
+            throw new Error(typeof data.message === 'string' ? data.message : 'Chat stream failed');
           }
         }
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         const message = safeErrorMessage(err, String(err));
+        if (requestSeqRef.current === requestSeq) {
+          // Keep partial output visible and attach the failure where the empty
+          // assistant bubble would otherwise make the request look successful.
+          setMessages((prev) =>
+            prev.map((item) => {
+              if (item.id !== assistantId) return item;
+              const content = item.parts[0]?.content ?? '';
+              return {
+                ...item,
+                parts: [{ type: 'text', content: content ? `${content}\n\nError: ${message}` : `Error: ${message}` }],
+              };
+            }),
+          );
+        }
         void appendFrontendLog({
           level: 'error',
           scope: 'use-chat',
@@ -185,5 +203,13 @@ export function useChat(options: UseChatOptions) {
     [options.url, options.forwardedProps],
   );
 
-  return { messages, isLoading, sendMessage, stop, setMessages, resendFrom };
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    requestSeqRef.current++;
+    setIsLoading(false);
+    messagesRef.current = [];
+    setMessages([]);
+  }, []);
+
+  return { messages, isLoading, sendMessage, stop, setMessages, reset, resendFrom };
 }
