@@ -1,0 +1,31 @@
+CHANGELOG.md
+  s_5dffd83b54377c::t_5eb8125af680d6 10-37
+apps/desktop/src-tauri/Cargo.toml
+  s_5dffd83b54377c::t_09b7b539d6d500 3
+apps/sidecar/package.json
+  s_5dffd83b54377c::t_80a58d777d0f00 4
+apps/desktop/package.json
+  s_5dffd83b54377c::t_a3f46bf56d5909 4
+packages/shared/package.json
+  s_5dffd83b54377c::t_01e8de93132022 4
+package.json
+  s_5dffd83b54377c::t_1f926aa2e291a7 4
+apps/desktop/src-tauri/tauri.conf.json
+  s_5dffd83b54377c::t_50f047c981d65e 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e087338da0b96ae3c6c3339c7ba1b5c8523cf5c9",
+  "prompts": {},
+  "sessions": {
+    "s_5dffd83b54377c": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "momentous-limburger",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
