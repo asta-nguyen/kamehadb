@@ -34,7 +34,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { downloadResult } from '@/lib/export';
+import { downloadResult, exportToJSON } from '@/lib/export';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { buildRowUpdateQuery } from '@/lib/table-editability';
+import { toast } from 'sonner';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
 
 type TableViewProps = {
@@ -463,6 +464,14 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                 <Download className="size-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    navigator.clipboard.writeText(exportToJSON(result));
+                    toast.success('JSON copied to clipboard');
+                  }}
+                >
+                  Copy JSON
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
