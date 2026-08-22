@@ -7,10 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-- **AI chat** — Show the active provider in the chat panel header.
-- **Security** — Authenticate packaged sidecar requests and reject unsafe SQL table-sort input.
-- **Reliability and query safety** — Prevented auto-running AI-generated writes and semicolon-separated SQL batches, report schema-context failures to AI chat callers, moved saved SQL health checks onto cached adapters/pools at a 60-second cadence, bounded timed-out probes, stopped Qdrant WebGL scene churn, and surfaced AI stream failures in chat.
-- **Desktop UI consistency** — Unified explorer toolbars, structured vector filters, nested JSON rendering, accessible loading/error states, semantic vector-map colors, and notification styling.
+---
+
+## [v1.5.0] — 2026-08-12
+
+### Added
+
+- **Tab context menu** — right-click workspace tabs to close, pin, or duplicate; pinned tabs persist across reloads.
+- **Table view editing** — double-click cells to edit inline, toggle between view and edit modes.
+- **Landing dashboard milestone** — interactive engine matrix, read-only schema graph demo, and animated hero canvas.
+- **AI chat** — active provider shown in the chat panel header; providers with sufficient config auto-enable.
+
+### Changed
+
+- **Desktop UI consistency overhaul** — unified explorer toolbars, structured vector filters, nested JSON rendering, accessible loading/error states, semantic vector-map colors, and notification styling.
+- **Vector search UI unification** — shared input heights and states across pgvector/Qdrant/sqlite-vec, migrated Qdrant map to VectorMap3D.
+- **Design token foundation** — status colors, shadow tokens, and shared component patterns (EmptyState, LoadingState, ErrorState, ExplorerToolbar, FilterBar).
+- **AI chat performance** — optimized re-renders with useMemo/useCallback and cached color conversions in 3D vector map.
+
+### Fixed
+
+- **Sidecar authentication** — packaged sidecar requires a per-session token, CSP enforced, and SQL table-sort identifiers validated against schema metadata.
+- **Query safety** — strip SQL comments and string literals before destructive-keyword checks, block SELECT INTO, prevent semicolon-separated batch execution, and stop auto-running AI-generated writes.
+- **SAST security fixes** — SQL injection via string concatenation, NoSQL injection, and file inclusion attack.
+- **Health check SSE leak** — evict timed-out probes and support immediate abort on SSE cancel.
+- **MongoDB autocomplete** — limit concurrent collection sampling to 8 queries to prevent connection overload.
+- **Foreign key resolution** — improved resolution logic for schema graph and AI schema context.
+- **Chat hook reset** — atomically clear messages and ref on connection switch.
+- **Dollar-quoted strings** — ensure delimiters match in SQL safety checks to prevent false positives.
 
 ---
 

@@ -17,6 +17,7 @@ import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { PAGE_LIMIT } from '@/lib/constants';
+import { toast } from 'sonner';
 
 function parseJsonSafe(text: string): Record<string, unknown> | null {
   try {
@@ -197,6 +198,13 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     URL.revokeObjectURL(url);
   }, [data, collection]);
 
+  // Copy the same pretty-printed JSON the export produces, straight to clipboard.
+  const handleCopyJSON = useCallback(() => {
+    if (!data?.documents.length) return;
+    navigator.clipboard.writeText(JSON.stringify(data.documents, null, 2));
+    toast.success('JSON copied to clipboard');
+  }, [data]);
+
   const handleExportCSV = useCallback(() => {
     if (!data?.documents.length) return;
     const docs = data.documents;
@@ -295,8 +303,6 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         onViewModeChange={(v) => dispatch({ type: 'viewMode', value: v })}
         isFetching={isFetching}
         onRefresh={onRefresh}
-        onExportJSON={handleExportJSON}
-        onExportCSV={handleExportCSV}
       />
 
       <Tabs
@@ -340,6 +346,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             onPageChange={(p) => dispatch({ type: 'page', value: p })}
             onExportJSON={handleExportJSON}
             onExportCSV={handleExportCSV}
+            onCopyJSON={handleCopyJSON}
             indexes={statsData?.indexes ?? []}
             statsLoading={statsLoading}
             statsError={statsError}
@@ -377,6 +384,7 @@ interface DocumentsPanelProps {
   onPageChange: (page: number) => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
+  onCopyJSON: () => void;
   indexes: { name: string; key: Record<string, unknown>; unique: boolean }[];
   statsLoading: boolean;
   statsError: unknown;
@@ -405,6 +413,7 @@ function DocumentsPanel({
   onPageChange,
   onExportJSON,
   onExportCSV,
+  onCopyJSON,
   indexes,
   statsLoading,
   statsError,
@@ -418,6 +427,7 @@ function DocumentsPanel({
     onPageChange,
     onExportJSON,
     onExportCSV,
+    onCopyJSON,
   };
 
   if (isLoading) {
