@@ -1,0 +1,23 @@
+apps/desktop/src/components/mongo-view.tsx
+  s_a8652eb37d150a::t_98b3056d7e7efd 20,202,204-209
+apps/desktop/src/components/table-view.tsx
+  s_a8652eb37d150a::t_2f41fd3ddb8b64 45,392-401,477-484
+CHANGELOG.md
+  s_a8652eb37d150a::t_0d8774f3a1006c 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "53409085f36d7f02e6cf9141ec0d91e8b4402a07",
+  "prompts": {},
+  "sessions": {
+    "s_a8652eb37d150a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b4a-9531-7d42-97af-5f0bf7ed94d2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
