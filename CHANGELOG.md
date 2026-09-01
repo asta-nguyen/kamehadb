@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Query tab rename** — rename query tabs from their right-click context menu.
+
 ### Fixed
 
 - **Workspace query tab colors** — query tabs now use the same connection badge color as the sidebar.
