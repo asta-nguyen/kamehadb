@@ -1,5 +1,6 @@
 import { useConnections } from '@/hooks/use-connections';
 import { DbIcon } from '@/components/db-icon';
+import { getIndicatorColor } from '@/components/sidebar.helpers';
 import {
   appStore,
   closeAllTabs,
@@ -96,14 +97,9 @@ export function WorkspaceTabBar() {
     >
       {openedTabs.map((tab, index) => {
         const status = 'connectionId' in tab ? connectionStatus[tab.connectionId] : undefined;
-        const signalColor =
-          status === 'connected' || status === 'slow'
-            ? 'var(--success)'
-            : status === 'reconnecting'
-              ? 'var(--warning)'
-              : status === 'disconnected'
-                ? 'var(--destructive)'
-                : 'var(--muted-foreground)';
+        const connection =
+          'connectionId' in tab ? connections?.find((item) => item.id === tab.connectionId) : undefined;
+        const signalColor = getIndicatorColor(connection, status);
 
         const isLastTab = index === openedTabs.length - 1;
         const hasOtherTabs = openedTabs.length > 1;

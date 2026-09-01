@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Workspace query tab colors** — query tabs now use the same connection badge color as the sidebar.
+
 ---
 
 ## [v1.5.0] — 2026-08-12
