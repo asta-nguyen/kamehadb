@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-09-01-query-tab-rename.md
+  s_a8652eb37d150a::t_fff949fe0cec8d 1-278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2fd8461e4808e9a2bc489b1f5feb190dc84dcf7c",
+  "prompts": {},
+  "sessions": {
+    "s_a8652eb37d150a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b4a-9531-7d42-97af-5f0bf7ed94d2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
