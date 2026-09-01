@@ -1,0 +1,19 @@
+apps/desktop/src/store/workspace-tabs.test.ts
+  s_a8652eb37d150a::t_54e52f7ad925c0 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ad5f9159f3e3b489102a15b424c8cc87a591f192",
+  "prompts": {},
+  "sessions": {
+    "s_a8652eb37d150a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b4a-9531-7d42-97af-5f0bf7ed94d2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
