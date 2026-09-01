@@ -1,0 +1,28 @@
+apps/desktop/src/components/sidebar.helpers.test.ts
+  s_a8652eb37d150a::t_abf4dba8e45dc4 1-8
+apps/desktop/src/components/workspace-tab-bar.tsx
+  s_a8652eb37d150a::t_9bf5326249ccd9 3,100-101
+  s_a8652eb37d150a::t_1e1b164beac006 102
+apps/desktop/src/components/sidebar.helpers.tsx
+  s_a8652eb37d150a::t_9bf5326249ccd9 6-8,11-12
+CHANGELOG.md
+  s_a8652eb37d150a::t_9bf5326249ccd9 10-13
+docs/superpowers/specs/2026-09-01-query-tab-rename-design.md
+  s_a8652eb37d150a::t_6af7aa57c9b88d 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e13afc16f760cc2b703bfd7bc74f32eea297fa57",
+  "prompts": {},
+  "sessions": {
+    "s_a8652eb37d150a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b4a-9531-7d42-97af-5f0bf7ed94d2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
