@@ -212,6 +212,17 @@ export function updateTabSql(tabId: string, sql: string): void {
   }));
 }
 
+export function renameTab(tabId: string, title: string): void {
+  const nextTitle = title.trim();
+  if (!nextTitle) return;
+  appStore.setState((state) => ({
+    ...state,
+    openedTabs: state.openedTabs.map((tab) =>
+      tab.id === tabId && tab.type === 'query' ? { ...tab, title: nextTitle } : tab,
+    ),
+  }));
+}
+
 export function updateTabCommand(tabId: string, command: string): void {
   appStore.setState((state) => ({
     ...state,

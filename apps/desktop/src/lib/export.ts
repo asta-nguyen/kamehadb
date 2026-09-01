@@ -28,7 +28,7 @@ function exportToCSV(result: QueryResult): string {
   return [headers.join(','), ...rows].join('\n');
 }
 
-function exportToJSON(result: QueryResult): string {
+export function exportToJSON(result: QueryResult): string {
   const data = result.rows.map((row) => {
     const obj: Record<string, unknown> = {};
     for (const col of result.columns) {

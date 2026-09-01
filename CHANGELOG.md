@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Query tab rename** — rename query tabs from their right-click context menu.
+
+### Fixed
+
+- **Clipboard copy feedback** — JSON copy actions now show success only after the clipboard write completes and report failures when clipboard access is unavailable.
+- **Workspace query tab colors** — query tabs now use the same connection badge color as the sidebar.
+
 ---
 
 ## [v1.5.0] — 2026-08-12

@@ -34,7 +34,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { downloadResult } from '@/lib/export';
+import { downloadResult, exportToJSON } from '@/lib/export';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { buildRowUpdateQuery } from '@/lib/table-editability';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
 
 type TableViewProps = {
@@ -388,7 +389,16 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                     <Eye className="size-3.5 mr-2" />
                     View details
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
+                  <DropdownMenuItem
+                    // Catch webview or permission failures so row copy never becomes an unhandled rejection.
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(JSON.stringify(row, null, 2));
+                      } catch {
+                        toastError('Failed to copy row to clipboard');
+                      }
+                    }}
+                  >
                     <Copy className="size-3.5 mr-2" />
                     Copy row
                   </DropdownMenuItem>
@@ -463,6 +473,19 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                 <Download className="size-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  // Show success only after the clipboard promise resolves, and surface failures to the user.
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(exportToJSON(result));
+                      toastSuccess('JSON copied to clipboard');
+                    } catch {
+                      toastError('Failed to copy JSON to clipboard');
+                    }
+                  }}
+                >
+                  Copy JSON
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
