@@ -1,0 +1,20 @@
+apps/desktop/src/components/workspace-tab-bar.tsx
+  s_a8652eb37d150a::t_d02e536fdce36f 16,21,31-41,51,103-113,199-209,247-279
+  s_a8652eb37d150a::t_83c8f515e989fa 280
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9643795e1f6f6f46fe9fd945177db8e5d18c1d49",
+  "prompts": {},
+  "sessions": {
+    "s_a8652eb37d150a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b4a-9531-7d42-97af-5f0bf7ed94d2",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
