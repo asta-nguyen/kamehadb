@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceTab } from '@/lib/types';
 
-const storage = vi.hoisted(() => {
+vi.hoisted(() => {
   const values = new Map<string, string>();
   const storage = {
     getItem: (key: string) => values.get(key) ?? null,
