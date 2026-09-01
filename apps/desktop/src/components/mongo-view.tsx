@@ -17,7 +17,7 @@ import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { PAGE_LIMIT } from '@/lib/constants';
-import { toast } from 'sonner';
+import { toastError, toastSuccess } from '@/lib/toast';
 
 function parseJsonSafe(text: string): Record<string, unknown> | null {
   try {
@@ -199,10 +199,14 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
   }, [data, collection]);
 
   // Copy the same pretty-printed JSON the export produces, straight to clipboard.
-  const handleCopyJSON = useCallback(() => {
+  const handleCopyJSON = useCallback(async () => {
     if (!data?.documents.length) return;
-    navigator.clipboard.writeText(JSON.stringify(data.documents, null, 2));
-    toast.success('JSON copied to clipboard');
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(data.documents, null, 2));
+      toastSuccess('JSON copied to clipboard');
+    } catch {
+      toastError('Failed to copy JSON to clipboard');
+    }
   }, [data]);
 
   const handleExportCSV = useCallback(() => {

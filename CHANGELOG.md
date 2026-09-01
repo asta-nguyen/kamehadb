@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- **Clipboard copy feedback** — JSON copy actions now show success only after the clipboard write completes and report failures when clipboard access is unavailable.
 - **Workspace query tab colors** — query tabs now use the same connection badge color as the sidebar.
 
 ---

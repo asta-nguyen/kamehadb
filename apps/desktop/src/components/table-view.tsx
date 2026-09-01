@@ -42,7 +42,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { buildRowUpdateQuery } from '@/lib/table-editability';
-import { toast } from 'sonner';
+import { toastError, toastSuccess } from '@/lib/toast';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
 
 type TableViewProps = {
@@ -389,7 +389,16 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                     <Eye className="size-3.5 mr-2" />
                     View details
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(JSON.stringify(row, null, 2))}>
+                  <DropdownMenuItem
+                    // Catch webview or permission failures so row copy never becomes an unhandled rejection.
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(JSON.stringify(row, null, 2));
+                      } catch {
+                        toastError('Failed to copy row to clipboard');
+                      }
+                    }}
+                  >
                     <Copy className="size-3.5 mr-2" />
                     Copy row
                   </DropdownMenuItem>
@@ -465,9 +474,14 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => {
-                    navigator.clipboard.writeText(exportToJSON(result));
-                    toast.success('JSON copied to clipboard');
+                  // Show success only after the clipboard promise resolves, and surface failures to the user.
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(exportToJSON(result));
+                      toastSuccess('JSON copied to clipboard');
+                    } catch {
+                      toastError('Failed to copy JSON to clipboard');
+                    }
                   }}
                 >
                   Copy JSON
