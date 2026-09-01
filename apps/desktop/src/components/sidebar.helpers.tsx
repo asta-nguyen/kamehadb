@@ -3,11 +3,13 @@ import { RefreshCw } from 'lucide-react';
 
 export type ConnectionStatus = 'connected' | 'slow' | 'reconnecting' | 'disconnected';
 
-export function getIndicatorColor(conn: ConnectionProfile, status: ConnectionStatus) {
-  if (status === 'connected') return conn.color || 'var(--success)';
+// Use the connection color when healthy and the same status fallbacks everywhere, including while profiles load.
+export function getIndicatorColor(conn: ConnectionProfile | undefined, status: ConnectionStatus | undefined): string {
+  if (status === 'connected') return conn?.color || 'var(--success)';
   if (status === 'slow') return 'var(--warning)';
   if (status === 'reconnecting') return 'var(--warning)';
-  return 'var(--destructive)';
+  if (status === 'disconnected') return 'var(--destructive)';
+  return 'var(--muted-foreground)';
 }
 
 export function getStatusLabel(status: ConnectionStatus, latency?: number) {
