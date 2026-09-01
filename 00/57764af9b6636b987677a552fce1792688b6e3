@@ -1,0 +1,22 @@
+apps/desktop/src/store/workspace-tabs.test.ts
+  s_a8652eb37d150a::t_dfe434e5ecd9a0 6,11-12
+  s_a8652eb37d150a::t_4839284a0c82f2 1-5,7-10,13-47
+apps/desktop/src/store/workspace-tabs.ts
+  s_a8652eb37d150a::t_4a581320410f90 215-225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "0057764af9b6636b987677a552fce1792688b6e3",
+  "prompts": {},
+  "sessions": {
+    "s_a8652eb37d150a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b4a-9531-7d42-97af-5f0bf7ed94d2",
+        "model": "gpt-5.6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
