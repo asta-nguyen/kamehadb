@@ -13,10 +13,12 @@ import {
   openMongoQueryTab,
   openNewQueryTab,
   openRedisQueryTab,
+  renameTab,
   reorderTabs,
   toggleTabPin,
 } from '@/store';
 import { isSqlKind } from '@/lib/constants';
+import type { WorkspaceTab } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
@@ -26,6 +28,17 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useStore } from '@tanstack/react-store';
 import {
   Activity,
@@ -35,6 +48,7 @@ import {
   Database,
   GitCompare,
   History,
+  Pencil,
   Pin,
   PinOff,
   Plus,
@@ -86,6 +100,17 @@ export function WorkspaceTabBar() {
 
   const dragIndexRef = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [tabToRename, setTabToRename] = useState<WorkspaceTab | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Commit a non-empty trimmed title, then close the dialog without changing tab state.
+  function handleRenameSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tabToRename || !renameValue.trim()) return;
+    renameTab(tabToRename.id, renameValue);
+    setTabToRename(null);
+    setRenameValue('');
+  }
 
   return (
     <div
@@ -171,6 +196,17 @@ export function WorkspaceTabBar() {
               </Button>
             </ContextMenuTrigger>
             <ContextMenuContent>
+              {tab.type === 'query' && (
+                <ContextMenuItem
+                  onClick={() => {
+                    setTabToRename(tab);
+                    setRenameValue(tab.title);
+                  }}
+                >
+                  <Pencil className="size-4" />
+                  <span>Rename</span>
+                </ContextMenuItem>
+              )}
               <ContextMenuItem onClick={() => toggleTabPin(tab.id)}>
                 {tab.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
                 <span>{tab.pinned ? 'Unpin Tab' : 'Pin Tab'}</span>
@@ -207,6 +243,40 @@ export function WorkspaceTabBar() {
           </ContextMenu>
         );
       })}
+
+      <Dialog
+        open={tabToRename !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTabToRename(null);
+            setRenameValue('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Query Tab</DialogTitle>
+            <DialogDescription>Choose a name for this query tab.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleRenameSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="rename-query-tab">Tab name</Label>
+              <Input
+                id="rename-query-tab"
+                value={renameValue}
+                onChange={(event) => setRenameValue(event.target.value)}
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <Button type="submit" disabled={!renameValue.trim()}>
+                Save
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {activeConnectionId && (
         <>
