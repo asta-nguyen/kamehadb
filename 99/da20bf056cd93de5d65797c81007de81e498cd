@@ -1,0 +1,222 @@
+apps/sidecar/tsconfig.json
+  s_67469920a01a89::t_558c84733d9438 11-12
+apps/sidecar/src/mcp/types.ts
+  s_67469920a01a89::t_a91e074b44d2d0 88-95
+  s_67469920a01a89::t_9616316cb8579b 1-9
+  s_67469920a01a89::t_47b7bc16a8e2e6 10-24,26,40-87
+  s_67469920a01a89::t_bc2c2888b8e9eb 25,27-39
+apps/sidecar/src/mcp/errors.ts
+  s_67469920a01a89::t_4ce67a384ccf41 28-35,37,47
+  s_67469920a01a89::t_241da4fb7fc498 1-27,36,38-46,48-55
+apps/sidecar/src/index.ts
+  s_67469920a01a89::t_861e3ec8f29732 129,132-133
+  s_67469920a01a89::t_1882dbd65790c5 21-22
+  s_67469920a01a89::t_4ba12189fee8a3 156,160-163,166-169,173
+  s_67469920a01a89::t_e3edccf18d5afa 130-131
+  s_67469920a01a89::t_13f53c4eaaf93a 20
+  s_67469920a01a89::t_fde2d5482c5e41 33
+apps/sidecar/src/routes/connections.ts
+  s_67469920a01a89::t_e2ccec46903da6 396,407,412-425
+  s_67469920a01a89::t_d0be47ad8e0f35 39
+  s_67469920a01a89::t_2f278726595010 12,14
+  s_84e04940c76260::t_64b1edc3f98cb7 426-427
+apps/desktop/src/components/mcp-settings-section.tsx
+  s_67469920a01a89::t_7630384d8a68da 1-238
+apps/sidecar/src/lib/constants.ts
+  s_67469920a01a89::t_e21f8bdfe3cd39 50-70
+landing/scripts/render-og-animated.mjs
+  s_67469920a01a89::t_153fe23f637b01 146
+  s_67469920a01a89::t_d5147f108d70ed 142
+apps/sidecar/src/mcp/runtime.test.ts
+  s_67469920a01a89::t_31a821801d4532 1-188
+docs/agent-devkit/INDEX.md
+  s_9567600f841b4d::t_c0ec68703c7720 6-9
+docker-init/mcp-readonly/mongodb.js
+  s_67469920a01a89::t_eaa5794125850a 1-18
+apps/desktop/src/lib/query-keys.ts
+  s_67469920a01a89::t_548174de46878a 78
+apps/sidecar/src/mcp/adapter-manager.test.ts
+  s_67469920a01a89::t_c59e82ceac9669 1-54
+CHANGELOG.md
+  s_67469920a01a89::t_2e5b33d44eb5bb 10-13
+landing/src/components/home-view.tsx
+  s_67469920a01a89::t_df883c0489d75c 8
+  s_67469920a01a89::t_fd2174eb7dadf9 78-82
+  s_549a85dffc042c::t_736155986d78b9 77
+apps/sidecar/src/mcp/adapters/sqlite-worker.ts
+  s_67469920a01a89::t_c056e4cc112862 1-127
+apps/sidecar/src/routes/mcp-settings.ts
+  s_67469920a01a89::t_b12e7ccef8cf7d 1-31
+apps/desktop/src/hooks/use-mcp-settings.ts
+  s_67469920a01a89::t_d39a63538004ec 1-62
+apps/sidecar/src/adapters/sqlserver.ts
+  s_67469920a01a89::t_84c60c8e0c427d 303-339
+  s_67469920a01a89::t_024f3092649c02 63
+  s_67469920a01a89::t_44ddd205b0197f 17
+  s_67469920a01a89::t_4c420e67b8200e 18
+  s_67469920a01a89::t_a23157cfb20ef9 19-21
+  s_67469920a01a89::t_93a132621debc4 60-62
+  s_67469920a01a89::t_54ee8cf9eec59e 64-65
+  s_67469920a01a89::t_0b25b9afbe10d9 340-342
+docker-init/mariadb/02-mcp-readonly.sql
+  s_67469920a01a89::t_042b2ad964fe90 1-6
+apps/sidecar/src/adapters/postgres.ts
+  s_67469920a01a89::t_30acf66d09928a 2,23
+  s_67469920a01a89::t_9cbdc43d2c6685 179,525-547
+  s_67469920a01a89::t_4c420e67b8200e 24
+  s_67469920a01a89::t_821cbae0e29f96 112,115,145,149-154,164-165,171
+  s_67469920a01a89::t_6d5dc55f245548 25-27
+  s_67469920a01a89::t_a7e5b4a0bfa88d 109-111
+  s_67469920a01a89::t_989ba3c9d6a24c 113-114
+  s_67469920a01a89::t_15f7ff88909953 116
+  s_67469920a01a89::t_b262643a1ccc8c 144
+  s_67469920a01a89::t_57d1f5d977cc3a 146-148
+  s_67469920a01a89::t_3156038838069d 166-170
+  s_67469920a01a89::t_41d17798caaaaf 172-174,176-178
+  s_67469920a01a89::t_39b0cc20e8d680 180
+  s_67469920a01a89::t_5bafdd551ff96c 548-550
+apps/sidecar/src/adapters/mongodb.ts
+  s_67469920a01a89::t_f6e862aedf7040 291-365
+  s_67469920a01a89::t_fbfe8af1903f94 68
+  s_67469920a01a89::t_6f0b6c700f9944 1,12-13,20-33
+  s_84e04940c76260::t_f9fb941e2c0c5d 34
+apps/sidecar/src/mcp/adapters.test.ts
+  s_67469920a01a89::t_eab7c3d188068a 117
+  s_67469920a01a89::t_2570b6af13124c 101-116
+  s_67469920a01a89::t_d74613a16ccdf9 1-7,9-89,92,94-100,118-143
+  s_67469920a01a89::t_72d5ef656572de 90-91,93
+  s_67469920a01a89::t_ea3f2319a61714 8
+  s_67469920a01a89::t_aaf6991bec1518 144
+apps/sidecar/src/mcp/runtime.ts
+  s_67469920a01a89::t_d62f689432eb62 107-110,114
+  s_67469920a01a89::t_83b00b738621ac 1-4,6-106,111-113,115-198
+  s_67469920a01a89::t_f92d04c7293efc 5
+  s_67469920a01a89::t_74ed12b082ada4 199-200
+docs/agent-devkit/specs/2026-09-30-read-only-database-mcp-design.md
+  s_9567600f841b4d::t_a0751dd6fb353e 3
+  s_9567600f841b4d::t_8cd0387772beed 86,156
+  s_9567600f841b4d::t_c0ec68703c7720 141-144
+  s_9567600f841b4d::t_6bd55996c81735 26,30,61,68,92,115,120
+apps/sidecar/package.json
+  s_67469920a01a89::t_9a284f4d7a84b2 34,48
+  s_67469920a01a89::t_7a142dd9e3d1e3 21
+apps/sidecar/src/db/metadata-store.ts
+  s_67469920a01a89::t_953a3dffa3a11d 91
+  s_67469920a01a89::t_81d168127e1562 385-399
+  s_67469920a01a89::t_8a170e45f53000 245-254
+  s_67469920a01a89::t_0fcce4ffe619db 412,531-571
+  s_67469920a01a89::t_3406d29384867f 5,13
+  s_67469920a01a89::t_fb019d14ae3af5 529-530
+apps/sidecar/src/routes/mcp-settings.test.ts
+  s_67469920a01a89::t_74c0b0708ad6b4 1-112
+apps/sidecar/src/mcp/adapter-manager.ts
+  s_67469920a01a89::t_36d9e95c1d2f1b 1-97
+apps/desktop/src/lib/api.ts
+  s_67469920a01a89::t_53ef33e4851ab6 330-342
+apps/desktop/src/components/api-settings-page.tsx
+  s_67469920a01a89::t_d5ff85ffa10a5d 640-641
+  s_67469920a01a89::t_dc0585cecfd930 13
+docker-init/MCP-READONLY.md
+  s_67469920a01a89::t_f95ee00af7debd 1-37
+landing/src/app/layout.tsx
+  s_67469920a01a89::t_5d8862329714dd 18
+  s_67469920a01a89::t_95dace81027f49 57
+  s_67469920a01a89::t_4ff1a98eddfa77 74
+  s_67469920a01a89::t_4969e17bc7d183 41-43
+apps/sidecar/src/adapters/mysql.ts
+  s_67469920a01a89::t_90d89096eac782 21,23-34
+  s_67469920a01a89::t_d59ae2856a9314 318-321,323-338,341-357
+  s_67469920a01a89::t_ec1dd24ebf51ef 96-100
+  s_67469920a01a89::t_4c420e67b8200e 22
+  s_67469920a01a89::t_83ac43d662e213 322,339-340
+  s_67469920a01a89::t_36c7dabe9d0dcc 35-37
+  s_67469920a01a89::t_6529d3a972b40b 101-103
+  s_67469920a01a89::t_e5e0fe71648f7d 358-360
+apps/sidecar/src/mcp/invalidation.ts
+  s_67469920a01a89::t_4278c94095428b 1-13
+landing/src/app/opengraph-image.tsx
+  s_67469920a01a89::t_41fedaed652bb5 204
+packages/shared/src/schemas.ts
+  s_67469920a01a89::t_53cf256599c018 57-70
+  s_67469920a01a89::t_c7b20c2e73563f 168-169
+  s_67469920a01a89::t_5b887ae5306e85 316-348
+README.md
+  s_67469920a01a89::t_feb2cbb8e00075 16
+  s_67469920a01a89::t_acc5e5c4d97372 56-70,72-74
+  s_67469920a01a89::t_091c63ed685cb4 71
+apps/sidecar/src/mcp/adapters/sqlite.ts
+  s_67469920a01a89::t_7878bf30b3a90b 158,164
+  s_67469920a01a89::t_3221cd9ca51969 1-157,159-163,165
+apps/sidecar/src/db/metadata-store.test.ts
+  s_67469920a01a89::t_3bb008ed428de5 1-120
+docker-init/mysql/02-mcp-readonly.sql
+  s_67469920a01a89::t_d1b27795932763 1-6
+apps/sidecar/src/mcp/tools.ts
+  s_67469920a01a89::t_ee2bf3e5545e2c 1-294
+  s_67469920a01a89::t_8bf6a7d3d49cec 295-297
+docker-init/sqlserver/mcp-readonly.sql
+  s_67469920a01a89::t_75d8f4a7473cce 1-12
+apps/sidecar/src/mcp/adapters/factory.ts
+  s_67469920a01a89::t_c7bdd16c6fc3a3 1
+  s_67469920a01a89::t_e18ff6699de052 2-101
+AGENTS.md
+  s_67469920a01a89::t_f9cc7e00e595ef 363
+docs/agent-devkit/plans/2026-09-30-read-only-database-mcp-plan.md
+  s_9567600f841b4d::t_da8bc7784be1b2 135,342
+  s_9567600f841b4d::t_a9d303747f7d1d 62-66,270
+  s_9567600f841b4d::t_2052d32b1cbfd6 147,151
+  s_9567600f841b4d::t_c9eba6ce2774d8 26,33-34,69-70,78,82-85,87,89,94,96,100,113,115,124-125,150,168-169,181,186,202-203
+  s_9567600f841b4d::t_a8a7282012a595 10,14,52-53,101,148
+  s_9567600f841b4d::t_9e3efb6cfa0c35 222-259
+  s_9567600f841b4d::t_8380879698c6e8 324
+  s_9567600f841b4d::t_c0ec68703c7720 1-9,11-13,15-25,27-32,35-51,54-61,67-68,71-77,79-81,88,90-93,95,97-99,102,105-106,108-112,116-123,126-133,136-144,146,152-167,170-180,182-185,187-201,204-214,216-220,260-269,271,273,276-279,281-289,291-295,299-301,303-306,338-341,345-347
+  s_67469920a01a89::t_f1ed5242bacfcd 343-344
+  s_9567600f841b4d::t_873eb7411b500a 272,274-275,280,290,296-298,302,307-323,325-331,333-337
+  s_9567600f841b4d::t_1de52caa4bef87 215,221
+  s_9567600f841b4d::t_07f11a9b2d5de8 86,103,107,114,134,145,332,348-354
+  s_9567600f841b4d::t_07c33516903992 104,149
+docker-init/postgres/02-mcp-readonly.sql
+  s_67469920a01a89::t_369fd7cfb28371 1-8
+pnpm-lock.yaml
+  s_67469920a01a89::t_ccd8a690e12492 222-224,261-263,298-300,641,1262-1271,2003-2005,2782,3947-3951,4324,5897-5918,6526-6530,8666-8669
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "99da20bf056cd93de5d65797c81007de81e498cd",
+  "prompts": {},
+  "sessions": {
+    "s_549a85dffc042c": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "agreeable-tennis",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_67469920a01a89": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f0fa770e6ffeUAxGUIRv7N5qWQ",
+        "model": "deepseek-flash"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_84e04940c76260": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0ec31-7d26-7d60-ab1f-8eca598fbeef",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_9567600f841b4d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f024-455f-7101-ad47-7e13c1dcd675",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
