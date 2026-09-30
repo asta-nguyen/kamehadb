@@ -327,4 +327,17 @@ export const api = {
       `/tigerbeetle/${connectionId}/transfers`,
       { transfers },
     ),
+
+  // Read-only MCP settings
+  getMcpSettings: () => request<import('@kamehadb/shared').McpSettingsResponse>('GET', '/mcp/settings'),
+
+  updateMcpPort: (port: number) =>
+    request<import('@kamehadb/shared').McpSettingsResponse>('PATCH', '/mcp/settings', { port }),
+
+  retryMcpListener: () => request<import('@kamehadb/shared').McpSettingsResponse>('POST', '/mcp/settings/retry'),
+
+  rotateMcpToken: () => request<import('@kamehadb/shared').McpSettingsResponse>('POST', '/mcp/settings/rotate-token'),
+
+  setConnectionMcpEnabled: (connectionId: string, enabled: boolean) =>
+    request<import('@kamehadb/shared').ConnectionProfile>('PATCH', `/connections/${connectionId}/mcp`, { enabled }),
 };

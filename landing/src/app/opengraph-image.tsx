@@ -201,7 +201,7 @@ export default async function Image() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#f59e0b' }} />
-            <span style={{ fontSize: 17, fontWeight: 400, color: '#71717a' }}>AI-powered chat</span>
+            <span style={{ fontSize: 17, fontWeight: 400, color: '#71717a' }}>AI chat &amp; read-only MCP</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#f59e0b' }} />

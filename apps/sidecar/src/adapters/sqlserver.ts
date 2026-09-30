@@ -14,6 +14,13 @@ import type {
   TableCompletions,
 } from '@kamehadb/shared';
 import { log } from '../lib/logger.js';
+import { MCP_QUERY_TIMEOUT_MS } from '../lib/constants.js';
+import type {
+  BoundedQueryInput,
+  BoundedQueryResult,
+  BoundedSqlAdapter,
+  McpAdapterTimeoutOptions,
+} from '../mcp/types.js';
 
 export async function testSqlServerConnection(connection: {
   host?: string;
@@ -46,13 +53,16 @@ export async function testSqlServerConnection(connection: {
   }
 }
 
-export function createSqlServerAdapter(connection: {
-  host?: string;
-  port?: number;
-  database?: string;
-  username?: string;
-  password?: string;
-}): SqlAdapter {
+export function createSqlServerAdapter(
+  connection: {
+    host?: string;
+    port?: number;
+    database?: string;
+    username?: string;
+    password?: string;
+  },
+  options?: McpAdapterTimeoutOptions,
+): BoundedSqlAdapter {
   const pool = new sql.ConnectionPool({
     server: connection.host || 'localhost',
     port: connection.port || 1433,
@@ -63,7 +73,7 @@ export function createSqlServerAdapter(connection: {
       encrypt: false,
       trustServerCertificate: true,
       connectTimeout: 10000,
-      requestTimeout: 30000,
+      requestTimeout: options?.timeoutMs ?? MCP_QUERY_TIMEOUT_MS,
     },
     pool: {
       max: 5,
@@ -288,6 +298,56 @@ export function createSqlServerAdapter(connection: {
         durationMs: Math.round(durationMs),
         truncated: false,
       };
+    },
+
+    // MCP-only bounded read. Streams rows with a request timeout and cancels the
+    // batch after maxRows + 1 rows so the full result is never materialized.
+    async runQueryBounded(input: BoundedQueryInput): Promise<BoundedQueryResult> {
+      const start = performance.now();
+      const rowLimit = Math.max(1, Math.floor(input.maxRows));
+      await pool.connect();
+
+      const columns: QueryColumn[] = [];
+      const rows: Record<string, unknown>[] = [];
+      let truncated = false;
+
+      return await new Promise<BoundedQueryResult>((resolve, reject) => {
+        const request = pool.request();
+        request.stream = true;
+        let settled = false;
+        const finish = (): void => {
+          if (settled) return;
+          settled = true;
+          resolve({ columns, rows, durationMs: Math.round(performance.now() - start), truncated });
+        };
+        const fail = (err: Error): void => {
+          if (settled) return;
+          settled = true;
+          reject(err);
+        };
+
+        request.on('recordset', (meta: unknown) => {
+          for (const [name, columnMeta] of Object.entries(meta as Record<string, { type?: { name?: string } }>)) {
+            columns.push({ name, type: columnMeta.type?.name ?? 'unknown' });
+          }
+        });
+        request.on('row', (row: unknown) => {
+          if (rows.length < rowLimit) {
+            rows.push(row as Record<string, unknown>);
+            return;
+          }
+          truncated = true;
+          try {
+            request.cancel();
+          } catch (err) {
+            log.debug({ err }, 'sqlserver: request cancel failed');
+          }
+          finish();
+        });
+        request.on('error', (err: unknown) => fail(err as Error));
+        request.on('done', () => finish());
+        request.query(input.query);
+      });
     },
 
     async close(): Promise<void> {

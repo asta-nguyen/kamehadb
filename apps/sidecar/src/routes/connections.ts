@@ -9,7 +9,9 @@ import {
   FileDatabaseBackupRequestSchema,
   FileDatabaseRestoreRequestSchema,
   UpdateConnectionProfileSchema,
+  SetProfileMcpEnabledSchema,
   isSqlKind,
+  isMcpSupportedKind,
   isPasswordRequired,
   isUsernameRequired,
 } from '@kamehadb/shared';
@@ -34,6 +36,7 @@ import {
 import { getSqlAdapter, invalidateAdapterCache } from './sql.js';
 import { log } from '../lib/logger.js';
 import { safeErrorMessage } from '../lib/route-utils.js';
+import { invalidateMcpConnection } from '../mcp/invalidation.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
@@ -390,6 +393,7 @@ connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
   invalidateAdapterCache(id);
+  invalidateMcpConnection(id);
   activeHealthChecks.delete(id);
   return c.json(profile);
 });
@@ -400,8 +404,25 @@ connectionsRouter.delete('/:id', (c) => {
   if (!deleted) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
   invalidateAdapterCache(id);
+  invalidateMcpConnection(id);
   activeHealthChecks.delete(id);
   return c.body(null, 204);
+});
+
+// Toggle a profile's MCP allowlist. Lives beside update/delete so it shares the
+// same adapter-invalidation lifecycle. Disabling closes the MCP adapter at once.
+connectionsRouter.patch('/:id/mcp', zValidator('json', SetProfileMcpEnabledSchema), (c) => {
+  const id = c.req.param('id');
+  const { enabled } = c.req.valid('json');
+  const existing = metadataStore.getProfile(id);
+  if (!existing) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+  if (enabled && !isMcpSupportedKind(existing.kind)) {
+    return c.json({ error: 'UNSUPPORTED_KIND', message: 'This database kind is not supported for MCP' }, 400);
+  }
+  const updated = metadataStore.setProfileMcpEnabled(id, enabled);
+  if (!updated) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+  invalidateMcpConnection(id);
+  return c.json(updated);
 });
 
 connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async (c) => {

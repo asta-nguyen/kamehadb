@@ -10,6 +10,7 @@ import { navigateTo } from '@/store';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
+import { McpSettingsSection } from '@/components/mcp-settings-section';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
 
 const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini'];
@@ -636,6 +637,8 @@ export function ApiSettingsPage() {
                   onDiscard={() => dispatch({ type: 'discard', savedSnapshot: state.savedSnapshot })}
                   onSave={handleSave}
                 />
+
+                <McpSettingsSection />
               </div>
             </div>
           </section>

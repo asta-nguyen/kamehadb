@@ -5,6 +5,7 @@ import {
   Activity,
   Apple,
   Brain,
+  Cable,
   Code2,
   Database,
   Gift,
@@ -72,6 +73,12 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     title: 'Contextual AI chat',
     description:
       'Persistent history per connection, streamed responses, and a Run button to execute the SQL the assistant writes. Bring your own OpenAI, Ollama, or 9Router.',
+  },
+  {
+    icon: Cable,
+    title: 'Read-only MCP server',
+    description:
+      'Point Codex, Claude Code, Devin CLI, or OpenCode at a loopback MCP endpoint to inspect schemas and run bounded read-only SQL and MongoDB queries on the connections you enable.',
   },
   {
     icon: Workflow,

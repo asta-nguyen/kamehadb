@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
+import { randomBytes } from 'node:crypto';
 import type {
   ConnectionProfile,
   AIProvider,
@@ -9,7 +10,7 @@ import type {
   AIProviderConfig,
   SchemaWatcherConfig,
 } from '@kamehadb/shared';
-import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
+import { DEFAULT_AI_PROVIDER, MCP_DEFAULT_PORT } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
 
 let db: Database.Database | null = null;
@@ -87,6 +88,7 @@ export function initMetadataStore(dbPath: string): void {
           file_path TEXT,
           color TEXT,
       connection_string TEXT,
+      mcp_enabled INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -240,6 +242,16 @@ export function initMetadataStore(dbPath: string): void {
     `);
   }
 
+  // Migration: add the MCP allowlist flag. Runs after the kind-widening rebuilds
+  // above because those rebuilds copy an explicit column list and would otherwise
+  // drop a freshly added column on a legacy database.
+  try {
+    db.exec('ALTER TABLE connection_profiles ADD COLUMN mcp_enabled INTEGER NOT NULL DEFAULT 0');
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'mcp_enabled')) throw err;
+    log.debug({ err }, 'migration: mcp_enabled column already exists');
+  }
+
   // Migrate ai_settings from old single-column schema if needed
   const hasOldSettings = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_settings'")
@@ -370,6 +382,21 @@ export function initMetadataStore(dbPath: string): void {
     CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
   `);
 
+  // Singleton row holding the MCP listener port and persistent bearer token.
+  // The token survives restarts so client configs stay valid; only the row is
+  // persisted, listener status is derived at runtime.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      port INTEGER NOT NULL,
+      token TEXT NOT NULL
+    );
+  `);
+  const hasMcpSettings = db.prepare('SELECT id FROM mcp_settings WHERE id = 1').get() as { id: number } | undefined;
+  if (!hasMcpSettings) {
+    db.prepare('INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)').run(MCP_DEFAULT_PORT, generateMcpToken());
+  }
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
@@ -382,7 +409,7 @@ export function getDb(): Database.Database {
 export function listProfiles(): ConnectionProfile[] {
   const rows = getDb()
     .prepare(
-      `SELECT id, name, kind, host, port, database, username, ssl, file_path, color, connection_string, created_at, updated_at
+      `SELECT id, name, kind, host, port, database, username, ssl, file_path, color, connection_string, mcp_enabled, created_at, updated_at
      FROM connection_profiles ORDER BY updated_at DESC`,
     )
     .all() as Record<string, unknown>[];
@@ -499,6 +526,49 @@ export function deleteProfile(id: string): boolean {
   return result.changes > 0;
 }
 
+export type McpSettingsRecord = {
+  port: number;
+  token: string;
+};
+
+// 32 random bytes give ample entropy for a static bearer token, and base64url
+// keeps it copy/paste-safe in client configuration files.
+function generateMcpToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+export function getMcpSettings(): McpSettingsRecord {
+  const row = getDb().prepare('SELECT port, token FROM mcp_settings WHERE id = 1').get() as
+    | { port: number; token: string }
+    | undefined;
+  if (!row) {
+    const token = generateMcpToken();
+    getDb().prepare('INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)').run(MCP_DEFAULT_PORT, token);
+    return { port: MCP_DEFAULT_PORT, token };
+  }
+  return { port: row.port, token: row.token };
+}
+
+export function updateMcpPort(port: number): McpSettingsRecord {
+  getMcpSettings();
+  getDb().prepare('UPDATE mcp_settings SET port = ? WHERE id = 1').run(port);
+  return getMcpSettings();
+}
+
+export function rotateMcpToken(): string {
+  const token = generateMcpToken();
+  getDb().prepare('UPDATE mcp_settings SET token = ? WHERE id = 1').run(token);
+  return token;
+}
+
+export function setProfileMcpEnabled(id: string, enabled: boolean): ConnectionProfile | null {
+  const result = getDb()
+    .prepare('UPDATE connection_profiles SET mcp_enabled = ? WHERE id = ?')
+    .run(enabled ? 1 : 0, id);
+  if (result.changes === 0) return null;
+  return getProfile(id);
+}
+
 function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
   return {
     id: row.id as string,
@@ -512,6 +582,7 @@ function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
     filePath: (row.file_path as string) ?? undefined,
     color: (row.color as string) ?? undefined,
     connectionString: (row.connection_string as string) ?? undefined,
+    mcpEnabled: row.mcp_enabled === 1,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

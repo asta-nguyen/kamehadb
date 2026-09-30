@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Read-only MCP server** — expose MCP-enabled connections to local AI clients (Codex, Claude Code, Devin CLI, OpenCode) over a loopback `http://127.0.0.1:13979/mcp` endpoint with bearer-token auth. Includes schema discovery, bounded read-only SQL and MongoDB `find`/`aggregate` queries, per-profile opt-in with read-only database credentials, a fixed configurable port with Retry, and copyable client snippets in API Settings.
+
 ---
 
 ## [v1.5.1] — 2026-09-01

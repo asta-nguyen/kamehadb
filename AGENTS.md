@@ -360,7 +360,7 @@ When a feature wave adds new engines, major workflows, or changes the product de
 
 1. **`landing/src/components/home-view.tsx`** — hero copy, engine carousel, feature cards, Compare panel screenshots
 2. **`landing/src/app/layout.tsx`** — `<title>`, `<meta name="description">`, keywords, OG/Twitter metadata
-3. **`landing/public/og-image.svg`** — the OG card text (matches the hero headline)
+3. **`landing/src/app/opengraph-image.tsx`** — the active OG image source; regenerate the animated asset with `landing/scripts/render-og-animated.mjs` into `landing/public/og-animated.gif`
 4. **`landing/public/images/`** — Compare panel screenshots (`sql-panel.png`, `chat-panel.png`, plus any new ones)
 5. **`README.md`** — one-liner, feature list, engine table, install docs
 

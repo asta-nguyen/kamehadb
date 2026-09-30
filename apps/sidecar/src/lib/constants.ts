@@ -47,3 +47,24 @@ export const SCHEMA_NOTIFY_CHANNEL = 'kamehadb_schema_change';
 /** pg_notify listener reconnection backoff (ms). Linear backoff up to max. */
 export const WATCHER_RECONNECT_INITIAL_MS = 5_000;
 export const WATCHER_RECONNECT_MAX_MS = 60_000;
+
+/** Default fixed loopback port for the read-only MCP listener. */
+export const MCP_DEFAULT_PORT = 13_979;
+
+/** Per-tool-call database execution budget (ms) before native cancellation. */
+export const MCP_QUERY_TIMEOUT_MS = 30_000;
+
+/** Row cap applied to MCP SQL and Mongo reads when the caller omits max_rows. */
+export const MCP_DEFAULT_ROW_LIMIT = 100;
+
+/** Hard upper bound for MCP row caps; callers cannot exceed this. */
+export const MCP_MAX_ROW_LIMIT = 1_000;
+
+/** Maximum items returned by MCP metadata list tools before marking truncation. */
+export const MCP_MAX_METADATA_ITEMS = 1_000;
+
+/** Maximum Mongo skip accepted by MCP tools. */
+export const MCP_MAX_MONGO_SKIP = 100_000;
+
+/** Maximum concurrent database-backed MCP tool calls allowed per enabled profile. */
+export const MCP_MAX_CONCURRENT_CALLS_PER_PROFILE = 4;

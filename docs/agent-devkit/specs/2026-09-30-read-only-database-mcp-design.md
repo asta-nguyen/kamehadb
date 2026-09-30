@@ -1,6 +1,6 @@
 # Read-only Database MCP
 
-**Status:** Review decisions incorporated; spec is ready for user review. Planning has not started.
+**Status:** Approved for planning; the implementation plan is pending user approval.
 
 ## Goal
 
@@ -23,11 +23,11 @@ The first version excludes Oracle, ClickHouse, DuckDB, Redis, Qdrant, TigerBeetl
 
 - The desktop currently starts the sidecar with a randomly assigned internal port and a new internal token (`apps/desktop/src-tauri/src/lib.rs:287` creates the token). These are for KamehaDB-to-sidecar communication and change across app launches, so MCP clients must not use them.
 - The existing Hono sidecar listener has a global sidecar-token middleware (`apps/sidecar/src/index.ts`). Keep that listener unchanged and open a second, dedicated Streamable HTTP listener for MCP at `http://127.0.0.1:13979/mcp`. Bind both listeners only to `127.0.0.1`; the MCP listener must expose only MCP routes.
-- Start the MCP listener automatically with KamehaDB; v1 has no master enable/disable switch. The listener starts even when no profiles are enabled, while each profile remains excluded until explicitly enabled for MCP.
+- Attempt to bind the MCP listener automatically when KamehaDB starts; v1 has no master enable/disable switch. The listener is attempted even when no profiles are enabled, while each profile remains excluded until explicitly enabled for MCP.
 - MCP authenticates every HTTP request with `Authorization: Bearer <mcp-token>`. Do not accept the token in the URL or query string. This is a KamehaDB-issued static bearer token, not an OAuth flow. Codex, Claude Code, Devin CLI, and OpenCode all document Streamable HTTP configuration with bearer/custom HTTP headers; use each client's native header mechanism in the copyable snippets.
 - Generate a cryptographically random MCP token once, persist it in the local metadata database, and keep it separate from the per-launch sidecar token. The MCP token is returned only through the sidecar-authenticated settings API and is never written to logs. The user can rotate it in KamehaDB.
 - The MCP listener follows the sidecar lifecycle and stops when KamehaDB closes.
-- The MCP port is fixed by default, not selected randomly. If `13979` is occupied, KamehaDB continues running and shows `MCP unavailable: port 13979 is in use`. MCP Settings provides a **Retry** action. After the user frees the port and retries, MCP binds to the same endpoint and existing client config works without changes.
+- The MCP port is fixed by default, not selected randomly. If the configured port (default `13979`) is occupied, KamehaDB continues running and shows `MCP unavailable: port <configured-port> is in use`. MCP Settings provides a **Retry** action. After the user frees the port and retries, MCP binds to the same endpoint and existing client config works without changes.
 - If the user cannot free `13979`, MCP Settings lets them choose another fixed port. KamehaDB then displays the new endpoint and regenerated client config; the user must update the endpoint in each client. MCP must never silently fall back to another port because clients would keep connecting to the old URL.
 
 ### Profiles and database permissions
@@ -58,14 +58,14 @@ The first version excludes Oracle, ClickHouse, DuckDB, Redis, Qdrant, TigerBeetl
 
 - Tool arguments are validated with Zod schemas. `max_rows` and Mongo `limit` default to 100 and accept integers from 1 to 1,000. Mongo `skip` defaults to 0 and accepts integers from 0 to 100,000.
 - `connection_id`, `database`, `schema`, `table`, and `collection` are strings; `sql` is a string. Mongo `filter`, `projection`, and `sort` are JSON objects; `pipeline` is an array of JSON objects. Optional `database` values default to the selected profile's configured database; optional `schema` values default to the adapter's default schema where applicable. Mongo `filter` defaults to `{}` and `skip` defaults to 0.
-- SQL query results contain ordered `columns`, array-valued `rows`, `duration_ms`, and `truncated`. Mongo query results contain JSON-safe `documents`, `duration_ms`, and `truncated`. Metadata tools return named arrays of discovered objects. Missing or invalid bearer tokens receive HTTP 401. Tool errors use stable codes (`INVALID_ARGUMENTS`, `PROFILE_NOT_ENABLED`, `PROFILE_NOT_FOUND`, `READ_ONLY_QUERY_REQUIRED`, `QUERY_TIMEOUT`, `TIMEOUT_UNAVAILABLE`, `BUSY`, `DATABASE_ERROR`) and messages that do not include credentials or tokens.
+- SQL query results contain ordered `columns`, array-valued `rows`, `duration_ms`, and `truncated`. Mongo query results contain JSON-safe `documents`, `duration_ms`, and `truncated`. List tools return named arrays capped at 1,000 items with a `truncated` flag when more items exist. Missing or invalid bearer tokens receive HTTP 401. Tool errors use stable codes (`INVALID_ARGUMENTS`, `PROFILE_NOT_ENABLED`, `PROFILE_NOT_FOUND`, `READ_ONLY_QUERY_REQUIRED`, `QUERY_TIMEOUT`, `TIMEOUT_UNAVAILABLE`, `BUSY`, `DATABASE_ERROR`) and messages that do not include credentials or tokens.
 - Do not expose insert/update/delete/DDL tools, MongoDB `runCommand`, `mongosh`, or access to the sidecar's existing write routes.
 - SQL passes through the existing shared `isQuerySafe` check (`packages/shared/src/types.ts:636`) before dispatch. It accepts one read statement; read-only database credentials remain the primary enforcement layer.
 - Reject MongoDB aggregation stages that can write, including `$out` and `$merge`. MongoDB credentials must also be read-only.
 
 ### Query and result limits
 
-- Return at most 100 rows by default, with a hard maximum of 1,000 rows per call. Fetch at most one extra row to detect truncation.
+- Return at most 100 rows by default, with a hard maximum of 1,000 rows per call. Fetch at most one extra row to detect truncation. Cap metadata list tools at 1,000 items and set `truncated` when additional items exist.
 - Add an MCP-owned cursor/iterator path to each SQL adapter. It must return column metadata and read no more than `max_rows + 1` rows, then close or cancel the cursor/stream. Do not use the UI `runQuery` path, which materializes the full result, or rewrite user SQL with an outer `LIMIT`; cursor-based reading must also work for allowed forms such as `SHOW`, `DESCRIBE`, and `EXPLAIN`.
 - For PostgreSQL, add the official `pg-cursor` package and read in bounded batches using its cursor API. SQLite's isolated child process uses `better-sqlite3` row iteration and exits after the same cap or at the execution deadline.
 - The database execution budget is 30 seconds per tool call. A response timer alone is insufficient; apply database/driver cancellation as follows:
@@ -83,12 +83,13 @@ The first version excludes Oracle, ClickHouse, DuckDB, Redis, Qdrant, TigerBeetl
 - At the deadline, request cancellation and discard/close the MCP-owned connection if its driver cannot confirm cancellation. The tool returns a timeout error at the deadline; it must not leave an untracked query running on a reusable MCP connection.
 - Return a clear `truncated` flag when more rows exist than the result limit. Do not run a second full query just to calculate the total row count.
 - Support multiple clients concurrently using stateless Streamable HTTP. Limit the sidecar to four active database tool calls per profile; reject excess calls with a retryable `BUSY` error.
+- Store MCP port, timeout, row limits, metadata-list limit, Mongo skip limit, and per-profile concurrency limit as named constants in `apps/sidecar/src/lib/constants.ts` (for example, `MCP_DEFAULT_PORT`, `MCP_QUERY_TIMEOUT_MS`, `MCP_DEFAULT_ROW_LIMIT`, `MCP_MAX_ROW_LIMIT`, `MCP_MAX_METADATA_ITEMS`, `MCP_MAX_MONGO_SKIP`, and `MCP_MAX_CONCURRENT_CALLS_PER_PROFILE`); do not inline these values in implementation code.
 
 ### Client setup
 
 - KamehaDB displays the MCP endpoint, token, status, and copyable setup snippets for Codex, Claude Code, Devin CLI, and OpenCode.
 - Place MCP Settings inside the existing API Settings view (`AppView` remains `workspace`, `api-settings`, and `logs`); do not add a top-level app view for MCP.
-- Every snippet sends `Authorization: Bearer <mcp-token>`. Codex may use its `bearer_token_env_var`; Claude Code uses `--header` or HTTP `headers`; Devin CLI uses its HTTP `headers` config; OpenCode uses remote MCP `headers`.
+- Every snippet sends `Authorization: Bearer <mcp-token>`. Codex uses inline `http_headers` so the copied configuration works without an environment-variable export; Claude Code uses `--header` or HTTP `headers`; Devin CLI uses its HTTP `headers` config; OpenCode uses remote MCP `headers`.
 - Users paste the configuration into their clients; KamehaDB does not edit external client config files.
 - When the token is rotated, KamehaDB displays the new token so users can update client configs.
 
@@ -111,12 +112,12 @@ The first version excludes Oracle, ClickHouse, DuckDB, Redis, Qdrant, TigerBeetl
 
 ## Acceptance criteria
 
-1. The MCP listener starts automatically with KamehaDB and binds only to loopback; no global enable/disable switch is shown.
+1. KamehaDB automatically attempts to start the MCP listener; when available it binds only to loopback, and no global enable/disable switch is shown.
 2. An MCP client connects using `Authorization: Bearer <mcp-token>`; missing or invalid tokens are rejected, URL tokens are rejected, and the MCP token never appears in logs.
 3. MCP Settings appears inside the existing API Settings view, with endpoint, token, status, Retry, port selection, and client snippets.
 4. MCP lists and queries only enabled profiles; a disabled profile cannot be accessed using a previously known ID.
 5. SQL schema discovery and read-only queries work on all five SQL adapters in scope. `isQuerySafe` runs before dispatch, and read-only credentials prevent writes if the application check misses one.
-6. SQL adapters return no more than `max_rows + 1` rows through their MCP cursor/iterator path; PostgreSQL uses `pg-cursor`, and allowed result-producing forms such as `SHOW`, `DESCRIBE`, and `EXPLAIN` are not rewritten.
+6. SQL adapters return no more than `max_rows + 1` rows through their MCP cursor/iterator path; PostgreSQL uses `pg-cursor`, and allowed result-producing forms such as `SHOW`, `DESCRIBE`, and `EXPLAIN` are not rewritten. Metadata lists are capped at 1,000 entries and report truncation.
 7. MCP query execution uses separate adapters/connections from the UI. The SQLite child process opens the file read-only and can be terminated without blocking the sidecar.
 8. MongoDB exposes only list/find/aggregate tools; `$out` and `$merge` are rejected.
 9. SQL and MongoDB calls respect row limits, report truncation, and use the documented per-engine timeout/cancellation. Unsupported native timeout settings fail closed.
@@ -137,6 +138,10 @@ The first version excludes Oracle, ClickHouse, DuckDB, Redis, Qdrant, TigerBeetl
 - Restart the app and verify MCP port, token, and allowlist persist; verify management routes require the internal sidecar token.
 - Verify logs and returned errors contain neither tokens nor database credentials.
 
+## Execution
+
+- [Read-only Database MCP implementation plan](../plans/2026-09-30-read-only-database-mcp-plan.md)
+
 ## Related context
 
 None. No verified `docs/llm/` pages were used as design context.
@@ -148,6 +153,7 @@ None. No verified `docs/llm/` pages were used as design context.
 - [Devin CLI MCP configuration](https://docs.devin.ai/cli/extensibility/mcp/configuration)
 - [OpenCode MCP servers](https://opencode.ai/docs/mcp-servers/)
 - [MCP TypeScript SDK server and Streamable HTTP](https://ts.sdk.modelcontextprotocol.io/server)
+- [node-postgres cursor API](https://github.com/brianc/node-postgres/blob/master/docs/pages/apis/cursor.mdx)
 - [PostgreSQL `statement_timeout`](https://www.postgresql.org/docs/current/runtime-config-client.html)
 - [MySQL server-side SELECT timeout](https://dev.mysql.com/blog-archive/server-side-select-statement-timeouts/)
 - [MariaDB query timeouts](https://mariadb.com/docs/server/ha-and-performance/optimization-and-tuning/query-optimizations/aborting-statements)

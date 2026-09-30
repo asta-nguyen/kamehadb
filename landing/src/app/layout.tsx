@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: '%s | KamehaDB',
     },
     description:
-      'A cross-platform desktop GUI for SQL, document, cache, vector, and ledger systems. PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle in one local-first app, with AI built in.',
+      'A cross-platform desktop GUI for SQL, document, cache, vector, and ledger systems. PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle in one local-first app, with AI built in and an optional read-only MCP endpoint for local AI clients.',
     keywords: [
       'database management',
       'database client',
@@ -38,6 +38,9 @@ export async function generateMetadata(): Promise<Metadata> {
       'schema visualization',
       'ER diagram',
       'migration assistant',
+      'MCP',
+      'Model Context Protocol',
+      'read-only MCP server',
       'Tauri',
       'open source',
       'local-first',
@@ -51,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'KamehaDB',
       title: 'KamehaDB — Local-first desktop database workspace',
       description:
-        'One local-first desktop GUI for PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle, with AI built in.',
+        'One local-first desktop GUI for PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle, with AI built in and a read-only MCP endpoint for local AI clients.',
       images: [
         {
           url: '/og-animated.gif',
@@ -68,7 +71,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title: 'KamehaDB — Local-first desktop database workspace',
       description:
-        'One local-first desktop GUI for SQL, document, cache, vector, and ledger systems, with AI built in.',
+        'One local-first desktop GUI for SQL, document, cache, vector, and ledger systems, with AI built in and a read-only MCP endpoint for local AI clients.',
       images: [`${baseUrl}/og-animated.gif`],
     },
     robots: {
