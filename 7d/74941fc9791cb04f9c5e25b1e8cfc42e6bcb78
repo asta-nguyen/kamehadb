@@ -1,0 +1,228 @@
+apps/sidecar/src/mcp/invalidation.ts
+  s_9567600f841b4d::t_66625a66055e6b 14-17
+apps/desktop/src/components/mcp-settings-section.tsx
+  s_9567600f841b4d::t_79ffe99097fb6a 55-64
+  s_9567600f841b4d::t_7dd7a5cbead8f6 10,19-21,95,100-101,118-120,215,219-272,283-284,306-311
+  s_9567600f841b4d::t_1cd04128c995d5 312-314
+apps/sidecar/src/mcp/adapter-manager.ts
+  s_9567600f841b4d::t_cb5e88c9e1df6c 48-51,127
+  s_9567600f841b4d::t_6a6d90212bff3a 1-8,13,22-24,31-32,34,36-40,78-79,132
+  s_9567600f841b4d::t_f5143dcbbde61a 42-47
+  s_9567600f841b4d::t_0260c04742e340 33,35,113,121,125-126,140
+  s_9567600f841b4d::t_80315abc7f5198 41
+  s_9567600f841b4d::t_2d64160ce3c8ec 52-54
+  s_9567600f841b4d::t_a22f906068544e 80-82
+  s_9567600f841b4d::t_260f60b3df9b8e 128-131
+  s_9567600f841b4d::t_20ac739ab39982 133-134
+docs/llm/architecture/overview.md
+  s_acedfb3fda2920::t_98e15c7171cedb 48,51-55,57,60-61,73-74,76,81-82
+  s_acedfb3fda2920::t_e0994a771e963e 17,22
+  s_acedfb3fda2920::t_34bcf78abf144c 16,18-21,23-24
+  s_acedfb3fda2920::t_a5d10cc7d132e7 75,77
+  s_acedfb3fda2920::t_57a53fab73f3a4 1-15,25-47,49-50,56,58-59,62-72,78-80
+apps/desktop/src/lib/mcp-keychain.ts
+  s_9567600f841b4d::t_32d283c86f4886 1-75
+apps/sidecar/src/mcp/errors.test.ts
+  s_9567600f841b4d::t_652eeaf2f58c66 9-10
+  s_9567600f841b4d::t_b88305ea1952f5 1-8,11-21
+CHANGELOG.md
+  s_9567600f841b4d::t_6eb8c11d02e960 12
+  s_9567600f841b4d::t_867fd3753971fa 14-15,17
+  s_9567600f841b4d::t_9995b8533be736 16
+  s_9567600f841b4d::t_193ba1eff0608d 13
+docs/agent-devkit/plans/2026-09-30-mcp-managed-readonly-accounts-plan.md
+  s_9567600f841b4d::t_e41f3898f71780 113,115,123
+  s_9567600f841b4d::t_ecc2c4c5d5a4dd 10,13,39,43,62,72,80,87,103-104,106,112,122,124,159,163,178,199
+  s_9567600f841b4d::t_77555cea284dca 48,179,248
+  s_9567600f841b4d::t_cee2d9a2738d73 156,158
+  s_9567600f841b4d::t_2c483efa7593de 69,71,77,86
+  s_9567600f841b4d::t_63af60b067d3dc 32,42,111,114,128,186
+  s_9567600f841b4d::t_a704230f466684 295-296,299-318
+  s_9567600f841b4d::t_6ba37042d7d86e 1-9,11-12,14-31,33-38,40-41,44-46,49-61,63-68,70,73-76,78-79,81-85,88-102,105,107-110,116-121,125-127,129-142,144-150,153-155,160-162,164-177,180-185,187-193,195-198,200-247,249-258,260-274,276-294,297-298
+  s_9567600f841b4d::t_b8ce9240758d67 143,152,157
+  s_9567600f841b4d::t_67d9e01d2e7878 151,194,259
+  s_9567600f841b4d::t_e2977e1025d5fd 275
+  s_9567600f841b4d::t_f4eac48bfc5d3a 47
+apps/sidecar/src/adapters/postgres.ts
+  s_9567600f841b4d::t_f2accf1a9bbde2 537
+  s_9567600f841b4d::t_9813f3619d0998 30,145-146,148-153,159,169,171,178,533,536,538-540
+apps/desktop/src/components/sidebar-delete-dialog.tsx
+  s_9567600f841b4d::t_db63e129f4d37f 22
+apps/desktop/src/lib/mcp-keychain.test.ts
+  s_9567600f841b4d::t_eb6579f73630be 1-94
+apps/sidecar/src/routes/connections.ts
+  s_9567600f841b4d::t_66625a66055e6b 8,16,41,394-418,429,431,458-459,467
+  s_9567600f841b4d::t_79ffe99097fb6a 460
+  s_9567600f841b4d::t_46af0a8b9db203 430
+  s_9567600f841b4d::t_b6241571af0992 432-434
+  s_9567600f841b4d::t_9930c71e91bf60 457
+  s_9567600f841b4d::t_2e008b9afda62d 461-466
+  s_9567600f841b4d::t_f1db25e6dd902e 468-470
+apps/sidecar/src/mcp/adapters.test.ts
+  s_9567600f841b4d::t_85a5df014c4753 59-62,67-75
+  s_9567600f841b4d::t_621715f9eae8b8 157-198
+apps/desktop/src-tauri/src/lib.rs
+  s_9567600f841b4d::t_f0ebee43ead266 10,380-390
+docs/llm/AGENTS.md
+  s_acedfb3fda2920::t_623b45224e6971 1-21
+landing/src/app/layout.tsx
+  s_9567600f841b4d::t_bc31c6c8433acf 18,57,74
+apps/sidecar/src/routes/mcp-settings.test.ts
+  s_9567600f841b4d::t_c80c34d1c1006a 6-16,18-19,43,45,99-139,185,199,212-254
+  s_9567600f841b4d::t_761ae34713ae20 193-198,200-211,255
+  s_9567600f841b4d::t_0260c04742e340 140-165
+  s_9567600f841b4d::t_2fdf29a07fd903 256-258
+apps/sidecar/src/adapters/sqlserver.ts
+  s_9567600f841b4d::t_f2accf1a9bbde2 317
+  s_9567600f841b4d::t_92490c536fe6f1 311,318,332-333,338
+apps/sidecar/src/mcp/runtime.test.ts
+  s_9567600f841b4d::t_2fd154e039ada1 120,124
+  s_9567600f841b4d::t_d946590ad5ede9 125-127
+docs/agent-devkit/INDEX.md
+  s_9567600f841b4d::t_6ba37042d7d86e 6,11
+apps/sidecar/src/mcp/account-provisioner.ts
+  s_9567600f841b4d::t_03901ba601a798 18,330-332,334-335,337-338,466,486,489-491,530
+  s_9567600f841b4d::t_b0f1398d1d8dfc 143
+  s_9567600f841b4d::t_b4f1c55eee839b 161-171,173
+  s_9567600f841b4d::t_03c81fda0d1b42 225,227
+  s_9567600f841b4d::t_fe722841f6057d 1-17,19-21,23-83,102,105-106,147-160,172,174-224,226,228-265,268,270-288,294-329,333,336,339-377,382-465,467-470,477,479-485,487-488,492-529,531-589,592-599,604,606-607,609-693
+  s_9567600f841b4d::t_9842ca6f5ce8d3 266-267,269,289-293,378-381,471-476,478,600-603,605
+  s_9567600f841b4d::t_d289e76adf258b 22,84-101,103-104,107-142,144-146,590-591,608
+  s_9567600f841b4d::t_446cfa6dc483ad 694-696
+apps/sidecar/src/routes/mcp-settings.ts
+  s_9567600f841b4d::t_5dbb2efa3424a8 85
+  s_9567600f841b4d::t_b0f1398d1d8dfc 168,170-176,179-180
+  s_9567600f841b4d::t_016e4ec728f823 26-27,114-116,128,152-153,159-161,166-167,181-183
+  s_9567600f841b4d::t_251eb3997c6ef8 3-12,21,23,47-70,74-82,84,86-113,117-127,129-131,135-140,142-151,154-158,162-165,177-178,184-187
+  s_9567600f841b4d::t_61b5b6206f302c 14-20,83
+  s_9567600f841b4d::t_89ca47960a13cc 71-73,132-134
+  s_9567600f841b4d::t_0260c04742e340 141,169
+  s_9567600f841b4d::t_9372386e838455 188-190
+apps/sidecar/src/mcp/adapters/factory.ts
+  s_9567600f841b4d::t_6a7007375c72e5 25-34,76-79,82-85,87
+  s_9567600f841b4d::t_6a6d90212bff3a 10,39-42,50-51,80-81,113-114,163-166
+  s_9567600f841b4d::t_e8ccd01411f079 86
+  s_9567600f841b4d::t_33fcc642949535 174-185
+  s_9567600f841b4d::t_41cd66e0259f6f 8,16-24,46-49,52-54,90,92,102,109-112,115-116,137-154
+  s_9567600f841b4d::t_9073fc09517ebf 12-15,45,56-68,75,89,91,93-101,108,118-130,167
+  s_9567600f841b4d::t_cdafb43ec4e65a 11
+  s_9567600f841b4d::t_8afc06344ecd66 168
+  s_9567600f841b4d::t_d85222b06f6606 186
+apps/desktop/src/hooks/use-sidecar.ts
+  s_9567600f841b4d::t_f0ebee43ead266 3
+  s_9567600f841b4d::t_ce7540b07b4410 2,4-5,29,41-42,44-47,49,53,55,57-84,93,95
+apps/desktop/src/lib/query-keys.ts
+  s_9567600f841b4d::t_f0ebee43ead266 79
+docs/llm/INDEX.md
+  s_acedfb3fda2920::t_1ee2ade6929595 1-2
+  s_acedfb3fda2920::t_587c2463213c40 3-14
+apps/sidecar/src/mcp/errors.ts
+  s_9567600f841b4d::t_6a6d90212bff3a 9-13
+  s_9567600f841b4d::t_90ae75601b2285 2,42-60,69-72,74-75
+  s_9567600f841b4d::t_e8ccd01411f079 73
+apps/sidecar/src/mcp/tools.ts
+  s_9567600f841b4d::t_3f52cf62479689 35-41
+  s_9567600f841b4d::t_008fe6186c5a0c 129-131,157
+  s_9567600f841b4d::t_f5143dcbbde61a 66
+  s_9567600f841b4d::t_2f2b8059261f88 67-68
+  s_9567600f841b4d::t_47c0f473996e5a 132-133
+  s_9567600f841b4d::t_fa561ac0da26f5 158
+apps/sidecar/src/mcp/adapters/sqlite-worker.ts
+  s_9567600f841b4d::t_f2accf1a9bbde2 33
+  s_9567600f841b4d::t_1261d466c41aa7 31,34
+apps/desktop/src/lib/api.ts
+  s_9567600f841b4d::t_79ffe99097fb6a 380-383
+  s_9567600f841b4d::t_3170c3199f9398 341-377
+  s_9567600f841b4d::t_f6ca96a175cf0e 378
+  s_9567600f841b4d::t_92f0ad809df464 384
+apps/sidecar/src/mcp/adapter-manager.test.ts
+  s_9567600f841b4d::t_621715f9eae8b8 5,7-15,63-85
+  s_9567600f841b4d::t_fc6de8bbf979c6 86
+apps/sidecar/src/db/metadata-store.ts
+  s_9567600f841b4d::t_8a4ec6a5bfffc6 608-652
+  s_9567600f841b4d::t_d3747635aa3d8b 11,14,257-273
+  s_9567600f841b4d::t_abccf6b39fe42c 274-276
+  s_9567600f841b4d::t_b9cb7b1529557c 653-655
+apps/sidecar/src/mcp/account-provisioner.test.ts
+  s_9567600f841b4d::t_ea30b2f836a83a 5-8,11,60-78
+  s_9567600f841b4d::t_046849337dc778 1,14-15,17-59,79-80,98-112,224-225
+  s_9567600f841b4d::t_10be3546117c5c 16,119
+  s_9567600f841b4d::t_94051397373cac 2-4,9-10,12-13,113-118,120-131,133-223
+  s_9567600f841b4d::t_9e5dbc7dbe7bb8 132
+  s_9567600f841b4d::t_b0f1398d1d8dfc 81-97
+apps/desktop/src/hooks/use-mcp-settings.ts
+  s_9567600f841b4d::t_ed1debc9f5cb3c 6,16-53,98
+apps/desktop/src/components/sidebar.tsx
+  s_9567600f841b4d::t_db63e129f4d37f 14,26,164-167
+README.md
+  s_9567600f841b4d::t_6eb8c11d02e960 59-71,74-83
+landing/src/app/opengraph-image.tsx
+  s_9567600f841b4d::t_92943cd71dd317 204
+apps/sidecar/src/index.ts
+  s_9567600f841b4d::t_ea9e049bebce4b 30
+apps/sidecar/src/mcp/types.ts
+  s_9567600f841b4d::t_87f53317b786ef 20,37-38
+  s_9567600f841b4d::t_6a6d90212bff3a 10,66-67
+  s_9567600f841b4d::t_ba0b83454d9bba 68
+docs/agent-devkit/specs/2026-09-30-mcp-managed-readonly-accounts-design.md
+  s_9567600f841b4d::t_3e0dc695b7f638 48
+  s_9567600f841b4d::t_41d012b5091814 27,40,67,96
+  s_9567600f841b4d::t_6ba37042d7d86e 1-26,28,30,33-37,39,41,43-46,51,53-61,64,69,88-92,98-109
+  s_9567600f841b4d::t_287bd088110fac 29,31-32,38,49,63,65-66,70-74,76-87,93-95
+  s_9567600f841b4d::t_ecd37ce2ece113 42,47,62,68
+  s_9567600f841b4d::t_ade5d82c52eff5 50,52,75,97
+apps/desktop/src/components/connection-dialog.tsx
+  s_9567600f841b4d::t_3db68ea3e1267f 14,208-220
+  s_9567600f841b4d::t_ff39c5e78fa8a6 221
+apps/sidecar/src/adapters/mysql.ts
+  s_9567600f841b4d::t_a8d7857afcbf0e 28,97-114,122-133,153-154,158,167,169,186,342,346
+  s_9567600f841b4d::t_f2accf1a9bbde2 351
+  s_9567600f841b4d::t_30d64e1c4bebfc 349-350
+docs/agent-devkit/plans/2026-09-30-read-only-database-mcp-plan.md
+  s_9567600f841b4d::t_79ffe99097fb6a 250-256
+landing/src/components/home-view.tsx
+  s_9567600f841b4d::t_6eb8c11d02e960 81
+docs/llm/integrations/read-only-mcp.md
+  s_9567600f841b4d::t_f369ff6ec3add3 1-50,52-95
+  s_9567600f841b4d::t_4aa64dea54abb7 51
+packages/shared/src/schemas.ts
+  s_9567600f841b4d::t_9073fc09517ebf 69-71
+  s_9567600f841b4d::t_45710021c81e4e 394
+  s_9567600f841b4d::t_50e1dba4dce99f 371
+  s_9567600f841b4d::t_5b5ea3d6c1aa99 67-68,72-75,358,367-370,372-393,395-402
+  s_9567600f841b4d::t_d8edebe532cdee 359-366
+docker-init/MCP-READONLY.md
+  s_9567600f841b4d::t_6eb8c11d02e960 3-6,37-45
+landing/scripts/render-og-animated.mjs
+  s_9567600f841b4d::t_92943cd71dd317 142,146
+docs/agent-devkit/specs/2026-09-30-read-only-database-mcp-design.md
+  s_9567600f841b4d::t_79ffe99097fb6a 3
+  s_9567600f841b4d::t_422d95e38ef960 92
+apps/sidecar/src/db/metadata-store.test.ts
+  s_9567600f841b4d::t_bf631c50d03a4d 6,9,11,13,16,19,84-130
+  s_9567600f841b4d::t_c2025621d99d1c 131-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7d74941fc9791cb04f9c5e25b1e8cfc42e6bcb78",
+  "prompts": {},
+  "sessions": {
+    "s_9567600f841b4d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f024-455f-7101-ad47-7e13c1dcd675",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_acedfb3fda2920": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "trusted-middle",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
