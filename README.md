@@ -56,21 +56,31 @@ Configure AI providers in the app settings (API Settings page):
 ### Read-only MCP setup
 
 KamehaDB runs a read-only Model Context Protocol server on `http://127.0.0.1:13979/mcp`
-while the app is open, so local AI clients can inspect schemas and run read-only
-queries.
+while the app is open. Local AI clients can inspect schemas and run bounded
+queries through a dedicated database account that KamehaDB provisions for the
+selected database.
 
-1. Create a connection profile that uses a **separate database account with
-   read-only permissions** (KamehaDB never changes database grants).
-2. Open **API Settings → MCP Server**, then enable that profile.
-3. Copy the generated snippet for your client (Codex, Claude Code, Devin CLI, or
-   OpenCode) into its config. Snippets include the endpoint and bearer token.
+1. Create a normal connection profile with credentials that can create users
+   and grant read access on its selected database.
+2. Open **API Settings → MCP Server** and choose **Create read-only account**.
+   KamehaDB grants only read access on that database and stores the generated
+   account credential in the operating system Keychain. SQLite keeps its
+   existing read-only file connection and does not need a database account.
+3. Enable the profile, then copy the generated snippet for Codex, Claude Code,
+   Devin CLI, or OpenCode into its config. Snippets include the endpoint and
+   bearer token.
 
 The MCP listener binds only to loopback, uses a persistent token you can rotate,
-and stops when KamehaDB closes. If the fixed port is in use, MCP is unavailable
-until you free it or pick another port — KamehaDB keeps working either way.
-Aggregations with `$out`/`$merge`, write statements, and non-enabled profiles are
-rejected. See [`docker-init/MCP-READONLY.md`](./docker-init/MCP-READONLY.md) for
-local read-only test accounts.
+and stops when KamehaDB closes. MCP queries always use the generated read-only
+credential; they never fall back to the profile credential. Disabling MCP keeps
+the database account. Revoke it explicitly before changing the profile's
+database target or credentials, or deleting the profile. MongoDB account setup
+requires server authentication to be enabled. If the fixed port is in use, MCP
+is unavailable until you free it or choose another port — KamehaDB keeps
+working either way. Aggregations with `$out`/`$merge`, write statements, and
+non-enabled profiles are rejected. See
+[`docker-init/MCP-READONLY.md`](./docker-init/MCP-READONLY.md) for local
+database-grant test fixtures.
 
 ### Connection defaults (Docker)
 

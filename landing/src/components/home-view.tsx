@@ -78,7 +78,7 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     icon: Cable,
     title: 'Read-only MCP server',
     description:
-      'Point Codex, Claude Code, Devin CLI, or OpenCode at a loopback MCP endpoint to inspect schemas and run bounded read-only SQL and MongoDB queries on the connections you enable.',
+      'Point Codex, Claude Code, Devin CLI, or OpenCode at a loopback MCP endpoint. KamehaDB provisions a database-scoped read-only account and stores its credential in your OS Keychain.',
   },
   {
     icon: Workflow,

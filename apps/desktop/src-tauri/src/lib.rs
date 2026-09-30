@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdout, Command};
 use std::sync::Mutex;
 use std::thread;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use uuid::Uuid;
 
 #[cfg(windows)]
@@ -377,7 +377,17 @@ async fn start_sidecar(
         Some(format!("pid={pid} port={port}")),
     );
 
-    Ok(SidecarInfo { port, pid, token: sidecar_token })
+    let info = SidecarInfo { port, pid, token: sidecar_token };
+    if let Err(error) = app.emit("sidecar-ready", &info) {
+        append_tauri_log(
+            &app,
+            "warn",
+            "sidecar",
+            "Sidecar started but desktop listeners were not notified",
+            Some(error.to_string()),
+        );
+    }
+    Ok(info)
 }
 
 fn allocate_sidecar_port(app: &tauri::AppHandle) -> Result<u16, String> {

@@ -27,6 +27,7 @@ const allowedOrigins = new Set([
   'http://localhost:3000',
   'http://localhost:5173',
   'http://tauri.localhost',
+  'tauri://localhost',
 ]);
 const sidecarToken = process.env.KAMEHADB_SIDECAR_TOKEN;
 const sidecarDir = dirname(fileURLToPath(import.meta.url));

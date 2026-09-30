@@ -338,6 +338,48 @@ export const api = {
 
   rotateMcpToken: () => request<import('@kamehadb/shared').McpSettingsResponse>('POST', '/mcp/settings/rotate-token'),
 
+  getMcpAccounts: () => request<import('@kamehadb/shared').McpManagedAccountsResponse>('GET', '/mcp/accounts'),
+
+  getMcpCredentialRefs: () =>
+    request<{
+      credentials: {
+        profileId: string;
+        keychainRef: string;
+        state: import('@kamehadb/shared').McpManagedAccountState;
+      }[];
+    }>('GET', '/mcp/credential-refs'),
+
+  hydrateMcpCredential: (profileId: string, credential: import('@kamehadb/shared').McpManagedCredentialBundle) =>
+    request<{ profileId: string; credentialAvailable: boolean }>(
+      'PUT',
+      `/mcp/credentials/${encodeURIComponent(profileId)}`,
+      { credential },
+    ),
+
+  prepareMcpAccount: (profileId: string, keychainRef: string) =>
+    request<{ credential: import('@kamehadb/shared').McpManagedCredentialBundle }>(
+      'POST',
+      `/mcp/profiles/${encodeURIComponent(profileId)}/account/prepare`,
+      { keychainRef },
+    ),
+
+  provisionMcpAccount: (profileId: string, keychainRef: string) =>
+    request<{ profileId: string; state: import('@kamehadb/shared').McpManagedAccountState }>(
+      'POST',
+      `/mcp/profiles/${encodeURIComponent(profileId)}/account/provision`,
+      { keychainRef },
+    ),
+
+  revokeMcpAccount: (profileId: string) =>
+    request<{ profileId: string; revoked: boolean }>(
+      'POST',
+      `/mcp/profiles/${encodeURIComponent(profileId)}/account/revoke`,
+    ),
+
   setConnectionMcpEnabled: (connectionId: string, enabled: boolean) =>
-    request<import('@kamehadb/shared').ConnectionProfile>('PATCH', `/connections/${connectionId}/mcp`, { enabled }),
+    request<Pick<import('@kamehadb/shared').ConnectionProfile, 'id' | 'mcpEnabled'>>(
+      'PATCH',
+      `/connections/${connectionId}/mcp`,
+      { enabled },
+    ),
 };

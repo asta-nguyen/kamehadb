@@ -11,3 +11,7 @@ export function setMcpAdapterManager(next: McpAdapterManager): void {
 export function invalidateMcpConnection(connectionId: string): void {
   manager?.invalidate(connectionId);
 }
+
+export function hasMcpCredential(connectionId: string): boolean {
+  return manager?.hasCredential(connectionId) ?? false;
+}

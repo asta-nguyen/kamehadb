@@ -32,6 +32,13 @@ function requireMongo(connection: McpConnection): McpMongoAdapter {
   return connection.adapter;
 }
 
+// Keep tool arguments inside the database authorized for this managed account.
+function assertDatabaseScope(configuredDatabase: string | undefined, requestedDatabase?: string): void {
+  if (!configuredDatabase || (requestedDatabase && requestedDatabase !== configuredDatabase)) {
+    throw new McpToolError(MCP_ERROR_CODE.INVALID_ARGUMENTS, 'MCP access is limited to the configured database');
+  }
+}
+
 const jsonResult = (payload: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
 });
@@ -56,7 +63,9 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
     async () => {
       try {
-        const profiles = listProfiles().filter((profile) => profile.mcpEnabled && isMcpSupportedKind(profile.kind));
+        const profiles = listProfiles().filter(
+          (profile) => manager.canServe(profile) && isMcpSupportedKind(profile.kind),
+        );
         return jsonResult({
           profiles: profiles.map((profile) => ({
             id: profile.id,
@@ -96,11 +105,12 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     {
       title: 'List schemas',
       description: 'List schemas on an MCP-enabled SQL connection.',
-      inputSchema: { connection_id: connectionId, database: z.string().optional() },
+      inputSchema: { connection_id: connectionId, database: z.string().min(1).optional() },
     },
     async ({ connection_id, database }) => {
       try {
         const payload = await manager.withConnection(connection_id, async (connection) => {
+          assertDatabaseScope(connection.profile.database, database);
           const capped = capItems(await requireSql(connection).listSchemas(database));
           return { schemas: capped.items, truncated: capped.truncated };
         });
@@ -116,12 +126,17 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     {
       title: 'List tables',
       description: 'List tables on an MCP-enabled SQL connection.',
-      inputSchema: { connection_id: connectionId, database: z.string().optional(), schema: z.string().optional() },
+      inputSchema: {
+        connection_id: connectionId,
+        database: z.string().min(1).optional(),
+        schema: z.string().min(1).optional(),
+      },
     },
     async ({ connection_id, database, schema }) => {
       try {
         const payload = await manager.withConnection(connection_id, async (connection) => {
-          const capped = capItems(await requireSql(connection).listTables(schema ?? database));
+          assertDatabaseScope(connection.profile.database, database);
+          const capped = capItems(await requireSql(connection).listTables(database, schema));
           return { tables: capped.items, truncated: capped.truncated };
         });
         return jsonResult(payload);
@@ -139,15 +154,15 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
       inputSchema: {
         connection_id: connectionId,
         table: z.string().min(1),
-        database: z.string().optional(),
-        schema: z.string().optional(),
+        database: z.string().min(1).optional(),
+        schema: z.string().min(1).optional(),
       },
     },
-    async ({ connection_id, table, schema }) => {
+    async ({ connection_id, table, database, schema }) => {
       try {
         const payload = await manager.withConnection(connection_id, async (connection) => {
-          const tableId = schema ? `${schema}.${table}` : table;
-          const capped = capItems(await requireSql(connection).getTableColumns(tableId));
+          assertDatabaseScope(connection.profile.database, database);
+          const capped = capItems(await requireSql(connection).getTableColumns(table, database, schema));
           return { columns: capped.items, truncated: capped.truncated };
         });
         return jsonResult(payload);
@@ -222,6 +237,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     async ({ connection_id, database }) => {
       try {
         const payload = await manager.withConnection(connection_id, async (connection) => {
+          assertDatabaseScope(connection.profile.database, database);
           const capped = capItems(await requireMongo(connection).listCollections(database));
           return { collections: capped.items, truncated: capped.truncated };
         });
@@ -251,6 +267,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     async ({ connection_id, database, collection, filter, projection, sort, skip, limit }) => {
       try {
         const payload = await manager.withConnection(connection_id, async (connection) => {
+          assertDatabaseScope(connection.profile.database, database);
           const result = await requireMongo(connection).findBounded({
             database,
             collection,
@@ -285,6 +302,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     async ({ connection_id, database, collection, pipeline, max_rows }) => {
       try {
         const payload = await manager.withConnection(connection_id, async (connection) => {
+          assertDatabaseScope(connection.profile.database, database);
           const result = await requireMongo(connection).aggregateBounded({
             database,
             collection,

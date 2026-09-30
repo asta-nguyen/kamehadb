@@ -76,6 +76,7 @@ export const QUERY_KEYS = {
   SCHEMA_WATCHER: (connectionId: string | null) => ['schema-watcher', connectionId] as const,
   AI_SETTINGS: ['ai-settings'] as const,
   MCP_SETTINGS: ['mcp-settings'] as const,
+  MCP_ACCOUNTS: ['mcp-accounts'] as const,
   QUERY_HISTORY: (connectionId: string | null) => ['query-history', connectionId] as const,
   QUERY_HISTORY_FAVORITES: (connectionId: string | null) => ['query-history-favorites', connectionId] as const,
   TB_ACCOUNTS: (connectionId: string | null, limit?: number) =>

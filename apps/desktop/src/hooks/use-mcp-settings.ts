@@ -3,12 +3,51 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createMcpManagedAccount, revokeMcpManagedAccount } from '@/lib/mcp-keychain';
 
 // Read the current MCP listener settings (status, port, token, enabled profiles).
 export function useMcpSettings() {
   return useQuery({
     queryKey: QUERY_KEYS.MCP_SETTINGS,
     queryFn: api.getMcpSettings,
+  });
+}
+
+export function useMcpAccounts() {
+  return useQuery({
+    queryKey: QUERY_KEYS.MCP_ACCOUNTS,
+    queryFn: api.getMcpAccounts,
+  });
+}
+
+function invalidateMcpState(queryClient: ReturnType<typeof useQueryClient>): void {
+  void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_ACCOUNTS });
+  void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_SETTINGS });
+  void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS });
+}
+
+export function useCreateMcpManagedAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createMcpManagedAccount,
+    onSuccess: () => {
+      invalidateMcpState(queryClient);
+      toastSuccess('Managed read-only account created');
+    },
+    onError: (err) => toastError(safeErrorMessage(err, 'Failed to create managed MCP account')),
+  });
+}
+
+export function useRevokeMcpManagedAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: revokeMcpManagedAccount,
+    onSuccess: ({ keychainCleanedUp }) => {
+      invalidateMcpState(queryClient);
+      if (keychainCleanedUp) toastSuccess('Managed database account revoked');
+      else toastError('Database account revoked, but the Keychain credential could not be removed');
+    },
+    onError: (err) => toastError(safeErrorMessage(err, 'Failed to revoke managed MCP account')),
   });
 }
 
@@ -56,6 +95,7 @@ export function useSetConnectionMcpEnabled() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_SETTINGS });
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CONNECTIONS });
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_ACCOUNTS });
     },
     onError: (err) => toastError(safeErrorMessage(err, 'Failed to update MCP access')),
   });

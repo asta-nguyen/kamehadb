@@ -3,14 +3,20 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { KIND, MCP_MANAGED_ACCOUNT_STATE } from '@kamehadb/shared';
 import { MCP_DEFAULT_PORT } from '../lib/constants.js';
 import {
+  clearMcpManagedAccount,
   closeMetadataStore,
+  createMcpManagedAccount,
   createProfile,
+  getMcpManagedAccount,
   getMcpSettings,
   initMetadataStore,
+  listMcpManagedAccounts,
   listProfiles,
   rotateMcpToken,
+  setMcpManagedAccountState,
   setProfileMcpEnabled,
   updateMcpPort,
 } from './metadata-store.js';
@@ -72,6 +78,55 @@ describe('profile MCP allowlist', () => {
   it('returns null when toggling an unknown profile', () => {
     initMetadataStore(freshDbPath());
     expect(setProfileMcpEnabled('does-not-exist', true)).toBeNull();
+  });
+});
+
+describe('managed MCP account persistence', () => {
+  it('stores only the Keychain reference and lifecycle state', () => {
+    initMetadataStore(freshDbPath());
+    const profile = createProfile({ name: 'server', kind: KIND.POSTGRES, database: 'app' });
+
+    const record = createMcpManagedAccount(profile.id, 'opaque-keychain-reference');
+
+    expect(record).toEqual({
+      profileId: profile.id,
+      keychainRef: 'opaque-keychain-reference',
+      state: MCP_MANAGED_ACCOUNT_STATE.PREPARED,
+    });
+    expect(listMcpManagedAccounts()).toEqual([record]);
+    expect(clearMcpManagedAccount(profile.id)).toBe(true);
+    expect(getMcpManagedAccount(profile.id)).toBeNull();
+  });
+
+  it('disables legacy server MCP profiles without managed credentials and preserves SQLite', () => {
+    const dbPath = freshDbPath();
+    initMetadataStore(dbPath);
+    const postgres = createProfile({ name: 'server', kind: KIND.POSTGRES, database: 'app' });
+    const sqlite = createProfile({ name: 'file', kind: KIND.SQLITE, filePath: '/tmp/app.db' });
+    setProfileMcpEnabled(postgres.id, true);
+    setProfileMcpEnabled(sqlite.id, true);
+
+    closeMetadataStore();
+    initMetadataStore(dbPath);
+
+    const profiles = listProfiles();
+    expect(profiles.find((profile) => profile.id === postgres.id)?.mcpEnabled).toBe(false);
+    expect(profiles.find((profile) => profile.id === sqlite.id)?.mcpEnabled).toBe(true);
+  });
+
+  it('recovers interrupted provisioning and disables the profile after reopen', () => {
+    const dbPath = freshDbPath();
+    initMetadataStore(dbPath);
+    const profile = createProfile({ name: 'server', kind: KIND.POSTGRES, database: 'app' });
+    createMcpManagedAccount(profile.id, 'opaque-keychain-reference');
+    setMcpManagedAccountState(profile.id, MCP_MANAGED_ACCOUNT_STATE.PROVISIONING);
+    setProfileMcpEnabled(profile.id, true);
+
+    closeMetadataStore();
+    initMetadataStore(dbPath);
+
+    expect(getMcpManagedAccount(profile.id)?.state).toBe(MCP_MANAGED_ACCOUNT_STATE.RECOVERY_REQUIRED);
+    expect(listProfiles().find((item) => item.id === profile.id)?.mcpEnabled).toBe(false);
   });
 });
 

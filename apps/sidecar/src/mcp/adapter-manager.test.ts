@@ -2,8 +2,17 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
-import { closeMetadataStore, createProfile, initMetadataStore, setProfileMcpEnabled } from '../db/metadata-store.js';
+import {
+  closeMetadataStore,
+  createMcpManagedAccount,
+  createProfile,
+  initMetadataStore,
+  setMcpManagedAccountState,
+  setProfileMcpEnabled,
+} from '../db/metadata-store.js';
+import { MCP_MANAGED_ACCOUNT_STATE } from '@kamehadb/shared';
 import { McpAdapterManager } from './adapter-manager.js';
 
 const tempDirs: string[] = [];
@@ -50,5 +59,29 @@ describe('McpAdapterManager concurrency', () => {
     } finally {
       await manager.closeAll();
     }
+  });
+
+  it('rejects server profiles without a hydrated managed credential instead of using the profile password', async () => {
+    const dir = tempDir();
+    initMetadataStore(join(dir, 'kamehadb.db'));
+    const profile = createProfile({
+      name: 'server',
+      kind: 'postgres',
+      host: '127.0.0.1',
+      port: 5432,
+      database: 'app',
+      username: 'admin',
+      password: 'admin-secret',
+    });
+    createMcpManagedAccount(profile.id, randomUUID());
+    setMcpManagedAccountState(profile.id, MCP_MANAGED_ACCOUNT_STATE.READY);
+    setProfileMcpEnabled(profile.id, true);
+
+    const manager = new McpAdapterManager();
+    await expect(manager.withConnection(profile.id, async () => 'query')).rejects.toMatchObject({
+      code: 'MANAGED_CREDENTIAL_UNAVAILABLE',
+    });
+    expect(manager.canServe({ ...profile, mcpEnabled: true })).toBe(false);
+    await manager.closeAll();
   });
 });

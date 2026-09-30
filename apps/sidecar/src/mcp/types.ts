@@ -7,6 +7,7 @@ import type {
   ColumnInfo,
   CollectionInfo,
 } from '@kamehadb/shared';
+import type { McpManagedCredentialBundle } from '@kamehadb/shared';
 
 /** Bounded SQL read contract. `maxRows` is the caller's row cap, excluding the truncation probe row. */
 export type BoundedQueryInput = {
@@ -16,7 +17,7 @@ export type BoundedQueryInput = {
 
 export type BoundedQueryResult = {
   columns: QueryColumn[];
-  rows: Record<string, unknown>[];
+  rows: unknown[][];
   durationMs: number;
   truncated: boolean;
 };
@@ -33,8 +34,8 @@ export type BoundedSqlAdapter = SqlAdapter & BoundedSqlRead;
 export interface McpSqlAdapter {
   listDatabases(): Promise<DatabaseInfo[]>;
   listSchemas(database?: string): Promise<SchemaInfo[]>;
-  listTables(schema?: string): Promise<TableInfo[]>;
-  getTableColumns(tableId: string): Promise<ColumnInfo[]>;
+  listTables(database?: string, schema?: string): Promise<TableInfo[]>;
+  getTableColumns(table: string, database?: string, schema?: string): Promise<ColumnInfo[]>;
   runQueryBounded(input: BoundedQueryInput): Promise<BoundedQueryResult>;
   close(): Promise<void>;
 }
@@ -61,6 +62,9 @@ export type BoundedMongoResult = {
   durationMs: number;
   truncated: boolean;
 };
+
+/** Secret material lives only in the sidecar process and is supplied by the desktop Keychain bridge. */
+export type McpManagedCredential = McpManagedCredentialBundle;
 
 /** Mongo adapter surface exposed to MCP tools. Deliberately excludes every writing method. */
 export interface McpMongoAdapter {

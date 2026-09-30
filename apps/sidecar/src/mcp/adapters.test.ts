@@ -56,10 +56,23 @@ describe('MCP SQLite bounded reader', () => {
       const columns = await adapter.getTableColumns('users');
       expect(columns.map((column) => column.name)).toEqual(['id', 'name']);
 
+      await expect(adapter.listTables('main')).resolves.toEqual([{ id: 'users', name: 'users' }]);
+      await expect(adapter.listTables('other')).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' });
+      await expect(adapter.getTableColumns('users', 'other')).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' });
+
       const truncated = await adapter.runQueryBounded({ query: 'SELECT * FROM users ORDER BY id', maxRows: 2 });
       expect(truncated.rows).toHaveLength(2);
       expect(truncated.truncated).toBe(true);
       expect(truncated.columns.map((column) => column.name)).toEqual(['id', 'name']);
+      expect(truncated.rows[0]).toEqual([1, 'user-1']);
+
+      const duplicateColumns = await adapter.runQueryBounded({
+        query: 'SELECT id AS duplicate, name AS duplicate FROM users ORDER BY id',
+        maxRows: 1,
+      });
+      expect(duplicateColumns.columns.map((column) => column.name)).toEqual(['duplicate', 'duplicate']);
+      expect(duplicateColumns.rows).toEqual([[1, 'user-1']]);
+      expect(duplicateColumns.truncated).toBe(true);
 
       const complete = await adapter.runQueryBounded({ query: 'SELECT * FROM users ORDER BY id', maxRows: 10 });
       expect(complete.rows).toHaveLength(5);
@@ -140,5 +153,47 @@ describe('MCP Mongo write-stage rejection', () => {
         updatedAt: '',
       }),
     ).toBeNull();
+  });
+
+  it('does not build server adapters without an explicit managed credential', async () => {
+    const postgres: ConnectionProfile = {
+      id: 'pg',
+      name: 'postgres',
+      kind: 'postgres',
+      host: '127.0.0.1',
+      port: 5432,
+      database: 'app',
+      username: 'admin',
+      mcpEnabled: true,
+      createdAt: '',
+      updatedAt: '',
+    };
+    expect(createMcpSqlAdapter(postgres)).toBeNull();
+    const adapter = createMcpSqlAdapter(postgres, { kind: 'postgres', username: 'kdbmcp_test', password: 'secret' });
+    expect(adapter).not.toBeNull();
+    await adapter?.close();
+  });
+
+  it('lists and describes only the configured database', async () => {
+    const profile: ConnectionProfile = {
+      id: 'pg',
+      name: 'postgres',
+      kind: 'postgres',
+      host: '127.0.0.1',
+      port: 5432,
+      database: 'app',
+      username: 'admin',
+      mcpEnabled: true,
+      createdAt: '',
+      updatedAt: '',
+    };
+    const adapter = createMcpSqlAdapter(profile, { kind: 'postgres', username: 'kdbmcp_test', password: 'secret' });
+    if (!adapter) throw new Error('adapter not created');
+    try {
+      await expect(adapter.listDatabases()).resolves.toEqual([{ name: 'app' }]);
+      await expect(adapter.listSchemas('other')).rejects.toMatchObject({ code: 'INVALID_ARGUMENTS' });
+    } finally {
+      await adapter.close();
+    }
   });
 });

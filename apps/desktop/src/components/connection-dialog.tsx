@@ -11,6 +11,7 @@ import {
   isFileDatabaseKind,
   safeErrorMessage,
   type CreateConnectionProfileInput,
+  type UpdateConnectionProfileInput,
   type ConnectionProfile,
   type DbKind,
 } from '@kamehadb/shared';
@@ -204,9 +205,23 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   async function handleSubmit(values: CreateConnectionProfileInput) {
     try {
       if (isEditing) {
+        const updateValues: UpdateConnectionProfileInput = { name: values.name };
+        if (values.kind !== editConnection.kind) updateValues.kind = values.kind;
+        if (values.host !== (editConnection.host ?? 'localhost')) updateValues.host = values.host;
+        if (values.port !== (editConnection.port ?? DEFAULT_PORTS[editConnection.kind]))
+          updateValues.port = values.port;
+        if (values.database !== (editConnection.database ?? '')) updateValues.database = values.database;
+        if (values.username !== (editConnection.username ?? '')) updateValues.username = values.username;
+        if (values.password) updateValues.password = values.password;
+        if (values.ssl !== Boolean(editConnection.ssl)) updateValues.ssl = values.ssl;
+        if ((values.filePath || undefined) !== editConnection.filePath) updateValues.filePath = values.filePath;
+        if ((values.connectionString || undefined) !== editConnection.connectionString) {
+          updateValues.connectionString = values.connectionString;
+        }
+        if (values.color !== editConnection.color) updateValues.color = values.color;
         await updateConnection.mutateAsync({
           id: editConnection.id,
-          input: values,
+          input: updateValues,
         });
         toastSuccess('Connection updated!');
       } else {

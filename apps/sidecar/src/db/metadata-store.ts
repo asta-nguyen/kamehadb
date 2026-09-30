@@ -8,8 +8,10 @@ import type {
   AIProvider,
   AISettings,
   AIProviderConfig,
+  McpManagedAccountState,
   SchemaWatcherConfig,
 } from '@kamehadb/shared';
+import { MCP_MANAGED_ACCOUNT_STATE, MCP_MANAGED_ACCOUNT_STATES, MCP_SERVER_KINDS } from '@kamehadb/shared';
 import { DEFAULT_AI_PROVIDER, MCP_DEFAULT_PORT } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
 
@@ -251,6 +253,48 @@ export function initMetadataStore(dbPath: string): void {
     if (!isDuplicateColumnError(err, 'mcp_enabled')) throw err;
     log.debug({ err }, 'migration: mcp_enabled column already exists');
   }
+
+  // Persist only the Keychain pointer and lifecycle state; generated DB credentials never enter SQLite.
+  const managedAccountStates = MCP_MANAGED_ACCOUNT_STATES.map((state) => `'${state}'`).join(', ');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_managed_accounts (
+      profile_id TEXT PRIMARY KEY,
+      keychain_ref TEXT NOT NULL UNIQUE,
+      state TEXT NOT NULL CHECK(state IN (${managedAccountStates}))
+    );
+  `);
+
+  // An interrupted create may have reached the database, so keep the record for explicit cleanup.
+  db.prepare('UPDATE mcp_managed_accounts SET state = ? WHERE state = ?').run(
+    MCP_MANAGED_ACCOUNT_STATE.RECOVERY_REQUIRED,
+    MCP_MANAGED_ACCOUNT_STATE.PROVISIONING,
+  );
+
+  const serverKindPlaceholders = MCP_SERVER_KINDS.map(() => '?').join(', ');
+  db.prepare(
+    `
+    UPDATE connection_profiles
+    SET mcp_enabled = 0
+    WHERE mcp_enabled <> 0
+      AND kind IN (${serverKindPlaceholders})
+      AND NOT EXISTS (
+        SELECT 1 FROM mcp_managed_accounts AS managed
+        WHERE managed.profile_id = connection_profiles.id
+          AND managed.state = ?
+      )
+  `,
+  ).run(...MCP_SERVER_KINDS, MCP_MANAGED_ACCOUNT_STATE.READY);
+
+  // Failed or interrupted accounts cannot remain MCP-enabled after restart.
+  db.prepare(
+    `
+    UPDATE connection_profiles
+    SET mcp_enabled = 0
+    WHERE id IN (
+      SELECT profile_id FROM mcp_managed_accounts WHERE state <> ?
+    )
+  `,
+  ).run(MCP_MANAGED_ACCOUNT_STATE.READY);
 
   // Migrate ai_settings from old single-column schema if needed
   const hasOldSettings = db
@@ -559,6 +603,54 @@ export function rotateMcpToken(): string {
   const token = generateMcpToken();
   getDb().prepare('UPDATE mcp_settings SET token = ? WHERE id = 1').run(token);
   return token;
+}
+
+export type McpManagedAccountRecord = {
+  profileId: string;
+  keychainRef: string;
+  state: McpManagedAccountState;
+};
+
+function rowToManagedAccount(row: Record<string, unknown>): McpManagedAccountRecord {
+  return {
+    profileId: row.profile_id as string,
+    keychainRef: row.keychain_ref as string,
+    state: row.state as McpManagedAccountState,
+  };
+}
+
+export function getMcpManagedAccount(profileId: string): McpManagedAccountRecord | null {
+  const row = getDb()
+    .prepare('SELECT profile_id, keychain_ref, state FROM mcp_managed_accounts WHERE profile_id = ?')
+    .get(profileId) as Record<string, unknown> | undefined;
+  return row ? rowToManagedAccount(row) : null;
+}
+
+export function listMcpManagedAccounts(): McpManagedAccountRecord[] {
+  const rows = getDb()
+    .prepare('SELECT profile_id, keychain_ref, state FROM mcp_managed_accounts ORDER BY profile_id')
+    .all() as Record<string, unknown>[];
+  return rows.map(rowToManagedAccount);
+}
+
+// Record the reference before returning generated credentials so interrupted setup can be safely discarded.
+export function createMcpManagedAccount(profileId: string, keychainRef: string): McpManagedAccountRecord {
+  getDb()
+    .prepare('INSERT INTO mcp_managed_accounts (profile_id, keychain_ref, state) VALUES (?, ?, ?)')
+    .run(profileId, keychainRef, MCP_MANAGED_ACCOUNT_STATE.PREPARED);
+  return getMcpManagedAccount(profileId)!;
+}
+
+export function setMcpManagedAccountState(profileId: string, state: McpManagedAccountState): boolean {
+  const result = getDb()
+    .prepare('UPDATE mcp_managed_accounts SET state = ? WHERE profile_id = ?')
+    .run(state, profileId);
+  return result.changes > 0;
+}
+
+export function clearMcpManagedAccount(profileId: string): boolean {
+  const result = getDb().prepare('DELETE FROM mcp_managed_accounts WHERE profile_id = ?').run(profileId);
+  return result.changes > 0;
 }
 
 export function setProfileMcpEnabled(id: string, enabled: boolean): ConnectionProfile | null {

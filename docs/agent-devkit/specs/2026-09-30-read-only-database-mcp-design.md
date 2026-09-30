@@ -1,6 +1,6 @@
 # Read-only Database MCP
 
-**Status:** Approved for planning; the implementation plan is pending user approval.
+**Status:** Approved for implementation; the implementation plan is approved.
 
 ## Goal
 
@@ -89,7 +89,7 @@ The first version excludes Oracle, ClickHouse, DuckDB, Redis, Qdrant, TigerBeetl
 
 - KamehaDB displays the MCP endpoint, token, status, and copyable setup snippets for Codex, Claude Code, Devin CLI, and OpenCode.
 - Place MCP Settings inside the existing API Settings view (`AppView` remains `workspace`, `api-settings`, and `logs`); do not add a top-level app view for MCP.
-- Every snippet sends `Authorization: Bearer <mcp-token>`. Codex uses inline `http_headers` so the copied configuration works without an environment-variable export; Claude Code uses `--header` or HTTP `headers`; Devin CLI uses its HTTP `headers` config; OpenCode uses remote MCP `headers`.
+- Every snippet sends `Authorization: Bearer <mcp-token>`. Codex uses inline `http_headers` so the copied configuration works without an environment-variable export; Claude Code uses `--header` or HTTP `headers`; Devin CLI uses its HTTP `headers` config; OpenCode uses remote MCP `headers` and sets `oauth: false` for static bearer authentication.
 - Users paste the configuration into their clients; KamehaDB does not edit external client config files.
 - When the token is rotated, KamehaDB displays the new token so users can update client configs.
 

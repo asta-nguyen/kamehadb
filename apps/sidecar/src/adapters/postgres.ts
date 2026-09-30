@@ -27,6 +27,7 @@ import type {
   BoundedSqlAdapter,
   McpAdapterTimeoutOptions,
 } from '../mcp/types.js';
+import { McpTimeoutUnavailableError } from '../mcp/types.js';
 
 export type IndexStats = {
   name: string;
@@ -141,20 +142,21 @@ export function createPostgresAdapter(
     log.error({ err }, 'Unexpected PostgreSQL pool error');
   });
 
-  // MCP-owned pools carry a server-side statement_timeout on every connection so
-  // metadata calls are bounded too. UI pools omit options and stay unchanged.
+  // Apply the native deadline before each MCP statement so a failed setting
+  // cannot leave metadata or query work running without a bound.
   const statementTimeoutMs = options?.timeoutMs ? Math.max(1, Math.floor(options.timeoutMs)) : undefined;
-  if (statementTimeoutMs !== undefined) {
-    pool.on('connect', (client) => {
-      client.query(`SET statement_timeout = ${statementTimeoutMs}`).catch((err) => {
-        log.warn({ err }, 'pg: failed to set statement_timeout on MCP connection');
-      });
-    });
+  async function applyStatementTimeout(client: pg.PoolClient, timeoutMs: number): Promise<void> {
+    try {
+      await client.query('SET statement_timeout = ' + timeoutMs);
+    } catch {
+      throw new McpTimeoutUnavailableError('PostgreSQL rejected the native statement timeout setting');
+    }
   }
 
   async function query(sql: string, params?: unknown[]) {
     const client = await pool.connect();
     try {
+      if (statementTimeoutMs !== undefined) await applyStatementTimeout(client, statementTimeoutMs);
       return await client.query(sql, params);
     } finally {
       client.release();
@@ -164,16 +166,16 @@ export function createPostgresAdapter(
   // Read a bounded batch from a pg-cursor. The callback form exposes the row
   // description, which lets zero-row results still report ordered columns.
   function readCursor(
-    cursor: Cursor,
+    cursor: Cursor<unknown[]>,
     count: number,
-  ): Promise<{ rows: Record<string, unknown>[]; fields?: pg.FieldDef[] }> {
+  ): Promise<{ rows: unknown[][]; fields?: pg.FieldDef[] }> {
     return new Promise((resolve, reject) => {
       cursor.read(count, (err, rows, result) => {
         if (err) {
           reject(err);
           return;
         }
-        resolve({ rows: rows as Record<string, unknown>[], fields: (result as pg.QueryResult | undefined)?.fields });
+        resolve({ rows, fields: (result as pg.QueryResult | undefined)?.fields });
       });
     });
   }
@@ -528,11 +530,14 @@ export function createPostgresAdapter(
       const start = performance.now();
       const rowLimit = Math.max(1, Math.floor(input.maxRows));
       const client = await pool.connect();
-      let cursor: Cursor | null = null;
+      let cursor: Cursor<unknown[]> | null = null;
       try {
         const timeoutMs = statementTimeoutMs ?? MCP_QUERY_TIMEOUT_MS;
-        await client.query(`SET statement_timeout = ${timeoutMs}`);
-        cursor = client.query(new Cursor(input.query)) as unknown as Cursor;
+        await applyStatementTimeout(client, timeoutMs);
+        // Array mode avoids losing values when a query returns duplicate column names.
+        cursor = client.query(new Cursor<unknown[]>(input.query, undefined, { rowMode: 'array' })) as unknown as Cursor<
+          unknown[]
+        >;
         const { rows, fields } = await readCursor(cursor, rowLimit + 1);
         const truncated = rows.length > rowLimit;
         const boundedRows = truncated ? rows.slice(0, rowLimit) : rows;

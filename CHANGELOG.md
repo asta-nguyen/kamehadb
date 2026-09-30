@@ -9,7 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- **Read-only MCP server** — expose MCP-enabled connections to local AI clients (Codex, Claude Code, Devin CLI, OpenCode) over a loopback `http://127.0.0.1:13979/mcp` endpoint with bearer-token auth. Includes schema discovery, bounded read-only SQL and MongoDB `find`/`aggregate` queries, per-profile opt-in with read-only database credentials, a fixed configurable port with Retry, and copyable client snippets in API Settings.
+- **Read-only MCP server** — expose MCP-enabled connections to local AI clients (Codex, Claude Code, Devin CLI, OpenCode) over a loopback `http://127.0.0.1:13979/mcp` endpoint with bearer-token auth. KamehaDB provisions a dedicated database-scoped read-only account, stores its credential in the OS Keychain, and offers explicit Revoke controls in API Settings.
+
+### Fixed
+
+- **Packaged macOS startup** — allow the `tauri://localhost` WebView origin through sidecar CORS so the health check completes.
+- **Read-only MCP safety and compatibility** — apply native SQL timeouts before MCP calls, preserve ordered duplicate columns, honor selected databases, omit credentials from profile-toggle responses, and generate a current OpenCode configuration.
 
 ---
 

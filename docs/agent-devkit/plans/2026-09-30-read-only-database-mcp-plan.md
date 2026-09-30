@@ -247,10 +247,13 @@ Change:
           {
             "$schema": "https://opencode.ai/config.json",
             "mcp": {
-              "kamehadb": {
-                "type": "remote",
-                "url": "{endpoint}",
-                "headers": { "Authorization": "Bearer {token}" }
+              "servers": {
+                "kamehadb": {
+                  "type": "remote",
+                  "url": "{endpoint}",
+                  "oauth": false,
+                  "headers": { "Authorization": "Bearer {token}" }
+                }
               }
             }
           }

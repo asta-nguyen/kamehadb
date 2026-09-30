@@ -117,10 +117,14 @@ describe('MCP runtime auth and routing', () => {
         arguments: { connection_id: profileId, sql: 'SELECT * FROM items ORDER BY id', max_rows: 2 },
       });
       const payload = JSON.parse((result.content as { type: string; text: string }[])[0].text) as {
-        rows: unknown[];
+        rows: unknown[][];
         truncated: boolean;
       };
       expect(payload.rows).toHaveLength(2);
+      expect(payload.rows).toEqual([
+        [1, 'one'],
+        [2, 'two'],
+      ]);
       expect(payload.truncated).toBe(true);
 
       const writeAttempt = await client.callTool({

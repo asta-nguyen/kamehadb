@@ -28,9 +28,10 @@ function runRequest(db: Database.Database, request: WorkerRequest): unknown {
       const columns = statement.reader
         ? statement.columns().map((column) => ({ name: column.name, type: column.type || 'unknown' }))
         : [];
-      const rows: Record<string, unknown>[] = [];
+      const rows: unknown[][] = [];
       let truncated = false;
-      for (const row of statement.iterate() as Iterable<Record<string, unknown>>) {
+      // Raw iteration preserves ordinal values and duplicate result column names.
+      for (const row of statement.raw().iterate() as Iterable<unknown[]>) {
         if (rows.length < maxRows) {
           rows.push(row);
           continue;

@@ -1,8 +1,9 @@
 # MCP read-only test accounts
 
-These fixtures create dedicated read-only database accounts for verifying the
-read-only MCP server. They do not replace or weaken the existing writable
-`kameha` user.
+These fixtures create read-only database accounts for checking that database
+grants reject writes. KamehaDB can provision its own generated account from
+**API Settings → MCP Server**; these fixtures are only for direct grant
+verification and do not replace or weaken the existing writable `kameha` user.
 
 | Engine     | File                           | Account         | Auto-run? |
 | ---------- | ------------------------------ | --------------- | --------- |
@@ -33,5 +34,12 @@ read-only MCP server. They do not replace or weaken the existing writable
    `INSERT`/`UPDATE`/`DELETE`. The database itself must reject it. This bypasses
    the application-side `isQuerySafe` check and proves the grant is the
    enforcement layer.
-2. Enable an MCP profile that uses the read-only account in KamehaDB, then run
-   the same read queries through MCP.
+2. In KamehaDB, create a normal connection profile using an account with
+   permission to create users and grant database reads. In **API Settings → MCP
+   Server**, create the managed read-only account, enable the profile, and run
+   read queries through MCP. MCP uses the generated credential stored in the OS
+   Keychain; it never uses the profile credential for queries.
+3. To verify KamehaDB's generated account directly, use the database's user
+   administration tools to inspect its grants or connect with it from a SQL or
+   MongoDB client. KamehaDB's Revoke action removes only the account generated
+   for that profile. Turning MCP off leaves that account in place.

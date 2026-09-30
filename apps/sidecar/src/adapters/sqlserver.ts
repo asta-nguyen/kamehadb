@@ -308,12 +308,14 @@ export function createSqlServerAdapter(
       await pool.connect();
 
       const columns: QueryColumn[] = [];
-      const rows: Record<string, unknown>[] = [];
+      const rows: unknown[][] = [];
       let truncated = false;
 
       return await new Promise<BoundedQueryResult>((resolve, reject) => {
         const request = pool.request();
         request.stream = true;
+        // Array mode keeps values aligned with metadata when column names repeat.
+        request.arrayRowMode = true;
         let settled = false;
         const finish = (): void => {
           if (settled) return;
@@ -327,13 +329,13 @@ export function createSqlServerAdapter(
         };
 
         request.on('recordset', (meta: unknown) => {
-          for (const [name, columnMeta] of Object.entries(meta as Record<string, { type?: { name?: string } }>)) {
-            columns.push({ name, type: columnMeta.type?.name ?? 'unknown' });
+          for (const columnMeta of meta as { name: string; type?: { name?: string } }[]) {
+            columns.push({ name: columnMeta.name, type: columnMeta.type?.name ?? 'unknown' });
           }
         });
         request.on('row', (row: unknown) => {
           if (rows.length < rowLimit) {
-            rows.push(row as Record<string, unknown>);
+            rows.push(row as unknown[]);
             return;
           }
           truncated = true;

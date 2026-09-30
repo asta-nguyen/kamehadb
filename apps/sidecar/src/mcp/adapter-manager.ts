@@ -1,10 +1,16 @@
-import { isMcpSupportedKind, KIND, type ConnectionProfile } from '@kamehadb/shared';
-import { getProfile, getProfilePassword } from '../db/metadata-store.js';
+import {
+  isMcpSupportedKind,
+  isMcpServerKind,
+  KIND,
+  MCP_MANAGED_ACCOUNT_STATE,
+  type ConnectionProfile,
+} from '@kamehadb/shared';
+import { getMcpManagedAccount, getProfile } from '../db/metadata-store.js';
 import { MCP_MAX_CONCURRENT_CALLS_PER_PROFILE } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
 import { createMcpMongoAdapter, createMcpSqlAdapter } from './adapters/factory.js';
 import { MCP_ERROR_CODE, McpToolError } from './errors.js';
-import type { McpMongoAdapter, McpSqlAdapter } from './types.js';
+import type { McpManagedCredential, McpMongoAdapter, McpSqlAdapter } from './types.js';
 
 type Entry = {
   kind: 'sql' | 'mongo';
@@ -13,13 +19,43 @@ type Entry = {
   inflight: number;
 };
 
-export type McpConnection = { kind: 'sql'; adapter: McpSqlAdapter } | { kind: 'mongo'; adapter: McpMongoAdapter };
+export type McpConnection =
+  | { kind: 'sql'; adapter: McpSqlAdapter; profile: ConnectionProfile }
+  | { kind: 'mongo'; adapter: McpMongoAdapter; profile: ConnectionProfile };
 
 // Owns MCP-only adapter instances keyed by profile id, re-checks the allowlist
 // on every call, enforces the per-profile concurrency cap, and closes adapters
 // when a profile is toggled off, edited, or deleted.
 export class McpAdapterManager {
   private readonly entries = new Map<string, Entry>();
+  private readonly credentials = new Map<string, McpManagedCredential>();
+
+  // Keep secrets only in process memory and discard adapters created with an older credential.
+  setCredential(profileId: string, credential: McpManagedCredential): void {
+    this.credentials.set(profileId, credential);
+    void this.invalidate(profileId);
+  }
+
+  clearCredential(profileId: string): Promise<void> {
+    this.credentials.delete(profileId);
+    return this.invalidate(profileId);
+  }
+
+  hasCredential(profileId: string): boolean {
+    return this.credentials.has(profileId);
+  }
+
+  canServe(profile: ConnectionProfile): boolean {
+    if (!profile.mcpEnabled || !isMcpSupportedKind(profile.kind)) return false;
+    if (!isMcpServerKind(profile.kind)) return profile.kind === KIND.SQLITE;
+    return (
+      getMcpManagedAccount(profile.id)?.state === MCP_MANAGED_ACCOUNT_STATE.READY && this.hasCredential(profile.id)
+    );
+  }
+
+  getCredential(profileId: string): McpManagedCredential | undefined {
+    return this.credentials.get(profileId);
+  }
 
   private entryFor(profile: ConnectionProfile): Entry {
     let entry = this.entries.get(profile.id);
@@ -39,6 +75,18 @@ export class McpAdapterManager {
       throw new McpToolError(MCP_ERROR_CODE.PROFILE_NOT_ENABLED, 'This connection is not enabled for MCP');
     }
 
+    const managedAccount = isMcpServerKind(profile.kind) ? getMcpManagedAccount(profile.id) : null;
+    if (isMcpServerKind(profile.kind) && managedAccount?.state !== MCP_MANAGED_ACCOUNT_STATE.READY) {
+      throw new McpToolError(MCP_ERROR_CODE.MANAGED_ACCOUNT_NOT_READY, 'Create a managed read-only account first');
+    }
+    const credential = this.credentials.get(profile.id);
+    if (isMcpServerKind(profile.kind) && !credential) {
+      throw new McpToolError(
+        MCP_ERROR_CODE.MANAGED_CREDENTIAL_UNAVAILABLE,
+        'The managed account credential is unavailable from the operating system keychain',
+      );
+    }
+
     const entry = this.entryFor(profile);
     if (entry.inflight >= MCP_MAX_CONCURRENT_CALLS_PER_PROFILE) {
       throw new McpToolError(MCP_ERROR_CODE.BUSY, 'Too many concurrent MCP calls for this connection; retry shortly');
@@ -48,21 +96,21 @@ export class McpAdapterManager {
     try {
       if (entry.kind === 'mongo') {
         if (!entry.mongo) {
-          entry.mongo = createMcpMongoAdapter(profile) ?? undefined;
+          entry.mongo = createMcpMongoAdapter(profile, credential) ?? undefined;
           if (!entry.mongo) {
             throw new McpToolError(MCP_ERROR_CODE.PROFILE_NOT_ENABLED, 'MongoDB connection is not configured');
           }
         }
-        return await fn({ kind: 'mongo', adapter: entry.mongo });
+        return await fn({ kind: 'mongo', adapter: entry.mongo, profile });
       }
 
       if (!entry.sql) {
-        entry.sql = createMcpSqlAdapter(profile, getProfilePassword(profile.id)) ?? undefined;
+        entry.sql = createMcpSqlAdapter(profile, credential) ?? undefined;
         if (!entry.sql) {
           throw new McpToolError(MCP_ERROR_CODE.PROFILE_NOT_ENABLED, 'This engine is not supported for MCP');
         }
       }
-      return await fn({ kind: 'sql', adapter: entry.sql });
+      return await fn({ kind: 'sql', adapter: entry.sql, profile });
     } finally {
       entry.inflight--;
     }
@@ -70,21 +118,26 @@ export class McpAdapterManager {
 
   // Drop and close the cached adapter so a disabled/edited/deleted profile
   // cannot keep serving calls through a stale connection.
-  invalidate(connectionId: string): void {
+  async invalidate(connectionId: string): Promise<void> {
     const entry = this.entries.get(connectionId);
     if (!entry) return;
     this.entries.delete(connectionId);
-    if (entry.sql) {
-      void entry.sql.close().catch((err) => log.debug({ err }, 'MCP adapter close failed'));
-    }
-    if (entry.mongo) {
-      void entry.mongo.close().catch((err) => log.debug({ err }, 'MCP adapter close failed'));
-    }
+    const closers = [entry.sql?.close(), entry.mongo?.close()].filter((closer): closer is Promise<void> => !!closer);
+    await Promise.all(
+      closers.map(async (closer) => {
+        try {
+          await closer;
+        } catch (err) {
+          log.debug({ err }, 'MCP adapter close failed');
+        }
+      }),
+    );
   }
 
   async closeAll(): Promise<void> {
     const entries = [...this.entries.values()];
     this.entries.clear();
+    this.credentials.clear();
     await Promise.allSettled(
       entries.flatMap((entry) => {
         const closers: Promise<void>[] = [];
