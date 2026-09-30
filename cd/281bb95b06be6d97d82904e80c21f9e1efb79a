@@ -1,0 +1,84 @@
+CHANGELOG.md
+  s_acedfb3fda2920::t_65ff8565b5f744 10-13,17
+apps/desktop/src-tauri/Cargo.toml
+  s_acedfb3fda2920::t_2ae3189591787a 3
+AGENTS.md
+  s_acedfb3fda2920::t_ac7b42c7cfafc0 484-511
+package.json
+  s_acedfb3fda2920::t_1f43d859c30ed1 4
+apps/sidecar/package.json
+  s_acedfb3fda2920::t_4bf25bb28c77be 4
+apps/desktop/src-tauri/tauri.conf.json
+  s_acedfb3fda2920::t_64eacfa7b3df10 4
+docs/agent-devkit/INDEX.md
+  s_9567600f841b4d::t_c441da87260f22 1-4
+  s_9567600f841b4d::t_243f806af74395 5
+packages/shared/package.json
+  s_acedfb3fda2920::t_38a32cb839026e 4
+apps/desktop/package.json
+  s_acedfb3fda2920::t_2b8ef14b903a80 4
+docs/agent-devkit/specs/2026-09-30-read-only-database-mcp-design.md
+  s_9567600f841b4d::t_68bca2c2a38447 68,91,119
+  s_9567600f841b4d::t_243f806af74395 1-2,4-23,29,32-35,37,41-43,62,64-67,84,86-89,92-94,112-113,129-132,134,138-145
+  s_9567600f841b4d::t_e4f6da9bca813c 24-25,27-28,36,38-40,44-47,49-58,63,72-82,85,95-111,136-137,146-155
+  s_9567600f841b4d::t_8cd0387772beed 61
+  s_9567600f841b4d::t_4123f9f78b602e 31
+  s_9567600f841b4d::t_1766fed84cae62 59-60
+  s_9567600f841b4d::t_6a21549ae0a57c 69-70
+  s_9567600f841b4d::t_ac480d0955b684 115-118,120-128,133,135
+  s_9567600f841b4d::t_baef24184ab759 3,90
+  s_9567600f841b4d::t_7a2fd3c2a91430 48,71,83
+  s_9567600f841b4d::t_e3e72e2fb3194b 26,30,114
+.agents/skills/brainstorm-feature/SKILL.md
+  s_9567600f841b4d::t_b8fa9af4cb3649 2-3,6-167
+.agents/skills/context-handoff/SKILL.md
+  s_9567600f841b4d::t_dffed22649c080 1-4,6,8-9,11,13,15-17,19,21,23-31,33-34,36,38,40,42-43,45,47,49-93
+.agents/skills/document-wiki/SKILL.md
+  s_9567600f841b4d::t_aa707e0923fbbb 1-272
+.agents/skills/estimate-feature/SKILL.md
+  s_9567600f841b4d::t_285feffe631861 1-86
+.agents/skills/implement-task/SKILL.md
+  s_9567600f841b4d::t_41e0add6222580 1-175
+.agents/skills/lean-audit/SKILL.md
+  s_9567600f841b4d::t_a3ca1aa943fcc7 2-3,6,10-11,13,15-17,19,21-37,39,41-42,44,46,48,51-55,57,59-65,67,69-70,72,74-76,78,80-85
+.agents/skills/plan-feature/SKILL.md
+  s_9567600f841b4d::t_466fa960e64218 2-3,6-136,139,141-193
+.agents/skills/read-codebase-context/SKILL.md
+  s_9567600f841b4d::t_ee683769440213 1-4,6,8-9,11-34,36-43,45-71
+.agents/skills/review-and-verify/SKILL.md
+  s_9567600f841b4d::t_cb329175a1058c 2-3,6,8,11,14-89,92-136,139-185
+.agents/skills/setup-codebase/SKILL.md
+  s_9567600f841b4d::t_41c3cb59f71f17 1-214
+.agents/skills/setup-openez/SKILL.md
+  s_9567600f841b4d::t_fc6efa1a37a77e 2-3,6,8-9,11,13-17,19-21,23,25-29,31-33,35,37,39-41,43,45,47-52,54,56-58,60-61,63-64,66,68-69,71-72,74-78,80-81,83,85-87,89-91,93,95,97-102
+.agents/skills/systematic-debugging/SKILL.md
+  s_9567600f841b4d::t_f161e676132847 3,8,14-15,17,19-20,22,26-27,29,32-78,82-147,156-158,160-161,163,165-166,168,170-180,182,184-185,187-189,191
+.agents/skills/using-devkit/SKILL.md
+  s_9567600f841b4d::t_0ea093f8795254 2-3,6,8,10,12-15,17,19-20,22,24-29,31,33-45,47-50,52-53,55,57-58,60-67,69-71,73,75,77-82
+opencode.json
+  s_9567600f841b4d::t_0adb5c04074df3 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cd281bb95b06be6d97d82904e80c21f9e1efb79a",
+  "prompts": {},
+  "sessions": {
+    "s_9567600f841b4d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f024-455f-7101-ad47-7e13c1dcd675",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_acedfb3fda2920": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "trusted-middle",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
