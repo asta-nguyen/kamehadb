@@ -7,9 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v1.5.1] — 2026-09-01
+
 ### Added
 
 - **Query tab rename** — rename query tabs from their right-click context menu.
+- **JSON copy actions** — add JSON copy buttons to SQL results and the MongoDB footer, and remove the redundant MongoDB header dropdown.
 
 ### Fixed
 
