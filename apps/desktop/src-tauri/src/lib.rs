@@ -202,36 +202,34 @@ async fn start_sidecar(
     state: tauri::State<'_, SidecarState>,
 ) -> Result<SidecarInfo, String> {
     // Reuse the existing sidecar when it's still alive so every caller gets
-    // the same runtime port. If the process already exited, drop the stale
-    // handle here and let the normal startup path replace it.
-    {
-        let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-        if let Some(process) = guard.as_mut() {
-            match process.child.try_wait().map_err(|e| e.to_string())? {
-                None => {
-                    append_tauri_log(
-                        &app,
-                        "info",
-                        "sidecar",
-                        "Sidecar already running, skipping start",
-                        None,
-                    );
-                    return Ok(SidecarInfo {
-                        port: process.port,
-                        pid: process.child.id(),
-                        token: process.token.clone(),
-                    });
-                }
-                Some(status) => {
-                    append_tauri_log(
-                        &app,
-                        "warn",
-                        "sidecar",
-                        "Discarding stale sidecar handle before restart",
-                        Some(format!("status={status}")),
-                    );
-                    *guard = None;
-                }
+    // the same runtime port. Hold the lock until the replacement is stored so
+    // the setup hook and frontend command cannot spawn competing sidecars.
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(process) = guard.as_mut() {
+        match process.child.try_wait().map_err(|e| e.to_string())? {
+            None => {
+                append_tauri_log(
+                    &app,
+                    "info",
+                    "sidecar",
+                    "Sidecar already running, skipping start",
+                    None,
+                );
+                return Ok(SidecarInfo {
+                    port: process.port,
+                    pid: process.child.id(),
+                    token: process.token.clone(),
+                });
+            }
+            Some(status) => {
+                append_tauri_log(
+                    &app,
+                    "warn",
+                    "sidecar",
+                    "Discarding stale sidecar handle before restart",
+                    Some(format!("status={status}")),
+                );
+                *guard = None;
             }
         }
     }
@@ -366,8 +364,12 @@ async fn start_sidecar(
         return Err(message);
     };
 
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-    *guard = Some(SidecarProcess { child, port, token: sidecar_token.clone() });
+    *guard = Some(SidecarProcess {
+        child,
+        port,
+        token: sidecar_token.clone(),
+    });
+    drop(guard);
 
     append_tauri_log(
         &app,
@@ -377,7 +379,11 @@ async fn start_sidecar(
         Some(format!("pid={pid} port={port}")),
     );
 
-    let info = SidecarInfo { port, pid, token: sidecar_token };
+    let info = SidecarInfo {
+        port,
+        pid,
+        token: sidecar_token,
+    };
     if let Err(error) = app.emit("sidecar-ready", &info) {
         append_tauri_log(
             &app,

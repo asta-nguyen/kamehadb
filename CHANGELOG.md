@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- **MCP sidecar startup race** — serialize concurrent startup calls so the desktop and listener share one sidecar process and bearer token.
 - **Packaged macOS startup** — allow the `tauri://localhost` WebView origin through sidecar CORS so the health check completes.
 - **Read-only MCP safety and compatibility** — apply native SQL timeouts before MCP calls, preserve ordered duplicate columns, honor selected databases, omit credentials from profile-toggle responses, and generate a current OpenCode configuration.
 
