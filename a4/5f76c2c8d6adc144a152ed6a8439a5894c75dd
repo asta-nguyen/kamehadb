@@ -1,0 +1,43 @@
+apps/desktop/src-tauri/Cargo.toml
+  s_9567600f841b4d::t_bd0478a8c20ae6 3
+packages/shared/package.json
+  s_9567600f841b4d::t_bd0478a8c20ae6 4
+CHANGELOG.md
+  s_9567600f841b4d::t_bd0478a8c20ae6 10-13,16,20,24-27
+apps/desktop/src-tauri/tauri.conf.json
+  s_9567600f841b4d::t_bd0478a8c20ae6 4
+apps/desktop/src/components/sql-editor.test.ts
+  s_9567600f841b4d::t_5e4032b92f316b 10-12
+package.json
+  s_9567600f841b4d::t_bd0478a8c20ae6 4
+apps/sidecar/package.json
+  s_9567600f841b4d::t_bd0478a8c20ae6 4
+apps/desktop/package.json
+  s_9567600f841b4d::t_bd0478a8c20ae6 4
+apps/desktop/src-tauri/Cargo.lock
+  s_f03a4908f0f5e6::t_fe1730d5fdf22e 1918
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a45f76c2c8d6adc144a152ed6a8439a5894c75dd",
+  "prompts": {},
+  "sessions": {
+    "s_9567600f841b4d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f024-455f-7101-ad47-7e13c1dcd675",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_f03a4908f0f5e6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f68a-681e-7be1-bbb4-12b724ee0ae6",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
