@@ -3,7 +3,7 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createMcpManagedAccount, revokeMcpManagedAccount } from '@/lib/mcp-keychain';
+import { createMcpManagedAccount, revokeMcpManagedAccount } from '@/lib/mcp-managed-account';
 
 // Read the current MCP listener settings (status, port, token, enabled profiles).
 export function useMcpSettings() {
@@ -45,10 +45,9 @@ export function useRevokeMcpManagedAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: revokeMcpManagedAccount,
-    onSuccess: ({ keychainCleanedUp }) => {
+    onSuccess: () => {
       invalidateMcpState(queryClient);
-      if (keychainCleanedUp) toastSuccess('Managed database account revoked');
-      else toastError('Database account revoked; Keychain cleanup is pending. Retry cleanup from this row.');
+      toastSuccess('Managed database account revoked');
     },
     onError: (err) => {
       invalidateMcpState(queryClient);

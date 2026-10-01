@@ -83,7 +83,7 @@ export class McpAdapterManager {
     if (isMcpServerKind(profile.kind) && !credential) {
       throw new McpToolError(
         MCP_ERROR_CODE.MANAGED_CREDENTIAL_UNAVAILABLE,
-        'The managed account credential is unavailable from the operating system keychain',
+        'The managed account credential is unavailable from local storage',
       );
     }
 

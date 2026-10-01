@@ -466,7 +466,7 @@ connectionsRouter.patch('/:id/mcp', zValidator('json', SetProfileMcpEnabledSchem
       return c.json(
         {
           error: 'MCP_CREDENTIAL_UNAVAILABLE',
-          message: 'The managed credential is not available from the operating system keychain',
+          message: 'The managed credential is not available from local storage',
         },
         409,
       );

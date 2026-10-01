@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -12,10 +12,13 @@ import {
   createProfile,
   getMcpManagedAccount,
   getMcpSettings,
+  getDb,
   initMetadataStore,
   listMcpManagedAccounts,
   listProfiles,
+  loadMcpManagedCredential,
   rotateMcpToken,
+  saveMcpManagedCredential,
   setMcpManagedAccountState,
   setProfileMcpEnabled,
   updateMcpPort,
@@ -82,20 +85,67 @@ describe('profile MCP allowlist', () => {
 });
 
 describe('managed MCP account persistence', () => {
-  it('stores only the Keychain reference and lifecycle state', () => {
+  it('stores the opaque principal reference and lifecycle state', () => {
     initMetadataStore(freshDbPath());
     const profile = createProfile({ name: 'server', kind: KIND.POSTGRES, database: 'app' });
 
-    const record = createMcpManagedAccount(profile.id, 'opaque-keychain-reference');
+    const record = createMcpManagedAccount(profile.id, 'opaque-account-reference');
 
     expect(record).toEqual({
       profileId: profile.id,
-      keychainRef: 'opaque-keychain-reference',
+      accountRef: 'opaque-account-reference',
       state: MCP_MANAGED_ACCOUNT_STATE.PREPARED,
     });
     expect(listMcpManagedAccounts()).toEqual([record]);
     expect(clearMcpManagedAccount(profile.id)).toBe(true);
     expect(getMcpManagedAccount(profile.id)).toBeNull();
+  });
+
+  it('encrypts credentials in SQLite and restores them after reopening', () => {
+    const dbPath = freshDbPath();
+    initMetadataStore(dbPath);
+    const profile = createProfile({ name: 'server', kind: KIND.POSTGRES, database: 'app' });
+    const credential = { kind: KIND.POSTGRES, username: 'kdbmcp_account', password: 'generated-secret' } as const;
+    createMcpManagedAccount(profile.id, 'opaque-account-reference');
+    saveMcpManagedCredential(profile.id, credential);
+
+    const stored = getDb()
+      .prepare('SELECT credential_ciphertext FROM mcp_managed_accounts WHERE profile_id = ?')
+      .get(profile.id) as { credential_ciphertext: string };
+    expect(stored.credential_ciphertext).not.toContain(credential.password);
+    expect(readFileSync(`${dbPath}.mcp.key`)).toHaveLength(32);
+
+    closeMetadataStore();
+    initMetadataStore(dbPath);
+    expect(loadMcpManagedCredential(profile.id)).toEqual(credential);
+  });
+
+  it('fails closed when ciphertext is altered or the local key is missing', () => {
+    const dbPath = freshDbPath();
+    initMetadataStore(dbPath);
+    const profile = createProfile({ name: 'server', kind: KIND.POSTGRES, database: 'app' });
+    createMcpManagedAccount(profile.id, 'opaque-account-reference');
+    saveMcpManagedCredential(profile.id, { kind: KIND.POSTGRES, username: 'mcp', password: 'secret' });
+    const original = getDb()
+      .prepare('SELECT credential_ciphertext FROM mcp_managed_accounts WHERE profile_id = ?')
+      .get(profile.id) as { credential_ciphertext: string };
+    const finalCharacter = original.credential_ciphertext.at(-1);
+    const altered = `${original.credential_ciphertext.slice(0, -1)}${finalCharacter === 'A' ? 'B' : 'A'}`;
+    getDb()
+      .prepare('UPDATE mcp_managed_accounts SET credential_ciphertext = ? WHERE profile_id = ?')
+      .run(altered, profile.id);
+    expect(() => loadMcpManagedCredential(profile.id)).toThrow('Stored MCP credential could not be decrypted');
+
+    getDb()
+      .prepare('UPDATE mcp_managed_accounts SET credential_ciphertext = ? WHERE profile_id = ?')
+      .run(original.credential_ciphertext, profile.id);
+    unlinkSync(`${dbPath}.mcp.key`);
+    expect(() => loadMcpManagedCredential(profile.id)).toThrow('Stored MCP credential could not be decrypted');
+    const second = createProfile({ name: 'second', kind: KIND.POSTGRES, database: 'app' });
+    createMcpManagedAccount(second.id, 'second-reference');
+    expect(() =>
+      saveMcpManagedCredential(second.id, { kind: KIND.POSTGRES, username: 'mcp', password: 'secret' }),
+    ).toThrow('Local MCP credential key is unavailable');
   });
 
   it('disables legacy server MCP profiles without managed credentials and preserves SQLite', () => {
@@ -118,7 +168,7 @@ describe('managed MCP account persistence', () => {
     const dbPath = freshDbPath();
     initMetadataStore(dbPath);
     const profile = createProfile({ name: 'server', kind: KIND.POSTGRES, database: 'app' });
-    createMcpManagedAccount(profile.id, 'opaque-keychain-reference');
+    createMcpManagedAccount(profile.id, 'opaque-account-reference');
     setMcpManagedAccountState(profile.id, MCP_MANAGED_ACCOUNT_STATE.PROVISIONING);
     setProfileMcpEnabled(profile.id, true);
 

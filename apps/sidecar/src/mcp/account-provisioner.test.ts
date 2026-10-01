@@ -12,7 +12,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { createMcpSqlAdapter } from './adapters/factory.js';
 
-const KEYCHAIN_REF = '25efed27-9d9f-4c0e-9e42-73d09862d768';
+const ACCOUNT_REF = '25efed27-9d9f-4c0e-9e42-73d09862d768';
 const MARIADB_DOCKER_HOST_PORT = 3307;
 
 describe('MCP managed account preparation', () => {
@@ -26,11 +26,11 @@ describe('MCP managed account preparation', () => {
       createdAt: '',
       updatedAt: '',
     } as const;
-    const first = prepareMcpAccount(profile, KEYCHAIN_REF);
-    const second = prepareMcpAccount(profile, KEYCHAIN_REF);
+    const first = prepareMcpAccount(profile, ACCOUNT_REF);
+    const second = prepareMcpAccount(profile, ACCOUNT_REF);
     expect(first.kind).toBe(KIND.POSTGRES);
     if (first.kind === KIND.MONGODB || second.kind === KIND.MONGODB) throw new Error('Expected SQL credentials');
-    expect(first.username).toBe(expectedMcpUsername(KIND.POSTGRES, KEYCHAIN_REF));
+    expect(first.username).toBe(expectedMcpUsername(KIND.POSTGRES, ACCOUNT_REF));
     expect(first.username).toBe(second.username);
     expect(first.username.length).toBeLessThanOrEqual(31);
     expect(first.password).toMatch(/^[A-Za-z0-9_-]{40,}$/);
@@ -48,16 +48,16 @@ describe('MCP managed account preparation', () => {
       createdAt: '',
       updatedAt: '',
     } as const;
-    const credential = prepareMcpAccount(profile, KEYCHAIN_REF);
+    const credential = prepareMcpAccount(profile, ACCOUNT_REF);
     expect(credential.kind).toBe(KIND.MONGODB);
     if (credential.kind !== KIND.MONGODB) throw new Error('Expected MongoDB credentials');
     const parsed = new URL(credential.connectionString);
     expect(parsed.host).toBe('localhost:27017');
-    expect(parsed.username).toBe(expectedMcpUsername(KIND.MONGODB, KEYCHAIN_REF));
+    expect(parsed.username).toBe(expectedMcpUsername(KIND.MONGODB, ACCOUNT_REF));
     expect(parsed.searchParams.get('authSource')).toBe('app');
     expect(parsed.searchParams.get('tls')).toBe('true');
     expect(credential.connectionString).not.toContain('old-secret');
-    expect(isMcpManagedCredentialForProfile(profile, KEYCHAIN_REF, credential)).toBe(true);
+    expect(isMcpManagedCredentialForProfile(profile, ACCOUNT_REF, credential)).toBe(true);
   });
 
   it('preserves MongoDB multi-host authorities when preparing credentials', () => {
@@ -71,14 +71,14 @@ describe('MCP managed account preparation', () => {
       createdAt: '',
       updatedAt: '',
     } as const;
-    const credential = prepareMcpAccount(profile, KEYCHAIN_REF);
+    const credential = prepareMcpAccount(profile, ACCOUNT_REF);
     expect(credential.kind).toBe(KIND.MONGODB);
     if (credential.kind !== KIND.MONGODB) throw new Error('Expected MongoDB credentials');
     expect(credential.connectionString).toContain('@mongo-a:27017,mongo-b:27017/');
-    expect(isMcpManagedCredentialForProfile(profile, KEYCHAIN_REF, credential)).toBe(true);
+    expect(isMcpManagedCredentialForProfile(profile, ACCOUNT_REF, credential)).toBe(true);
   });
 
-  it('rejects a MongoDB keychain URI whose endpoint options were changed', () => {
+  it('rejects a MongoDB managed URI whose endpoint options were changed', () => {
     const profile = {
       id: 'profile',
       name: 'MongoDB',
@@ -89,10 +89,10 @@ describe('MCP managed account preparation', () => {
       createdAt: '',
       updatedAt: '',
     } as const;
-    const credential = prepareMcpAccount(profile, KEYCHAIN_REF);
+    const credential = prepareMcpAccount(profile, ACCOUNT_REF);
     if (credential.kind !== KIND.MONGODB) throw new Error('Expected MongoDB credentials');
     credential.connectionString = credential.connectionString.replace('tls=true', 'tls=false');
-    expect(isMcpManagedCredentialForProfile(profile, KEYCHAIN_REF, credential)).toBe(false);
+    expect(isMcpManagedCredentialForProfile(profile, ACCOUNT_REF, credential)).toBe(false);
   });
 
   it('rejects SQLite because its MCP worker already opens the file read-only', () => {
@@ -107,7 +107,7 @@ describe('MCP managed account preparation', () => {
           createdAt: '',
           updatedAt: '',
         },
-        KEYCHAIN_REF,
+        ACCOUNT_REF,
       ),
     ).toThrow(/managed MCP account/i);
   });
@@ -121,7 +121,7 @@ const liveSqlCases = [
 
 describe.skipIf(process.env.KAMEHADB_RUN_MCP_LIVE_TESTS !== '1')('live MCP account grants', () => {
   it.each(liveSqlCases)('$kind provisions database-scoped reads and rejects table creation', async ({ kind, port }) => {
-    const keychainRef = randomUUID();
+    const accountRef = randomUUID();
     const profile: ConnectionProfile = {
       id: `live-${kind}`,
       name: kind,
@@ -134,11 +134,11 @@ describe.skipIf(process.env.KAMEHADB_RUN_MCP_LIVE_TESTS !== '1')('live MCP accou
       createdAt: '',
       updatedAt: '',
     };
-    const credential = prepareMcpAccount(profile, keychainRef);
+    const credential = prepareMcpAccount(profile, accountRef);
     if (credential.kind === KIND.MONGODB) throw new Error('Expected SQL credentials');
     let stateRecorded = false;
     try {
-      await provisionMcpAccount(profile, 'kameha', keychainRef, credential, () => {
+      await provisionMcpAccount(profile, 'kameha', accountRef, credential, () => {
         stateRecorded = true;
       });
       expect(stateRecorded).toBe(true);
@@ -152,7 +152,7 @@ describe.skipIf(process.env.KAMEHADB_RUN_MCP_LIVE_TESTS !== '1')('live MCP accou
         await adapter.close();
       }
 
-      const table = `mcp_probe_${keychainRef.replaceAll('-', '')}`;
+      const table = `mcp_probe_${accountRef.replaceAll('-', '')}`;
       let created = false;
       if (kind === KIND.POSTGRES) {
         const client = new pg.Client({
@@ -196,12 +196,12 @@ describe.skipIf(process.env.KAMEHADB_RUN_MCP_LIVE_TESTS !== '1')('live MCP accou
       }
       expect(created).toBe(false);
     } finally {
-      await revokeMcpAccount(profile, 'kameha', keychainRef);
+      await revokeMcpAccount(profile, 'kameha', accountRef);
     }
   });
 
   it('refuses the default unauthenticated MongoDB service before creating an account', async () => {
-    const keychainRef = randomUUID();
+    const accountRef = randomUUID();
     const profile: ConnectionProfile = {
       id: 'live-mongodb',
       name: 'MongoDB',
@@ -212,11 +212,11 @@ describe.skipIf(process.env.KAMEHADB_RUN_MCP_LIVE_TESTS !== '1')('live MCP accou
       createdAt: '',
       updatedAt: '',
     };
-    const credential = prepareMcpAccount(profile, keychainRef);
+    const credential = prepareMcpAccount(profile, accountRef);
     if (credential.kind !== KIND.MONGODB) throw new Error('Expected MongoDB credentials');
     let writeStarted = false;
     await expect(
-      provisionMcpAccount(profile, undefined, keychainRef, credential, () => {
+      provisionMcpAccount(profile, undefined, accountRef, credential, () => {
         writeStarted = true;
       }),
     ).rejects.toThrow(/unauthenticated reads/i);

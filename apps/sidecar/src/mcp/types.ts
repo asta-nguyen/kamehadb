@@ -63,7 +63,7 @@ export type BoundedMongoResult = {
   truncated: boolean;
 };
 
-/** Secret material lives only in the sidecar process and is supplied by the desktop Keychain bridge. */
+/** Secret material is encrypted at rest and loaded into the sidecar process for MCP calls. */
 export type McpManagedCredential = McpManagedCredentialBundle;
 
 /** Mongo adapter surface exposed to MCP tools. Deliberately excludes every writing method. */

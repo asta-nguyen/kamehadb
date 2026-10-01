@@ -64,8 +64,11 @@ selected database.
    and grant read access on its selected database.
 2. Open **API Settings → MCP Server** and choose **Create read-only account**.
    KamehaDB grants only read access on that database and stores the generated
-   account credential in the operating system Keychain. SQLite keeps its
-   existing read-only file connection and does not need a database account.
+   credential encrypted in its local SQLite metadata store, using an app-managed
+   key file. This works across macOS, Windows, and Linux. Existing accounts
+   created by older Keychain-backed versions must be revoked and recreated.
+   SQLite keeps its existing read-only file connection and does not need a
+   database account.
 3. Enable the profile, then copy the generated snippet for Codex, Claude Code,
    Devin CLI, or OpenCode into its config. Snippets include the endpoint and
    bearer token.

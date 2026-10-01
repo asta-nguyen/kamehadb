@@ -34,8 +34,8 @@ function requireDatabase(profile: ConnectionProfile): string {
   return profile.database;
 }
 
-function generatedUsername(kind: ConnectionProfile['kind'], keychainRef: string): string {
-  const digest = createHash('sha256').update(keychainRef).digest('hex');
+function generatedUsername(kind: ConnectionProfile['kind'], accountRef: string): string {
+  const digest = createHash('sha256').update(accountRef).digest('hex');
   const prefix = 'kdbmcp_';
   switch (kind) {
     case KIND.POSTGRES:
@@ -51,8 +51,8 @@ function generatedUsername(kind: ConnectionProfile['kind'], keychainRef: string)
   }
 }
 
-export function expectedMcpUsername(kind: ConnectionProfile['kind'], keychainRef: string): string {
-  return generatedUsername(kind, keychainRef);
+export function expectedMcpUsername(kind: ConnectionProfile['kind'], accountRef: string): string {
+  return generatedUsername(kind, accountRef);
 }
 
 function quotePgIdentifier(value: string): string {
@@ -150,18 +150,18 @@ function mongoUri(uri: string, username?: string, password?: string, authSource?
 
 export function isMcpManagedCredentialForProfile(
   profile: ConnectionProfile,
-  keychainRef: string,
+  accountRef: string,
   credential: McpManagedCredentialBundle,
 ): boolean {
   if (credential.kind !== profile.kind) return false;
   if (credential.kind !== KIND.MONGODB) {
-    return credential.username === generatedUsername(profile.kind, keychainRef);
+    return credential.username === generatedUsername(profile.kind, accountRef);
   }
   if (!profile.connectionString || !profile.database) return false;
   try {
     const actual = parseMongoUri(credential.connectionString);
     return (
-      actual.username === generatedUsername(profile.kind, keychainRef) &&
+      actual.username === generatedUsername(profile.kind, accountRef) &&
       actual.password.length > 0 &&
       mongoUri(profile.connectionString, actual.username, actual.password, profile.database) ===
         credential.connectionString
@@ -171,10 +171,10 @@ export function isMcpManagedCredentialForProfile(
   }
 }
 
-export function prepareMcpAccount(profile: ConnectionProfile, keychainRef: string): McpManagedCredentialBundle {
+export function prepareMcpAccount(profile: ConnectionProfile, accountRef: string): McpManagedCredentialBundle {
   if (profile.kind === KIND.MONGODB) {
     if (!profile.connectionString) throw new McpAccountOperationError('MongoDB connection string is required');
-    const username = generatedUsername(profile.kind, keychainRef);
+    const username = generatedUsername(profile.kind, accountRef);
     const password = randomBytes(GENERATED_PASSWORD_BYTES).toString('base64url');
     return {
       kind: KIND.MONGODB,
@@ -190,7 +190,7 @@ export function prepareMcpAccount(profile: ConnectionProfile, keychainRef: strin
   ) {
     return {
       kind: profile.kind,
-      username: generatedUsername(profile.kind, keychainRef),
+      username: generatedUsername(profile.kind, accountRef),
       password: randomBytes(GENERATED_PASSWORD_BYTES).toString('base64url'),
     };
   }
@@ -668,15 +668,15 @@ async function verifyMongoAccount(
 
 async function provisionMongo(
   profile: ConnectionProfile,
-  keychainRef: string,
+  accountRef: string,
   credential: Extract<McpManagedCredentialBundle, { connectionString: string }>,
   beforeFirstWrite: () => void,
 ): Promise<void> {
   await assertMongoAuthEnabled(profile);
-  const username = generatedUsername(profile.kind, keychainRef);
+  const username = generatedUsername(profile.kind, accountRef);
   const generated = parseMongoUri(credential.connectionString);
   if (generated.username !== username) {
-    throw new McpAccountOperationError('Generated MongoDB account does not match the saved Keychain reference');
+    throw new McpAccountOperationError('Generated MongoDB account does not match its saved account reference');
   }
   const adminUri = profile.connectionString;
   if (!adminUri) throw new McpAccountOperationError('MongoDB connection string is required');
@@ -728,12 +728,12 @@ async function revokeMongo(profile: ConnectionProfile, username: string): Promis
 export async function provisionMcpAccount(
   profile: ConnectionProfile,
   adminPassword: string | undefined,
-  keychainRef: string,
+  accountRef: string,
   credential: McpManagedCredentialBundle,
   beforeFirstWrite: () => void,
 ): Promise<void> {
   if (profile.kind === KIND.MONGODB) {
-    await provisionMongo(profile, keychainRef, mongoCredentialMatches(profile, credential), beforeFirstWrite);
+    await provisionMongo(profile, accountRef, mongoCredentialMatches(profile, credential), beforeFirstWrite);
     return;
   }
   const sqlCredential = requireSqlCredential(profile, credential);
@@ -756,9 +756,9 @@ export async function provisionMcpAccount(
 export async function revokeMcpAccount(
   profile: ConnectionProfile,
   adminPassword: string | undefined,
-  keychainRef: string,
+  accountRef: string,
 ): Promise<void> {
-  const username = generatedUsername(profile.kind, keychainRef);
+  const username = generatedUsername(profile.kind, accountRef);
   switch (profile.kind) {
     case KIND.POSTGRES:
       await revokePostgres(profile, adminPassword, username);

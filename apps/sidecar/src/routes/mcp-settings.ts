@@ -1,14 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import {
-  isMcpServerKind,
-  KIND,
-  MCP_MANAGED_ACCOUNT_STATE,
-  McpAccountProvisionSchema,
-  McpCredentialHydrationSchema,
-  McpPrepareAccountSchema,
-  UpdateMcpPortSchema,
-} from '@kamehadb/shared';
+import { randomUUID } from 'node:crypto';
+import { isMcpServerKind, KIND, MCP_MANAGED_ACCOUNT_STATE, UpdateMcpPortSchema } from '@kamehadb/shared';
 import * as metadataStore from '../db/metadata-store.js';
 import { log } from '../lib/logger.js';
 import type { McpRuntime } from '../mcp/runtime.js';
@@ -19,7 +12,6 @@ import {
   provisionMcpAccount,
   revokeMcpAccount,
 } from '../mcp/account-provisioner.js';
-import { MCP_ERROR_CODE } from '../mcp/errors.js';
 
 // These management routes run on the authenticated internal sidecar listener, not MCP transport.
 export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
@@ -57,56 +49,7 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
     });
   });
 
-  router.get('/credential-refs', (c) => {
-    return c.json({
-      credentials: metadataStore.listMcpManagedAccounts().map(({ profileId, keychainRef, state }) => ({
-        profileId,
-        keychainRef,
-        state,
-      })),
-    });
-  });
-
-  router.put('/credentials/:profileId', zValidator('json', McpCredentialHydrationSchema), (c) => {
-    const profileId = c.req.param('profileId');
-    if (revokingProfiles.has(profileId)) {
-      return c.json(
-        { error: 'ACCOUNT_OPERATION_IN_PROGRESS', message: 'Another MCP account operation is in progress' },
-        409,
-      );
-    }
-    const profile = metadataStore.getProfile(profileId);
-    const account = metadataStore.getMcpManagedAccount(profileId);
-    // Account creation hydrates its generated secret while prepared; MCP calls remain blocked until ready.
-    if (
-      !profile ||
-      !account ||
-      (account.state !== MCP_MANAGED_ACCOUNT_STATE.READY && account.state !== MCP_MANAGED_ACCOUNT_STATE.PREPARED) ||
-      !isMcpServerKind(profile.kind)
-    ) {
-      return c.json(
-        { error: MCP_ERROR_CODE.MANAGED_ACCOUNT_NOT_READY, message: 'Managed account is not configured' },
-        404,
-      );
-    }
-    const { credential } = c.req.valid('json');
-    if (credential.kind !== profile.kind) {
-      return c.json(
-        { error: 'CREDENTIAL_KIND_MISMATCH', message: 'Keychain credential does not match this profile' },
-        400,
-      );
-    }
-    if (!isMcpManagedCredentialForProfile(profile, account.keychainRef, credential)) {
-      return c.json(
-        { error: 'CREDENTIAL_IDENTITY_MISMATCH', message: 'Keychain credential does not match this managed account' },
-        400,
-      );
-    }
-    runtime.adapterManager.setCredential(profileId, credential);
-    return c.json({ profileId, credentialAvailable: true });
-  });
-
-  router.post('/profiles/:profileId/account/prepare', zValidator('json', McpPrepareAccountSchema), (c) => {
+  router.post('/profiles/:profileId/account/prepare', (c) => {
     const profileId = c.req.param('profileId');
     const profile = metadataStore.getProfile(profileId);
     if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
@@ -120,19 +63,28 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
       );
     }
 
-    const { keychainRef } = c.req.valid('json');
+    const accountRef = randomUUID();
+    let accountCreated = false;
     try {
-      metadataStore.createMcpManagedAccount(profileId, keychainRef);
-      return c.json({ credential: prepareMcpAccount(profile, keychainRef) }, 201);
+      const credential = prepareMcpAccount(profile, accountRef);
+      metadataStore.createMcpManagedAccount(profileId, accountRef);
+      accountCreated = true;
+      metadataStore.saveMcpManagedCredential(profileId, credential);
+      const stored = metadataStore.loadMcpManagedCredential(profileId);
+      if (!stored || !isMcpManagedCredentialForProfile(profile, accountRef, stored)) {
+        throw new McpAccountOperationError('Stored MCP credential could not be verified');
+      }
+      runtime.adapterManager.setCredential(profileId, stored);
+      return c.json({ profileId, state: MCP_MANAGED_ACCOUNT_STATE.PREPARED }, 201);
     } catch (error) {
-      metadataStore.clearMcpManagedAccount(profileId);
+      if (accountCreated) metadataStore.clearMcpManagedAccount(profileId);
       const message =
-        error instanceof McpAccountOperationError ? error.message : 'MCP account setup could not be prepared';
+        error instanceof McpAccountOperationError ? error.message : 'MCP credential could not be stored locally';
       return c.json({ error: 'PREPARE_FAILED', message }, 400);
     }
   });
 
-  router.post('/profiles/:profileId/account/provision', zValidator('json', McpAccountProvisionSchema), async (c) => {
+  router.post('/profiles/:profileId/account/provision', async (c) => {
     const profileId = c.req.param('profileId');
     if (provisioningProfiles.has(profileId) || revokingProfiles.has(profileId)) {
       return c.json(
@@ -144,10 +96,7 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
     const account = metadataStore.getMcpManagedAccount(profileId);
     if (!profile || !account)
       return c.json({ error: 'MANAGED_ACCOUNT_NOT_READY', message: 'MCP account setup is incomplete' }, 404);
-    if (
-      account.keychainRef !== c.req.valid('json').keychainRef ||
-      account.state !== MCP_MANAGED_ACCOUNT_STATE.PREPARED
-    ) {
+    if (account.state !== MCP_MANAGED_ACCOUNT_STATE.PREPARED) {
       return c.json({ error: 'MANAGED_ACCOUNT_NOT_READY', message: 'MCP account is not ready to provision' }, 409);
     }
     const credential = runtime.adapterManager.getCredential(profileId);
@@ -155,7 +104,7 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
       return c.json(
         {
           error: 'MANAGED_CREDENTIAL_UNAVAILABLE',
-          message: 'Store the generated credential in the operating system keychain and retry',
+          message: 'The prepared credential is unavailable; revoke and create the account again',
         },
         409,
       );
@@ -167,7 +116,7 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
       await provisionMcpAccount(
         profile,
         metadataStore.getProfilePassword(profileId),
-        account.keychainRef,
+        account.accountRef,
         credential,
         () => {
           if (!metadataStore.setMcpManagedAccountState(profileId, MCP_MANAGED_ACCOUNT_STATE.PROVISIONING)) {
@@ -218,10 +167,10 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
       await runtime.adapterManager.clearCredential(profileId);
       if (
         account.state !== MCP_MANAGED_ACCOUNT_STATE.PREPARED &&
-        account.state !== MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING
+        account.state !== MCP_MANAGED_ACCOUNT_STATE.LOCAL_CLEANUP_PENDING
       ) {
         try {
-          await revokeMcpAccount(profile, metadataStore.getProfilePassword(profileId), account.keychainRef);
+          await revokeMcpAccount(profile, metadataStore.getProfilePassword(profileId), account.accountRef);
         } catch (error) {
           log.warn(
             {
@@ -242,31 +191,13 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
         }
       }
 
-      metadataStore.setMcpManagedAccountState(profileId, MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING);
-      return c.json({ profileId, revoked: true, keychainCleanupPending: true });
+      // The pending state lets a retry finish local cleanup without dropping the DB account twice.
+      metadataStore.setMcpManagedAccountState(profileId, MCP_MANAGED_ACCOUNT_STATE.LOCAL_CLEANUP_PENDING);
+      metadataStore.clearMcpManagedAccount(profileId);
+      return c.json({ profileId, revoked: true });
     } finally {
       revokingProfiles.delete(profileId);
     }
-  });
-
-  router.post('/profiles/:profileId/account/revoke/complete', (c) => {
-    const profileId = c.req.param('profileId');
-    if (provisioningProfiles.has(profileId) || revokingProfiles.has(profileId)) {
-      return c.json(
-        { error: 'ACCOUNT_OPERATION_IN_PROGRESS', message: 'Another MCP account operation is in progress' },
-        409,
-      );
-    }
-    const account = metadataStore.getMcpManagedAccount(profileId);
-    if (!account) return c.json({ profileId, finalized: true });
-    if (account.state !== MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING) {
-      return c.json(
-        { error: 'REVOKE_NOT_READY', message: 'Database revocation must succeed before Keychain cleanup completes' },
-        409,
-      );
-    }
-    metadataStore.clearMcpManagedAccount(profileId);
-    return c.json({ profileId, finalized: true });
   });
 
   return router;

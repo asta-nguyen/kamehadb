@@ -9,13 +9,16 @@ import type {
   AISettings,
   AIProviderConfig,
   McpManagedAccountState,
+  McpManagedCredentialBundle,
   SchemaWatcherConfig,
 } from '@kamehadb/shared';
 import { MCP_MANAGED_ACCOUNT_STATE, MCP_MANAGED_ACCOUNT_STATES, MCP_SERVER_KINDS } from '@kamehadb/shared';
 import { DEFAULT_AI_PROVIDER, MCP_DEFAULT_PORT } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
+import { decryptMcpCredential, encryptMcpCredential } from './mcp-credential-vault.js';
 
 let db: Database.Database | null = null;
+let metadataDbPath: string | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
 
 function isDuplicateColumnError(error: unknown, column: string): boolean {
@@ -68,6 +71,7 @@ function createDefaultAISettings(): AISettings {
 
 export function initMetadataStore(dbPath: string): void {
   db = new Database(dbPath);
+  metadataDbPath = dbPath;
   db.pragma('journal_mode = WAL');
 
   try {
@@ -254,23 +258,25 @@ export function initMetadataStore(dbPath: string): void {
     log.debug({ err }, 'migration: mcp_enabled column already exists');
   }
 
-  // Persist only the Keychain pointer and lifecycle state; generated DB credentials never enter SQLite.
+  // Keep the legacy reference column because generated database principals derive their names from it.
+  // New credentials are encrypted into this row; old accounts retain a null ciphertext.
   const managedAccountStates = MCP_MANAGED_ACCOUNT_STATES.map((state) => `'${state}'`).join(', ');
   db.exec(`
     CREATE TABLE IF NOT EXISTS mcp_managed_accounts (
       profile_id TEXT PRIMARY KEY,
       keychain_ref TEXT NOT NULL UNIQUE,
-      state TEXT NOT NULL CHECK(state IN (${managedAccountStates}))
+      state TEXT NOT NULL CHECK(state IN (${managedAccountStates})),
+      credential_ciphertext TEXT
     );
   `);
 
-  // Rebuild the state constraint so a failed Keychain delete can retain its opaque reference for retry.
+  // Accept the persisted cleanup-pending state so older account rows remain revocable.
   const managedAccountsSql = (
     db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'mcp_managed_accounts'").get() as
       | { sql: string }
       | undefined
   )?.sql;
-  const cleanupPendingState = `'${MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING}'`;
+  const cleanupPendingState = `'${MCP_MANAGED_ACCOUNT_STATE.LOCAL_CLEANUP_PENDING}'`;
   if (managedAccountsSql && !managedAccountsSql.includes(cleanupPendingState)) {
     db.exec(`
       BEGIN TRANSACTION;
@@ -285,6 +291,11 @@ export function initMetadataStore(dbPath: string): void {
       DROP TABLE mcp_managed_accounts_old;
       COMMIT;
     `);
+  }
+  try {
+    db.exec('ALTER TABLE mcp_managed_accounts ADD COLUMN credential_ciphertext TEXT');
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'credential_ciphertext')) throw err;
   }
 
   // An interrupted create may have reached the database, so keep the record for explicit cleanup.
@@ -630,14 +641,14 @@ export function rotateMcpToken(): string {
 
 export type McpManagedAccountRecord = {
   profileId: string;
-  keychainRef: string;
+  accountRef: string;
   state: McpManagedAccountState;
 };
 
 function rowToManagedAccount(row: Record<string, unknown>): McpManagedAccountRecord {
   return {
     profileId: row.profile_id as string,
-    keychainRef: row.keychain_ref as string,
+    accountRef: row.keychain_ref as string,
     state: row.state as McpManagedAccountState,
   };
 }
@@ -657,10 +668,10 @@ export function listMcpManagedAccounts(): McpManagedAccountRecord[] {
 }
 
 // Record the reference before returning generated credentials so interrupted setup can be safely discarded.
-export function createMcpManagedAccount(profileId: string, keychainRef: string): McpManagedAccountRecord {
+export function createMcpManagedAccount(profileId: string, accountRef: string): McpManagedAccountRecord {
   getDb()
     .prepare('INSERT INTO mcp_managed_accounts (profile_id, keychain_ref, state) VALUES (?, ?, ?)')
-    .run(profileId, keychainRef, MCP_MANAGED_ACCOUNT_STATE.PREPARED);
+    .run(profileId, accountRef, MCP_MANAGED_ACCOUNT_STATE.PREPARED);
   return getMcpManagedAccount(profileId)!;
 }
 
@@ -674,6 +685,36 @@ export function setMcpManagedAccountState(profileId: string, state: McpManagedAc
 export function clearMcpManagedAccount(profileId: string): boolean {
   const result = getDb().prepare('DELETE FROM mcp_managed_accounts WHERE profile_id = ?').run(profileId);
   return result.changes > 0;
+}
+
+// Persist the generated account credential before any database principal is created.
+// Refuse to replace a missing key while other encrypted accounts still depend on it.
+export function saveMcpManagedCredential(profileId: string, credential: McpManagedCredentialBundle): void {
+  const account = getMcpManagedAccount(profileId);
+  if (!account || !metadataDbPath) throw new Error('Managed MCP account is not prepared');
+  const existing = getDb()
+    .prepare('SELECT COUNT(*) AS count FROM mcp_managed_accounts WHERE credential_ciphertext IS NOT NULL')
+    .get() as { count: number };
+  const ciphertext = encryptMcpCredential(
+    metadataDbPath,
+    profileId,
+    account.accountRef,
+    credential,
+    existing.count === 0,
+  );
+  getDb()
+    .prepare('UPDATE mcp_managed_accounts SET credential_ciphertext = ? WHERE profile_id = ?')
+    .run(ciphertext, profileId);
+}
+
+export function loadMcpManagedCredential(profileId: string): McpManagedCredentialBundle | null {
+  const account = getMcpManagedAccount(profileId);
+  if (!account || !metadataDbPath) return null;
+  const row = getDb()
+    .prepare('SELECT credential_ciphertext FROM mcp_managed_accounts WHERE profile_id = ?')
+    .get(profileId) as { credential_ciphertext: string | null } | undefined;
+  if (!row?.credential_ciphertext) return null;
+  return decryptMcpCredential(metadataDbPath, profileId, account.accountRef, row.credential_ciphertext);
 }
 
 export function setProfileMcpEnabled(id: string, enabled: boolean): ConnectionProfile | null {
@@ -837,6 +878,7 @@ export function closeMetadataStore(): void {
     db.close();
     db = null;
   }
+  metadataDbPath = null;
 }
 
 // Chat message functions

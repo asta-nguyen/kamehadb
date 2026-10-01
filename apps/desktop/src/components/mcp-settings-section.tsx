@@ -230,16 +230,15 @@ export function McpSettingsSection() {
                             onClick={() => {
                               const cleanupPending =
                                 accountByProfile.get(profile.id)?.state ===
-                                MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING;
+                                MCP_MANAGED_ACCOUNT_STATE.LOCAL_CLEANUP_PENDING;
                               const message = cleanupPending
-                                ? `Retry removing the Keychain credential for “${profile.database ?? profile.name}”? Its database account is already revoked.`
+                                ? `Retry local cleanup for “${profile.database ?? profile.name}”? Its database account is already revoked.`
                                 : `Revoke the managed database account for “${profile.database ?? profile.name}”?`;
                               if (window.confirm(message)) revokeAccount.mutate(profile.id);
                             }}
                             disabled={revokeAccount.isPending}
                           >
-                            {accountByProfile.get(profile.id)?.state ===
-                            MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING
+                            {accountByProfile.get(profile.id)?.state === MCP_MANAGED_ACCOUNT_STATE.LOCAL_CLEANUP_PENDING
                               ? 'Retry cleanup'
                               : 'Revoke'}
                           </Button>
@@ -317,8 +316,8 @@ function accountStatusLabel(
   if (account.state === 'provisioning') return 'Setting up account';
   if (account.state === 'recovery_required') return 'Setup interrupted — revoke required';
   if (account.state === 'revoke_failed') return 'Revoke failed — retry required';
-  if (account.state === MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING) {
-    return 'Database account revoked — Keychain cleanup pending';
+  if (account.state === MCP_MANAGED_ACCOUNT_STATE.LOCAL_CLEANUP_PENDING) {
+    return 'Database account revoked — local cleanup pending';
   }
-  return account.credentialAvailable ? 'Ready' : 'Keychain unavailable';
+  return account.credentialAvailable ? 'Ready' : 'Local credential unavailable — revoke and recreate';
 }

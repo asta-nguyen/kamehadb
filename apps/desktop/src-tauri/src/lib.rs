@@ -1,4 +1,3 @@
-use keyring::Entry;
 use serde::Serialize;
 use std::fs;
 use std::io::{BufRead, BufReader, Read};
@@ -460,34 +459,6 @@ fn stop_sidecar(state: tauri::State<'_, SidecarState>) -> Result<(), String> {
     terminate_managed_sidecar(state.inner())
 }
 
-// Keychain operations using keyring crate
-#[tauri::command]
-async fn store_credential(
-    service: String,
-    account: String,
-    password: String,
-) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.set_password(&password).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_credential(service: String, account: String) -> Result<String, String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    let password = entry.get_password().map_err(|e| e.to_string())?;
-    Ok(password)
-}
-
-#[tauri::command]
-async fn delete_credential(service: String, account: String) -> Result<(), String> {
-    let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    match entry.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(error) => Err(error.to_string()),
-    }
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
@@ -529,9 +500,6 @@ pub fn run() {
             get_app_data_dir,
             start_sidecar,
             stop_sidecar,
-            store_credential,
-            get_credential,
-            delete_credential,
             start_postgres_psql_session,
             write_terminal_session,
             resize_terminal_session,

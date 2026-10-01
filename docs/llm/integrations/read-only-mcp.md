@@ -16,19 +16,21 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 ## Flow
 
 1. On sidecar startup, KamehaDB initializes metadata SQLite, constructs `McpRuntime`, mounts the internal settings router, and starts the separate MCP listener. Listener status is `listening`, `unavailable`, or `stopped`.
-2. In **API Settings → MCP Server**, the desktop reads listener settings, enabled profiles, and managed-account status. For server database profiles, **Create read-only account** prepares a generated credential, stores it in the OS Keychain, hydrates it into sidecar memory, then asks the sidecar to provision and verify the DB account. SQLite needs no account. The user explicitly enables the profile after setup.
+2. In **API Settings → MCP Server**, the desktop reads listener settings, enabled profiles, and managed-account status. For server database profiles, **Create read-only account** asks the sidecar to generate the credential, encrypt it into local metadata SQLite, reload and verify it, then provision and verify the DB account. The desktop never receives the credential. SQLite needs no account. The user explicitly enables the profile after setup.
 3. The desktop provides copyable snippets for Codex, Claude Code, Devin CLI, and OpenCode; it does not edit client config files. Token rotation requires updating the snippets.
 4. MCP clients send stateless Streamable HTTP JSON-RPC `POST` requests to `http://127.0.0.1:<port>/mcp` with `Authorization: Bearer <token>`.
-5. Every database tool asks `McpAdapterManager` to re-read the profile and check its allowlist. Server database calls require a ready managed-account record and an in-memory Keychain credential. Missing credentials fail closed with no fallback to saved profile credentials. SQLite calls use the existing read-only child worker.
+5. Every database tool asks `McpAdapterManager` to re-read the profile and check its allowlist. Server database calls require a ready managed-account record and an in-memory credential restored from encrypted local storage. Missing credentials fail closed with no fallback to saved profile credentials. SQLite calls use the existing read-only child worker.
 
 ## State changes
 
 - The singleton `mcp_settings` row stores the listener port and a random 32-byte base64url bearer token in metadata SQLite. Both survive restarts; listener status is runtime-only.
 - `connection_profiles.mcp_enabled` stores the per-profile allowlist flag and defaults to disabled. Migration disables legacy enabled server profiles that lack managed accounts while preserving SQLite settings.
-- `mcp_managed_accounts` stores only `profile_id`, an opaque Keychain reference, and the state `prepared`, `provisioning`, `recovery_required`, `ready`, or `revoke_failed`. Generated usernames, passwords, and MongoDB credential URIs are not stored in SQLite. The desktop rehydrates Keychain values into sidecar process memory after sidecar startup and `sidecar-ready` events.
-- Disabling MCP retains the managed DB account and Keychain item. Revoke disables MCP first, closes the adapter, drops the exact generated principal, and removes metadata after DB cleanup succeeds. A failed revoke retains state for retry. A `prepared` account can be discarded without a DB call because no DB write has started.
+- `mcp_managed_accounts` stores the profile ID, an opaque reference used to derive the generated DB principal, lifecycle state, and an AES-256-GCM encrypted credential bundle. The random 32-byte encryption key is stored beside the metadata DB in `<dbPath>.mcp.key` with owner-only permissions where supported. Copying only the SQLite DB does not reveal the credentials; copying the complete app data directory includes the key and allows decryption.
+- On sidecar startup, ready credentials are decrypted and loaded into process memory. Credentials are bound to their profile and account reference, and invalid ciphertext or a missing key fails closed. The desktop does not hydrate credentials after startup.
+- Disabling MCP retains the managed DB account and encrypted credential. Revoke disables MCP first, closes the adapter, drops the exact generated principal, then removes the local account record and ciphertext. A failed database revoke retains state for retry. A `prepared` account can be discarded without a DB call because no DB write has started.
+- Existing accounts from Keychain-backed versions have no encrypted SQLite credential. They remain unavailable to MCP until revoked and recreated; the old Keychain value is not imported or automatically removed.
 - While a managed account exists, changing the profile kind, target, SSL settings, saved username/password, or deleting the profile is rejected until Revoke.
-- MCP adapters and hydrated credentials are process-local. Profile updates, deletions, credential changes, and allowlist changes invalidate cached adapters; sidecar shutdown closes adapters and clears hydrated secrets.
+- MCP adapters and decrypted credentials are process-local. Profile updates, deletions, credential changes, and allowlist changes invalidate cached adapters; sidecar shutdown closes adapters and clears decrypted secrets.
 
 ## Authorization & constraints
 
@@ -53,7 +55,7 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 - `apps/sidecar/src/mcp/adapters.test.ts` — SQLite read-only behavior, bounded reads, write-stage rejection, server credential requirement, and database scope.
 - `apps/sidecar/src/mcp/account-provisioner.test.ts` — stable generated usernames, random passwords, MongoDB URI preparation, and SQLite exclusion.
 - `apps/sidecar/src/mcp/runtime.test.ts` — loopback transport, auth, tool list, query bounds, and listener recovery.
-- `apps/desktop/src/lib/mcp-keychain.test.ts` — Keychain hydration, create/provision order, recovery retention, and Revoke-before-Keychain-delete order.
+- `apps/desktop/src/lib/mcp-managed-account.test.ts` — prepare/provision order, failed setup cleanup, and recovery retention.
 
 ## Related
 
@@ -66,12 +68,13 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 - `apps/desktop/src/components/mcp-settings-section.tsx`
 - `apps/desktop/src/hooks/use-mcp-settings.ts`
 - `apps/desktop/src/hooks/use-sidecar.ts`
-- `apps/desktop/src/lib/mcp-keychain.ts`
+- `apps/desktop/src/lib/mcp-managed-account.ts`
 - `apps/desktop/src/lib/api.ts`
 - `apps/desktop/src/lib/tauri.ts`
 - `apps/desktop/src-tauri/src/lib.rs`
 - `apps/sidecar/src/index.ts`
 - `apps/sidecar/src/db/metadata-store.ts`
+- `apps/sidecar/src/db/mcp-credential-vault.ts`
 - `apps/sidecar/src/routes/connections.ts`
 - `apps/sidecar/src/routes/mcp-settings.ts`
 - `apps/sidecar/src/mcp/runtime.ts`
@@ -92,4 +95,4 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 - `apps/sidecar/src/mcp/adapters.test.ts`
 - `apps/sidecar/src/mcp/account-provisioner.test.ts`
 - `apps/sidecar/src/mcp/runtime.test.ts`
-- `apps/desktop/src/lib/mcp-keychain.test.ts`
+- `apps/desktop/src/lib/mcp-managed-account.test.ts`

@@ -1,5 +1,4 @@
 import { getApiHeaders, setApiBase } from '@/lib/api-client';
-import { hydrateMcpCredentials } from '@/lib/mcp-keychain';
 import { invokeTauri, isTauriRuntime, listenTauri } from '@/lib/tauri';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { useQueryClient } from '@tanstack/react-query';
@@ -53,11 +52,6 @@ export function useSidecar() {
         if (!ok) {
           setError('Sidecar started but health check failed');
           return;
-        }
-        try {
-          await hydrateMcpCredentials();
-        } catch {
-          // Keychain recovery is optional to the desktop workspace; MCP remains fail-closed.
         }
         if (cancelled) return;
         setError(null);

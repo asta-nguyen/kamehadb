@@ -362,7 +362,8 @@ export const MCP_MANAGED_ACCOUNT_STATE = {
   RECOVERY_REQUIRED: 'recovery_required',
   READY: 'ready',
   REVOKE_FAILED: 'revoke_failed',
-  KEYCHAIN_CLEANUP_PENDING: 'keychain_cleanup_pending',
+  // Keep the stored value so profiles from Keychain-backed releases can finish cleanup.
+  LOCAL_CLEANUP_PENDING: 'keychain_cleanup_pending',
 } as const;
 export const MCP_MANAGED_ACCOUNT_STATES = Object.values(MCP_MANAGED_ACCOUNT_STATE);
 export type McpManagedAccountState = (typeof MCP_MANAGED_ACCOUNT_STATES)[number];
@@ -379,15 +380,6 @@ export const McpManagedCredentialBundleSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 export type McpManagedCredentialBundle = z.infer<typeof McpManagedCredentialBundleSchema>;
-
-export const McpPrepareAccountSchema = z.object({ keychainRef: z.string().uuid() });
-export type McpPrepareAccountInput = z.infer<typeof McpPrepareAccountSchema>;
-
-export const McpCredentialHydrationSchema = z.object({ credential: McpManagedCredentialBundleSchema });
-export type McpCredentialHydrationInput = z.infer<typeof McpCredentialHydrationSchema>;
-
-export const McpAccountProvisionSchema = z.object({ keychainRef: z.string().uuid() });
-export type McpAccountProvisionInput = z.infer<typeof McpAccountProvisionSchema>;
 
 export const McpManagedAccountStatusSchema = z.object({
   profileId: z.string(),

@@ -2,9 +2,24 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { timingSafeEqual } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { isMcpSupportedKind, type McpListenerStatus, type McpSettingsResponse } from '@kamehadb/shared';
-import { getMcpSettings, listProfiles, rotateMcpToken, updateMcpPort } from '../db/metadata-store.js';
+import {
+  isMcpServerKind,
+  isMcpSupportedKind,
+  MCP_MANAGED_ACCOUNT_STATE,
+  type McpListenerStatus,
+  type McpSettingsResponse,
+} from '@kamehadb/shared';
+import {
+  getMcpSettings,
+  getProfile,
+  listMcpManagedAccounts,
+  listProfiles,
+  loadMcpManagedCredential,
+  rotateMcpToken,
+  updateMcpPort,
+} from '../db/metadata-store.js';
 import { log } from '../lib/logger.js';
+import { isMcpManagedCredentialForProfile } from './account-provisioner.js';
 import { McpAdapterManager } from './adapter-manager.js';
 import { registerMcpTools } from './tools.js';
 
@@ -54,6 +69,24 @@ export class McpRuntime {
     const settings = getMcpSettings();
     this.port = settings.port;
     this.token = settings.token;
+
+    // Restore ready accounts directly from local storage whenever the sidecar starts.
+    // Missing or invalid legacy credentials stay unavailable without using profile passwords.
+    for (const account of listMcpManagedAccounts()) {
+      if (account.state !== MCP_MANAGED_ACCOUNT_STATE.READY) continue;
+      const profile = getProfile(account.profileId);
+      if (!profile || !isMcpServerKind(profile.kind)) continue;
+      try {
+        const credential = loadMcpManagedCredential(account.profileId);
+        if (!credential || !isMcpManagedCredentialForProfile(profile, account.accountRef, credential)) {
+          log.warn({ profileId: account.profileId }, 'Stored MCP credential is missing or invalid');
+          continue;
+        }
+        this.adapterManager.setCredential(account.profileId, credential);
+      } catch {
+        log.warn({ profileId: account.profileId }, 'Stored MCP credential could not be loaded');
+      }
+    }
   }
 
   getStatus(): { status: McpListenerStatus; port: number; endpoint: string; message?: string } {

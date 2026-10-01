@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,7 +7,17 @@ import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { afterEach, describe, expect, it } from 'vitest';
-import { closeMetadataStore, createProfile, initMetadataStore, setProfileMcpEnabled } from '../db/metadata-store.js';
+import { KIND, MCP_MANAGED_ACCOUNT_STATE } from '@kamehadb/shared';
+import {
+  closeMetadataStore,
+  createMcpManagedAccount,
+  createProfile,
+  initMetadataStore,
+  saveMcpManagedCredential,
+  setMcpManagedAccountState,
+  setProfileMcpEnabled,
+} from '../db/metadata-store.js';
+import { prepareMcpAccount } from './account-provisioner.js';
 import { McpRuntime } from './runtime.js';
 
 const tempDirs: string[] = [];
@@ -57,6 +68,31 @@ afterEach(async () => {
 });
 
 describe('MCP runtime auth and routing', () => {
+  it('restores encrypted ready credentials after a sidecar restart but leaves legacy rows unavailable', () => {
+    const dir = tempDir();
+    const dbPath = join(dir, 'kamehadb.db');
+    initMetadataStore(dbPath);
+    const profile = createProfile({ name: 'server', kind: KIND.POSTGRES, host: 'localhost', database: 'app' });
+    const accountRef = randomUUID();
+    createMcpManagedAccount(profile.id, accountRef);
+    saveMcpManagedCredential(profile.id, prepareMcpAccount(profile, accountRef));
+    setMcpManagedAccountState(profile.id, MCP_MANAGED_ACCOUNT_STATE.READY);
+    setProfileMcpEnabled(profile.id, true);
+
+    const legacy = createProfile({ name: 'legacy', kind: KIND.POSTGRES, host: 'localhost', database: 'app' });
+    createMcpManagedAccount(legacy.id, randomUUID());
+    setMcpManagedAccountState(legacy.id, MCP_MANAGED_ACCOUNT_STATE.READY);
+    setProfileMcpEnabled(legacy.id, true);
+
+    closeMetadataStore();
+    initMetadataStore(dbPath);
+    const runtime = new McpRuntime();
+    runtimes.push(runtime);
+
+    expect(runtime.adapterManager.canServe({ ...profile, mcpEnabled: true })).toBe(true);
+    expect(runtime.adapterManager.canServe({ ...legacy, mcpEnabled: true })).toBe(false);
+  });
+
   it('rejects missing tokens, unknown paths, and non-POST methods', async () => {
     const { runtime } = setup();
     await runtime.updatePort(0);
