@@ -1,0 +1,81 @@
+docs/agent-devkit/INDEX.md
+  s_229fafa9375d4e::t_a13590829968aa 7,13
+docs/agent-devkit/specs/2026-10-01-mcp-sqlite-credentials-design.md
+  s_229fafa9375d4e::t_a13590829968aa 1-25,27-37
+  s_229fafa9375d4e::t_8b34144404d0f1 26
+apps/desktop/src/hooks/use-mcp-settings.ts
+  s_229fafa9375d4e::t_c518e2c3749d83 6,48,50
+apps/sidecar/src/mcp/adapter-manager.ts
+  s_229fafa9375d4e::t_7809651f31ebf4 86
+apps/sidecar/src/mcp/runtime.test.ts
+  s_229fafa9375d4e::t_45fbd520dbd22c 2,10-20,71-95
+apps/sidecar/src/db/mcp-credential-vault.ts
+  s_229fafa9375d4e::t_c56124d7be60c9 1-52,54-73,75-79
+  s_229fafa9375d4e::t_4d2c0c9414b9e2 53
+  s_229fafa9375d4e::t_e242dc21be72be 74
+apps/desktop/src/components/mcp-settings-section.tsx
+  s_229fafa9375d4e::t_c518e2c3749d83 235,320,322
+  s_229fafa9375d4e::t_4c2ede9a15bb36 233,241,319
+apps/sidecar/src/mcp/account-provisioner.ts
+  s_229fafa9375d4e::t_4c2ede9a15bb36 37-38,54-55,153,158,164,174,177,193,671,676,679,731,736,759,761
+apps/sidecar/src/mcp/runtime.ts
+  s_229fafa9375d4e::t_4c2ede9a15bb36 81
+  s_229fafa9375d4e::t_7809651f31ebf4 5-20,22,72-80,82-89
+apps/desktop/src/lib/mcp-managed-account.ts
+  s_229fafa9375d4e::t_853adf0ae090c6 1-30
+docs/credential-storage-research.md
+  s_229fafa9375d4e::t_b460ae7c919d35 1-17
+docs/agent-devkit/plans/2026-10-01-mcp-sqlite-credentials-plan.md
+  s_229fafa9375d4e::t_a13590829968aa 1-29
+packages/shared/src/schemas.ts
+  s_229fafa9375d4e::t_4c2ede9a15bb36 365-366
+apps/sidecar/src/routes/mcp-settings.ts
+  s_229fafa9375d4e::t_4c2ede9a15bb36 119,170,173,195
+  s_229fafa9375d4e::t_7809651f31ebf4 3-4,52,66,69-70,72-78,82,87,99,107,194,196-197
+  s_229fafa9375d4e::t_6dc6d232dbd143 67,71,80
+docs/llm/integrations/read-only-mcp.md
+  s_229fafa9375d4e::t_6dc6d232dbd143 19,22,28-31,33,58,71,77,98
+apps/sidecar/src/db/metadata-store.test.ts
+  s_229fafa9375d4e::t_4c879deab41701 2,15,19,21,88,104-131,137-140,142-146,149
+  s_229fafa9375d4e::t_4c2ede9a15bb36 92,96,171
+  s_229fafa9375d4e::t_6dc6d232dbd143 132-136
+  s_229fafa9375d4e::t_d730309e344b25 141
+  s_229fafa9375d4e::t_070d934724a8e2 147-148
+  s_229fafa9375d4e::t_525d41617207a6 150
+apps/desktop/src/lib/mcp-managed-account.test.ts
+  s_229fafa9375d4e::t_5a82ea4ea9ebce 1-67
+README.md
+  s_229fafa9375d4e::t_6dc6d232dbd143 67-71
+apps/sidecar/src/db/metadata-store.ts
+  s_229fafa9375d4e::t_c56124d7be60c9 12,18,21,74,261,268-269,295-299,690-700,702-716,718,881
+  s_229fafa9375d4e::t_4c2ede9a15bb36 262,273,279,644,651,671,674,701,717
+  s_229fafa9375d4e::t_878b297f72bc83 719
+apps/sidecar/src/routes/connections.ts
+  s_229fafa9375d4e::t_7809651f31ebf4 469
+apps/sidecar/src/routes/mcp-settings.test.ts
+  s_229fafa9375d4e::t_4c879deab41701 7,100,120,124
+CHANGELOG.md
+  s_229fafa9375d4e::t_6dc6d232dbd143 10-13
+apps/sidecar/src/mcp/account-provisioner.test.ts
+  s_229fafa9375d4e::t_4c2ede9a15bb36 15,29-30,33,51,56,60,74,78,81,92,95,110,124,137,141,155,199,204,215,219
+apps/desktop/src/lib/api.ts
+  s_229fafa9375d4e::t_c518e2c3749d83 343-344,349,356
+apps/sidecar/src/mcp/types.ts
+  s_229fafa9375d4e::t_7809651f31ebf4 66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "293b9cfd37893d3d02f24b32c7263ab7ceadc350",
+  "prompts": {},
+  "sessions": {
+    "s_229fafa9375d4e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f68a-ef1a-73b0-ac49-86dced5d6c84",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
