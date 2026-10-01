@@ -1,0 +1,87 @@
+CHANGELOG.md
+  s_9567600f841b4d::t_d176a282fc4b9f 14-17
+  s_9567600f841b4d::t_6606911d9b5658 25
+  s_9567600f841b4d::t_ebdcd17685f70e 26
+  s_9567600f841b4d::t_c108bfa0bd2567 20
+  s_9567600f841b4d::t_a8cba4b07dde49 24
+  s_9567600f841b4d::t_7b963ff849690a 27
+apps/sidecar/src/routes/mcp-settings.test.ts
+  s_9567600f841b4d::t_ebdcd17685f70e 139
+  s_9567600f841b4d::t_5d52f0b27efce7 7,126-138,140-151,155-157
+  s_9567600f841b4d::t_3c91e27ac65c9a 152-154
+  s_9567600f841b4d::t_005a54f436bbc4 158
+apps/sidecar/src/mcp/runtime.ts
+  s_9567600f841b4d::t_c108bfa0bd2567 51,88-96,130-133,137,146-149
+apps/desktop/src/components/mongo-query.tsx
+  s_9567600f841b4d::t_241f2f1d21b3d9 24,26
+docs/llm/architecture/overview.md
+  s_9567600f841b4d::t_7b963ff849690a 29,41
+apps/desktop/src/components/federated-query-canvas.tsx
+  s_9567600f841b4d::t_241f2f1d21b3d9 15,19
+apps/sidecar/src/db/metadata-store.ts
+  s_9567600f841b4d::t_5fc1d1ef77ea57 267-289
+apps/desktop/src/components/redis-query.tsx
+  s_9567600f841b4d::t_ae95242d3a4ee5 12
+  s_9567600f841b4d::t_241f2f1d21b3d9 10
+apps/desktop/src/lib/mcp-keychain.ts
+  s_9567600f841b4d::t_53f1c369763e34 24-34
+  s_9567600f841b4d::t_f95e3d336bcea3 1,21-23,60-62,78
+apps/desktop/src/lib/api.ts
+  s_9567600f841b4d::t_f95e3d336bcea3 374,379-382
+  s_9567600f841b4d::t_1509cb09aa5604 383-384
+apps/desktop/src/components/mcp-settings-section.tsx
+  s_9567600f841b4d::t_6606911d9b5658 10,231-237,241-244,320-322
+apps/sidecar/src/mcp/account-provisioner.ts
+  s_9567600f841b4d::t_2d763dfe62fa80 362
+  s_9567600f841b4d::t_90576954133830 8,25,66-89,364-365
+  s_9567600f841b4d::t_72f2e752bf4468 360-361
+  s_9567600f841b4d::t_afc13526ad96f1 363
+apps/desktop/src/components/api-settings-page.tsx
+  s_9567600f841b4d::t_d176a282fc4b9f 9,275,598-651,653-655,657-658
+apps/desktop/src/lib/mcp-keychain.test.ts
+  s_9567600f841b4d::t_8617a04842b10c 13,90
+packages/shared/src/schemas.ts
+  s_9567600f841b4d::t_5fc1d1ef77ea57 365
+apps/desktop/src/hooks/use-mcp-settings.ts
+  s_9567600f841b4d::t_6606911d9b5658 51-55
+  s_9567600f841b4d::t_d50cfc34a6b7f9 37-40
+apps/desktop/src/lib/monaco-loader.ts
+  s_9567600f841b4d::t_241f2f1d21b3d9 1-10
+apps/sidecar/src/routes/mcp-settings.ts
+  s_9567600f841b4d::t_f69ab55635cd76 81-83,85-86,219-222,245-246,252-269
+  s_9567600f841b4d::t_a8cba4b07dde49 13,225-233
+  s_9567600f841b4d::t_ebdcd17685f70e 80,84
+  s_9567600f841b4d::t_acaa98c40ea40d 270-271
+apps/desktop/src-tauri/src/lib.rs
+  s_9567600f841b4d::t_c108bfa0bd2567 77-88,460,550
+  s_9567600f841b4d::t_cd20dc5ebb74a8 485-488
+  s_9567600f841b4d::t_2d7d1d2a6d4618 493,554-564
+apps/desktop/src/components/sql-editor.tsx
+  s_04d45c03bfa013::t_8f7f1144d85b6c 577-580
+  s_04d45c03bfa013::t_d67cac9a0b79df 272,276
+  s_9567600f841b4d::t_241f2f1d21b3d9 5,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d9ef3dc58404e72be76ae569c692175a11c646d6",
+  "prompts": {},
+  "sessions": {
+    "s_04d45c03bfa013": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "rough-block",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_9567600f841b4d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f024-455f-7101-ad47-7e13c1dcd675",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
