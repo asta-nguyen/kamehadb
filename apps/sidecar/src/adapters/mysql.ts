@@ -18,6 +18,26 @@ import type {
   SchemaSearchInput,
   SchemaSearchMatch,
 } from '@kamehadb/shared';
+import { MCP_QUERY_TIMEOUT_MS } from '../lib/constants.js';
+import type {
+  BoundedQueryInput,
+  BoundedQueryResult,
+  BoundedSqlAdapter,
+  McpAdapterTimeoutOptions,
+} from '../mcp/types.js';
+import { McpTimeoutUnavailableError } from '../mcp/types.js';
+
+// Minimal view of a mysql2 row stream; the callback driver emits fields/data/end/error.
+type MysqlRowStream = {
+  on(event: string, listener: (...args: unknown[]) => void): unknown;
+  destroy(): void;
+  destroyed?: boolean;
+};
+
+// Reject hints that would lower the server-side execution cap for this call.
+function rejectsTimeoutWeakeningHint(sql: string): boolean {
+  return /set_var\s*\(\s*max_execution_time\s*=/i.test(sql);
+}
 
 export async function testMysqlConnection(connection: {
   host?: string;
@@ -47,13 +67,16 @@ export async function testMysqlConnection(connection: {
   }
 }
 
-export function createMysqlAdapter(connection: {
-  host?: string;
-  port?: number;
-  database?: string;
-  username?: string;
-  password?: string;
-}): SqlAdapter {
+export function createMysqlAdapter(
+  connection: {
+    host?: string;
+    port?: number;
+    database?: string;
+    username?: string;
+    password?: string;
+  },
+  options?: McpAdapterTimeoutOptions,
+): BoundedSqlAdapter {
   if (!connection.database) throw new Error('Database name is required');
   if (!connection.username) throw new Error('Username is required');
   if (connection.password === undefined || connection.password === null) {
@@ -71,13 +94,43 @@ export function createMysqlAdapter(connection: {
     enableKeepAlive: true,
   });
 
+  // MySQL uses milliseconds in max_execution_time; MariaDB uses seconds in
+  // max_statement_time. Apply it on the acquired session before each MCP call.
+  const timeoutMs = options?.timeoutMs ? Math.max(1, Math.floor(options.timeoutMs)) : undefined;
+  const timeoutVariable = options?.kind === 'mariadb' ? 'max_statement_time' : 'max_execution_time';
+  const timeoutValue =
+    timeoutMs === undefined
+      ? undefined
+      : options?.kind === 'mariadb'
+        ? Math.max(1, Math.ceil(timeoutMs / 1000))
+        : timeoutMs;
+
+  async function applyMcpTimeout(conn: Awaited<ReturnType<typeof pool.getConnection>>): Promise<void> {
+    if (timeoutValue === undefined) return;
+    try {
+      await conn.query('SET SESSION ' + timeoutVariable + ' = ' + timeoutValue);
+    } catch {
+      throw new McpTimeoutUnavailableError('MySQL or MariaDB rejected the native query timeout setting');
+    }
+  }
+
   function escapeId(id: string): string {
     return '`' + id.replace(/`/g, '``') + '`';
   }
 
   async function query(sql: string, params?: ExecuteValues) {
-    const [rows] = await pool.execute(sql, params);
-    return rows as Record<string, unknown>[];
+    if (timeoutValue === undefined) {
+      const [rows] = await pool.execute(sql, params);
+      return rows as Record<string, unknown>[];
+    }
+    const conn = await pool.getConnection();
+    try {
+      await applyMcpTimeout(conn);
+      const [rows] = await conn.execute(sql, params);
+      return rows as Record<string, unknown>[];
+    } finally {
+      conn.release();
+    }
   }
 
   return {
@@ -97,12 +150,12 @@ export function createMysqlAdapter(connection: {
     },
 
     async listTables(schema?: string): Promise<TableInfo[]> {
-      const db = schema ?? connection.database;
-      const [rows] = await pool.query(
+      const db = schema ?? connection.database!;
+      const rows = await query(
         "SELECT TABLE_NAME AS name, TABLE_SCHEMA AS schema_name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME",
         [db],
       );
-      return (rows as Record<string, unknown>[]).map((r) => ({
+      return rows.map((r) => ({
         id: `${r.schema_name}.${r.name}`,
         name: r.name as string,
         schema: r.schema_name as string,
@@ -111,9 +164,9 @@ export function createMysqlAdapter(connection: {
 
     async getTableColumns(tableId: string): Promise<ColumnInfo[]> {
       const parts = tableId.split('.');
-      const schema = parts.length > 1 ? parts[0] : connection.database;
+      const schema = parts.length > 1 ? parts[0] : connection.database!;
       const table = parts.length > 1 ? parts[1] : tableId;
-      const [rows] = await pool.query(
+      const rows = await query(
         `SELECT
           c.COLUMN_NAME AS name,
           c.COLUMN_TYPE AS type,
@@ -130,7 +183,7 @@ export function createMysqlAdapter(connection: {
         ORDER BY c.ORDINAL_POSITION`,
         [schema, table],
       );
-      return (rows as Record<string, unknown>[]).map((r) => ({
+      return rows.map((r) => ({
         name: r.name as string,
         type: r.type as string,
         nullable: r.nullable === 'YES',
@@ -272,6 +325,64 @@ export function createMysqlAdapter(connection: {
         durationMs: Math.round(durationMs),
         truncated: false,
       };
+    },
+
+    // MCP-only bounded read. Streams rows and destroys the stream after maxRows + 1
+    // so a large result is never buffered whole. When truncating early the
+    // connection is discarded because the driver cannot confirm cancellation.
+    async runQueryBounded(input: BoundedQueryInput): Promise<BoundedQueryResult> {
+      const start = performance.now();
+      const rowLimit = Math.max(1, Math.floor(input.maxRows));
+      if (rejectsTimeoutWeakeningHint(input.query)) {
+        throw new Error('SET_VAR(max_execution_time=...) hints are not allowed in MCP queries');
+      }
+
+      const conn = await pool.getConnection();
+      const columns: QueryColumn[] = [];
+      const rows: unknown[][] = [];
+      let truncated = false;
+      let discarded = false;
+      try {
+        await applyMcpTimeout(conn);
+        const core = (
+          conn as unknown as {
+            connection: {
+              query: (options: { sql: string; rowsAsArray: boolean }) => { stream: () => MysqlRowStream };
+            };
+          }
+        ).connection;
+        await new Promise<void>((resolve, reject) => {
+          // Array mode preserves column order and duplicate names in MCP results.
+          const stream = core.query({ sql: input.query, rowsAsArray: true }).stream();
+          stream.on('fields', (...args: unknown[]) => {
+            const fields = args[0] as { name: string }[];
+            for (const field of fields) columns.push({ name: field.name, type: 'unknown' });
+          });
+          stream.on('data', (...args: unknown[]) => {
+            const row = args[0] as unknown[];
+            if (rows.length < rowLimit) {
+              rows.push(row);
+              return;
+            }
+            truncated = true;
+            stream.destroy();
+            // Discard the pooled connection: the driver cannot confirm cancel.
+            conn.destroy();
+            discarded = true;
+            resolve();
+          });
+          stream.on('end', () => resolve());
+          stream.on('error', (err) => reject(err as Error));
+        });
+        return {
+          columns,
+          rows,
+          durationMs: Math.round(performance.now() - start),
+          truncated,
+        };
+      } finally {
+        if (!discarded) conn.release();
+      }
     },
 
     async getActiveConnections(): Promise<import('@kamehadb/shared').ConnectionInfo[]> {

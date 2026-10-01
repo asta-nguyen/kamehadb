@@ -1,13 +1,7 @@
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown, Download, FileJson, FileSpreadsheet, List, Table2, X } from 'lucide-react';
+import { ArrowUpDown, List, Table2, X } from 'lucide-react';
 
 interface MongoViewHeaderProps {
   title: string;
@@ -23,8 +17,6 @@ interface MongoViewHeaderProps {
   onViewModeChange: (mode: 'list' | 'table') => void;
   isFetching: boolean;
   onRefresh: () => void;
-  onExportJSON: () => void;
-  onExportCSV: () => void;
 }
 
 export function MongoViewHeader({
@@ -41,8 +33,6 @@ export function MongoViewHeader({
   onViewModeChange,
   isFetching,
   onRefresh,
-  onExportJSON,
-  onExportCSV,
 }: MongoViewHeaderProps) {
   return (
     <div className="border-b border-border">
@@ -97,21 +87,6 @@ export function MongoViewHeader({
             >
               <Table2 className="size-3.5" />
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="outline" size="icon-sm" title="Export" />}>
-                <Download className="size-3.5" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onExportJSON}>
-                  <FileJson className="size-3.5 mr-2" />
-                  Export JSON
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onExportCSV}>
-                  <FileSpreadsheet className="size-3.5 mr-2" />
-                  Export CSV
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         }
       />

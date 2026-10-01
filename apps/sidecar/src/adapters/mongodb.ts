@@ -1,4 +1,4 @@
-import { MongoClient, type Collection } from 'mongodb';
+import { MongoClient, type Collection, type Sort } from 'mongodb';
 import type {
   MongoAdapter,
   TestConnectionResult,
@@ -9,10 +9,27 @@ import type {
   DocumentResult,
 } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
+import { MCP_QUERY_TIMEOUT_MS } from '../lib/constants.js';
+import type { BoundedMongoAggregateInput, BoundedMongoFindInput, BoundedMongoResult } from '../mcp/types.js';
 
 interface MongoConfig {
   connectionString: string;
   database?: string;
+}
+
+/** Read-only bounded Mongo methods added for MCP. The UI adapter ignores them. */
+export interface MongoBoundedExtensions {
+  findBounded(input: BoundedMongoFindInput): Promise<BoundedMongoResult>;
+  aggregateBounded(input: BoundedMongoAggregateInput): Promise<BoundedMongoResult>;
+}
+
+// $out and $merge are the only aggregation stages that write. Reject them before
+// dispatch so a read-only Mongo credential is not the only barrier.
+function hasWritingStage(pipeline: Record<string, unknown>[]): boolean {
+  return pipeline.some(
+    (stage) =>
+      Object.prototype.hasOwnProperty.call(stage, '$out') || Object.prototype.hasOwnProperty.call(stage, '$merge'),
+  );
 }
 
 function serializeDocument(doc: Record<string, unknown>): Record<string, unknown> {
@@ -48,7 +65,7 @@ function sanitizeFilter(filter: Record<string, unknown>): Record<string, unknown
   return sanitized;
 }
 
-export function createMongoAdapter(config: MongoConfig): MongoAdapter {
+export function createMongoAdapter(config: MongoConfig): MongoAdapter & MongoBoundedExtensions {
   let client: MongoClient | null = null;
   let activeDbName: string | null = null;
 
@@ -269,6 +286,81 @@ export function createMongoAdapter(config: MongoConfig): MongoAdapter {
         hasMore,
         durationMs: Math.round(performance.now() - start),
       };
+    },
+
+    // MCP-only bounded find. Sets an operation deadline and reads at most
+    // limit + 1 documents from the cursor, never running a separate count.
+    async findBounded(input: BoundedMongoFindInput): Promise<BoundedMongoResult> {
+      const start = performance.now();
+      const mongoClient = await ensureConnected();
+      const targetDb = input.database
+        ? mongoClient.db(input.database)
+        : mongoClient.db(activeDbName || config.database);
+      if (!targetDb) throw new Error('No database selected');
+
+      const limit = Math.max(1, Math.floor(input.limit));
+      const cursor = targetDb.collection(input.collection).find(sanitizeFilter(input.filter ?? {}), {
+        projection: input.projection,
+        sort: input.sort as Sort | undefined,
+        skip: input.skip ?? 0,
+        limit: limit + 1,
+        maxTimeMS: MCP_QUERY_TIMEOUT_MS,
+      });
+
+      const documents: Record<string, unknown>[] = [];
+      let truncated = false;
+      try {
+        for await (const doc of cursor) {
+          if (documents.length < limit) {
+            documents.push(serializeDocument(doc as Record<string, unknown>));
+          } else {
+            truncated = true;
+            break;
+          }
+        }
+      } finally {
+        await cursor.close();
+      }
+
+      return { documents, durationMs: Math.round(performance.now() - start), truncated };
+    },
+
+    // MCP-only bounded aggregate. Rejects writing stages, sets maxTimeMS, and
+    // appends a single $limit so the full pipeline result is never materialized.
+    async aggregateBounded(input: BoundedMongoAggregateInput): Promise<BoundedMongoResult> {
+      const start = performance.now();
+      const pipeline = input.pipeline ?? [];
+      if (hasWritingStage(pipeline)) {
+        throw new Error('Aggregation stages that write ($out, $merge) are not allowed');
+      }
+
+      const mongoClient = await ensureConnected();
+      const targetDb = input.database
+        ? mongoClient.db(input.database)
+        : mongoClient.db(activeDbName || config.database);
+      if (!targetDb) throw new Error('No database selected');
+
+      const limit = Math.max(1, Math.floor(input.maxRows));
+      const cursor = targetDb.collection(input.collection).aggregate([...pipeline, { $limit: limit + 1 }], {
+        maxTimeMS: MCP_QUERY_TIMEOUT_MS,
+      });
+
+      const documents: Record<string, unknown>[] = [];
+      let truncated = false;
+      try {
+        for await (const doc of cursor) {
+          if (documents.length < limit) {
+            documents.push(serializeDocument(doc as Record<string, unknown>));
+          } else {
+            truncated = true;
+            break;
+          }
+        }
+      } finally {
+        await cursor.close();
+      }
+
+      return { documents, durationMs: Math.round(performance.now() - start), truncated };
     },
 
     async close(): Promise<void> {

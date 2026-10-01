@@ -19,7 +19,7 @@ export function DeleteConfirmDialog({
   conn: ConnectionProfile;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

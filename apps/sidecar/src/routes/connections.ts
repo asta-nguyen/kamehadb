@@ -5,11 +5,15 @@ import {
   ALL_KINDS,
   type DbKind,
   KIND,
+  MCP_MANAGED_ACCOUNT_STATE,
   CreateConnectionProfileSchema,
   FileDatabaseBackupRequestSchema,
   FileDatabaseRestoreRequestSchema,
   UpdateConnectionProfileSchema,
+  SetProfileMcpEnabledSchema,
   isSqlKind,
+  isMcpSupportedKind,
+  isMcpServerKind,
   isPasswordRequired,
   isUsernameRequired,
 } from '@kamehadb/shared';
@@ -34,6 +38,7 @@ import {
 import { getSqlAdapter, invalidateAdapterCache } from './sql.js';
 import { log } from '../lib/logger.js';
 import { safeErrorMessage } from '../lib/route-utils.js';
+import { hasMcpCredential, invalidateMcpConnection } from '../mcp/invalidation.js';
 
 // Schema for testing connection without requiring a name (use base schema without refinement)
 const TestConnectionSchema = z.object({
@@ -386,22 +391,91 @@ connectionsRouter.post('/', zValidator('json', CreateConnectionProfileSchema), a
 
 connectionsRouter.patch('/:id', zValidator('json', UpdateConnectionProfileSchema), async (c) => {
   const id = c.req.param('id');
-  const profile = metadataStore.updateProfile(id, c.req.valid('json'));
+  const input = c.req.valid('json');
+  const existing = metadataStore.getProfile(id);
+  if (!existing) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
+  if (metadataStore.getMcpManagedAccount(id)) {
+    const protectedChange =
+      (input.kind !== undefined && input.kind !== existing.kind) ||
+      (input.host !== undefined && input.host !== existing.host) ||
+      (input.port !== undefined && input.port !== existing.port) ||
+      (input.database !== undefined && input.database !== existing.database) ||
+      (input.username !== undefined && input.username !== existing.username) ||
+      (input.password !== undefined && input.password !== metadataStore.getProfilePassword(id)) ||
+      (input.ssl !== undefined && input.ssl !== existing.ssl) ||
+      (input.filePath !== undefined && input.filePath !== existing.filePath) ||
+      (input.connectionString !== undefined && input.connectionString !== existing.connectionString);
+    if (protectedChange) {
+      return c.json(
+        {
+          error: 'MCP_MANAGED_ACCOUNT_EXISTS',
+          message: 'Revoke the managed MCP account before changing database connection details or credentials',
+        },
+        409,
+      );
+    }
+  }
+  const profile = metadataStore.updateProfile(id, input);
   if (!profile) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
   invalidateAdapterCache(id);
+  invalidateMcpConnection(id);
   activeHealthChecks.delete(id);
   return c.json(profile);
 });
 
 connectionsRouter.delete('/:id', (c) => {
   const id = c.req.param('id');
+  if (metadataStore.getMcpManagedAccount(id)) {
+    return c.json(
+      {
+        error: 'MCP_MANAGED_ACCOUNT_EXISTS',
+        message: 'Revoke the managed MCP account before deleting this connection',
+      },
+      409,
+    );
+  }
   const deleted = metadataStore.deleteProfile(id);
   if (!deleted) return c.json({ error: 'NOT_FOUND', message: 'Connection not found', statusCode: 404 }, 404);
   clearConnectionCache(id);
   invalidateAdapterCache(id);
+  invalidateMcpConnection(id);
   activeHealthChecks.delete(id);
   return c.body(null, 204);
+});
+
+// Toggle a profile's MCP allowlist. Lives beside update/delete so it shares the
+// same adapter-invalidation lifecycle. Disabling closes the MCP adapter at once.
+connectionsRouter.patch('/:id/mcp', zValidator('json', SetProfileMcpEnabledSchema), (c) => {
+  const id = c.req.param('id');
+  const { enabled } = c.req.valid('json');
+  const existing = metadataStore.getProfile(id);
+  if (!existing) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+  if (enabled && !isMcpSupportedKind(existing.kind)) {
+    return c.json({ error: 'UNSUPPORTED_KIND', message: 'This database kind is not supported for MCP' }, 400);
+  }
+  if (enabled && isMcpServerKind(existing.kind)) {
+    const account = metadataStore.getMcpManagedAccount(id);
+    if (account?.state !== MCP_MANAGED_ACCOUNT_STATE.READY) {
+      return c.json(
+        { error: 'MCP_ACCOUNT_NOT_READY', message: 'Create a managed read-only account before enabling MCP' },
+        409,
+      );
+    }
+    if (!hasMcpCredential(id)) {
+      return c.json(
+        {
+          error: 'MCP_CREDENTIAL_UNAVAILABLE',
+          message: 'The managed credential is not available from local storage',
+        },
+        409,
+      );
+    }
+  }
+  const updated = metadataStore.setProfileMcpEnabled(id, enabled);
+  if (!updated) return c.json({ error: 'NOT_FOUND', message: 'Connection not found' }, 404);
+  invalidateMcpConnection(id);
+  return c.json({ id: updated.id, mcpEnabled: updated.mcpEnabled });
 });
 
 connectionsRouter.post('/test', zValidator('json', TestConnectionSchema), async (c) => {

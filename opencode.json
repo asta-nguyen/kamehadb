@@ -1,0 +1,4 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["agent-devkit@git+https://github.com/asta-nguyen/agent-devkit.git"]
+}

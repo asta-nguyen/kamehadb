@@ -11,6 +11,7 @@ import {
   SIDEBAR_MIN_WIDTH as MIN_WIDTH,
 } from '@/lib/constants';
 import { isTauriRuntime } from '@/lib/tauri';
+import { toastError } from '@/lib/toast';
 import {
   appStore,
   navigateTo,
@@ -22,6 +23,7 @@ import {
   toggleExpandedConnection,
 } from '@/store';
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
+import { safeErrorMessage } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
 import type { ConnectionStatus } from './sidebar.helpers';
@@ -159,8 +161,10 @@ const ConnectionItem = memo(function ConnectionItem({
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         onConfirm={() => {
-          deleteConnection.mutate(conn.id);
-          setShowDeleteConfirm(false);
+          return deleteConnection
+            .mutateAsync(conn.id)
+            .then(() => setShowDeleteConfirm(false))
+            .catch((error: unknown) => toastError(safeErrorMessage(error, 'Failed to delete connection')));
         }}
       />
 

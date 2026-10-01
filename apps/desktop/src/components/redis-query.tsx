@@ -7,8 +7,9 @@ import { safeErrorMessage } from '@kamehadb/shared';
 import type { Monaco, OnMount } from '@monaco-editor/react';
 import { AlertCircle, Clock, Play, Terminal } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { loadMonacoEditor } from '@/lib/monaco-loader';
 import { lazy, Suspense, useCallback, useState } from 'react';
-const Editor = lazy(() => import('@monaco-editor/react'));
+const Editor = lazy(loadMonacoEditor);
 
 type RedisQueryProps = {
   tab: WorkspaceTab;

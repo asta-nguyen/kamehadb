@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { navigateTo } from '@/store';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
+import { McpSettingsSection } from '@/components/mcp-settings-section';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
 
 const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini'];
@@ -270,8 +272,7 @@ function ApiSettingsHeader({ draft }: { draft: AISettings }) {
             </Badge>
           </div>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Manage provider credentials for the current desktop user. You can keep multiple providers ready and switch
-            the active one without losing drafts.
+            Configure AI providers and the local read-only MCP server for this desktop user.
           </p>
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/80 px-4 py-2">
@@ -594,52 +595,67 @@ export function ApiSettingsPage() {
           <Spinner size="lg" />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <ProviderSidebar
-            draft={state.draft}
-            selectedProvider={state.selectedProvider}
-            onSelect={(p) => dispatch({ type: 'selectProvider', provider: p })}
-          />
+        <Tabs defaultValue="providers" className="flex min-h-0 flex-1 flex-col">
+          <TabsList className="mx-5 mt-4 w-fit">
+            <TabsTrigger value="providers">AI Providers</TabsTrigger>
+            <TabsTrigger value="mcp">MCP Server</TabsTrigger>
+          </TabsList>
 
-          <section className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 px-5 py-5">
-              <div className="space-y-4">
-                <ProviderHeader
-                  selectedProvider={state.selectedProvider}
-                  config={selectedConfig}
-                  isActive={state.selectedProvider === state.draft.activeProvider}
-                  onSetActive={() => dispatch({ type: 'setActiveProvider', provider: state.selectedProvider })}
-                />
+          <TabsContent value="providers" className="flex min-h-0 flex-1 flex-col outline-none">
+            <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+              <ProviderSidebar
+                draft={state.draft}
+                selectedProvider={state.selectedProvider}
+                onSelect={(p) => dispatch({ type: 'selectProvider', provider: p })}
+              />
 
-                <ProviderForm
-                  selectedProvider={state.selectedProvider}
-                  config={selectedConfig}
-                  modelsWithCustom={modelsWithCustom}
-                  modelsLoading={modelsLoading}
-                  onModelChange={(v) =>
-                    dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates: { model: v } })
-                  }
-                  onUpdateField={(updates) =>
-                    dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
-                  }
-                  onFetchModels={() => refetchModels()}
-                  canFetchModels={
-                    !!selectedConfig.baseUrl?.trim() &&
-                    (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim())
-                  }
-                />
+              <section className="flex min-h-0 flex-1 flex-col">
+                <div className="flex-1 px-5 py-5">
+                  <div className="space-y-4">
+                    <ProviderHeader
+                      selectedProvider={state.selectedProvider}
+                      config={selectedConfig}
+                      isActive={state.selectedProvider === state.draft.activeProvider}
+                      onSetActive={() => dispatch({ type: 'setActiveProvider', provider: state.selectedProvider })}
+                    />
 
-                <SettingsFooter
-                  hasUnsavedChanges={hasUnsavedChanges}
-                  isSaving={saveSettings.isPending}
-                  onReset={() => dispatch({ type: 'resetSelected', savedSnapshot: state.savedSnapshot })}
-                  onDiscard={() => dispatch({ type: 'discard', savedSnapshot: state.savedSnapshot })}
-                  onSave={handleSave}
-                />
-              </div>
+                    <ProviderForm
+                      selectedProvider={state.selectedProvider}
+                      config={selectedConfig}
+                      modelsWithCustom={modelsWithCustom}
+                      modelsLoading={modelsLoading}
+                      onModelChange={(v) =>
+                        dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates: { model: v } })
+                      }
+                      onUpdateField={(updates) =>
+                        dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
+                      }
+                      onFetchModels={() => refetchModels()}
+                      canFetchModels={
+                        !!selectedConfig.baseUrl?.trim() &&
+                        (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim())
+                      }
+                    />
+
+                    <SettingsFooter
+                      hasUnsavedChanges={hasUnsavedChanges}
+                      isSaving={saveSettings.isPending}
+                      onReset={() => dispatch({ type: 'resetSelected', savedSnapshot: state.savedSnapshot })}
+                      onDiscard={() => dispatch({ type: 'discard', savedSnapshot: state.savedSnapshot })}
+                      onSave={handleSave}
+                    />
+                  </div>
+                </div>
+              </section>
             </div>
-          </section>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 outline-none">
+            <div className="mx-auto w-full max-w-6xl">
+              <McpSettingsSection />
+            </div>
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

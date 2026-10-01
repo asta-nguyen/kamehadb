@@ -20,6 +20,7 @@ interface DataFooterProps {
   onPageChange: (page: number) => void;
   onExportJSON: () => void;
   onExportCSV: () => void;
+  onCopyJSON: () => void;
   className?: string;
 }
 
@@ -34,6 +35,7 @@ export function DataFooter({
   onPageChange,
   onExportJSON,
   onExportCSV,
+  onCopyJSON,
   className,
 }: DataFooterProps) {
   const maxPage = Math.max(0, Math.ceil(totalCount / pageSize) - 1);
@@ -83,7 +85,9 @@ export function DataFooter({
         <DropdownMenuTrigger className="inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none h-7 gap-1 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
           <Download className="size-3" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        {/* w-auto: default pins menu width to the icon trigger, wrapping labels */}
+        <DropdownMenuContent align="end" className="w-auto min-w-32">
+          <DropdownMenuItem onClick={onCopyJSON}>Copy JSON</DropdownMenuItem>
           <DropdownMenuItem onClick={onExportJSON}>Export as JSON</DropdownMenuItem>
           <DropdownMenuItem onClick={onExportCSV}>Export as CSV</DropdownMenuItem>
         </DropdownMenuContent>

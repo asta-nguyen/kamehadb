@@ -54,6 +54,29 @@ export const SQL_KINDS: readonly DbKind[] = [
 
 export const NOSQL_KINDS: readonly DbKind[] = [KIND.REDIS, KIND.MONGODB, KIND.QDRANT, KIND.TIGERBEETLE];
 
+/** Engines the read-only MCP server can expose. Writes and unsupported engines stay out. */
+export const MCP_SUPPORTED_KINDS: readonly DbKind[] = [
+  KIND.POSTGRES,
+  KIND.MYSQL,
+  KIND.MARIADB,
+  KIND.SQLITE,
+  KIND.SQLSERVER,
+  KIND.MONGODB,
+];
+
+/** MCP-supported network databases that can receive a managed read-only account. */
+export const MCP_SERVER_KINDS = MCP_SUPPORTED_KINDS.filter((kind) => kind !== KIND.SQLITE);
+export function isMcpServerKind(kind: string): kind is DbKind {
+  return (MCP_SERVER_KINDS as readonly string[]).includes(kind);
+}
+
+/** SQL engines with managed MCP account provisioning. */
+export const MCP_SQL_SERVER_KINDS = [KIND.POSTGRES, KIND.MYSQL, KIND.MARIADB, KIND.SQLSERVER] as const;
+
+export function isMcpSupportedKind(kind: string): kind is DbKind {
+  return (MCP_SUPPORTED_KINDS as readonly string[]).includes(kind);
+}
+
 export function isSqlKind(kind: string): kind is DbKind {
   return (SQL_KINDS as readonly string[]).includes(kind);
 }
@@ -151,6 +174,8 @@ export type ConnectionProfile = {
   filePath?: string;
   color?: string;
   connectionString?: string;
+  /** Explicit opt-in flag for the read-only MCP server. Never set by ordinary create/edit payloads. */
+  mcpEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -297,3 +322,74 @@ export const UpdateQueryHistorySchema = z.object({
   name: z.string().optional(),
 });
 export type UpdateQueryHistoryInput = z.infer<typeof UpdateQueryHistorySchema>;
+
+// MCP settings and profile allowlist
+export const MCP_LISTENER_STATUSES = ['listening', 'unavailable', 'stopped'] as const;
+export type McpListenerStatus = (typeof MCP_LISTENER_STATUSES)[number];
+
+/** Credential-free view of an MCP-enabled profile used by the settings API. */
+export const McpProfileSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: z.enum(MCP_SUPPORTED_KINDS as [DbKind, ...DbKind[]]),
+  database: z.string().optional(),
+});
+export type McpProfileSummary = z.infer<typeof McpProfileSummarySchema>;
+
+export const McpSettingsResponseSchema = z.object({
+  status: z.enum(MCP_LISTENER_STATUSES),
+  port: z.number().int(),
+  endpoint: z.string(),
+  token: z.string(),
+  enabledProfiles: z.array(McpProfileSummarySchema),
+  message: z.string().optional(),
+});
+export type McpSettingsResponse = z.infer<typeof McpSettingsResponseSchema>;
+
+export const UpdateMcpPortSchema = z.object({
+  port: z.number().int().min(1).max(65_535),
+});
+export type UpdateMcpPortInput = z.infer<typeof UpdateMcpPortSchema>;
+
+export const SetProfileMcpEnabledSchema = z.object({
+  enabled: z.boolean(),
+});
+export type SetProfileMcpEnabledInput = z.infer<typeof SetProfileMcpEnabledSchema>;
+
+export const MCP_MANAGED_ACCOUNT_STATE = {
+  PREPARED: 'prepared',
+  PROVISIONING: 'provisioning',
+  RECOVERY_REQUIRED: 'recovery_required',
+  READY: 'ready',
+  REVOKE_FAILED: 'revoke_failed',
+  // Keep the stored value so profiles from Keychain-backed releases can finish cleanup.
+  LOCAL_CLEANUP_PENDING: 'keychain_cleanup_pending',
+} as const;
+export const MCP_MANAGED_ACCOUNT_STATES = Object.values(MCP_MANAGED_ACCOUNT_STATE);
+export type McpManagedAccountState = (typeof MCP_MANAGED_ACCOUNT_STATES)[number];
+
+export const McpManagedCredentialBundleSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.enum([...MCP_SQL_SERVER_KINDS]),
+    username: z.string().min(1),
+    password: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal(KIND.MONGODB),
+    connectionString: z.string().min(1),
+  }),
+]);
+export type McpManagedCredentialBundle = z.infer<typeof McpManagedCredentialBundleSchema>;
+
+export const McpManagedAccountStatusSchema = z.object({
+  profileId: z.string(),
+  applicable: z.boolean(),
+  state: z.enum(MCP_MANAGED_ACCOUNT_STATES as [McpManagedAccountState, ...McpManagedAccountState[]]).nullable(),
+  credentialAvailable: z.boolean(),
+});
+export type McpManagedAccountStatus = z.infer<typeof McpManagedAccountStatusSchema>;
+
+export const McpManagedAccountsResponseSchema = z.object({
+  accounts: z.array(McpManagedAccountStatusSchema),
+});
+export type McpManagedAccountsResponse = z.infer<typeof McpManagedAccountsResponseSchema>;

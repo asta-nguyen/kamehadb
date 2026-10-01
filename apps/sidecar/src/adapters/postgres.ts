@@ -1,4 +1,5 @@
 import pg from 'pg';
+import Cursor from 'pg-cursor';
 import type {
   SqlAdapter,
   TestConnectionResult,
@@ -19,6 +20,14 @@ import type {
   PostgresVectorIndex,
 } from '@kamehadb/shared';
 import { log } from '../lib/logger.js';
+import { MCP_QUERY_TIMEOUT_MS } from '../lib/constants.js';
+import type {
+  BoundedQueryInput,
+  BoundedQueryResult,
+  BoundedSqlAdapter,
+  McpAdapterTimeoutOptions,
+} from '../mcp/types.js';
+import { McpTimeoutUnavailableError } from '../mcp/types.js';
 
 export type IndexStats = {
   name: string;
@@ -95,14 +104,17 @@ function pgTypeName(oid: number): string {
   return PG_TYPE_MAP[oid] ?? 'unknown';
 }
 
-export function createPostgresAdapter(connection: {
-  host?: string;
-  port?: number;
-  database?: string;
-  username?: string;
-  password?: string;
-  ssl?: boolean;
-}): SqlAdapter {
+export function createPostgresAdapter(
+  connection: {
+    host?: string;
+    port?: number;
+    database?: string;
+    username?: string;
+    password?: string;
+    ssl?: boolean;
+  },
+  options?: McpAdapterTimeoutOptions,
+): BoundedSqlAdapter {
   // Validate required fields
   if (!connection.database) {
     throw new Error('Database name is required');
@@ -130,13 +142,42 @@ export function createPostgresAdapter(connection: {
     log.error({ err }, 'Unexpected PostgreSQL pool error');
   });
 
+  // Apply the native deadline before each MCP statement so a failed setting
+  // cannot leave metadata or query work running without a bound.
+  const statementTimeoutMs = options?.timeoutMs ? Math.max(1, Math.floor(options.timeoutMs)) : undefined;
+  async function applyStatementTimeout(client: pg.PoolClient, timeoutMs: number): Promise<void> {
+    try {
+      await client.query('SET statement_timeout = ' + timeoutMs);
+    } catch {
+      throw new McpTimeoutUnavailableError('PostgreSQL rejected the native statement timeout setting');
+    }
+  }
+
   async function query(sql: string, params?: unknown[]) {
     const client = await pool.connect();
     try {
+      if (statementTimeoutMs !== undefined) await applyStatementTimeout(client, statementTimeoutMs);
       return await client.query(sql, params);
     } finally {
       client.release();
     }
+  }
+
+  // Read a bounded batch from a pg-cursor. The callback form exposes the row
+  // description, which lets zero-row results still report ordered columns.
+  function readCursor(
+    cursor: Cursor<unknown[]>,
+    count: number,
+  ): Promise<{ rows: unknown[][]; fields?: pg.FieldDef[] }> {
+    return new Promise((resolve, reject) => {
+      cursor.read(count, (err, rows, result) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve({ rows, fields: (result as pg.QueryResult | undefined)?.fields });
+      });
+    });
   }
 
   return {
@@ -481,6 +522,45 @@ export function createPostgresAdapter(connection: {
         durationMs: Math.round(durationMs),
         truncated: false,
       };
+    },
+
+    // MCP-only bounded read: fetch at most maxRows + 1 rows through a cursor,
+    // then close it, so a large result never materializes in memory.
+    async runQueryBounded(input: BoundedQueryInput): Promise<BoundedQueryResult> {
+      const start = performance.now();
+      const rowLimit = Math.max(1, Math.floor(input.maxRows));
+      const client = await pool.connect();
+      let cursor: Cursor<unknown[]> | null = null;
+      try {
+        const timeoutMs = statementTimeoutMs ?? MCP_QUERY_TIMEOUT_MS;
+        await applyStatementTimeout(client, timeoutMs);
+        // Array mode avoids losing values when a query returns duplicate column names.
+        cursor = client.query(new Cursor<unknown[]>(input.query, undefined, { rowMode: 'array' })) as unknown as Cursor<
+          unknown[]
+        >;
+        const { rows, fields } = await readCursor(cursor, rowLimit + 1);
+        const truncated = rows.length > rowLimit;
+        const boundedRows = truncated ? rows.slice(0, rowLimit) : rows;
+        const columns: QueryColumn[] = (fields ?? []).map((field) => ({
+          name: field.name,
+          type: pgTypeName(field.dataTypeID),
+        }));
+        return {
+          columns,
+          rows: boundedRows,
+          durationMs: Math.round(performance.now() - start),
+          truncated,
+        };
+      } finally {
+        if (cursor) {
+          try {
+            await cursor.close();
+          } catch (err) {
+            log.debug({ err }, 'pg: cursor close failed');
+          }
+        }
+        client.release();
+      }
     },
 
     async getIndexStats(tableId: string): Promise<IndexStats[]> {

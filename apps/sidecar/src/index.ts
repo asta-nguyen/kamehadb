@@ -17,6 +17,9 @@ import { indexAllConnections } from './ai/indexer.js';
 import { log } from './lib/logger.js';
 import { schemaWatcher } from './lib/schema-watcher.js';
 import { isAuthorizedSidecarRequest, isTokenQueryAllowed } from './lib/sidecar-auth.js';
+import { McpRuntime } from './mcp/runtime.js';
+import { setMcpAdapterManager } from './mcp/invalidation.js';
+import { createMcpSettingsRouter } from './routes/mcp-settings.js';
 
 const allowedOrigins = new Set([
   'http://localhost:1420',
@@ -24,9 +27,11 @@ const allowedOrigins = new Set([
   'http://localhost:3000',
   'http://localhost:5173',
   'http://tauri.localhost',
+  'tauri://localhost',
 ]);
 const sidecarToken = process.env.KAMEHADB_SIDECAR_TOKEN;
 const sidecarDir = dirname(fileURLToPath(import.meta.url));
+let mcpRuntime: McpRuntime | null = null;
 
 const app = new Hono();
 
@@ -122,6 +127,11 @@ async function start() {
   initMetadataStore(dbPath);
   log.info({ dbPath }, 'Metadata store initialized');
 
+  mcpRuntime = new McpRuntime();
+  setMcpAdapterManager(mcpRuntime.adapterManager);
+  app.route('/mcp', createMcpSettingsRouter(mcpRuntime));
+  await mcpRuntime.start();
+
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3170;
   const server = serve({
     fetch: app.fetch,
@@ -144,19 +154,24 @@ async function start() {
 }
 
 // Graceful shutdown
-process.on('SIGINT', () => {
+async function shutdown(): Promise<void> {
   log.info('Shutting down...');
   schemaWatcher.stopAll();
   killAllMongoShells();
+  if (mcpRuntime) {
+    await mcpRuntime.close();
+    mcpRuntime = null;
+  }
   closeMetadataStore();
   process.exit(0);
+}
+
+process.on('SIGINT', () => {
+  void shutdown();
 });
 
 process.on('SIGTERM', () => {
-  schemaWatcher.stopAll();
-  killAllMongoShells();
-  closeMetadataStore();
-  process.exit(0);
+  void shutdown();
 });
 
 start().catch((err) => {
