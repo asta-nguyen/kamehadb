@@ -1,4 +1,4 @@
-import type { McpManagedCredentialBundle } from '@kamehadb/shared';
+import { MCP_MANAGED_ACCOUNT_STATE, type McpManagedCredentialBundle } from '@kamehadb/shared';
 import { api } from './api';
 import { invokeTauri, isTauriRuntime } from './tauri';
 
@@ -18,18 +18,20 @@ export async function hydrateMcpCredentials(): Promise<void> {
   if (!isTauriRuntime()) return;
   const { credentials } = await api.getMcpCredentialRefs();
   await Promise.all(
-    credentials.map(async ({ profileId, keychainRef }) => {
-      try {
-        const stored = await invokeTauri<string>('get_credential', {
-          service: MCP_KEYCHAIN_SERVICE,
-          account: keychainRef,
-        });
-        const credential = JSON.parse(stored) as McpManagedCredentialBundle;
-        await api.hydrateMcpCredential(profileId, credential);
-      } catch {
-        // Leave this profile unavailable; MCP never falls back to saved profile credentials.
-      }
-    }),
+    credentials
+      .filter(({ state }) => state === MCP_MANAGED_ACCOUNT_STATE.READY)
+      .map(async ({ profileId, keychainRef }) => {
+        try {
+          const stored = await invokeTauri<string>('get_credential', {
+            service: MCP_KEYCHAIN_SERVICE,
+            account: keychainRef,
+          });
+          const credential = JSON.parse(stored) as McpManagedCredentialBundle;
+          await api.hydrateMcpCredential(profileId, credential);
+        } catch {
+          // Leave this profile unavailable; MCP never falls back to saved profile credentials.
+        }
+      }),
   );
 }
 
@@ -55,7 +57,9 @@ export async function createMcpManagedAccount(profileId: string): Promise<void> 
         const state = accounts.find((account) => account.profileId === profileId)?.state;
         if (state === 'prepared') {
           await api.revokeMcpAccount(profileId);
-          await deleteKeychainCredential(keychainRef);
+          if (await deleteKeychainCredential(keychainRef)) {
+            await api.completeMcpAccountRevocation(profileId);
+          }
         }
       } catch {
         // Preserve the Keychain item when sidecar state cannot prove setup never completed.
@@ -71,5 +75,6 @@ export async function revokeMcpManagedAccount(profileId: string): Promise<{ keyc
   const reference = credentials.find((credential) => credential.profileId === profileId);
   await api.revokeMcpAccount(profileId);
   const keychainCleanedUp = reference ? await deleteKeychainCredential(reference.keychainRef) : true;
+  if (keychainCleanedUp) await api.completeMcpAccountRevocation(profileId);
   return { keychainCleanedUp };
 }

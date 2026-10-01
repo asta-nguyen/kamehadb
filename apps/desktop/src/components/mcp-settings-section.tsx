@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
-import { isMcpSupportedKind, KIND, type McpManagedAccountStatus } from '@kamehadb/shared';
+import { isMcpSupportedKind, KIND, MCP_MANAGED_ACCOUNT_STATE, type McpManagedAccountStatus } from '@kamehadb/shared';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useConnections } from '@/hooks/use-connections';
 import {
@@ -228,17 +228,20 @@ export function McpSettingsSection() {
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Revoke the managed database account for “${profile.database ?? profile.name}”?`,
-                                )
-                              ) {
-                                revokeAccount.mutate(profile.id);
-                              }
+                              const cleanupPending =
+                                accountByProfile.get(profile.id)?.state ===
+                                MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING;
+                              const message = cleanupPending
+                                ? `Retry removing the Keychain credential for “${profile.database ?? profile.name}”? Its database account is already revoked.`
+                                : `Revoke the managed database account for “${profile.database ?? profile.name}”?`;
+                              if (window.confirm(message)) revokeAccount.mutate(profile.id);
                             }}
                             disabled={revokeAccount.isPending}
                           >
-                            Revoke
+                            {accountByProfile.get(profile.id)?.state ===
+                            MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING
+                              ? 'Retry cleanup'
+                              : 'Revoke'}
                           </Button>
                         ) : (
                           <Button
@@ -314,5 +317,8 @@ function accountStatusLabel(
   if (account.state === 'provisioning') return 'Setting up account';
   if (account.state === 'recovery_required') return 'Setup interrupted — revoke required';
   if (account.state === 'revoke_failed') return 'Revoke failed — retry required';
+  if (account.state === MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING) {
+    return 'Database account revoked — Keychain cleanup pending';
+  }
   return account.credentialAvailable ? 'Ready' : 'Keychain unavailable';
 }

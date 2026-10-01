@@ -74,6 +74,18 @@ struct SidecarProcess {
 
 struct SidecarState(Mutex<Option<SidecarProcess>>);
 
+// Stop the managed child before dropping its handle so a normal app exit does
+// not leave the sidecar alive to hold its loopback ports.
+fn terminate_managed_sidecar(state: &SidecarState) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    let Some(mut process) = guard.take() else {
+        return Ok(());
+    };
+    let kill_result = process.child.kill();
+    process.child.wait().ok();
+    kill_result.map_err(|e| format!("Failed to stop sidecar: {e}"))
+}
+
 #[derive(Serialize)]
 struct SidecarInfo {
     port: u16,
@@ -445,15 +457,7 @@ fn read_child_stderr(stderr: Option<std::process::ChildStderr>) -> String {
 
 #[tauri::command]
 fn stop_sidecar(state: tauri::State<'_, SidecarState>) -> Result<(), String> {
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(mut process) = guard.take() {
-        process
-            .child
-            .kill()
-            .map_err(|e| format!("Failed to stop sidecar: {}", e))?;
-        process.child.wait().ok();
-    }
-    Ok(())
+    terminate_managed_sidecar(state.inner())
 }
 
 // Keychain operations using keyring crate
@@ -478,13 +482,15 @@ async fn get_credential(service: String, account: String) -> Result<String, Stri
 #[tauri::command]
 async fn delete_credential(service: String, account: String) -> Result<(), String> {
     let entry = Entry::new(&service, &account).map_err(|e| e.to_string())?;
-    entry.delete_credential().map_err(|e| e.to_string())?;
-    Ok(())
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
@@ -541,15 +547,19 @@ pub fn run() {
             // Kill sidecar when the main window is closed
             if let tauri::WindowEvent::Destroyed = event {
                 if let Some(state) = window.app_handle().try_state::<SidecarState>() {
-                    if let Ok(mut guard) = state.0.lock() {
-                        if let Some(mut process) = guard.take() {
-                            process.child.kill().ok();
-                            process.child.wait().ok();
-                        }
-                    }
+                    let _ = terminate_managed_sidecar(state.inner());
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    // Also stop the child on app-level exits where no window-destroyed event ran.
+    app.run(|app, event| {
+        if let tauri::RunEvent::Exit = event {
+            if let Some(state) = app.try_state::<SidecarState>() {
+                let _ = terminate_managed_sidecar(state.inner());
+            }
+        }
+    });
 }

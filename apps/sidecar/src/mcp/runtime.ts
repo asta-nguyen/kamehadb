@@ -48,6 +48,7 @@ export class McpRuntime {
   private token: string;
   private status: McpListenerStatus = 'stopped';
   private message?: string;
+  private lifecycleQueue: Promise<void> = Promise.resolve();
 
   constructor() {
     const settings = getMcpSettings();
@@ -84,7 +85,15 @@ export class McpRuntime {
   }
 
   async start(): Promise<void> {
-    await this.bind(this.port);
+    await this.serializeLifecycle(() => this.bind(this.port));
+  }
+
+  // Listener controls can arrive from separate settings actions; serialize
+  // them so concurrent retries and port changes cannot race to bind the port.
+  private serializeLifecycle(operation: () => Promise<void>): Promise<void> {
+    const result = this.lifecycleQueue.then(operation, operation);
+    this.lifecycleQueue = result.catch(() => undefined);
+    return result;
   }
 
   private async bind(port: number): Promise<void> {
@@ -118,12 +127,14 @@ export class McpRuntime {
   }
 
   async updatePort(port: number): Promise<void> {
-    updateMcpPort(port);
-    await this.bind(port);
+    await this.serializeLifecycle(async () => {
+      updateMcpPort(port);
+      await this.bind(port);
+    });
   }
 
   async retry(): Promise<void> {
-    await this.bind(this.port);
+    await this.serializeLifecycle(() => this.bind(this.port));
   }
 
   rotateToken(): string {
@@ -132,9 +143,11 @@ export class McpRuntime {
   }
 
   async close(): Promise<void> {
-    await this.stop();
+    await this.serializeLifecycle(async () => {
+      await this.stop();
+      this.status = 'stopped';
+    });
     await this.adapterManager.closeAll();
-    this.status = 'stopped';
   }
 
   private async stop(): Promise<void> {

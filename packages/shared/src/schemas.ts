@@ -362,6 +362,7 @@ export const MCP_MANAGED_ACCOUNT_STATE = {
   RECOVERY_REQUIRED: 'recovery_required',
   READY: 'ready',
   REVOKE_FAILED: 'revoke_failed',
+  KEYCHAIN_CLEANUP_PENDING: 'keychain_cleanup_pending',
 } as const;
 export const MCP_MANAGED_ACCOUNT_STATES = Object.values(MCP_MANAGED_ACCOUNT_STATE);
 export type McpManagedAccountState = (typeof MCP_MANAGED_ACCOUNT_STATES)[number];

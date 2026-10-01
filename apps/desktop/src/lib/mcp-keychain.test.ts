@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     provisionMcpAccount: vi.fn(),
     getMcpAccounts: vi.fn(),
     revokeMcpAccount: vi.fn(),
+    completeMcpAccountRevocation: vi.fn(),
   },
 }));
 
@@ -86,6 +87,7 @@ describe('MCP Keychain bridge', () => {
 
     await expect(revokeMcpManagedAccount('profile')).resolves.toEqual({ keychainCleanedUp: true });
     expect(mocks.api.revokeMcpAccount).toHaveBeenCalledBefore(mocks.invokeTauri);
+    expect(mocks.api.completeMcpAccountRevocation).toHaveBeenCalledAfter(mocks.invokeTauri);
     expect(mocks.invokeTauri).toHaveBeenCalledWith('delete_credential', {
       service: 'com.kamehadb.mcp-managed-account',
       account: 'opaque-ref',

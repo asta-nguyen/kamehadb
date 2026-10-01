@@ -264,6 +264,29 @@ export function initMetadataStore(dbPath: string): void {
     );
   `);
 
+  // Rebuild the state constraint so a failed Keychain delete can retain its opaque reference for retry.
+  const managedAccountsSql = (
+    db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'mcp_managed_accounts'").get() as
+      | { sql: string }
+      | undefined
+  )?.sql;
+  const cleanupPendingState = `'${MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING}'`;
+  if (managedAccountsSql && !managedAccountsSql.includes(cleanupPendingState)) {
+    db.exec(`
+      BEGIN TRANSACTION;
+      ALTER TABLE mcp_managed_accounts RENAME TO mcp_managed_accounts_old;
+      CREATE TABLE mcp_managed_accounts (
+        profile_id TEXT PRIMARY KEY,
+        keychain_ref TEXT NOT NULL UNIQUE,
+        state TEXT NOT NULL CHECK(state IN (${managedAccountStates}))
+      );
+      INSERT INTO mcp_managed_accounts (profile_id, keychain_ref, state)
+        SELECT profile_id, keychain_ref, state FROM mcp_managed_accounts_old;
+      DROP TABLE mcp_managed_accounts_old;
+      COMMIT;
+    `);
+  }
+
   // An interrupted create may have reached the database, so keep the record for explicit cleanup.
   db.prepare('UPDATE mcp_managed_accounts SET state = ? WHERE state = ?').run(
     MCP_MANAGED_ACCOUNT_STATE.RECOVERY_REQUIRED,

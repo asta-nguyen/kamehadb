@@ -26,6 +26,7 @@ KamehaDB is a local-first database workspace built as a Tauri desktop app with a
 ## Cross-domain dependencies
 
 - The desktop API client talks to the sidecar and uses shared contracts for request and response shapes.
+- SQL, MongoDB, Redis, and federated code editors initialize the React Monaco wrapper with the bundled `monaco-editor` package, avoiding its external CDN default inside the Tauri WebView.
 - Sidecar route handlers use the metadata store and engine adapters. Connection profile IDs tie together database operations, query history, AI context, and MCP access.
 - The MCP server uses its own read-only adapter manager rather than reusing the UI SQL adapter cache; its flow and constraints are documented in [[integrations/read-only-mcp|Read-only MCP server]].
 - Tauri supplies desktop lifecycle and native commands; the sidecar remains the database API boundary for the React frontend.
@@ -37,6 +38,7 @@ KamehaDB is a local-first database workspace built as a Tauri desktop app with a
 - `apps/desktop/src/components/sidebar.tsx`
 - `apps/desktop/src/components/workspace-content.tsx`
 - `apps/desktop/src/components/sql-editor.tsx`
+- `apps/desktop/src/lib/monaco-loader.ts`
 - `apps/desktop/src/components/schema-tree.tsx`
 - `apps/desktop/src/components/schema-timeline.tsx`
 - `apps/desktop/src/components/schema-diff-view.tsx`

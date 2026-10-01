@@ -34,7 +34,10 @@ export function useCreateMcpManagedAccount() {
       invalidateMcpState(queryClient);
       toastSuccess('Managed read-only account created');
     },
-    onError: (err) => toastError(safeErrorMessage(err, 'Failed to create managed MCP account')),
+    onError: (err) => {
+      invalidateMcpState(queryClient);
+      toastError(safeErrorMessage(err, 'Failed to create managed MCP account'));
+    },
   });
 }
 
@@ -45,9 +48,12 @@ export function useRevokeMcpManagedAccount() {
     onSuccess: ({ keychainCleanedUp }) => {
       invalidateMcpState(queryClient);
       if (keychainCleanedUp) toastSuccess('Managed database account revoked');
-      else toastError('Database account revoked, but the Keychain credential could not be removed');
+      else toastError('Database account revoked; Keychain cleanup is pending. Retry cleanup from this row.');
     },
-    onError: (err) => toastError(safeErrorMessage(err, 'Failed to revoke managed MCP account')),
+    onError: (err) => {
+      invalidateMcpState(queryClient);
+      toastError(safeErrorMessage(err, 'Failed to revoke managed MCP account'));
+    },
   });
 }
 

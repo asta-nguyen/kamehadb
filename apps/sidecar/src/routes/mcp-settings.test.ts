@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { KIND, MCP_MANAGED_ACCOUNT_STATE } from '@kamehadb/shared';
+import { KIND, MCP_MANAGED_ACCOUNT_STATE, type McpManagedCredentialBundle } from '@kamehadb/shared';
 import {
   clearMcpManagedAccount,
   closeMetadataStore,
@@ -123,6 +123,39 @@ describe('MCP settings management routes', () => {
     expect(getMcpManagedAccount(profile.id)?.state).toBe(MCP_MANAGED_ACCOUNT_STATE.PREPARED);
   });
 
+  it('hydrates a prepared account credential without making MCP serve it before provisioning', async () => {
+    const dir = tempDir();
+    initMetadataStore(join(dir, 'kamehadb.db'));
+    const runtime = stubRuntime();
+    const profile = createProfile({
+      name: 'private postgres',
+      kind: KIND.POSTGRES,
+      host: 'localhost',
+      database: 'app',
+    });
+    const app = new Hono();
+    app.route('/mcp', createMcpSettingsRouter(runtime));
+
+    const prepared = await app.request(`/mcp/profiles/${profile.id}/account/prepare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keychainRef: randomUUID() }),
+    });
+    expect(prepared.status).toBe(201);
+    const { credential } = (await prepared.json()) as { credential: McpManagedCredentialBundle };
+    const hydrated = await app.request(`/mcp/credentials/${profile.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential }),
+    });
+
+    expect(hydrated.status).toBe(200);
+    expect(runtime.adapterManager.hasCredential(profile.id)).toBe(true);
+    expect(getMcpManagedAccount(profile.id)?.state).toBe(MCP_MANAGED_ACCOUNT_STATE.PREPARED);
+    expect(runtime.adapterManager.canServe({ ...profile, mcpEnabled: true })).toBe(false);
+    await runtime.adapterManager.closeAll();
+  });
+
   it('discards a prepared account without touching the database', async () => {
     const dir = tempDir();
     initMetadataStore(join(dir, 'kamehadb.db'));
@@ -134,6 +167,9 @@ describe('MCP settings management routes', () => {
 
     const response = await app.request(`/mcp/profiles/${profile.id}/account/revoke`, { method: 'POST' });
     expect(response.status).toBe(200);
+    expect(getMcpManagedAccount(profile.id)?.state).toBe(MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING);
+    const finalized = await app.request(`/mcp/profiles/${profile.id}/account/revoke/complete`, { method: 'POST' });
+    expect(finalized.status).toBe(200);
     expect(getMcpManagedAccount(profile.id)).toBeNull();
     await runtime.adapterManager.closeAll();
   });
@@ -160,6 +196,9 @@ describe('MCP settings management routes', () => {
 
     const response = await responsePromise;
     expect(response.status).toBe(200);
+    expect(getMcpManagedAccount(profile.id)?.state).toBe(MCP_MANAGED_ACCOUNT_STATE.KEYCHAIN_CLEANUP_PENDING);
+    const finalized = await app.request(`/mcp/profiles/${profile.id}/account/revoke/complete`, { method: 'POST' });
+    expect(finalized.status).toBe(200);
     expect(getMcpManagedAccount(profile.id)).toBeNull();
     await runtime.adapterManager.closeAll();
   });

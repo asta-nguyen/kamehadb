@@ -371,9 +371,15 @@ export const api = {
     ),
 
   revokeMcpAccount: (profileId: string) =>
-    request<{ profileId: string; revoked: boolean }>(
+    request<{ profileId: string; revoked: boolean; keychainCleanupPending: boolean }>(
       'POST',
       `/mcp/profiles/${encodeURIComponent(profileId)}/account/revoke`,
+    ),
+
+  completeMcpAccountRevocation: (profileId: string) =>
+    request<{ profileId: string; finalized: boolean }>(
+      'POST',
+      `/mcp/profiles/${encodeURIComponent(profileId)}/account/revoke/complete`,
     ),
 
   setConnectionMcpEnabled: (connectionId: string, enabled: boolean) =>

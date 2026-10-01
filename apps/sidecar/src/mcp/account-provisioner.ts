@@ -5,6 +5,7 @@ import sql from 'mssql';
 import { MongoClient } from 'mongodb';
 import { KIND, type ConnectionProfile, type McpManagedCredentialBundle } from '@kamehadb/shared';
 import { MCP_QUERY_TIMEOUT_MS } from '../lib/constants.js';
+import { log } from '../lib/logger.js';
 
 const GENERATED_PASSWORD_BYTES = 32;
 const SQL_USERNAME_HASH_LENGTH = 24;
@@ -21,6 +22,7 @@ export class McpAccountOperationError extends Error {
   constructor(
     message: string,
     readonly cleanupFailed = false,
+    readonly databaseCode?: string,
   ) {
     super(message);
     this.name = 'McpAccountOperationError';
@@ -59,6 +61,30 @@ function quotePgIdentifier(value: string): string {
 
 function quotePgLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
+}
+
+// Undo only the grants KamehaDB adds; DROP OWNED could delete user-owned objects
+// and can remove the creator's ADMIN OPTION before DROP ROLE runs.
+async function revokePostgresGrants(client: pg.Client, profile: ConnectionProfile, username: string): Promise<void> {
+  const database = quotePgIdentifier(requireDatabase(profile));
+  const role = quotePgIdentifier(username);
+  await client.query(`REVOKE CONNECT ON DATABASE ${database} FROM ${role}`);
+  const schemas = await client.query<{ nspname: string }>(
+    `SELECT nspname FROM pg_namespace WHERE nspname <> 'information_schema' AND nspname NOT LIKE $1`,
+    [`${POSTGRES_SYSTEM_SCHEMA_PREFIX}%`],
+  );
+  for (const { nspname } of schemas.rows) {
+    const schema = quotePgIdentifier(nspname);
+    await client.query(`REVOKE USAGE ON SCHEMA ${schema} FROM ${role}`);
+    await client.query(`REVOKE SELECT ON ALL TABLES IN SCHEMA ${schema} FROM ${role}`);
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA ${schema} REVOKE SELECT ON TABLES FROM ${role}`);
+  }
+}
+
+function postgresErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  const { code } = error;
+  return typeof code === 'string' && /^[A-Z0-9]{5}$/.test(code) ? code : undefined;
 }
 
 function quoteMysqlIdentifier(value: string): string {
@@ -294,7 +320,7 @@ async function provisionPostgres(
       try {
         const exists = await client.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [credential.username]);
         if (exists.rowCount) {
-          await client.query(`DROP OWNED BY ${quotePgIdentifier(credential.username)}`);
+          await revokePostgresGrants(client, profile, credential.username);
           await client.query(`DROP ROLE ${quotePgIdentifier(credential.username)}`);
         }
       } catch {
@@ -329,10 +355,14 @@ async function revokePostgres(
     await client.connect();
     const exists = await client.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [username]);
     if (exists.rowCount === 0) return;
-    await client.query(`DROP OWNED BY ${quotePgIdentifier(username)}`);
+    await revokePostgresGrants(client, profile, username);
     await client.query(`DROP ROLE ${quotePgIdentifier(username)}`);
-  } catch {
-    throw new McpAccountOperationError('PostgreSQL managed account could not be revoked');
+  } catch (error) {
+    throw new McpAccountOperationError(
+      'PostgreSQL managed account could not be revoked',
+      false,
+      postgresErrorCode(error),
+    );
   } finally {
     await client.end().catch(() => undefined);
   }

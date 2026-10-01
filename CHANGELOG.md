@@ -11,11 +11,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Read-only MCP server** — expose MCP-enabled connections to local AI clients (Codex, Claude Code, Devin CLI, OpenCode) over a loopback `http://127.0.0.1:13979/mcp` endpoint with bearer-token auth. KamehaDB provisions a dedicated database-scoped read-only account, stores its credential in the OS Keychain, and offers explicit Revoke controls in API Settings.
 
+### Changed
+
+- **API Settings navigation** — separate AI provider settings and MCP Server setup into tabs.
+
 ### Fixed
 
+- **MCP listener lifecycle** — stop the bundled sidecar on application exit and serialize listener retries and port changes to prevent orphaned processes and overlapping binds.
 - **MCP sidecar startup race** — serialize concurrent startup calls so the desktop and listener share one sidecar process and bearer token.
 - **Packaged macOS startup** — allow the `tauri://localhost` WebView origin through sidecar CORS so the health check completes.
 - **Read-only MCP safety and compatibility** — apply native SQL timeouts before MCP calls, preserve ordered duplicate columns, honor selected databases, omit credentials from profile-toggle responses, and generate a current OpenCode configuration.
+- **PostgreSQL MCP account revoke** — reverse only the read-only grants created by KamehaDB before dropping its managed role, and record a safe SQLSTATE when revocation fails.
+- **MCP Keychain cleanup recovery** — keep the opaque Keychain reference until secret deletion succeeds, and let users retry cleanup without repeating database revocation.
+- **MCP managed-account setup** — allow the generated credential to hydrate during setup so server database accounts can be provisioned.
+- **Monaco editor loading** — initialize editors from the bundled `monaco-editor` package so Tauri does not wait on CDN assets blocked by its content security policy.
 
 ---
 
