@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v1.6.1] — 2026-10-04
+
 ### Changed
 
 - **MCP managed credentials** — encrypt generated read-only account credentials in local SQLite-backed storage, so saved MCP accounts restore across macOS, Windows, and Linux without OS Keychain access. Existing Keychain-backed accounts must be revoked and recreated.
