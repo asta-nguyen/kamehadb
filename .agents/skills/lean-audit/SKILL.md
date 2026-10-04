@@ -26,8 +26,9 @@ test coverage, or style; route those concerns to review or debugging.
 incomplete: <specific limitation>` and do not make a lean verdict.
 2. Inventory source, structure, entrypoints, manifests, dependencies,
    configuration, commands, and tests. Use `rg` and direct reads. Before
-   judging a candidate, search callers, registrations, dynamic references,
-   configuration, tests, and extension requirements.
+   judging a candidate, use FFF multi-pattern grep (fallback: `rg`) to search
+   callers, registrations, and dynamic-reference variants, then inspect
+   relevant configuration, tests, and extension requirements.
 3. Report only validated cuts with one of these tags:
    `delete`, `stdlib`, `native`, `yagni`, or `shrink`. Omit ambiguous
    candidates. Preserve explicit requirements, repository conventions,
@@ -74,12 +75,3 @@ output the limitation instead.
 - Calling a style preference bloat without behavior or reuse evidence.
 - Calling code dead after checking only one direct occurrence.
 - Removing a factory or validation despite an explicit extension contract.
-
-## Red flags
-
-| Thought                                 | Reality                                                    |
-| --------------------------------------- | ---------------------------------------------------------- |
-| “I found a simpler form; apply it now.” | Report only; user decides.                                 |
-| “No obvious caller means dead.”         | Search dynamic, config, and registration references first. |
-| “The repository is probably lean.”      | No lean verdict without complete coverage.                 |
-| “This bug is ugly, include it.”         | Route correctness and security elsewhere.                  |

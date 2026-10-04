@@ -7,12 +7,9 @@ description: Use when feature design is approved and coding has not started for 
 
 Turn an approved design into a short execution plan before editing code. Save
 the plan at
-`docs/agent-devkit/plans/YYYY-MM-DD-<issue-id>-<slug>-plan.md` when the task has
-an issue ID, or use the existing `YYYY-MM-DD-<slug>-plan.md` form otherwise.
-Use only an ID stated in the task or present in a linked artifact, including
-its filename; do not rename existing files. Create the folder only when writing
-the plan. Plans are process
-artifacts, never wiki pages under `docs/llm/`.
+`docs/agent-devkit/plans/YYYY-MM-DD-<slug>-plan.md`. Follow the shared artifact
+naming rule in `using-devkit` (read it if it is not loaded). Create the folder
+only when writing the plan.
 
 ## Process
 
@@ -46,11 +43,16 @@ artifacts, never wiki pages under `docs/llm/`.
 3. Split the work into small, ordered tasks. Each task must state:
 
    ```text
-   Files: <paths to change, with line ranges for modifications>
+   Files: <paths anchored as path::SymbolName; line ranges only for files without symbols>
    Interfaces: <what this task consumes from earlier tasks and produces for later ones>
    Change: <observable behavior or implementation>
    Verify: <smallest relevant test/check>
    ```
+
+   Plans specify implementation; they do not pre-write code. Do not include
+   function bodies or full test code; `implement-task` writes code. Include
+   exact snippets only when a precise string, regex, config value, or contract
+   shape is itself the requirement.
 
    For cross-file work, also list `Files inspected, no change` so the plan
    distinguishes evidence from guesses.
@@ -77,10 +79,10 @@ artifacts, never wiki pages under `docs/llm/`.
 
 5. Put contract/data changes before their callers; put tests beside the
    behavior they verify. Do not add tasks for speculative abstractions.
-6. End every plan by calling the available Skill entry whose local name is
-   `review-and-verify`. If the
-   feature is new or changes user-visible behavior, instruct the user to invoke
-   `document-wiki` after verification.
+6. Do not add `review-and-verify` as an implementation task. After all plan
+   tasks are complete, `implement-task` owns the final review and verification.
+   If the feature is new or changes user-visible behavior, instruct the user to
+   invoke `document-wiki` after verification.
 7. Add this section to every plan:
 
    ```md
@@ -104,14 +106,17 @@ artifacts, never wiki pages under `docs/llm/`.
 8. Save the complete plan at the required path. Include `## Approved design`
    with a link to the exact approved design, immediately followed by
    `## Global Constraints`. Copy only exact cross-task constraints from the
-   design; write `None.` when there are none. Do not add a second design/spec
-   pointer. Add that plan link to the design's `## Execution` section, then add
-   both artifacts to
-   `docs/agent-devkit/INDEX.md` (`## Designs` and `## Plans`). When an Obsidian
-   vault exists, targets are relative to its root (for a `docs/` vault:
-   `[[agent-devkit/specs/...|Design]]` and `[[agent-devkit/plans/...|Plan]]`);
-   otherwise use relative Markdown links. Do not link from `docs/llm/` to
-   either artifact.
+   design; write `None.` when there are none. Include `## Impact map` using
+   exactly the seven fields in `read-codebase-context` step 5. Do not add a
+   second design/spec pointer. Add that plan link to the design's `## Execution`
+   section, then add both artifacts to `docs/agent-devkit/INDEX.md` (`## Designs`
+   and `## Plans`). Follow the shared process-artifact link and wiki-boundary
+   rules in `using-devkit` (read them if they are not loaded). For a planned
+   entry point or flow that does not exist yet, keep the seven fields and write
+   `Entry: no existing source; planned entry: <approved file + symbol>` and
+   `Flow: no existing flow; planned flow: <approved flow>`. Fill planned files,
+   effects, and verification only from the approved design. Do not claim
+   nonexistent callers or tests were traced.
 9. Do not estimate effort in this skill. When the user explicitly requests an
    estimate, tell the user to invoke `estimate-feature` before presenting the
    approval gate; otherwise continue without an estimate. Estimation never
@@ -128,7 +133,7 @@ artifacts, never wiki pages under `docs/llm/`.
     `Required: no`, tell the user to invoke `implement-task` with
     `Status: not-required`.
 11. Do not include commit steps. If the user requests a commit, leave that action
-    until after the final `review-and-verify` task passes.
+    until after `review-and-verify` passes.
 
 ## No placeholders
 
@@ -137,9 +142,9 @@ plan failures — never write them:
 
 - "TBD", "TODO", "implement later", "fill in details"
 - "Add appropriate error handling" (without specifying what)
-- "Write tests for the above" (without actual test code)
-- "Similar to Task N" (repeat the code — tasks may be read out of order)
-- Steps that describe what to do without showing how
+- Tests described as code instead of named test cases with input → expected result
+- "Similar to Task N" (repeat the interface, test-case, and verify details the task needs)
+- Steps that omit the specific behavior, interface, or check
 - References to types or functions not defined in any task
 
 ## Self-review
@@ -154,8 +159,8 @@ polish, or uneven detail that does not create ambiguity.
    requirement from the design? List any gaps.
 2. **Placeholder scan** — search for any pattern from the "No placeholders"
    section above. Fix them.
-3. **Type consistency** — do function names, parameter types, and property
-   names used in later tasks match what was defined in earlier tasks?
+3. **Type consistency** — do function names, signatures, parameter types, and
+   property names used in later tasks match what was defined earlier?
 4. **Artifact links** — do the index, design, and plan links resolve? Does the
    design link only to wiki pages actually read as context?
 5. **Approval gate** — do impact and status match the required criteria? Is a
@@ -173,21 +178,6 @@ polish, or uneven detail that does not create ambiguity.
    `brainstorm-feature` instead of being invented during planning?
 
 Fix any issues inline. No need to re-review — just fix and move on.
-
-## Red flags
-
-| Thought                                                  | Reality                                                                                                       |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| "I'll figure out the details during implementation"      | Plan must contain actual content. No placeholders.                                                            |
-| "This task is small enough to skip the template"         | Every task states Files, Change, Verify. No exceptions.                                                       |
-| "I'll add tests in a separate task later"                | Tests go beside the behavior they verify. Same task.                                                          |
-| "The plan is obvious from the design"                    | Obvious to you ≠ obvious to the implementing agent. Write it out.                                             |
-| "We may need this abstraction later"                     | Future flexibility without an approved requirement is not a plan task.                                        |
-| "The user already said implement"                        | Before the plan exists, that approves planning only. A required gate waits for approval of the complete plan. |
-| "I'll leave an approved status after changing the plan"  | Material plan changes invalidate approval. Reset the gate to pending.                                         |
-| "The implementing agent can recover decisions from chat" | Persist user-confirmed behavior changes in the plan's Decision Log.                                           |
-| "The executor can re-derive global constraints"          | Copy exact cross-task constraints into the plan; repeated derivation invites drift.                           |
-| "Implementation can decide the missing edge behavior"    | Observable behavior returns to `brainstorm-feature`; implementation rulings preserve behavior.                |
 
 Plans are execution artifacts, not essays. Prefer the fewest tasks that
 make the sequence and verification unambiguous.

@@ -63,6 +63,31 @@ conversation recall alone is not review evidence.
 
 ## Diff review
 
+### Trace changed callers
+
+With OpenEZ, call `diff_context` using `staged: true` to isolate staged changes,
+`ref` to compare a selected ref, or neither option for the working-tree view;
+record changed symbols and callers. A temporary sample run observed that
+`staged: true` reported staged changes, while the default working-tree view
+included staged and unstaged tracked changes. It did not list untracked files
+as changed-file entries, although its graph did surface an indexed untracked
+caller. Treat this as observed coverage, not a guarantee for other hosts.
+
+Always run `git status --short` and search changed symbols plus string, route,
+config-key, and case variants with FFF multi-pattern grep or `rg`; include new
+and untracked paths. This closes gaps when `diff_context` omits untracked files
+or graph edges. Without OpenEZ, when `HEAD` exists derive tracked symbols from
+`git diff HEAD` (staged and unstaged changes); when no commit exists, use both
+`git diff --cached` and `git diff`. For a branch review, also include
+`git diff <target-branch>...HEAD` so committed branch changes are reviewed.
+Use the PR's target branch, or the branch the task is intended to merge into;
+the three-dot comparison uses its merge-base with `HEAD`. If that target cannot
+be established from repository or PR evidence, ask instead of assuming it. Read
+untracked files listed by `git status --short` directly, then find callers with
+FFF multi-pattern grep or `rg`. Read every listed caller. For large diffs, call
+OpenEZ `index_workspace` (`mode: "incremental"`) only on the current
+repository's already-registered workspace before querying.
+
 Review the diff for:
 
 - **Correctness** — logic matches the approved design and persisted decisions
@@ -92,8 +117,11 @@ cannot verify <requirement> — needs <specific evidence or command>
 An unverifiable required behavior keeps the review status at `fail`.
 
 For wiki changes, also verify: source paths exist, `## Sources` entries are
-real, internal Obsidian wikilinks resolve, `INDEX.md` links resolve, and no
-placeholder text remains.
+real, internal relative Markdown links resolve from their containing files,
+`INDEX.md` links resolve, and no placeholder text remains. Also scan
+`docs/llm/` for legacy `[[...]]` links. If a task updates the wiki, completion
+requires the full `document-wiki` migration; report missing or ambiguous
+targets, and fail the wiki check while any legacy wikilink remains.
 
 Before the final result, classify wiki impact even for a bug fix. If the change
 alters documented behavior or leaves a relevant page incomplete, use `yes` and
@@ -102,7 +130,9 @@ the relevant page and source evidence. Use `not-applicable` when the repository
 does not maintain `docs/llm/`, or `unknown` when the impact cannot be
 established. An existing page that contradicts the changed behavior is a
 blocker: keep `Status: fail` until that page is refreshed and verified. Missing
-coverage for new behavior remains a `Wiki impact: yes` handoff.
+coverage for new behavior remains a `Wiki impact: yes` handoff. In the result
+block's `Evidence`, name the check for every listed caller. If a caller has no
+check, state `Verification limit: <caller> — <reason>` there.
 
 ## Complexity pass
 
@@ -141,37 +171,8 @@ does not override a failed requirements or diff review.
 
 ## Receiving code review
 
-When receiving feedback from a reviewer or user:
-
-1. **Read** the complete feedback without reacting
-2. **Understand** — restate the requirement in your own words or ask
-3. **Verify** — check against codebase reality before implementing
-4. **Evaluate** — is the suggestion technically sound for this codebase?
-5. **Respond** — technical acknowledgment or reasoned pushback
-6. **Implement** — one item at a time, test each
-
-Never respond with performative agreement ("You're absolutely right!",
-"Great point!"). State the fix or push back with technical reasoning. If
-feedback is unclear, ask for clarification on all unclear items before
-implementing any.
-
-Push back when: suggestion breaks existing functionality, reviewer lacks
-full context, violates YAGNI, or conflicts with architectural decisions.
-
-## Red flags
-
-| Thought                          | Reality                                                                                                               |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| "Should work now"                | Perform a fresh check of the claimed behavior                                                                         |
-| "I'm confident"                  | Confidence is not evidence                                                                                            |
-| "Linter passed"                  | Linter is not compiler or test suite                                                                                  |
-| "This check proves everything"   | State only the behavior the check actually covers                                                                     |
-| "Just this once"                 | No exceptions                                                                                                         |
-| "Fewer lines must be better"     | A smaller diff that weakens behavior or clarity is a regression.                                                      |
-| "The decision was only in chat"  | Chat recall is not durable review evidence; persist behavior decisions before passing.                                |
-| "The requirement probably works" | If current evidence cannot establish it, report `cannot verify` under `Spec gaps` and fail.                           |
-| "It is only a bug fix"           | A behavior-changing bug fix still requires a wiki-impact classification.                                              |
-| "It is only style"               | A deviation from a matching recorded convention is a review finding; cite the changed `path:line` and why it matters. |
+When reviewing external feedback, read `references/receiving-code-review.md`
+before continuing.
 
 ## Report
 

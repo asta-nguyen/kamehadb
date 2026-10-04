@@ -25,10 +25,9 @@ Do not create handoffs for short tasks that are already complete.
    relevant wiki page or test output. Source and fresh command output are
    authoritative; conversation memory is not.
 2. Create a handoff at
-   `docs/agent-devkit/handoffs/YYYY-MM-DD-<issue-id>-<slug>.md` when the task
-   has an issue ID, or use the existing `YYYY-MM-DD-<slug>.md` form otherwise.
-   Use only an ID stated in the task or present in a linked artifact, including
-   its filename; do not rename existing files. Use this structure:
+   `docs/agent-devkit/handoffs/YYYY-MM-DD-<slug>.md`. Follow the shared
+   artifact naming rule in `using-devkit` (read it if it is not loaded). Use
+   this structure:
 
    ```md
    # Handoff: <task>
@@ -71,23 +70,17 @@ Do not create handoffs for short tasks that are already complete.
    requirement passes without fresh evidence. Do not copy secrets or full
    logs; record the command and relevant result instead.
 4. If `docs/agent-devkit/INDEX.md` exists, add the handoff under a `##
-Handoffs` section using a relative Markdown link. Do not create a second
-   index or add a handoff link to `docs/llm/`.
+Handoffs` section. Follow the shared process-artifact link and wiki-boundary
+   rules in `using-devkit` (read them if they are not loaded). Do not create a
+   second index.
 5. Run `git diff --check` and read the created checkpoint before stopping.
 
 ## Resume
 
-At the start of the next session, read the newest relevant handoff first. Then
-read every linked decision source, verify `git status --short`, re-check its
-claimed source paths and commands, and continue from `## Next action`. If the
-source or working tree disagrees, trust the current repository and update the
-handoff before proceeding.
-
-## Red flags
-
-| Thought                                 | Reality                                                                 |
-| --------------------------------------- | ----------------------------------------------------------------------- |
-| "The next session will remember this"   | Memory is not a durable project artifact.                               |
-| "I'll dump the whole transcript"        | A compact evidence map is easier to resume and less likely to go stale. |
-| "The handoff says tests passed"         | Re-run the command; handoffs are navigation, not verification.          |
-| "I'll make a checkpoint for every task" | Short completed tasks need no extra artifact.                           |
+At the start of the next session, `memory_recall` with 1–3 task keywords may
+locate a decision or handoff file; pass `maxTokens` when its schema supports
+it, and treat memory only as a pointer. Read the newest
+relevant handoff and every linked decision source, verify `git status --short`,
+re-check claimed source paths and commands, and continue from `## Next action`.
+If source or working tree disagrees, trust the current repository and update
+the handoff before proceeding.

@@ -14,11 +14,21 @@ description: Use when the user has approved a bounded change or feature plan and
    files, with the most specific matching scope winning; route same-scope
    conflicts through user clarification.
 2. If application source exists, call the available Skill entry whose local
-   name is `read-codebase-context` to trace the relevant code path, or use
-   direct file reads. Understand callers, data flow, and error paths before editing. For a
+   name is `read-codebase-context` to trace the relevant code path.
+   Understand callers, data flow, and error paths before editing. For a
    source-less new project, read the
    approved spec and plan, then create the first planned entry point; state that
    callers and existing error paths do not exist yet.
+   When the active plan has an `## Impact map`, follow the map-refresh rule in
+   `read-codebase-context`: validate `Verified at`, inspect tracked and
+   untracked paths since that commit, re-trace changed existing paths, and
+   confirm every mapped entry-point and implementation symbol across the
+   current repository. If the baseline is missing, unavailable, or no longer
+   an ancestor, trace existing source from scratch; if the planned source does
+   not exist yet, use the source-less map rule instead. Read current source for
+   every existing file to edit. For a planned new file, follow the approved
+   design and read the source after creating it; the map is navigation, not
+   evidence.
 3. Follow the approved `plan-feature` output when one exists. Read its
    `## Approval Gate` before editing application code:
    - `Required: yes` proceeds only with `Status: approved`. Missing or `pending`
@@ -29,7 +39,10 @@ description: Use when the user has approved a bounded change or feature plan and
 
    Approval given before the plan existed does not satisfy a required gate.
    Without a plan, require an approved bounded design from `brainstorm-feature`;
-   otherwise tell the user to invoke `brainstorm-feature` before editing.
+   otherwise tell the user to invoke `brainstorm-feature` before editing. An
+   eligible explicit-change notice from `brainstorm-feature` satisfies this
+   bounded-design gate. If implementation uncovers impact outside the user's
+   named scope, stop and return to that approval gate before continuing.
 
 4. Read the active plan/spec's `## Decision Log` and any task-linked decision
    file listed in `docs/agent-devkit/INDEX.md`. Conversation memory is not a
@@ -93,13 +106,18 @@ When implementation needs a user answer before it can continue:
    requirement:
    - When a plan or spec exists, append the decision to its `## Decision Log`.
    - For a bounded task with no plan/spec, create a decision file only when
-     the first persistent decision occurs. Use
-     `docs/agent-devkit/decisions/YYYY-MM-DD-<issue-id>-<slug>.md` when an issue
-     ID is present, or the existing `YYYY-MM-DD-<slug>.md` form otherwise. Use
-     only an ID stated in the task or present in a linked artifact, including
-     its filename; do not rename existing files. Link it under `## Decisions` in
-     `docs/agent-devkit/INDEX.md` and link it to the task issue or related
-     artifact when one exists.
+     the first persistent decision occurs, at
+     `docs/agent-devkit/decisions/YYYY-MM-DD-<slug>.md`. Follow the shared
+     artifact naming rule in `using-devkit` (read it if it is not loaded). Link
+     it under `## Decisions` in `docs/agent-devkit/INDEX.md` and to the task
+     issue or related artifact when one exists, following the shared
+     process-artifact link rule in `using-devkit`.
+
+   After persisting the decision, optionally use `memory_write` to store only
+   its title and file path; never make memory the only copy. At session start,
+   `memory_recall` with 1–3 task keywords may locate decision or handoff files;
+   pass `maxTokens` when its schema supports it, and read those files before
+   relying on them.
 
    Use this shape:
 
@@ -118,8 +136,8 @@ When implementation needs a user answer before it can continue:
    `Status: pending`, and stop for approval. If a bounded task expands beyond
    its approved design, tell the user to invoke `brainstorm-feature` instead of
    silently widening scope.
-5. Never store proposed decisions in `docs/llm/`; that wiki describes verified
-   implemented behavior only.
+5. Follow the shared process-artifact/wiki boundary in `using-devkit` (read it
+   if it is not loaded). Keep `docs/llm/` for verified implemented behavior.
 
 ## After implementation
 
@@ -133,43 +151,4 @@ When implementation needs a user answer before it can continue:
 
 ## Documentation impact
 
-Before the final response, classify whether the verified wiki needs an update.
-When `docs/llm/` exists, inspect the relevant page and its `## Sources` entries.
-This applies to bug fixes too: a fix that changes user-visible behavior or a
-documented business rule can make the wiki stale.
-
-Use exactly one of these classifications:
-
-- `yes`: a page is stale or incomplete, or new/material behavior needs a page;
-  list the affected pages. For missing coverage, tell the user to invoke
-  `document-wiki` after verification. If an existing page contradicts the
-  changed behavior, treat it as a blocker and do not claim completion until it
-  is refreshed and the final review passes. Missing coverage for new behavior
-  can remain a documented handoff.
-- `no`: relevant pages and source paths were inspected and remain accurate;
-  name the evidence in the final response.
-- `not-applicable`: the repository does not maintain a `docs/llm/` wiki.
-- `unknown`: the impact could not be established; state the limitation.
-
-Always include this block in the final response:
-
-```text
-Wiki impact: yes | no | not-applicable | unknown
-Wiki pages: <paths, or none>
-Wiki action: <invoke document-wiki / no update needed / limitation>
-```
-
-## Red flags
-
-| Thought                                                | Reality                                                                                                                               |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| "I'll fix this bug while I'm here"                     | Scope creep. File a separate task.                                                                                                    |
-| "The change is obvious, no need to trace callers"      | Obvious changes break callers you did not read.                                                                                       |
-| "I'll skip the check, it's a small change"             | Small changes break things. Run the check.                                                                                            |
-| "I'll verify at the end"                               | Verify after each non-trivial change. Catch errors early.                                                                             |
-| "Removing this guard makes the diff smaller"           | Smaller is not simpler when it weakens a protected boundary.                                                                          |
-| "The spec was approved, so the plan must be approved"  | A required execution-plan gate is separate and must say `Status: approved`.                                                           |
-| "The conversation will remember the user's answer"     | Restate it now; persist behavior decisions in the active plan/spec or a task-scoped decision file.                                    |
-| "This clarification is small, so approval still holds" | Material behavior, API, schema, security, or scope changes invalidate the old approval.                                               |
-| "Git can undo it, so it is reversible"                 | A technical ruling must be reversible wholly inside the current task without migration, external contract, or outside-caller changes. |
-| "It is only a bug fix"                                 | A behavior-changing bug fix still requires a wiki-impact classification.                                                              |
+The final response repeats the wiki-impact block from `review-and-verify`.

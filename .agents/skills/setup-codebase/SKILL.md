@@ -12,14 +12,9 @@ Before step 1, determine whether `document-wiki` is calling this procedure
 inline. In inline mode, execute only the `docs/llm/` skeleton portion of step 3,
 read back the created wiki files, and return. Do not create or update
 `AGENTS.md`, `CLAUDE.md`, or `CONVENTIONS.md`, capture conventions, query
-OpenEZ, change `.gitignore`, or execute the remaining setup steps. This guard
-must run before any write.
-
-In direct mode, preflight any existing `AGENTS.md` and root `CONVENTIONS.md`
-before step 3 can write missing context. If `CONVENTIONS.md` exists without the
-exact pointer, the pointer target is missing or empty, both files contain
-populated convention sources, or the existing file is otherwise a collision,
-report the paths, ask the user how to resolve it, and return without writing.
+OpenEZ, change `.gitignore`, or execute the remaining setup steps. In direct
+mode, run step 4's preflight before step 3 writes anything. This guard must run
+before any write.
 
 1. Check the exact status of `AGENTS.md`, `CLAUDE.md`, `CONVENTIONS.md`,
    `docs/llm/`, and `.gitignore`. Read every existing context or conventions
@@ -64,10 +59,11 @@ report the paths, ask the user how to resolve it, and return without writing.
      content gaps, and state that any existing log is legacy, not read or
      written and not used for freshness. Do not create `LOG.md`. If a legacy
      `LOG.md` already exists,
-     preserve it byte-for-byte without reading or updating it. Create
-     `architecture/`,
-     `workflows/`, or `decisions/` only when `document-wiki` has a real page to
-     place there; do not add placeholder pages just to preserve empty directories.
+     preserve it byte-for-byte without reading or updating it.
+     Create wiki category folders (`architecture/`, `domains/`, `workflows/`,
+     `integrations/`, `operations/`, or `decisions/`) only when `document-wiki`
+     has a real page to place there; do not add placeholder pages just to
+     preserve empty directories.
 
    Every claim must have a repository source. If evidence is insufficient,
    state an open question instead of inventing a rule.
@@ -89,54 +85,34 @@ report the paths, ask the user how to resolve it, and return without writing.
      `convention|working rules|standards|style|guidelines|change shape` whose
      content contains at least one repository-specific rule means conventions
      are already present; report the match and skip capture.
-   - If no stored convention is found, continue with evidence gathering in this
-     fixed order: declared repository configuration, consistently observed code,
-     then web or general practice only when neither yields a signal.
-
-   Classify each candidate as declared, observed, or adopted and apply the
-   complete admission filter:
-   - Keep a declared rule only with an authoritative repository-owned source
-     that explicitly requires it, is not a language/framework default, and
-     makes deviation violate a repository behavior, tooling contract,
-     compatibility requirement, or documented workflow.
-   - Keep an observed rule only with at least two consistent in-repository
-     evidence paths in scope, no counterexample there, not a language/framework
-     default, and a repository behavior, tooling contract, compatibility
-     requirement, or documented workflow that deviation would violate.
-   - Keep an adopted rule only when the repository has no signal, it is not a
-     language/framework default, and the user confirms it as policy with a named
-     source and approval date.
-
-   Drop generic advice and any candidate that fails its filter. If an external
-   rule conflicts with declared or observed repository behavior, report it as
-   rejected with the conflict reason and do not persist or apply it. If no
-   candidate passes, report that there is no convention to record.
-
-   For every candidate that passes, present its type, repository-relative scope,
-   evidence paths, contradictory examples checked, why it is not a
-   language/framework default, and approval status. Present the exact lines
-   before writing and wait for explicit user approval. By default append one
-   `## Conventions` section to `AGENTS.md`; each declared or observed rule
-   includes its scope and evidence path or paths. Write
-   `## Adopted conventions (not yet evidenced in code)` only when an adopted
-   rule exists, and include its source link and `user-approved YYYY-MM-DD` date.
-   Use root `CONVENTIONS.md` only when the proposed rules exceed 40 non-empty
-   rule lines (excluding headings and blank lines) or apply per area. In split
-   storage, keep exactly one pointer in `AGENTS.md`, put all rules in
-   `CONVENTIONS.md`, use repository-relative scopes, and never duplicate a rule.
-   When multiple area rules match, the most specific scope wins; a conflict at
-   the same scope is reported to the user instead of resolved silently. Create
-   or update either file only after approval; preserve all other existing
-   content byte-for-byte.
+   - If no stored convention is found, read
+     `references/convention-capture.md` before capturing conventions after
+     evidence gathering.
 
 5. Check whether OpenEZ is available (`openez` command or MCP server). If it is
    available, note it in `AGENTS.md` under a `## Code intelligence` section as
-   an optional path for semantic or cross-module questions when the workspace
-   index is healthy; direct source reads remain authoritative. If it is not
-   available, continue without it. Mention optional `setup-openez` only when
-   direct search cannot establish a needed semantic or cross-module relationship.
-   Do not recommend it by repository size, or install or run `openez setup`
-   silently.
+   the optional Locate → Expand → Confirm → Read path below. If `AGENTS.md`
+   was created in this run, include the section there. If it already existed,
+   present the exact proposed lines and wait for approval before adding them.
+   If it is not available, continue without it. Mention optional
+   `setup-openez` only when direct search cannot establish a needed semantic or
+   cross-module relationship. Do not recommend it by repository size, or
+   install or run `openez setup` silently.
+   Use this section:
+
+   ```md
+   ## Code intelligence
+
+   Locate concepts with OpenEZ `code_query`, approximate filenames with FFF
+   fuzzy file find, identifiers or literals with FFF grep (fallback: `rg`),
+   and regex with `rg`. Expand callers and callees with OpenEZ `code_context`
+   (1–2 hops); confirm string, route, config-key, and case variants with FFF
+   multi-pattern grep (fallback: `rg`). Use OpenEZ `code_outline` before
+   reading a large file. Search results are navigation; read current source as
+   evidence. Query OpenEZ directly with the repository path; if unavailable,
+   unindexed, or irrelevant, continue with FFF or `rg` and direct reads.
+   ```
+
 6. Keep local Obsidian and OpenEZ state out of Git. Create `.gitignore` when it
    is missing, or append only these missing lines without reordering,
    normalizing, or duplicating existing content:
@@ -152,63 +128,29 @@ report the paths, ask the user how to resolve it, and return without writing.
    paths; never run `git rm --cached` or otherwise untrack them.
 
 7. Preserve existing context files byte-for-byte. The additive `.gitignore`
-   update in step 6 is the only automatic edit to an existing file. The
-   user-approved conventions section or `AGENTS.md` pointer from step 4 is a
-   sanctioned edit; do not make either edit without approval. Do not restore
-   files from Git. Read back every created or changed file before reporting it.
-8. Use Obsidian wikilinks (`[[path/to/page|Label]]`) for internal wiki links.
-   When an ancestor of `docs/llm/` contains `.obsidian/`, targets must be
-   relative to that vault root (for example, `[[llm/architecture/overview]]`
-   for a `docs/` vault). Use `## Sources` for evidence and `## Related` when a
-   related page exists.
+   update in step 6 is the only automatic edit to an existing file. A
+   `Code intelligence` section may be included in a new `AGENTS.md` created
+   during this run or added to an existing one only after user approval. The
+   conventions section or `AGENTS.md` pointer from step 4 may also be written
+   only after user approval.
+   Do not restore files from Git. Read back every created or changed file
+   before reporting it.
+8. Use standard relative Markdown links for internal wiki links, following the
+   shared link rule in `using-devkit`. Use `## Sources` for evidence and
+   `## Related` when a related page exists.
    Do not document features here; `document-wiki` owns that.
 9. Run `git diff --check`. Report distinct `created`, `updated`, and `kept`
    lists, tracked local artifacts, and the evidence paths used.
 
 ## Quick reference
 
-| File                                                                           | When to create                    | Key content                                                                    |
-| ------------------------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------------ |
-| `AGENTS.md`                                                                    | Missing                           | Purpose, layout, commands, conventions, gotchas, skills list, wiki entry point |
-| Repository conventions                                                         | Missing repository-specific rules | Evidence-backed `## Conventions` in `AGENTS.md` or root `CONVENTIONS.md`       |
-| `CLAUDE.md`                                                                    | Missing                           | Pointer to `AGENTS.md` + repo-specific instructions                            |
-| `docs/llm/AGENTS.md`                                                           | Missing                           | Wiki evidence and maintenance rules                                            |
-| `docs/llm/INDEX.md`                                                            | Missing                           | Navigable entry point                                                          |
-| `docs/llm/architecture/overview.md`                                            | Baseline map                      | Source-grounded repository orientation                                         |
-| `docs/llm/{architecture,domains,workflows,integrations,operations,decisions}/` | A real page needs the folder      | Evidence-backed wiki categories; create only when needed                       |
-| `.gitignore`                                                                   | Setup                             | Add only missing local Obsidian and OpenEZ rules                               |
-
-## Red flags
-
-| Thought                                          | Reality                                                                                                                      |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| "I'll use a generic template to save time"       | Generic templates miss project-specific conventions. Read the repo.                                                          |
-| "I'll overwrite this section, it looks outdated" | Existing context belongs to the project. Never overwrite without asking.                                                     |
-| "I can infer this convention from the filename"  | Filenames are not evidence. Read the source.                                                                                 |
-| "I'll record a generic best practice"            | Keep only declared or observed rules; otherwise require a named source and explicit user approval under the adopted section. |
-| "I'll edit AGENTS.md during capture"             | Present the exact lines first and wait for approval; preserve all other content byte-for-byte.                               |
-| "I'll skip reading back the file I just created" | Read back every created file before reporting.                                                                               |
-| "I'll add features to AGENTS.md"                 | `document-wiki` owns features. `AGENTS.md` is conventions only.                                                              |
-| "I'll untrack existing local artifacts"          | Ignore rules are additive only. Report tracked files and leave Git ownership to the user.                                    |
-
-Prompt contract:
-
-```text
-Inspect repository evidence. Before any write, detect whether `document-wiki`
-called this procedure inline. In inline mode create only the missing `docs/llm/`
-wiki skeleton, read it back, and return. In direct mode, inspect `AGENTS.md` and
-root `CONVENTIONS.md`, detect the exact split pointer and existing populated
-sources, skip valid canonical storage, and report broken or conflicting storage
-without writing. For missing conventions, gather declared configuration, then
-repeated code, then web only when neither yields a signal. Classify candidates,
-apply the admission filter, show evidence and exact proposed lines, and wait for
-user approval. Use one source of truth, `AGENTS.md` by default, and root
-`CONVENTIONS.md` only for more than 40 non-empty rule lines or area scopes. If a
-skills/ folder exists, list all skills in AGENTS.md. If docs/llm/ exists or is
-created, add its INDEX.md as the wiki entry point and require wiki-first
-behavior questions. When a source-less project has an approved design, use it
-only for intended purpose and planned layout. If OpenEZ is available, note it in
-AGENTS.md. Add missing local Obsidian and OpenEZ rules to .gitignore without
-untracking files. Report created, updated, kept, tracked artifacts, evidence,
-and git diff --check.
-```
+| File                                                                           | When to create                                    | Key content                                                                    |
+| ------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `AGENTS.md`                                                                    | Missing                                           | Purpose, layout, commands, conventions, gotchas, skills list, wiki entry point |
+| Repository conventions                                                         | Missing repository-specific rules                 | Evidence-backed `## Conventions` in `AGENTS.md` or root `CONVENTIONS.md`       |
+| `CLAUDE.md`                                                                    | Missing                                           | Pointer to `AGENTS.md` + repo-specific instructions                            |
+| `docs/llm/AGENTS.md`                                                           | Missing                                           | Wiki evidence and maintenance rules                                            |
+| `docs/llm/INDEX.md`                                                            | Missing                                           | Navigable entry point                                                          |
+| `docs/llm/architecture/overview.md`                                            | `document-wiki` baseline-map output               | Source-grounded repository orientation                                         |
+| `docs/llm/{architecture,domains,workflows,integrations,operations,decisions}/` | `document-wiki` has a real page for that category | Evidence-backed wiki categories; never create placeholder folders              |
+| `.gitignore`                                                                   | Setup                                             | Add only missing local Obsidian and OpenEZ rules                               |

@@ -1,82 +1,84 @@
 ---
 name: using-devkit
-description: Use when starting any task in a repo with agent-devkit installed, including feature work, bug fixes, reviews, documentation, estimates, unfamiliar requests, or choosing another devkit skill.
+description: Use when starting work in a repository with agent-devkit installed, including features, bug fixes, reviews, documentation, estimates, or unfamiliar requests.
 ---
 
 # Using Devkit
 
-Choose the owning workflow skill, then follow that skill's instructions.
+Choose the owning workflow skill and follow its full instructions.
 
-## Skill names
+## Priority
 
-Skill references use their local name, such as `review-and-verify`. In a
-namespaced plugin host, invoke the available entry with that local name, such
-as `agent-devkit:review-and-verify`; in a direct skills install, invoke the
-bare local name.
+Read context before changing files: run `read-codebase-context`, or
+`setup-codebase` on a first visit.
 
-## Priority rule
+## Shared rules
 
-**Read context before changing code.** Run `read-codebase-context` (or
-`setup-codebase` on a first visit) before any edit.
+- New process artifacts under `docs/agent-devkit/` use
+  `YYYY-MM-DD-<issue-id>-<slug>` before any type suffix when the task or a
+  related artifact (including its filename) provides an issue ID. Otherwise
+  keep the existing form. Never infer an ID or rename an artifact.
+- For internal document links, use standard relative Markdown links
+  (`[label](relative/path.md)`), resolved from the file containing the link.
+  No Obsidian vault or app is required.
+- When editing any document that contains legacy `[[...]]` links, convert
+  every resolvable link in that document to relative Markdown and verify it.
+  Resolve legacy targets using the owning workflow's existing target-root rule;
+  read the exact target before converting and do not guess among duplicates. If
+  `docs/llm/` contains legacy wikilinks during wiki work, migrate every
+  resolvable internal link across the wiki in the `document-wiki` pass. If the
+  task cannot include that full migration, route wiki work through
+  `document-wiki`; do not report it complete while links remain mixed. Report
+  missing or ambiguous targets instead of inventing them.
+- Process artifacts stay under `docs/agent-devkit/`: never put them in
+  `docs/llm/` or link to them from `docs/llm/`.
 
 ## Team Git workflow
 
-Use the team's one-branch/PR-per-task workflow; worktrees are optional. Keep
-repository and user commit/push approval rules. Use issue IDs present in the
-task or a linked artifact, including its filename; never infer one. When
-resolving conflicts in `docs/agent-devkit/INDEX.md` or `docs/llm/INDEX.md`,
-preserve links from every task and verify every target after the merge. Do not
-add locks or coordination tools.
+Use one branch/PR per task; worktrees are optional. Keep repository and user
+commit/push approval rules. When resolving conflicts in
+`docs/agent-devkit/INDEX.md` or `docs/llm/INDEX.md`, preserve every task link
+and verify all targets. Do not add locks or coordination tools.
 
 ## Routing map
 
-| Task type                                                       | Skill                                                                          |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| First visit to a repo missing context or repository conventions | `setup-codebase`                                                               |
-| Set up or refresh OpenEZ when needed and approved               | `setup-openez`                                                                 |
-| Understand code before changing it                              | `read-codebase-context`                                                        |
-| Checkpoint unfinished work before pausing                       | `context-handoff`                                                              |
-| Document existing app features                                  | `document-wiki`                                                                |
-| Audit a whole repository for over-engineering or bloat          | `lean-audit`                                                                   |
-| Small feature in an existing flow                               | `brainstorm-feature` → `implement-task` → `review-and-verify`                  |
-| Architectural feature                                           | `brainstorm-feature` → `plan-feature` → `implement-task` → `review-and-verify` |
-| Bug or possible bug                                             | `systematic-debugging`                                                         |
-| Per-task AI-assisted estimate (optional)                        | `estimate-feature`                                                             |
-| Implement an already approved design or plan                    | `implement-task` → `review-and-verify`                                         |
+| Task                                                         | Skill                                                                      |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| First visit or missing repository conventions                | `setup-codebase`                                                           |
+| Set up or refresh OpenEZ when needed and approved            | `setup-openez`                                                             |
+| Understand affected code and callers                         | `read-codebase-context`                                                    |
+| Pause unfinished work                                        | `context-handoff`                                                          |
+| Resume paused work                                           | `context-handoff` Resume procedure                                         |
+| Create or refresh the LLM wiki                               | `document-wiki`                                                            |
+| Whole-repository simplicity audit                            | `lean-audit`                                                               |
+| New or ambiguous feature                                     | `brainstorm-feature`; follow the handoff for its classification            |
+| Exact, low-risk, non-bug change                              | `brainstorm-feature` impact check → `implement-task` → `review-and-verify` |
+| Bug or possible bug                                          | `systematic-debugging`                                                     |
+| Per-task AI estimate, when requested                         | `estimate-feature`                                                         |
+| Turn an approved architectural design into an execution plan | `plan-feature`                                                             |
+| Implement an approved design or plan                         | `implement-task` → `review-and-verify`                                     |
 
-A bounded feature uses a short chat design and approval, with no spec or plan
-file. Architectural work uses an approved spec before planning and follows any
-required plan approval gate. Bounded bug fixes are verified after debugging;
-architectural bugs hand off to the spec/plan route.
+The explicit-change row applies only after `brainstorm-feature` verifies
+eligibility; otherwise it uses the approval gate. The arrow marks a required
+handoff.
 
-Run skills in the listed order when a task spans several. The arrow (`→`)
-marks a required handoff: the left skill's output feeds the right one.
+After `brainstorm-feature` classifies the request, route a Spike to
+investigation and reporting, a Bounded feature to `implement-task`, and an
+Architectural feature through `plan-feature` before implementation. Implemented
+work still goes through `review-and-verify`.
 
-### Bug classification
+## Bug classification
 
-A "fix issue A" request is not one shape. Use the vocabulary owned by
-`brainstorm-feature` and enforced during `systematic-debugging`:
+- **Diagnostic investigation** — asks whether something is a bug or what is
+  happening; `systematic-debugging` investigates and reports evidence.
+- **Bounded bug** — fixes an existing flow without changing a shared interface,
+  contract, or component boundary; `systematic-debugging` verifies the fix.
+- **Architectural bug** — changes a shared interface, contract, component
+  boundary, or spans components; use `brainstorm-feature` → `plan-feature` →
+  `implement-task` → `review-and-verify`.
 
-- **Spike bug** — the real question is "is this actually a bug?" or "what is
-  happening?" Route to `systematic-debugging` for an evidence-backed answer.
-- **Bounded bug** — the fix stays within an existing flow without changing a
-  shared interface, contract, or component boundary. Route to
-  `systematic-debugging`.
-- **Architectural bug** — the fix changes a shared interface, contract, or
-  component boundary, or spans multiple components. Route through the full
-  architectural workflow in the table.
-
-When the type is not yet clear from the request, route to
-`systematic-debugging`; it classifies after investigation (Phase 4 step 1) and
-hands off to `brainstorm-feature` if the bug turns out to be architectural.
-
-This skill routes only. Do not use it without the full devkit skill set.
-
-## Red flags
-
-| Thought                                                | Reality                                                                                                            |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| "It's just a quick fix, skip the skill"                | Quick fixes still touch callers and contracts. `read-codebase-context` first, every time.                          |
-| "Routing is overhead, I'll just start editing"         | Improvising skips context and verification; the devkit skills exist to enforce both.                               |
-| "I can fold `review-and-verify` into `implement-task`" | They are separate for a reason: the implementer is not its own reviewer.                                           |
-| "I'll classify after I start fixing"                   | Classification decides the route. Classify before routing; re-classify only upgrades to the heavier path mid-task. |
+When classification is unclear, start with `systematic-debugging`; it upgrades
+architectural bugs to the full route. Diagnostic investigation is distinct
+from `brainstorm-feature`'s feasibility Spike. This skill routes only and
+requires the full devkit skill set. In namespaced hosts use entries such as
+`agent-devkit:review-and-verify`; direct installs use the bare skill name.
