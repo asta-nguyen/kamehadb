@@ -7,9 +7,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v1.6.1] — 2026-10-04
+
+### Changed
+
+- **MCP managed credentials** — encrypt generated read-only account credentials in local SQLite-backed storage, so saved MCP accounts restore across macOS, Windows, and Linux without OS Keychain access. Existing Keychain-backed accounts must be revoked and recreated.
+
+---
+
+## [v1.6.0] — 2026-10-01
+
+### Added
+
+- **Read-only MCP server** — expose selected database profiles to Codex, Claude Code, Devin CLI, and OpenCode over a local authenticated endpoint. KamehaDB provisions a dedicated read-only database account and stores its credential in the OS Keychain.
+
+### Changed
+
+- **API Settings tabs** — move MCP setup into its own tab beside AI provider settings.
+
+### Fixed
+
+- **MCP listener lifecycle** — serialize sidecar startup, retries, and port changes, and stop the listener with the desktop app to prevent races and orphaned processes.
+- **MCP query safety and compatibility** — enforce engine timeouts and selected database scope, preserve result column order, keep credentials out of profile responses, and refresh the OpenCode config snippet.
+- **Managed account recovery** — make credential hydration, database grant revocation, and Keychain cleanup recoverable without removing grants the app does not manage.
+- **Packaged app startup** — allow sidecar health checks from the Tauri WebView and bundle Monaco so the editor does not depend on CDN assets blocked by the app's content security policy.
+
+---
+
+## [v1.5.1] — 2026-09-01
+
 ### Added
 
 - **Query tab rename** — rename query tabs from their right-click context menu.
+- **JSON copy actions** — add JSON copy buttons to SQL results and the MongoDB footer, and remove the redundant MongoDB header dropdown.
 
 ### Fixed
 

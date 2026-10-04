@@ -21,8 +21,9 @@ import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '
 import { safeErrorMessage } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
 import { buildMongoCompletionEntries, type MongoCompletionsData } from '@/lib/mongo-autocomplete';
+import { loadMonacoEditor } from '@/lib/monaco-loader';
 
-const Editor = lazy(() => import('@monaco-editor/react').then((m) => ({ default: m.Editor })));
+const Editor = lazy(loadMonacoEditor);
 
 type MongoQueryProps = {
   tab: WorkspaceTab & { pipeline?: string };

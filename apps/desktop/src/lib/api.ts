@@ -327,4 +327,41 @@ export const api = {
       `/tigerbeetle/${connectionId}/transfers`,
       { transfers },
     ),
+
+  // Read-only MCP settings
+  getMcpSettings: () => request<import('@kamehadb/shared').McpSettingsResponse>('GET', '/mcp/settings'),
+
+  updateMcpPort: (port: number) =>
+    request<import('@kamehadb/shared').McpSettingsResponse>('PATCH', '/mcp/settings', { port }),
+
+  retryMcpListener: () => request<import('@kamehadb/shared').McpSettingsResponse>('POST', '/mcp/settings/retry'),
+
+  rotateMcpToken: () => request<import('@kamehadb/shared').McpSettingsResponse>('POST', '/mcp/settings/rotate-token'),
+
+  getMcpAccounts: () => request<import('@kamehadb/shared').McpManagedAccountsResponse>('GET', '/mcp/accounts'),
+
+  prepareMcpAccount: (profileId: string) =>
+    request<{ profileId: string; state: import('@kamehadb/shared').McpManagedAccountState }>(
+      'POST',
+      `/mcp/profiles/${encodeURIComponent(profileId)}/account/prepare`,
+    ),
+
+  provisionMcpAccount: (profileId: string) =>
+    request<{ profileId: string; state: import('@kamehadb/shared').McpManagedAccountState }>(
+      'POST',
+      `/mcp/profiles/${encodeURIComponent(profileId)}/account/provision`,
+    ),
+
+  revokeMcpAccount: (profileId: string) =>
+    request<{ profileId: string; revoked: boolean }>(
+      'POST',
+      `/mcp/profiles/${encodeURIComponent(profileId)}/account/revoke`,
+    ),
+
+  setConnectionMcpEnabled: (connectionId: string, enabled: boolean) =>
+    request<Pick<import('@kamehadb/shared').ConnectionProfile, 'id' | 'mcpEnabled'>>(
+      'PATCH',
+      `/connections/${connectionId}/mcp`,
+      { enabled },
+    ),
 };

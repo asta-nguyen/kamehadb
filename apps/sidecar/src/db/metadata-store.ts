@@ -2,17 +2,23 @@ import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import { LRUCache } from 'lru-cache';
 import { nanoid } from 'nanoid';
+import { randomBytes } from 'node:crypto';
 import type {
   ConnectionProfile,
   AIProvider,
   AISettings,
   AIProviderConfig,
+  McpManagedAccountState,
+  McpManagedCredentialBundle,
   SchemaWatcherConfig,
 } from '@kamehadb/shared';
-import { DEFAULT_AI_PROVIDER } from '../lib/constants.js';
+import { MCP_MANAGED_ACCOUNT_STATE, MCP_MANAGED_ACCOUNT_STATES, MCP_SERVER_KINDS } from '@kamehadb/shared';
+import { DEFAULT_AI_PROVIDER, MCP_DEFAULT_PORT } from '../lib/constants.js';
 import { log } from '../lib/logger.js';
+import { decryptMcpCredential, encryptMcpCredential } from './mcp-credential-vault.js';
 
 let db: Database.Database | null = null;
+let metadataDbPath: string | null = null;
 const aiSettingsCache = new LRUCache<string, AISettings>({ max: 1, ttl: 1000 * 60 * 5 });
 
 function isDuplicateColumnError(error: unknown, column: string): boolean {
@@ -65,6 +71,7 @@ function createDefaultAISettings(): AISettings {
 
 export function initMetadataStore(dbPath: string): void {
   db = new Database(dbPath);
+  metadataDbPath = dbPath;
   db.pragma('journal_mode = WAL');
 
   try {
@@ -87,6 +94,7 @@ export function initMetadataStore(dbPath: string): void {
           file_path TEXT,
           color TEXT,
       connection_string TEXT,
+      mcp_enabled INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -240,6 +248,88 @@ export function initMetadataStore(dbPath: string): void {
     `);
   }
 
+  // Migration: add the MCP allowlist flag. Runs after the kind-widening rebuilds
+  // above because those rebuilds copy an explicit column list and would otherwise
+  // drop a freshly added column on a legacy database.
+  try {
+    db.exec('ALTER TABLE connection_profiles ADD COLUMN mcp_enabled INTEGER NOT NULL DEFAULT 0');
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'mcp_enabled')) throw err;
+    log.debug({ err }, 'migration: mcp_enabled column already exists');
+  }
+
+  // Keep the legacy reference column because generated database principals derive their names from it.
+  // New credentials are encrypted into this row; old accounts retain a null ciphertext.
+  const managedAccountStates = MCP_MANAGED_ACCOUNT_STATES.map((state) => `'${state}'`).join(', ');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_managed_accounts (
+      profile_id TEXT PRIMARY KEY,
+      keychain_ref TEXT NOT NULL UNIQUE,
+      state TEXT NOT NULL CHECK(state IN (${managedAccountStates})),
+      credential_ciphertext TEXT
+    );
+  `);
+
+  // Accept the persisted cleanup-pending state so older account rows remain revocable.
+  const managedAccountsSql = (
+    db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'mcp_managed_accounts'").get() as
+      | { sql: string }
+      | undefined
+  )?.sql;
+  const cleanupPendingState = `'${MCP_MANAGED_ACCOUNT_STATE.LOCAL_CLEANUP_PENDING}'`;
+  if (managedAccountsSql && !managedAccountsSql.includes(cleanupPendingState)) {
+    db.exec(`
+      BEGIN TRANSACTION;
+      ALTER TABLE mcp_managed_accounts RENAME TO mcp_managed_accounts_old;
+      CREATE TABLE mcp_managed_accounts (
+        profile_id TEXT PRIMARY KEY,
+        keychain_ref TEXT NOT NULL UNIQUE,
+        state TEXT NOT NULL CHECK(state IN (${managedAccountStates}))
+      );
+      INSERT INTO mcp_managed_accounts (profile_id, keychain_ref, state)
+        SELECT profile_id, keychain_ref, state FROM mcp_managed_accounts_old;
+      DROP TABLE mcp_managed_accounts_old;
+      COMMIT;
+    `);
+  }
+  try {
+    db.exec('ALTER TABLE mcp_managed_accounts ADD COLUMN credential_ciphertext TEXT');
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'credential_ciphertext')) throw err;
+  }
+
+  // An interrupted create may have reached the database, so keep the record for explicit cleanup.
+  db.prepare('UPDATE mcp_managed_accounts SET state = ? WHERE state = ?').run(
+    MCP_MANAGED_ACCOUNT_STATE.RECOVERY_REQUIRED,
+    MCP_MANAGED_ACCOUNT_STATE.PROVISIONING,
+  );
+
+  const serverKindPlaceholders = MCP_SERVER_KINDS.map(() => '?').join(', ');
+  db.prepare(
+    `
+    UPDATE connection_profiles
+    SET mcp_enabled = 0
+    WHERE mcp_enabled <> 0
+      AND kind IN (${serverKindPlaceholders})
+      AND NOT EXISTS (
+        SELECT 1 FROM mcp_managed_accounts AS managed
+        WHERE managed.profile_id = connection_profiles.id
+          AND managed.state = ?
+      )
+  `,
+  ).run(...MCP_SERVER_KINDS, MCP_MANAGED_ACCOUNT_STATE.READY);
+
+  // Failed or interrupted accounts cannot remain MCP-enabled after restart.
+  db.prepare(
+    `
+    UPDATE connection_profiles
+    SET mcp_enabled = 0
+    WHERE id IN (
+      SELECT profile_id FROM mcp_managed_accounts WHERE state <> ?
+    )
+  `,
+  ).run(MCP_MANAGED_ACCOUNT_STATE.READY);
+
   // Migrate ai_settings from old single-column schema if needed
   const hasOldSettings = db
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_settings'")
@@ -370,6 +460,21 @@ export function initMetadataStore(dbPath: string): void {
     CREATE INDEX IF NOT EXISTS idx_schema_embeddings_conn ON schema_embeddings(connection_id);
   `);
 
+  // Singleton row holding the MCP listener port and persistent bearer token.
+  // The token survives restarts so client configs stay valid; only the row is
+  // persisted, listener status is derived at runtime.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      port INTEGER NOT NULL,
+      token TEXT NOT NULL
+    );
+  `);
+  const hasMcpSettings = db.prepare('SELECT id FROM mcp_settings WHERE id = 1').get() as { id: number } | undefined;
+  if (!hasMcpSettings) {
+    db.prepare('INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)').run(MCP_DEFAULT_PORT, generateMcpToken());
+  }
+
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
@@ -382,7 +487,7 @@ export function getDb(): Database.Database {
 export function listProfiles(): ConnectionProfile[] {
   const rows = getDb()
     .prepare(
-      `SELECT id, name, kind, host, port, database, username, ssl, file_path, color, connection_string, created_at, updated_at
+      `SELECT id, name, kind, host, port, database, username, ssl, file_path, color, connection_string, mcp_enabled, created_at, updated_at
      FROM connection_profiles ORDER BY updated_at DESC`,
     )
     .all() as Record<string, unknown>[];
@@ -499,6 +604,127 @@ export function deleteProfile(id: string): boolean {
   return result.changes > 0;
 }
 
+export type McpSettingsRecord = {
+  port: number;
+  token: string;
+};
+
+// 32 random bytes give ample entropy for a static bearer token, and base64url
+// keeps it copy/paste-safe in client configuration files.
+function generateMcpToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+export function getMcpSettings(): McpSettingsRecord {
+  const row = getDb().prepare('SELECT port, token FROM mcp_settings WHERE id = 1').get() as
+    | { port: number; token: string }
+    | undefined;
+  if (!row) {
+    const token = generateMcpToken();
+    getDb().prepare('INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)').run(MCP_DEFAULT_PORT, token);
+    return { port: MCP_DEFAULT_PORT, token };
+  }
+  return { port: row.port, token: row.token };
+}
+
+export function updateMcpPort(port: number): McpSettingsRecord {
+  getMcpSettings();
+  getDb().prepare('UPDATE mcp_settings SET port = ? WHERE id = 1').run(port);
+  return getMcpSettings();
+}
+
+export function rotateMcpToken(): string {
+  const token = generateMcpToken();
+  getDb().prepare('UPDATE mcp_settings SET token = ? WHERE id = 1').run(token);
+  return token;
+}
+
+export type McpManagedAccountRecord = {
+  profileId: string;
+  accountRef: string;
+  state: McpManagedAccountState;
+};
+
+function rowToManagedAccount(row: Record<string, unknown>): McpManagedAccountRecord {
+  return {
+    profileId: row.profile_id as string,
+    accountRef: row.keychain_ref as string,
+    state: row.state as McpManagedAccountState,
+  };
+}
+
+export function getMcpManagedAccount(profileId: string): McpManagedAccountRecord | null {
+  const row = getDb()
+    .prepare('SELECT profile_id, keychain_ref, state FROM mcp_managed_accounts WHERE profile_id = ?')
+    .get(profileId) as Record<string, unknown> | undefined;
+  return row ? rowToManagedAccount(row) : null;
+}
+
+export function listMcpManagedAccounts(): McpManagedAccountRecord[] {
+  const rows = getDb()
+    .prepare('SELECT profile_id, keychain_ref, state FROM mcp_managed_accounts ORDER BY profile_id')
+    .all() as Record<string, unknown>[];
+  return rows.map(rowToManagedAccount);
+}
+
+// Record the reference before returning generated credentials so interrupted setup can be safely discarded.
+export function createMcpManagedAccount(profileId: string, accountRef: string): McpManagedAccountRecord {
+  getDb()
+    .prepare('INSERT INTO mcp_managed_accounts (profile_id, keychain_ref, state) VALUES (?, ?, ?)')
+    .run(profileId, accountRef, MCP_MANAGED_ACCOUNT_STATE.PREPARED);
+  return getMcpManagedAccount(profileId)!;
+}
+
+export function setMcpManagedAccountState(profileId: string, state: McpManagedAccountState): boolean {
+  const result = getDb()
+    .prepare('UPDATE mcp_managed_accounts SET state = ? WHERE profile_id = ?')
+    .run(state, profileId);
+  return result.changes > 0;
+}
+
+export function clearMcpManagedAccount(profileId: string): boolean {
+  const result = getDb().prepare('DELETE FROM mcp_managed_accounts WHERE profile_id = ?').run(profileId);
+  return result.changes > 0;
+}
+
+// Persist the generated account credential before any database principal is created.
+// Refuse to replace a missing key while other encrypted accounts still depend on it.
+export function saveMcpManagedCredential(profileId: string, credential: McpManagedCredentialBundle): void {
+  const account = getMcpManagedAccount(profileId);
+  if (!account || !metadataDbPath) throw new Error('Managed MCP account is not prepared');
+  const existing = getDb()
+    .prepare('SELECT COUNT(*) AS count FROM mcp_managed_accounts WHERE credential_ciphertext IS NOT NULL')
+    .get() as { count: number };
+  const ciphertext = encryptMcpCredential(
+    metadataDbPath,
+    profileId,
+    account.accountRef,
+    credential,
+    existing.count === 0,
+  );
+  getDb()
+    .prepare('UPDATE mcp_managed_accounts SET credential_ciphertext = ? WHERE profile_id = ?')
+    .run(ciphertext, profileId);
+}
+
+export function loadMcpManagedCredential(profileId: string): McpManagedCredentialBundle | null {
+  const account = getMcpManagedAccount(profileId);
+  if (!account || !metadataDbPath) return null;
+  const row = getDb()
+    .prepare('SELECT credential_ciphertext FROM mcp_managed_accounts WHERE profile_id = ?')
+    .get(profileId) as { credential_ciphertext: string | null } | undefined;
+  if (!row?.credential_ciphertext) return null;
+  return decryptMcpCredential(metadataDbPath, profileId, account.accountRef, row.credential_ciphertext);
+}
+
+export function setProfileMcpEnabled(id: string, enabled: boolean): ConnectionProfile | null {
+  const result = getDb()
+    .prepare('UPDATE connection_profiles SET mcp_enabled = ? WHERE id = ?')
+    .run(enabled ? 1 : 0, id);
+  if (result.changes === 0) return null;
+  return getProfile(id);
+}
+
 function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
   return {
     id: row.id as string,
@@ -512,6 +738,7 @@ function rowToProfile(row: Record<string, unknown>): ConnectionProfile {
     filePath: (row.file_path as string) ?? undefined,
     color: (row.color as string) ?? undefined,
     connectionString: (row.connection_string as string) ?? undefined,
+    mcpEnabled: row.mcp_enabled === 1,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -651,6 +878,7 @@ export function closeMetadataStore(): void {
     db.close();
     db = null;
   }
+  metadataDbPath = null;
 }
 
 // Chat message functions

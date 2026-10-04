@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { loadMonacoEditor } from '@/lib/monaco-loader';
 import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
 import { useTableColumns } from '@/hooks/use-schema';
@@ -12,7 +13,7 @@ import type { OnMount } from '@monaco-editor/react';
 import type { editor as monacoEditor } from 'monaco-editor';
 import { useQuery } from '@tanstack/react-query';
 import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-const Editor = lazy(() => import('@monaco-editor/react'));
+const Editor = lazy(loadMonacoEditor);
 
 // SQL keywords that can begin a new statement. Used to detect blank-line-separated
 // multi-statement SQL (e.g. "SELECT 1\n\nSELECT 2") where no semicolons exist.
@@ -268,10 +269,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { downloadResult } from '@/lib/export';
+import { downloadResult, exportToJSON } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
@@ -572,6 +574,10 @@ function QueryResultTable({
               <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
               <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
               <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(exportToJSON(result))}>
+                Copy as JSON
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

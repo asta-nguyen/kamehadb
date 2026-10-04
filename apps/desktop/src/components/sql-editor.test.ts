@@ -7,6 +7,9 @@ vi.hoisted(() => {
   });
 });
 
+// These tests cover SQL safety, so avoid resolving Monaco's browser-only entry in Node.
+vi.mock('../lib/monaco-loader', () => ({ loadMonacoEditor: vi.fn() }));
+
 import { containsMultipleStatements, normalizeSqlForSafety } from './sql-editor';
 import { isQuerySafe } from '@kamehadb/shared';
 

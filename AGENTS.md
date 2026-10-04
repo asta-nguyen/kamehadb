@@ -360,7 +360,7 @@ When a feature wave adds new engines, major workflows, or changes the product de
 
 1. **`landing/src/components/home-view.tsx`** — hero copy, engine carousel, feature cards, Compare panel screenshots
 2. **`landing/src/app/layout.tsx`** — `<title>`, `<meta name="description">`, keywords, OG/Twitter metadata
-3. **`landing/public/og-image.svg`** — the OG card text (matches the hero headline)
+3. **`landing/src/app/opengraph-image.tsx`** — the active OG image source; regenerate the animated asset with `landing/scripts/render-og-animated.mjs` into `landing/public/og-animated.gif`
 4. **`landing/public/images/`** — Compare panel screenshots (`sql-panel.png`, `chat-panel.png`, plus any new ones)
 5. **`README.md`** — one-liner, feature list, engine table, install docs
 
@@ -481,36 +481,34 @@ const id = Number(row.id);
 - Place the comment above the line it explains, not as a trailing line
 - Use full sentences with proper punctuation; no "TODO later" or "fix me" leftovers
 
-## Superpowers Skills
+## Agent Devkit Skills
 
-This repo uses [Superpowers](https://github.com/obra/superpowers) for spec-driven agent workflows. Skills live in `.agents/skills/` and are automatically discovered by Cascade.
+This repo uses Agent Devkit for shared agent workflows. Skills live in `.agents/skills/`; `using-devkit` routes each task to its owning workflow. The `bump-version` and `preparing-releases` skills are repository-specific and remain alongside the Devkit set.
 
-### Available Skills
+### Available Agent Devkit Skills
 
-| Skill                            | Description                                                          |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `using-superpowers`              | Meta-skill: invoke relevant skills before any response or action     |
-| `brainstorming`                  | Explore user intent, requirements, and design before implementation  |
-| `writing-plans`                  | Turn a spec or requirements into a multi-step implementation plan    |
-| `executing-plans`                | Execute a written plan in a separate session with review checkpoints |
-| `test-driven-development`        | Write tests before implementation code                               |
-| `systematic-debugging`           | Diagnose bugs and performance regressions methodically               |
-| `dispatching-parallel-agents`    | Dispatch 2+ independent tasks to parallel subagents                  |
-| `subagent-driven-development`    | Execute implementation plans with independent tasks via subagents    |
-| `using-git-worktrees`            | Isolate feature work via git worktrees                               |
-| `requesting-code-review`         | Verify work meets requirements before merging                        |
-| `receiving-code-review`          | Process code review feedback with technical rigor                    |
-| `finishing-a-development-branch` | Decide how to integrate completed work                               |
-| `verification-before-completion` | Run verification commands before claiming work is done               |
-| `writing-skills`                 | Create and edit skills                                               |
-| `bump-version`                   | Bump app version across all 6 files and update CHANGELOG             |
-| `preparing-releases`             | Prepare and verify releases before any tag, push, or publication     |
+| Skill                   | Use                                                   |
+| ----------------------- | ----------------------------------------------------- |
+| `using-devkit`          | Select the owning workflow skill                      |
+| `brainstorm-feature`    | Clarify new, ambiguous, or behavior-changing requests |
+| `plan-feature`          | Plan approved non-trivial designs                     |
+| `implement-task`        | Implement an approved bounded task or plan            |
+| `read-codebase-context` | Trace code, callers, dependencies, and tests          |
+| `systematic-debugging`  | Investigate bugs, failures, and unexpected behavior   |
+| `review-and-verify`     | Review diffs and verify changes                       |
+| `setup-codebase`        | Set up repository context and conventions             |
+| `setup-openez`          | Set up or refresh OpenEZ when needed                  |
+| `document-wiki`         | Create or refresh the LLM-facing wiki                 |
+| `lean-audit`            | Audit the repository for unnecessary complexity       |
+| `estimate-feature`      | Estimate work from an implementation plan             |
+| `context-handoff`       | Prepare a handoff when work must pause                |
 
-### How To Use
+### Repository-Specific Skills
 
-- Skills are invoked automatically by Cascade when relevant to the task.
-- To manually trigger a skill, mention its name or trigger phrase.
-- User instructions (AGENTS.md, direct requests) take precedence over skills.
+- `bump-version` — update the app version and changelog.
+- `preparing-releases` — prepare and verify a desktop release.
+
+Use a skill when its description matches the task. User instructions and this file take precedence over skills.
 
 <!-- openez:start -->
 

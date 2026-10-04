@@ -1,290 +1,191 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: Use when investigating any technical issue, including test failures, bugs, unexpected behavior, performance problems, or build failures, especially under time pressure or after failed fixes.
 ---
 
 # Systematic Debugging
 
-## Overview
-
-**Core principle:** ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
-
-**Violating the letter of this process is violating the spirit of debugging.**
-
-## The Iron Law
+## Iron Law
 
 ```
 NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ```
 
-If you haven't completed Phase 1, you cannot propose fixes.
+If you have not completed Phase 1, you cannot propose fixes. Symptom fixes
+are failure.
 
-## When to Use
+## When to use
 
-Use for ANY technical issue:
+Use for any technical issue: test failures, bugs, unexpected behavior,
+performance problems, build failures, integration issues.
 
-- Test failures
-- Bugs in production
-- Unexpected behavior
-- Performance problems
-- Build failures
-- Integration issues
-
-**Use this ESPECIALLY when:**
+**Especially when:**
 
 - Under time pressure (emergencies make guessing tempting)
 - "Just one quick fix" seems obvious
-- You've already tried multiple fixes
-- Previous fix didn't work
-- You don't fully understand the issue
+- Previous fix did not work
+- You do not fully understand the issue
 
-**Don't skip when:**
+**Do not skip when:**
 
 - Issue seems simple (simple bugs have root causes too)
-- You're in a hurry (rushing guarantees rework)
-- Manager wants it fixed NOW (systematic is faster than thrashing)
+- You are in a hurry (rushing guarantees rework)
 
-## The Four Phases
+## The four phases
 
-You MUST complete each phase before proceeding to the next.
+You must complete each phase before proceeding to the next.
 
-### Phase 1: Root Cause Investigation
+### Phase 1: Root cause investigation
 
-**BEFORE attempting ANY fix:**
+**Before attempting any fix:**
 
-1. **Read Error Messages Carefully**
-   - Don't skip past errors or warnings
-   - They often contain the exact solution
-   - Read stack traces completely
-   - Note line numbers, file paths, error codes
+1. **Read error messages carefully** — do not skip past errors or warnings.
+   Read stack traces completely. Note line numbers, file paths, error codes.
+2. **Reproduce consistently** — can you trigger it reliably? What are the
+   exact steps? If not reproducible, gather more data; do not guess.
+3. **Check recent changes** — `git diff`, recent commits, new dependencies,
+   config changes, environmental differences.
+4. **Gather evidence in multi-component systems** — when a system has
+   multiple components (API → service → database), add diagnostic logging
+   at each component boundary before proposing fixes. Log what enters and
+   exits each layer. Run once to see where it breaks.
+5. **Trace data flow** — where does the bad value originate? What called
+   this with the bad value? Keep tracing up until you find the source. Fix
+   at the source, not at the symptom.
 
-2. **Reproduce Consistently**
-   - Can you trigger it reliably?
-   - What are the exact steps?
-   - Does it happen every time?
-   - If not reproducible → gather more data, don't guess
+### Phase 2: Pattern analysis
 
-3. **Check Recent Changes**
-   - What changed that could cause this?
-   - Git diff, recent commits
-   - New dependencies, config changes
-   - Environmental differences
+1. **Find working examples** — locate similar working code in the same
+   codebase. What works that is similar to what is broken?
+2. **Compare against references** — if implementing a pattern, read the
+   reference implementation completely. Do not skim.
+3. **Identify differences** — list every difference between working and
+   broken, however small. Do not assume "that can't matter".
+4. **Understand dependencies** — what settings, config, environment, or
+   assumptions does this need?
 
-4. **Gather Evidence in Multi-Component Systems**
+### Phase 3: Hypothesis and testing
 
-   **WHEN system has multiple components (CI → build → signing, API → service → database):**
-
-   **BEFORE proposing fixes, add diagnostic instrumentation:**
-
-   ```
-   For EACH component boundary:
-     - Log what data enters component
-     - Log what data exits component
-     - Verify environment/config propagation
-     - Check state at each layer
-
-   Run once to gather evidence showing WHERE it breaks
-   THEN analyze evidence to identify failing component
-   THEN investigate that specific component
-   ```
-
-   **Example (multi-layer system):**
-
-   ```bash
-   # Layer 1: Workflow
-   echo "=== Secrets available in workflow: ==="
-   echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
-
-   # Layer 2: Build script
-   echo "=== Env vars in build script: ==="
-   env | grep IDENTITY || echo "IDENTITY not in environment"
-
-   # Layer 3: Signing script
-   echo "=== Keychain state: ==="
-   security list-keychains
-   security find-identity -v
-
-   # Layer 4: Actual signing
-   codesign --sign "$IDENTITY" --verbose=4 "$APP"
-   ```
-
-   **This reveals:** Which layer fails (secrets → workflow ✓, workflow → build ✗)
-
-5. **Trace Data Flow**
-
-   **WHEN error is deep in call stack:**
-
-   See `root-cause-tracing.md` in this directory for the complete backward tracing technique.
-
-   **Quick version:**
-   - Where does bad value originate?
-   - What called this with bad value?
-   - Keep tracing up until you find the source
-   - Fix at source, not at symptom
-
-### Phase 2: Pattern Analysis
-
-**Find the pattern before fixing:**
-
-1. **Find Working Examples**
-   - Locate similar working code in same codebase
-   - What works that's similar to what's broken?
-
-2. **Compare Against References**
-   - If implementing pattern, read reference implementation COMPLETELY
-   - Don't skim - read every line
-   - Understand the pattern fully before applying
-
-3. **Identify Differences**
-   - What's different between working and broken?
-   - List every difference, however small
-   - Don't assume "that can't matter"
-
-4. **Understand Dependencies**
-   - What other components does this need?
-   - What settings, config, environment?
-   - What assumptions does it make?
-
-### Phase 3: Hypothesis and Testing
-
-**Scientific method:**
-
-1. **Form Single Hypothesis**
-   - State clearly: "I think X is the root cause because Y"
-   - Write it down
-   - Be specific, not vague
-
-2. **Test Minimally**
-   - Make the SMALLEST possible change to test hypothesis
-   - One variable at a time
-   - Don't fix multiple things at once
-
-3. **Verify Before Continuing**
-   - Did it work? Yes → Phase 4
-   - Didn't work? Form NEW hypothesis
-   - DON'T add more fixes on top
-
-4. **When You Don't Know**
-   - Say "I don't understand X"
-   - Don't pretend to know
-   - Ask for help
-   - Research more
+1. **Form a single hypothesis** — state clearly: "I think X is the root
+   cause because Y". Be specific.
+2. **Test minimally** — make the smallest possible change to test the
+   hypothesis. One variable at a time. Do not fix multiple things at once.
+   Revert experimental code changes after observing the result so Phase 4
+   starts from the failing baseline.
+3. **Verify before continuing** — did it work? Yes → Phase 4. No → form a
+   new hypothesis. Do not add more fixes on top.
+4. **When you do not know** — say "I don't understand X". Do not pretend.
+   Ask for help or research more.
 
 ### Phase 4: Implementation
 
-**Fix the root cause, not the symptom:**
+1. **Classify the bug.** Before any fix or verify plan, classify the bug using
+   the same vocabulary as `brainstorm-feature`:
+   - **Spike** — the real question is "is this actually a bug?" or "what is
+     happening?", not "fix it." Output is an answer with reproduction evidence;
+     do not write production code. Report the evidence and stop. If the answer
+     reveals a real fix is needed, re-classify as Bounded or Architectural
+     before proceeding.
+   - **Bounded** — the fix stays within an existing flow and does not change a
+     shared interface, contract, or component boundary. File count alone does
+     not classify the bug. Proceed to step 2.
+   - **Architectural** — the fix changes a shared interface, contract, or
+     component boundary, or spans multiple components. Stop. Tell the user to
+     invoke `brainstorm-feature` to produce a spec, then `plan-feature` for an
+     execution plan, before any fix. Do not patch an architectural bug as if
+     it were bounded; the verify plan in step 3 cannot cover cross-component
+     regression surface that was never spec'd.
 
-1. **Create Failing Test Case**
-   - Simplest possible reproduction
-   - Automated test if possible
-   - One-off test script if no framework
-   - MUST have before fixing
-   - Use the `superpowers:test-driven-development` skill for writing proper failing tests
+   When in doubt between two, take the heavier one. Hidden complexity
+   discovered mid-fix upgrades the path — stop, say so, step up. Nothing
+   downgrades mid-fix.
 
-2. **Implement Single Fix**
-   - Address the root cause identified
-   - ONE change at a time
-   - No "while I'm here" improvements
-   - No bundled refactoring
+2. **Establish expected behavior.** Use source, tests, and current wiki pages.
+   If they do not establish the intended behavior, stop and tell the user to
+   invoke `brainstorm-feature` to get approval before changing behavior.
+3. **Write the verify plan.** Before writing a regression check or production
+   fix, list the observable conditions that prove the bug is fixed. State each
+   as a checkable claim:
+   - The original symptom no longer occurs (reproduction steps from Phase 1).
+   - A repeatable check of the original symptom passes.
+   - Traced callers and relevant existing tests do not regress (name the
+     callers and checks from Phase 1).
+   - Any contract the fix touches still holds (state the contract and how it
+     is checked).
+   - Any caller or contract without automated coverage is named with a direct
+     check or reported as a verification limitation.
 
-3. **Verify Fix**
-   - Test passes now?
-   - No other tests broken?
-   - Issue actually resolved?
-   - Use the `superpowers:verification-before-completion` skill before claiming success
+   This list is the definition of "fixed" for this bug. Step 9 checks the
+   diff against it; `review-and-verify`'s "Bug fixed" row requires it. Without
+   a written verify plan, "fixed" is a feeling, not a fact — do not proceed to
+   step 4 until it is written.
 
-4. **If Fix Doesn't Work**
-   - STOP
-   - Count: How many fixes have you tried?
-   - If < 3: Return to Phase 1, re-analyze with new information
-   - **If ≥ 3: STOP and question the architecture (step 5 below)**
-   - DON'T attempt Fix #4 without architectural discussion
+4. **Choose a repeatable regression check** that reproduces the original
+   symptom. Use an existing test runner when it gives a meaningful test. When
+   none exists, use an available CLI, self-check, or recorded manual procedure
+   with an expected result. Do not set up a unit-test runner solely for this
+   fix.
+5. **Verify the check fails** without the fix.
+6. **Apply the smallest root-cause fix.** Reuse the verified working pattern
+   from Phase 2 when it fits. A smaller-looking symptom patch is not minimal if
+   sibling callers remain broken.
+7. **Verify the same check passes** with the fix.
+8. **Run relevant existing tests and checks** for regressions. The final
+   `review-and-verify` gate runs repository-mandated full commands when they
+   exist; do not invent a test suite.
+9. Call the available Skill entry whose local name is `review-and-verify` to
+   review the diff against the
+   verify plan from step 3 and run fresh verification. Tell the user to invoke
+   `document-wiki` after verification only when the fix changes observable
+   behavior or reveals stale wiki documentation. An existing page that
+   contradicts the fix remains a blocker until refreshed. Do not update the
+   wiki when it already correctly describes the intended behavior and the fix
+   only restores code to that behavior.
+10. Do not create commits during debugging. Even when the user requests a
+    commit, wait until final `review-and-verify` passes.
 
-5. **If 3+ Fixes Failed: Question Architecture**
-
-   **Pattern indicating architectural problem:**
-   - Each fix reveals new shared state/coupling/problem in different place
-   - Fixes require "massive refactoring" to implement
-   - Each fix creates new symptoms elsewhere
-
-   **STOP and question fundamentals:**
-   - Is this pattern fundamentally sound?
-   - Are we "sticking with it through sheer inertia"?
-   - Should we refactor architecture vs. continue fixing symptoms?
-
-   **Discuss with your human partner before attempting more fixes**
-
-   This is NOT a failed hypothesis - this is a wrong architecture.
-
-## Red Flags - STOP and Follow Process
+## Red flags — stop and return to Phase 1
 
 If you catch yourself thinking:
 
 - "Quick fix for now, investigate later"
 - "Just try changing X and see if it works"
 - "Add multiple changes, run tests"
-- "Skip the test, I'll manually verify"
 - "It's probably X, let me fix that"
 - "I don't fully understand but this might work"
-- "Pattern says X but I'll adapt it differently"
-- "Here are the main problems: [lists fixes without investigation]"
+- "I'll know it's fixed when I see it" (no written verify plan)
+- "It's just a bug, no need to classify" (skipping Spike/Bounded/Architectural)
+- "The fix touches one file, so it's bounded" (file count is not the test — interface/contract impact is)
 - Proposing solutions before tracing data flow
-- **"One more fix attempt" (when already tried 2+)**
-- **Each fix reveals new problem in different place**
+- "One more fix attempt" (when already tried 2+)
+- Each fix reveals a new problem in a different place
 
-**ALL of these mean: STOP. Return to Phase 1.**
+**All of these mean: stop. Return to Phase 1.**
 
-**If 3+ fixes failed:** Question the architecture (see Phase 4.5)
+If 3+ fixes have failed, question the architecture. The pattern is wrong,
+not the implementation.
 
-## your human partner's Signals You're Doing It Wrong
+## Rationalizations
 
-**Watch for these redirections:**
+| Excuse                                      | Reality                                                                                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Issue is simple, don't need process"       | Simple issues have root causes too. Process is fast for simple bugs.                                                                              |
+| "Emergency, no time for process"            | Systematic debugging is faster than guess-and-check thrashing.                                                                                    |
+| "Just try this first, then investigate"     | First fix sets the pattern. Do it right from the start.                                                                                           |
+| "Multiple fixes at once saves time"         | Cannot isolate what worked. Causes new bugs.                                                                                                      |
+| "I see the problem, let me fix it"          | Seeing symptoms is not understanding root cause.                                                                                                  |
+| "I'll know it's fixed when I see it"        | Without a written verify plan, "fixed" is a feeling. Write the checklist in Phase 4 step 3 before any fix.                                        |
+| "It's just a bug, no need to classify"      | Architectural bugs patched as bounded cause cross-component regressions. Classify in Phase 4 step 1 before any fix.                               |
+| "The fix touches one file, so it's bounded" | File count is not the test. If the fix changes an interface or contract others depend on, it is architectural — hand off to `brainstorm-feature`. |
+| "One more fix attempt" (after 2+ failures)  | 3+ failures = architectural problem. Question the pattern.                                                                                        |
 
-- "Is that not happening?" - You assumed without verifying
-- "Will it show us...?" - You should have added evidence gathering
-- "Stop guessing" - You're proposing fixes without understanding
-- "Ultra-think this" - Question fundamentals, not just symptoms
-- "We're stuck?" (frustrated) - Your approach isn't working
+## When process reveals "no root cause"
 
-**When you see these:** STOP. Return to Phase 1.
+If systematic investigation reveals the issue is truly environmental,
+timing-dependent, or external:
 
-## Common Rationalizations
+1. Document what you investigated.
+2. Implement appropriate handling (retry, timeout, error message).
+3. Add monitoring/logging for future investigation.
 
-| Excuse                                       | Reality                                                                 |
-| -------------------------------------------- | ----------------------------------------------------------------------- |
-| "Issue is simple, don't need process"        | Simple issues have root causes too. Process is fast for simple bugs.    |
-| "Emergency, no time for process"             | Systematic debugging is FASTER than guess-and-check thrashing.          |
-| "Just try this first, then investigate"      | First fix sets the pattern. Do it right from the start.                 |
-| "I'll write test after confirming fix works" | Untested fixes don't stick. Test first proves it.                       |
-| "Multiple fixes at once saves time"          | Can't isolate what worked. Causes new bugs.                             |
-| "Reference too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely.              |
-| "I see the problem, let me fix it"           | Seeing symptoms ≠ understanding root cause.                             |
-| "One more fix attempt" (after 2+ failures)   | 3+ failures = architectural problem. Question pattern, don't fix again. |
-
-## Quick Reference
-
-| Phase                 | Key Activities                                         | Success Criteria            |
-| --------------------- | ------------------------------------------------------ | --------------------------- |
-| **1. Root Cause**     | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY     |
-| **2. Pattern**        | Find working examples, compare                         | Identify differences        |
-| **3. Hypothesis**     | Form theory, test minimally                            | Confirmed or new hypothesis |
-| **4. Implementation** | Create test, fix, verify                               | Bug resolved, tests pass    |
-
-## When Process Reveals "No Root Cause"
-
-If systematic investigation reveals issue is truly environmental, timing-dependent, or external:
-
-1. You've completed the process
-2. Document what you investigated
-3. Implement appropriate handling (retry, timeout, error message)
-4. Add monitoring/logging for future investigation
-
-**But:** 95% of "no root cause" cases are incomplete investigation.
-
-## Supporting Techniques
-
-These techniques are part of systematic debugging and available in this directory:
-
-- **`root-cause-tracing.md`** - Trace bugs backward through call stack to find original trigger
-- **`defense-in-depth.md`** - Add validation at multiple layers after finding root cause
-- **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
+But: 95% of "no root cause" cases are incomplete investigation.

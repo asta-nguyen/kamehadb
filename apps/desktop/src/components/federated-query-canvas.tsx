@@ -12,10 +12,11 @@ import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
 import { isQuerySafe } from '@kamehadb/shared';
 import type { OnMount } from '@monaco-editor/react';
+import { loadMonacoEditor } from '@/lib/monaco-loader';
 import { lazy, useCallback, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Clock, Play, Loader2 } from 'lucide-react';
 
-const Editor = lazy(() => import('@monaco-editor/react'));
+const Editor = lazy(loadMonacoEditor);
 
 export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceTab, { type: 'federated-query' }> }) {
   const [sql, setSql] = useState(tab.sql ?? 'SELECT * FROM ');
