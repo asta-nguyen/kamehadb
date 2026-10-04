@@ -1,0 +1,60 @@
+.agents/skills/brainstorm-feature/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 31-34,43-45,60-64,99-104,116-134,138-140,144-145
+.agents/skills/implement-task/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 17-18,22-31,42-45,109-120,139
+  s_229fafa9375d4e::t_7550a0fa3f1c70 140
+.agents/skills/context-handoff/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 28-30,73-75
+skills-lock.json
+  s_229fafa9375d4e::t_f81f046c42e22b 8-9,15-16,22-23,29-30,36-37,43-44,50-51,57-58,64-65,71-72,78-79,85-86,92-93
+.agents/skills/read-codebase-context/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 8,10-65,71-78,86,89-92,94
+.agents/skills/setup-codebase/references/convention-capture.md
+  s_229fafa9375d4e::t_db479b836b8568 1-42
+.agents/skills/setup-openez/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 13-16,24-26,30,38,44-48,50,52-53,55-56,58-65,68-70,72,74-75,77-78,81-116,122-123,129-130
+.agents/skills/setup-codebase/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 15-17,62-66,88-90,94-115,131-140,147-148
+  s_229fafa9375d4e::t_7199a9299e520a 149-151
+.agents/skills/review-and-verify/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 66-82
+  s_229fafa9375d4e::t_93635976cab902 83-85
+.agents/skills/plan-feature/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 10-12,46,52-56,82-85,109-117
+  s_229fafa9375d4e::t_df396e457d02ac 118-119
+.agents/skills/brainstorm-feature/references/spec-self-review.md
+  s_229fafa9375d4e::t_db479b836b8568 1-51
+.agents/skills/document-wiki/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 18-20,39-42,48-60,63-65,143
+  s_229fafa9375d4e::t_afbf7da2dc2b9d 144
+.agents/skills/lean-audit/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 29-30
+  s_229fafa9375d4e::t_85939d0965330c 31
+.agents/skills/using-devkit/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 3,8-34,38-41,45-84
+.agents/skills/review-and-verify/references/receiving-code-review.md
+  s_229fafa9375d4e::t_db479b836b8568 1-17
+.agents/skills/estimate-feature/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 19-30,39-48,50-53,68-71,75-77,81,85-87
+.agents/skills/systematic-debugging/SKILL.md
+  s_229fafa9375d4e::t_db479b836b8568 47-51,55-58,89-98,122-123,168-169,186-190
+  s_229fafa9375d4e::t_466bb480a160a1 191-193
+.agents/skills/document-wiki/references/evidence-matrix-and-page-template.md
+  s_229fafa9375d4e::t_db479b836b8568 1-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "272e8e0af64e2a03d81907083d34039162bae5a7",
+  "prompts": {},
+  "sessions": {
+    "s_229fafa9375d4e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0f68a-ef1a-73b0-ac49-86dced5d6c84",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
