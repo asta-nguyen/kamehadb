@@ -1,5 +1,7 @@
 # Read-only MCP Server
 
+Verification: [x] Material behavior and listed tests checked against current sources in this run.
+
 KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI clients can inspect opted-in database profiles. The endpoint is separate from the sidecar management API and listens only on loopback.
 
 ## Business rules
@@ -28,7 +30,7 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 - `mcp_managed_accounts` stores the profile ID, an opaque reference used to derive the generated DB principal, lifecycle state, and an AES-256-GCM encrypted credential bundle. The random 32-byte encryption key is stored beside the metadata DB in `<dbPath>.mcp.key` with owner-only permissions where supported. Copying only the SQLite DB does not reveal the credentials; copying the complete app data directory includes the key and allows decryption.
 - On sidecar startup, ready credentials are decrypted and loaded into process memory. Credentials are bound to their profile and account reference, and invalid ciphertext or a missing key fails closed. The desktop does not hydrate credentials after startup.
 - Disabling MCP retains the managed DB account and encrypted credential. Revoke disables MCP first, closes the adapter, drops the exact generated principal, then removes the local account record and ciphertext. A failed database revoke retains state for retry. A `prepared` account can be discarded without a DB call because no DB write has started.
-- Existing accounts from Keychain-backed versions have no encrypted SQLite credential. They remain unavailable to MCP until revoked and recreated; the old Keychain value is not imported or automatically removed.
+- Legacy managed-account rows without encrypted SQLite credentials remain unavailable to MCP until revoked and recreated. Current sources do not establish whether an OS Keychain value from an older version is separately removed.
 - While a managed account exists, changing the profile kind, target, SSL settings, saved username/password, or deleting the profile is rejected until Revoke.
 - MCP adapters and decrypted credentials are process-local. Profile updates, deletions, credential changes, and allowlist changes invalidate cached adapters; sidecar shutdown closes adapters and clears decrypted secrets.
 
@@ -59,7 +61,7 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 
 ## Related
 
-- [[architecture/overview|Architecture overview]]
+- [Architecture overview](../architecture/overview.md)
 
 ## Sources
 
@@ -84,10 +86,13 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 - `apps/sidecar/src/mcp/adapters/sqlite-worker.ts`
 - `apps/sidecar/src/mcp/account-provisioner.ts`
 - `apps/sidecar/src/mcp/errors.ts`
+- `apps/sidecar/src/mcp/invalidation.ts`
+- `apps/sidecar/src/lib/constants.ts`
 - `apps/sidecar/src/adapters/postgres.ts`
 - `apps/sidecar/src/adapters/mysql.ts`
 - `apps/sidecar/src/adapters/sqlserver.ts`
 - `apps/sidecar/src/adapters/mongodb.ts`
+- `packages/shared/src/types.ts`
 - `packages/shared/src/schemas.ts`
 - `apps/sidecar/src/db/metadata-store.test.ts`
 - `apps/sidecar/src/routes/mcp-settings.test.ts`

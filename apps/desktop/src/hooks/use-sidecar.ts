@@ -4,11 +4,11 @@ import { QUERY_KEYS } from '@/lib/query-keys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-interface SidecarInfo {
+type SidecarInfo = {
   port: number;
   pid: number;
   token: string;
-}
+};
 
 async function waitForSidecar(port: number, maxAttempts = 30): Promise<boolean> {
   const url = `http://127.0.0.1:${port}/health`;
@@ -38,29 +38,79 @@ export function useSidecar() {
 
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    const readyTasks = new Map<number, Promise<void>>();
+    let sidecarCheck: Promise<void> | undefined;
+    let activeGeneration: string | undefined;
+    let latestGeneration: string | undefined;
+    const readyTasks = new Map<string, Promise<void>>();
 
     const handleReady = (info: SidecarInfo): Promise<void> => {
-      const previous = readyTasks.get(info.pid);
+      if (cancelled) return Promise.resolve();
+      const generation = `${info.pid}:${info.port}`;
+      const previous = readyTasks.get(generation);
       if (previous) return previous;
+      latestGeneration = generation;
+      if (activeGeneration !== generation) setReady(false);
       const task = (async () => {
-        if (cancelled) return;
-        setReady(false);
-        setApiBase(info.port, info.token);
-        const ok = await waitForSidecar(info.port);
-        if (cancelled) return;
-        if (!ok) {
-          setError('Sidecar started but health check failed');
-          return;
+        try {
+          if (cancelled) return;
+          setApiBase(info.port, info.token);
+          const ok = await waitForSidecar(info.port);
+          if (cancelled || latestGeneration !== generation) return;
+          if (!ok) {
+            setReady(false);
+            setError('Sidecar started but health check failed');
+            return;
+          }
+          const newGeneration = activeGeneration !== generation;
+          const replacedProcess = activeGeneration !== undefined && newGeneration;
+          activeGeneration = generation;
+          setError(null);
+          setReady(true);
+          if (replacedProcess) {
+            // The new sidecar has fresh in-memory caches, so workspace queries need to reload.
+            void queryClient.invalidateQueries();
+          }
+          if (newGeneration) {
+            void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_ACCOUNTS });
+            void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_SETTINGS });
+          }
+        } finally {
+          // Keep only in-flight checks so a later wake can probe the same process again.
+          readyTasks.delete(generation);
         }
-        if (cancelled) return;
-        setError(null);
-        setReady(true);
-        void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_ACCOUNTS });
-        void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_SETTINGS });
       })();
-      readyTasks.set(info.pid, task);
+      readyTasks.set(generation, task);
       return task;
+    };
+
+    // Focus and connectivity events can arrive together; one native check handles both.
+    const checkSidecar = (): Promise<void> => {
+      if (sidecarCheck) return sidecarCheck;
+
+      const task = (async () => {
+        try {
+          const info = await invokeTauri<SidecarInfo>('start_sidecar');
+          if (cancelled) return;
+          await handleReady(info);
+        } catch (e) {
+          if (cancelled) return;
+          setReady(false);
+          setError(e instanceof Error ? e.message : String(e));
+        } finally {
+          sidecarCheck = undefined;
+        }
+      })();
+      sidecarCheck = task;
+      return task;
+    };
+
+    // macOS may leave the window alive after its sidecar child exits during sleep.
+    // The native start command detects that stale child and starts a replacement.
+    const checkAfterResume = () => {
+      void checkSidecar();
+    };
+    const checkWhenVisible = () => {
+      if (document.visibilityState === 'visible') checkAfterResume();
     };
 
     (async () => {
@@ -72,12 +122,14 @@ export function useSidecar() {
           unlisten();
           return;
         }
-        // Ask Rust to start sidecar (it may already be auto-started from setup hook)
-        const info = await invokeTauri<SidecarInfo>('start_sidecar');
-        if (cancelled) return;
-        await handleReady(info);
+        window.addEventListener('focus', checkAfterResume);
+        window.addEventListener('online', checkAfterResume);
+        document.addEventListener('visibilitychange', checkWhenVisible);
+        // Rust reuses the live child and restarts it if the previous process exited.
+        await checkSidecar();
       } catch (e) {
         if (cancelled) return;
+        setReady(false);
         setError(e instanceof Error ? e.message : String(e));
       }
     })();
@@ -85,6 +137,9 @@ export function useSidecar() {
     return () => {
       cancelled = true;
       unlisten?.();
+      window.removeEventListener('focus', checkAfterResume);
+      window.removeEventListener('online', checkAfterResume);
+      document.removeEventListener('visibilitychange', checkWhenVisible);
     };
   }, [queryClient]);
 

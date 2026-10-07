@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Sidecar wake recovery** — recheck the local sidecar when the app returns to the foreground or the network reconnects, restart it if its child exited, and refresh workspace caches when the process changes.
+
 ---
 
 ## [v1.6.1] — 2026-10-04
