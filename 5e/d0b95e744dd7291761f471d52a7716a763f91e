@@ -1,0 +1,60 @@
+docs/llm/workflows/federated-query.md
+  s_226d6e74bf4954::t_b3d9a16af09efd 1-57
+docs/llm/architecture/overview.md
+  s_226d6e74bf4954::t_4cb16c59045f5e 3-4,7,11-15,19-30,34-39,55,59-60,62-64,68,78-80
+docs/llm/workflows/sidecar-resume-recovery.md
+  s_226d6e74bf4954::t_f3dce88240e99a 18
+  s_226d6e74bf4954::t_4d3d29c3b80ce4 1-17,19-65
+docs/llm/INDEX.md
+  s_226d6e74bf4954::t_4d3d29c3b80ce4 24
+  s_226d6e74bf4954::t_0d1f5eda6f50d4 3-23,25-29
+docs/llm/operations/diagnostics-and-maintenance.md
+  s_226d6e74bf4954::t_a781d37729dbda 1-221
+docs/llm/integrations/marketing-site.md
+  s_226d6e74bf4954::t_9148b50069e185 1-158
+docs/llm/workflows/connections-and-workspace.md
+  s_226d6e74bf4954::t_b84627282ea8f9 1-210
+docs/llm/workflows/sql-workspace.md
+  s_226d6e74bf4954::t_b84627282ea8f9 1-214
+docs/llm/integrations/ai-assistant.md
+  s_226d6e74bf4954::t_07b4798771d342 1-119
+docs/llm/integrations/read-only-mcp.md
+  s_226d6e74bf4954::t_f3dce88240e99a 33
+  s_226d6e74bf4954::t_4d3d29c3b80ce4 3-4,64,89-90,95
+docs/llm/workflows/engine-explorers.md
+  s_226d6e74bf4954::t_f2b5b8326a54f8 1-249
+apps/desktop/src/hooks/use-sidecar.ts
+  s_226d6e74bf4954::t_ee620e7f451709 43,51-52,54-78,86
+  s_226d6e74bf4954::t_b0dbdc84babb68 41-42,44,48-49,79-85,87-100,103,107-115,125-129,132,140-142
+  s_226d6e74bf4954::t_92a23a1ed9e33b 7,11
+  s_226d6e74bf4954::t_cb0ad8fba29b2b 47
+AGENTS.md
+  s_226d6e74bf4954::t_92a23a1ed9e33b 377-380,385-386
+docs/llm/workflows/schema-lifecycle.md
+  s_226d6e74bf4954::t_b84627282ea8f9 1-113
+docs/llm/architecture/engine-support.md
+  s_226d6e74bf4954::t_f2b5b8326a54f8 1-72
+docs/llm/workflows/vector-search.md
+  s_226d6e74bf4954::t_f2b5b8326a54f8 1-103
+CHANGELOG.md
+  s_226d6e74bf4954::t_cb0ad8fba29b2b 12
+  s_226d6e74bf4954::t_b0dbdc84babb68 10-11,13
+docs/llm/workflows/query-history.md
+  s_226d6e74bf4954::t_b3d9a16af09efd 1-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5ed0b95e744dd7291761f471d52a7716a763f91e",
+  "prompts": {},
+  "sessions": {
+    "s_226d6e74bf4954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a10687-3104-7423-adde-f030160bf57c",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
