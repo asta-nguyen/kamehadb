@@ -1,0 +1,134 @@
+docs/llm/integrations/read-only-mcp.md
+  s_120ba07e9439c6::t_47e826b74c2771 159
+  s_120ba07e9439c6::t_70d3173b418dfc 78
+  s_da9359a783b072::t_a26670b6299eb6 3,7-40,42-62,106
+  s_120ba07e9439c6::t_6438a389557645 79-81,86,104-105,107-143,158,191-192
+  s_120ba07e9439c6::t_59b377a7775729 152-153,157
+  s_da9359a783b072::t_8cda3e789c5ad0 41
+apps/sidecar/src/mcp/runtime.ts
+  s_120ba07e9439c6::t_12c1e633b53724 115
+apps/desktop/src/components/mcp-settings-section.tsx
+  s_120ba07e9439c6::t_01166e06396dad 16-18,98,107-108,125-126,314-316,321-356,358-369,371-375,377-379
+  s_120ba07e9439c6::t_304d02cabad210 164-186,188-219,221-296,298-299,301-302,304-313
+  s_120ba07e9439c6::t_79495e1a96f571 10,157-161,163,317-320,384-385
+apps/sidecar/src/db/metadata-store.ts
+  s_120ba07e9439c6::t_e0af534a450c5f 11,17-22,476-477,480-503,509,642,652-653,658,660-668,670-685,687-723,725-728
+  s_120ba07e9439c6::t_12c1e633b53724 724
+  s_120ba07e9439c6::t_e9f5dd41d849d0 669
+  s_120ba07e9439c6::t_c95b684a286ebe 686
+apps/sidecar/src/mcp/tools.ts
+  s_120ba07e9439c6::t_2bdd5893ca71bc 3,98
+  s_120ba07e9439c6::t_6275e5b581624a 156
+  s_120ba07e9439c6::t_91efb8247f43e1 179,200,225,251,286,306,327,365
+  s_120ba07e9439c6::t_335389ca62aba3 108-113
+  s_120ba07e9439c6::t_3eb6133ee2f35e 2,5-6,18-28
+  s_120ba07e9439c6::t_393be7717b4e52 99-103,105-107,114-154,157-159
+  s_120ba07e9439c6::t_fdc18583272d18 155
+  s_120ba07e9439c6::t_e9f5dd41d849d0 17
+  s_120ba07e9439c6::t_06652fe41bdf5e 29
+  s_120ba07e9439c6::t_d1e3b02e1090cb 104
+apps/sidecar/src/mcp/runtime.test.ts
+  s_120ba07e9439c6::t_ef297447b167ed 16,166-176
+apps/desktop/src/lib/query-keys.ts
+  s_120ba07e9439c6::t_c752bb3a9087ed 79
+docs/agent-devkit/plans/2026-10-08-mcp-call-history-plan.md
+  s_120ba07e9439c6::t_927716d7aa1ab0 158
+  s_120ba07e9439c6::t_4c937cf9162f5e 1-25,27-56,58-62,64-73,75-97,99-125,127-157,159-162
+  s_120ba07e9439c6::t_c501793b66b400 26,98,126
+  s_120ba07e9439c6::t_5372fa3b81d60e 57,63,74
+apps/sidecar/src/mcp/tools.test.ts
+  s_120ba07e9439c6::t_4793ec9f1f1eca 1-49,51-87,89-132
+  s_120ba07e9439c6::t_9b57be606f445c 50
+  s_120ba07e9439c6::t_dc5f8f7d741e71 88
+apps/sidecar/src/routes/mcp-settings.ts
+  s_120ba07e9439c6::t_c212194c425aba 4-10,30-41
+  s_120ba07e9439c6::t_1a446b46629fa8 42
+CHANGELOG.md
+  s_120ba07e9439c6::t_70d3173b418dfc 12
+  s_120ba07e9439c6::t_c752bb3a9087ed 10-11,13
+docs/agent-devkit/specs/2026-10-08-mcp-call-history-design.md
+  s_120ba07e9439c6::t_e8a3d25e9a1f8c 22,32,34-37,39,51-54
+  s_120ba07e9439c6::t_010c58b36aae9a 1-2,4-21,23-31,33,40-50,55-65,67-78
+  s_120ba07e9439c6::t_927716d7aa1ab0 3
+  s_120ba07e9439c6::t_e6547a700e69c4 66,79
+  s_120ba07e9439c6::t_92278b84471453 38
+apps/desktop/src/lib/api.ts
+  s_120ba07e9439c6::t_c752bb3a9087ed 334-340
+apps/desktop/src/hooks/use-mcp-settings.ts
+  s_120ba07e9439c6::t_bcb2ee5a986b70 23,36
+  s_120ba07e9439c6::t_c752bb3a9087ed 16-22,24-35,37-48
+docs/agent-devkit/INDEX.md
+  s_120ba07e9439c6::t_8e574380ac8801 5,12
+apps/sidecar/src/routes/mcp-settings.test.ts
+  s_120ba07e9439c6::t_c212194c425aba 13,16-17,54,70,97,106-133,136-155
+  s_120ba07e9439c6::t_585c095d0889ea 134-135
+  s_120ba07e9439c6::t_8a078ea7f37f32 156-157
+packages/shared/src/schemas.ts
+  s_120ba07e9439c6::t_e0af534a450c5f 344,350-374
+  s_da9359a783b072::t_32eb4fcd7ede53 375
+apps/sidecar/src/lib/constants.ts
+  s_120ba07e9439c6::t_e0af534a450c5f 71-74
+apps/desktop/src/components/mcp-settings-section.test.tsx
+  s_120ba07e9439c6::t_67cc44fae73874 2,37-40,42-44,92
+  s_120ba07e9439c6::t_d9aa130a0e8f70 41
+  s_120ba07e9439c6::t_e6a568097e6464 1,3-36,45-91,93-102
+docs/llm/INDEX.md
+  s_da9359a783b072::t_59cf67c1dc2100 30-33,35
+  s_5d643e8775a97c::t_c749629f7bef90 34
+apps/sidecar/src/db/metadata-store.test.ts
+  s_120ba07e9439c6::t_ae019400931ad4 6-7,9,19,23,26,54,72-163
+.agents/skills/context-handoff/SKILL.md
+  s_5d643e8775a97c::t_6afcfd74dd9268 27-28,43,74-78
+.agents/skills/document-wiki/SKILL.md
+  s_5d643e8775a97c::t_4118fce42911ac 3,23-123,220-225,238,251-260,264-270,272-284
+.agents/skills/document-wiki/references/evidence-matrix-and-page-template.md
+  s_5d643e8775a97c::t_00c3dfe99c324c 11-19,43,45-55,100-142
+.agents/skills/estimate-feature/SKILL.md
+  s_5d643e8775a97c::t_69f4bcda7f9e06 13-17,19-20,28-33,35,37-39,56-61,92-97,108-113
+.agents/skills/implement-task/SKILL.md
+  s_5d643e8775a97c::t_b38274cb7456a1 10-13,24-25,36-45,49-55,57,82-98,100-105,139-144,170-176,182-189,192-205
+.agents/skills/plan-feature/SKILL.md
+  s_5d643e8775a97c::t_5d486a7970ab07 3,8-14,21,26-33,61-62,65-71,82-83,95,97-98,104,109,116-145,148-151,153-203,219,233-237,243
+.agents/skills/read-codebase-context/SKILL.md
+  s_5d643e8775a97c::t_050656852e04cb 73-78
+.agents/skills/review-and-verify/SKILL.md
+  s_5d643e8775a97c::t_213a2b4a8d1c2c 39-83,164-168,176-183,186,191-195,218-228,239
+.agents/skills/setup-codebase/SKILL.md
+  s_5d643e8775a97c::t_8131efd621d832 19-24,28-30,63-65,69-72
+.agents/skills/systematic-debugging/SKILL.md
+  s_5d643e8775a97c::t_f3ab55352d94ea 36-42,110-111,114-117,124-125,157-174,179-181,218
+.agents/skills/using-devkit/SKILL.md
+  s_5d643e8775a97c::t_7467dc27d2e3ac 21-23,39-112,120-166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb907d70bf170df7a73314d5786a38c4a6462de9",
+  "prompts": {},
+  "sessions": {
+    "s_120ba07e9439c6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11a40-3442-76a2-8701-fb586e648b66",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_5d643e8775a97c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a119dc-a513-74d0-bca4-18ff5adb1f3b",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_da9359a783b072": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12bba-e99d-7710-8aba-f8c21ddf6704",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
