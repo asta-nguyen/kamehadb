@@ -33,6 +33,13 @@ performance problems, build failures, integration issues.
 
 ## The four phases
 
+When `implement-task` calls this skill to repair an active task, keep that
+task's scope and approval. Investigate and verify the fix, then return evidence
+and blockers to the caller; do not run final review, archive the parent change,
+or mark its task done here. A fix needing new behavior or scope returns that
+decision to the caller's approval flow. Standalone debugging retains the full
+route below.
+
 You must complete each phase before proceeding to the next.
 
 ### Phase 1: Root cause investigation
@@ -100,19 +107,22 @@ You must complete each phase before proceeding to the next.
      shared interface, contract, or component boundary. File count alone does
      not classify the bug. Proceed to step 2.
    - **Architectural** — the fix changes a shared interface, contract, or
-     component boundary, or spans multiple components. Stop. Tell the user to
-     invoke `brainstorm-feature` to produce a spec, then `plan-feature` for an
+     component boundary, or spans multiple components. Stop fixing and call
+     `brainstorm-feature` to produce a spec, then `plan-feature` for an
      execution plan, before any fix. Do not patch an architectural bug as if
      it were bounded; the verify plan in step 3 cannot cover cross-component
-     regression surface that was never spec'd.
+     regression surface that was never spec'd. For a repair inside an active
+     implementation, return this diagnosis to the caller instead of starting
+     a separate feature route. A fix already covered by that plan's approved
+     scope and verification proceeds within it; new scope needs its approval flow.
 
    When in doubt between two, take the heavier one. Hidden complexity
    discovered mid-fix upgrades the path — stop, say so, step up. Nothing
    downgrades mid-fix.
 
 2. **Establish expected behavior.** Use source, tests, and current wiki pages.
-   If they do not establish the intended behavior, stop and tell the user to
-   invoke `brainstorm-feature` to get approval before changing behavior.
+   If they do not establish the intended behavior, stop and call
+   `brainstorm-feature` to get approval before changing behavior.
 3. **Write the verify plan.** Before writing a regression check or production
    fix, list the observable conditions that prove the bug is fixed. State each
    as a checkable claim:
@@ -144,16 +154,31 @@ You must complete each phase before proceeding to the next.
 8. **Run relevant existing tests and checks** for regressions. The final
    `review-and-verify` gate runs repository-mandated full commands when they
    exist; do not invent a test suite.
-9. Call the available Skill entry whose local name is `review-and-verify` to
-   review the diff against the
-   verify plan from step 3 and run fresh verification. Tell the user to invoke
-   `document-wiki` after verification only when the fix changes observable
-   behavior or reveals stale wiki documentation. An existing page that
-   contradicts the fix remains a blocker until refreshed. Do not update the
+9. For a repair handoff, return the verify-plan result, reproduction/regression
+   evidence, affected callers, and any documentation or scope issue to
+   `implement-task`; skip the standalone final-review procedure that follows.
+   Otherwise, when the fix changes a requirement `docs/llm/` manages, write `delta.md` in a
+   change folder before review, using the delta format, ID/Baseline/Evidence,
+   ownership, and self-review rules in `brainstorm-feature`'s
+   `## Change folder and delta` section, and index the folder under `## Changes`
+   in `docs/agent-devkit/INDEX.md`; a fix that only restores correctly
+   documented behavior writes no delta. If the target page still uses
+   `## Business rules`, use the affected page as the task's selection and convert it through
+   `document-wiki` before writing the delta; stop if it is marked
+   `verification limit`. After the code checks pass, call `document-wiki`'s
+   Task updates procedure when the existing wiki needs an in-scope update or
+   delta merge. If no wiki exists, skip without setup. Then call the
+   available Skill entry whose local name is `review-and-verify` to review the
+   diff against the verify plan from step 3 and run fresh verification. Missing
+   task coverage or a page that contradicts the fix remains a blocker until
+   refreshed and verified. Do not update the
    wiki when it already correctly describes the intended behavior and the fix
    only restores code to that behavior.
 10. Do not create commits during debugging. Even when the user requests a
     commit, wait until final `review-and-verify` passes.
+11. When debugging stops before review (a Diagnostic investigation result, an
+    Architectural handoff, or missing expected behavior), end with the `Next:`
+    block from `using-devkit`.
 
 ## Red flags — stop and return to Phase 1
 
@@ -190,6 +215,6 @@ timing-dependent, or external:
    needed, return to Phase 4: classify the change, establish expected behavior,
    and write the verify plan before changing production code. These changes
    alter observable behavior. If current sources do not establish the intended
-   behavior, tell the user to invoke `brainstorm-feature` and wait for approval.
+   behavior, call `brainstorm-feature` and wait for approval.
 
 But: 95% of "no root cause" cases are incomplete investigation.

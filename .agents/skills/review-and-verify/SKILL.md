@@ -36,6 +36,51 @@ Before reviewing requirements, read the active spec and plan, including its
 `## Decision Log`, plus any task-linked decision file. A persisted decision is
 requirement evidence, but it does not override a pending approval gate;
 conversation recall alone is not review evidence.
+Only mark completion when this is the final review, every task is implemented
+(each plan task is `Progress: done` with a `Result:` that this review confirms
+with fresh evidence), and every required verification passes. A task with no
+`Progress` line is not yet complete: apply the backfill rule in
+`implement-task` first, then judge completion. Do not mark an old plan
+complete merely because it was read.
+
+- For a **legacy plan**, a passing final review adds or sets
+  `Execution: complete` in `## Approval Gate`, or adds `## Completion` with
+  `Execution: complete` when the plan has no `## Approval Gate`.
+- For a **change folder**, a passing final review runs the archive procedure
+  below: verify documentation is complete, then move the folder under
+  `changes/archive/`. Delta merging happens during implementation's
+  documentation update, before final review. A change has no `Execution` field.
+
+Verify the edit or the archive before reporting `Status: pass`. If work or
+required verification remains, leave the plan or change open and report the gap
+under `Spec gaps`. Approval status alone is not completion evidence.
+
+## Archive a change
+
+Run this inside the change's branch, after the code checks pass and before any
+commit. Archive never merges or edits wiki requirements. With a delta,
+confirm every block is in the after-merge state defined by `document-wiki`'s
+`## Merge a task delta`, including Sources, retired IDs, and the merge marker.
+If documentation is unfinished, call `document-wiki`'s Task updates procedure
+and rerun final review; do not move the folder yet. The change is complete only
+when the moved folder, index, and every rewritten link are verified.
+
+1. **Move and relink.** Before moving, compute every link that will change:
+   relative links inside the folder's files that point outside it, and links
+   anywhere in the repository that point into it, found by searching all files,
+   including ignored `docs/` paths. Rewrite links in `docs/agent-devkit/`
+   (including the `docs/agent-devkit/INDEX.md` entry, which moves from
+   `## Changes` to `## Archived changes`) and links in files this change already
+   modifies. A link from `docs/llm/` into a change folder breaks the wiki
+   boundary and fails the review. For any other file, stop before moving and
+   report the file and link for the user to decide. Confirm every new target will
+   exist after the move. Then move the folder to `changes/archive/<same name>/`,
+   rewrite those links, and verify they resolve. If any link check fails, move
+   the folder back to `changes/`, undo only this archive's link edits, keep
+   `Status: fail`, and report the broken links.
+
+After a rebase that touches `docs/llm/` or the change folder, run
+`review-and-verify` again; an earlier pass does not count.
 
 ## Git safety invariants
 
@@ -116,6 +161,11 @@ cannot verify <requirement> — needs <specific evidence or command>
 
 An unverifiable required behavior keeps the review status at `fail`.
 
+For any task whose implementation or review changes `docs/llm/`, locate the installed
+`document-wiki/SKILL.md` in the same skill set and run
+`node "<document-wiki-skill-directory>/scripts/validate-llm-wiki.mjs" "<target-repository-root>"`
+using absolute paths. If the script is missing, cannot run, or reports errors,
+keep `Status: fail`; never substitute a run against the devkit source repository.
 For wiki changes, also verify: source paths exist, `## Sources` entries are
 real, internal relative Markdown links resolve from their containing files,
 `INDEX.md` links resolve, and no placeholder text remains. Also scan
@@ -123,14 +173,26 @@ real, internal relative Markdown links resolve from their containing files,
 requires the full `document-wiki` migration; report missing or ambiguous
 targets, and fail the wiki check while any legacy wikilink remains.
 
+For changed pages with `## Requirements`, name the requirement format owned by
+`document-wiki` and fail on: an ID that appears elsewhere in `docs/llm/`; a page
+using more than one prefix; a prefix missing from `## Requirement prefixes` or
+repeated in it; an `Evidence:` path that does not exist or is missing from
+`## Sources`; a requirement anchor link that does not resolve; or two
+requirements of one prefix describing the same behavior. Internal link checks
+include anchors for requirement links.
+
 Before the final result, classify wiki impact even for a bug fix. If the change
 alters documented behavior or leaves a relevant page incomplete, use `yes` and
-list the pages for a `document-wiki` handoff. Use `no` only after inspecting
+list the pages updated or still requiring an in-scope update. Use `no` only after inspecting
 the relevant page and source evidence. Use `not-applicable` when the repository
 does not maintain `docs/llm/`, or `unknown` when the impact cannot be
 established. An existing page that contradicts the changed behavior is a
 blocker: keep `Status: fail` until that page is refreshed and verified. Missing
-coverage for new behavior remains a `Wiki impact: yes` handoff. In the result
+coverage for behavior affected by the task is a blocker when the repository
+maintains `docs/llm/`: call `document-wiki`'s Task updates procedure, then rerun
+review. Coverage gaps in unrelated features are optional findings, not work to
+perform in this task. A skeleton wiki counts as existing wiki coverage to
+update; no wiki means `not-applicable`, without silently creating one. In the result
 block's `Evidence`, name the check for every listed caller. If a caller has no
 check, state `Verification limit: <caller> — <reason>` there.
 
@@ -153,6 +215,17 @@ protected boundaries remain intact.
 
 ## Review result
 
+Start the final response with three short lines in the user's language: result
+(what is done and whether final review passed, including task progress when
+available), checks and documentation updated (with missing checks, if any), and
+next action (who does what, how, and what result would pass; or none).
+The agent first attempts setup and checks available from the repository. If
+only the user can run a required check, give app-level steps and the expected
+result; ask for access or assets only after identifying what the agent cannot
+obtain. If the change is still open, state plainly that it moves to
+`changes/archive/` only after final review passes. Keep supporting details in
+the result block below; do not repeat the same finding in extra prose.
+
 End every review with this exact result block:
 
 ```md
@@ -163,7 +236,7 @@ Non-blockers: <optional findings, or none>
 Spec gaps: <missing spec, plan, or persisted-decision requirements, or none>
 Wiki impact: yes | no | not-applicable | unknown
 Wiki pages: <paths, or none>
-Wiki action: <invoke document-wiki / no update needed / limitation>
+Wiki action: <updated and verified / no update needed / required update or limitation>
 ```
 
 Use `fail` when any blocker or spec gap remains. A passing verification command

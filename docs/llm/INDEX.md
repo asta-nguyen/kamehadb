@@ -27,3 +27,9 @@ This wiki records behavior checked against current repository source and relevan
 ## Operations
 
 - [Diagnostics and database maintenance](operations/diagnostics-and-maintenance.md)
+
+## Requirement prefixes
+
+| Prefix | Domain                             |
+| ------ | ---------------------------------- |
+| MCP    | Model Context Protocol integration |

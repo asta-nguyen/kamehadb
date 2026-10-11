@@ -13,6 +13,7 @@ import {
   createMcpManagedAccount,
   createProfile,
   initMetadataStore,
+  listMcpCallHistory,
   saveMcpManagedCredential,
   setMcpManagedAccountState,
   setProfileMcpEnabled,
@@ -162,6 +163,17 @@ describe('MCP runtime auth and routing', () => {
         [2, 'two'],
       ]);
       expect(payload.truncated).toBe(true);
+      const [historyEntry] = listMcpCallHistory();
+      expect(historyEntry).toMatchObject({
+        profileId,
+        toolName: 'sql_query',
+        input: { connection_id: profileId, sql: 'SELECT * FROM items ORDER BY id', max_rows: 2 },
+        status: 'success',
+        itemCount: 2,
+        truncated: true,
+      });
+      expect(JSON.stringify(historyEntry)).not.toContain('one');
+      expect(JSON.stringify(historyEntry)).not.toContain('two');
 
       const writeAttempt = await client.callTool({
         name: 'sql_query',

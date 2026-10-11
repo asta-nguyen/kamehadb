@@ -1,7 +1,13 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { randomUUID } from 'node:crypto';
-import { isMcpServerKind, KIND, MCP_MANAGED_ACCOUNT_STATE, UpdateMcpPortSchema } from '@kamehadb/shared';
+import {
+  isMcpServerKind,
+  KIND,
+  MCP_MANAGED_ACCOUNT_STATE,
+  SetMcpHistoryEnabledSchema,
+  UpdateMcpPortSchema,
+} from '@kamehadb/shared';
 import * as metadataStore from '../db/metadata-store.js';
 import { log } from '../lib/logger.js';
 import type { McpRuntime } from '../mcp/runtime.js';
@@ -20,6 +26,19 @@ export function createMcpSettingsRouter(runtime: McpRuntime): Hono {
   const revokingProfiles = new Set<string>();
 
   router.get('/settings', (c) => c.json(runtime.settingsResponse()));
+
+  router.get('/history', (c) => c.json({ entries: metadataStore.listMcpCallHistory() }));
+
+  router.patch('/settings/history', zValidator('json', SetMcpHistoryEnabledSchema), (c) => {
+    const { enabled } = c.req.valid('json');
+    metadataStore.setMcpHistoryEnabled(enabled);
+    return c.json(runtime.settingsResponse());
+  });
+
+  router.delete('/history', (c) => {
+    metadataStore.clearMcpCallHistory();
+    return c.body(null, 204);
+  });
 
   router.patch('/settings', zValidator('json', UpdateMcpPortSchema), async (c) => {
     const { port } = c.req.valid('json');

@@ -10,8 +10,11 @@ import {
   closeMetadataStore,
   createMcpManagedAccount,
   createProfile,
+  getMcpSettings,
   getMcpManagedAccount,
   initMetadataStore,
+  listMcpCallHistory,
+  recordMcpCallHistory,
   setProfileMcpEnabled,
 } from '../db/metadata-store.js';
 import type { McpRuntime } from '../mcp/runtime.js';
@@ -48,6 +51,7 @@ function stubRuntime(): McpRuntime {
       port,
       endpoint: `http://127.0.0.1:${port}/mcp`,
       token,
+      historyEnabled: getMcpSettings().historyEnabled,
       enabledProfiles: [],
     }),
     updatePort: async (next: number) => {
@@ -63,6 +67,7 @@ function stubRuntime(): McpRuntime {
 
 describe('MCP settings management routes', () => {
   it('returns settings with a token and rejects an invalid port', async () => {
+    initMetadataStore(join(tempDir(), 'kamehadb.db'));
     const app = new Hono();
     app.route('/mcp', createMcpSettingsRouter(stubRuntime()));
 
@@ -89,12 +94,65 @@ describe('MCP settings management routes', () => {
   });
 
   it('rotates the token and activates the new one', async () => {
+    initMetadataStore(join(tempDir(), 'kamehadb.db'));
     const app = new Hono();
     app.route('/mcp', createMcpSettingsRouter(stubRuntime()));
 
     const rotated = await app.request('/mcp/settings/rotate-token', { method: 'POST' });
     expect(rotated.status).toBe(200);
     expect(((await rotated.json()) as { token: string }).token).toBe('rotated-start-token');
+  });
+
+  it('reads recent MCP call history, validates recording settings, and clears all entries', async () => {
+    initMetadataStore(join(tempDir(), 'kamehadb.db'));
+    recordMcpCallHistory({
+      profileId: 'profile-1',
+      toolName: 'sql_query',
+      input: { sql: 'SELECT 1' },
+      executedAt: new Date(Date.now() - 1_000).toISOString(),
+      status: 'success',
+      durationMs: 2,
+      itemCount: 1,
+      truncated: false,
+    });
+    recordMcpCallHistory({
+      profileId: 'profile-1',
+      toolName: 'sql_list_tables',
+      input: { connection_id: 'profile-1' },
+      executedAt: new Date().toISOString(),
+      status: 'success',
+      durationMs: 1,
+      itemCount: 2,
+      truncated: false,
+    });
+    const app = new Hono();
+    app.route('/mcp', createMcpSettingsRouter(stubRuntime()));
+
+    const history = await app.request('/mcp/history');
+    expect(history.status).toBe(200);
+    expect(
+      ((await history.json()) as { entries: { toolName: string }[] }).entries.map((entry) => entry.toolName),
+    ).toEqual(['sql_list_tables', 'sql_query']);
+
+    const invalid = await app.request('/mcp/settings/history', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: 'off' }),
+    });
+    expect(invalid.status).toBe(400);
+
+    const disabled = await app.request('/mcp/settings/history', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: false }),
+    });
+    expect(disabled.status).toBe(200);
+    expect(((await disabled.json()) as { historyEnabled: boolean }).historyEnabled).toBe(false);
+    expect(getMcpSettings().historyEnabled).toBe(false);
+
+    const cleared = await app.request('/mcp/history', { method: 'DELETE' });
+    expect(cleared.status).toBe(204);
+    expect(listMcpCallHistory()).toEqual([]);
   });
 
   it('stores generated credentials without returning either password to the desktop', async () => {

@@ -112,6 +112,7 @@ export class McpRuntime {
       port: status.port,
       endpoint: status.endpoint,
       token: this.token,
+      historyEnabled: getMcpSettings().historyEnabled,
       enabledProfiles,
       message: status.message,
     };

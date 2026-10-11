@@ -68,3 +68,7 @@ export const MCP_MAX_MONGO_SKIP = 100_000;
 
 /** Maximum concurrent database-backed MCP tool calls allowed per enabled profile. */
 export const MCP_MAX_CONCURRENT_CALLS_PER_PROFILE = 4;
+
+/** MCP call history retention and recent-list limits. */
+export const MCP_HISTORY_RETENTION_DAYS = 30;
+export const MCP_HISTORY_LIST_LIMIT = 50;
