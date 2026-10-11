@@ -1,6 +1,64 @@
 # Read-only MCP Server
 
+Verification: [~] verification limit — MCP Call History sources and tests checked; the desktop Logs tab and settings/history endpoints were smoke-checked. Toggle/clear interaction and the existing managed-account, adapter, timeout, and listener claims elsewhere on this page were not fully re-verified.
+
 KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI clients can inspect opted-in database profiles. The endpoint is separate from the sidecar management API and listens only on loopback.
+
+## Requirements
+
+### MCP-call-history-capture
+
+The system SHALL record validated inputs and call summaries for database-backed MCP tools without storing returned database rows or documents in history or changing the tool response.
+
+#### Scenario: successful query is summarized
+
+- GIVEN an enabled MCP `sql_query` call returns two rows
+- WHEN the tool callback completes
+- THEN history stores its validated input and item count without the rows, while the original MCP response still contains them
+
+#### Scenario: rejected query stores only its stable error code
+
+- GIVEN `sql_query` rejects an unsafe statement
+- WHEN the tool callback completes
+- THEN history stores the error code with no item count, and `list_mcp_profiles` does not create a history entry
+
+Evidence: `apps/sidecar/src/mcp/tools.ts`, `apps/sidecar/src/mcp/tools.test.ts`, `apps/sidecar/src/mcp/runtime.test.ts`
+
+### MCP-call-history-limits
+
+The system SHALL prune history older than 30 days and return no more than the newest 50 entries.
+
+#### Scenario: old entries are removed and recent entries are capped
+
+- GIVEN history contains an expired entry and more than 50 recent entries
+- WHEN the store initializes or history is read
+- THEN expired entries are removed and at most the newest 50 entries are returned
+
+Evidence: `apps/sidecar/src/lib/constants.ts`, `apps/sidecar/src/db/metadata-store.ts`, `apps/sidecar/src/db/metadata-store.test.ts`
+
+### MCP-call-history-recording
+
+The system SHALL default history to enabled for new and existing metadata stores, then preserve old entries and prevent new ones when recording is disabled.
+
+#### Scenario: history defaults on and disabling it retains existing entries
+
+- GIVEN a fresh store or a legacy store with an MCP settings row
+- WHEN the metadata store initializes and recording is later disabled
+- THEN history starts enabled, existing entries remain, and later calls are not added
+
+Evidence: `apps/sidecar/src/db/metadata-store.ts`, `apps/sidecar/src/db/metadata-store.test.ts`, `apps/sidecar/src/routes/mcp-settings.ts`, `apps/sidecar/src/routes/mcp-settings.test.ts`
+
+### MCP-call-history-ui
+
+The desktop SHALL show recorded inputs and summaries with a plain-text storage warning and controls to disable recording or clear history.
+
+#### Scenario: MCP Logs displays local history controls and an empty or populated list
+
+- GIVEN MCP call-history settings and entries are available
+- WHEN the MCP Server Logs tab is rendered
+- THEN the user sees the recording toggle, Clear History action, local-storage warning, and recorded inputs and summaries without database results
+
+Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/src/components/mcp-settings-section.test.tsx`, `apps/sidecar/src/routes/mcp-settings.ts`, `apps/sidecar/src/routes/mcp-settings.test.ts`
 
 ## Business rules
 
@@ -17,18 +75,20 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 
 1. On sidecar startup, KamehaDB initializes metadata SQLite, constructs `McpRuntime`, mounts the internal settings router, and starts the separate MCP listener. Listener status is `listening`, `unavailable`, or `stopped`.
 2. In **API Settings → MCP Server**, the desktop reads listener settings, enabled profiles, and managed-account status. For server database profiles, **Create read-only account** asks the sidecar to generate the credential, encrypt it into local metadata SQLite, reload and verify it, then provision and verify the DB account. The desktop never receives the credential. SQLite needs no account. The user explicitly enables the profile after setup.
-3. The desktop provides copyable snippets for Codex, Claude Code, Devin CLI, and OpenCode; it does not edit client config files. Token rotation requires updating the snippets.
-4. MCP clients send stateless Streamable HTTP JSON-RPC `POST` requests to `http://127.0.0.1:<port>/mcp` with `Authorization: Bearer <token>`.
-5. Every database tool asks `McpAdapterManager` to re-read the profile and check its allowlist. Server database calls require a ready managed-account record and an in-memory credential restored from encrypted local storage. Missing credentials fail closed with no fallback to saved profile credentials. SQLite calls use the existing read-only child worker.
+3. The **Logs** tab under MCP Server settings has a local call-history toggle, a recent-call list, and a Clear History action. The list resolves profile names when available and falls back to profile IDs after removal.
+4. The desktop provides copyable snippets for Codex, Claude Code, Devin CLI, and OpenCode; it does not edit client config files. Token rotation requires updating the snippets.
+5. MCP clients send stateless Streamable HTTP JSON-RPC `POST` requests to `http://127.0.0.1:<port>/mcp` with `Authorization: Bearer <token>`.
+6. Every database tool asks `McpAdapterManager` to re-read the profile and check its allowlist. Server database calls require a ready managed-account record and an in-memory credential restored from encrypted local storage. Missing credentials fail closed with no fallback to saved profile credentials. SQLite calls use the existing read-only child worker.
 
 ## State changes
 
 - The singleton `mcp_settings` row stores the listener port and a random 32-byte base64url bearer token in metadata SQLite. Both survive restarts; listener status is runtime-only.
+- The same `mcp_settings` row stores whether MCP call history is enabled. `mcp_call_history` stores tool inputs and call metadata in local metadata SQLite; rows expire after 30 days. Returned database rows and documents are not stored.
 - `connection_profiles.mcp_enabled` stores the per-profile allowlist flag and defaults to disabled. Migration disables legacy enabled server profiles that lack managed accounts while preserving SQLite settings.
 - `mcp_managed_accounts` stores the profile ID, an opaque reference used to derive the generated DB principal, lifecycle state, and an AES-256-GCM encrypted credential bundle. The random 32-byte encryption key is stored beside the metadata DB in `<dbPath>.mcp.key` with owner-only permissions where supported. Copying only the SQLite DB does not reveal the credentials; copying the complete app data directory includes the key and allows decryption.
 - On sidecar startup, ready credentials are decrypted and loaded into process memory. Credentials are bound to their profile and account reference, and invalid ciphertext or a missing key fails closed. The desktop does not hydrate credentials after startup.
 - Disabling MCP retains the managed DB account and encrypted credential. Revoke disables MCP first, closes the adapter, drops the exact generated principal, then removes the local account record and ciphertext. A failed database revoke retains state for retry. A `prepared` account can be discarded without a DB call because no DB write has started.
-- Existing accounts from Keychain-backed versions have no encrypted SQLite credential. They remain unavailable to MCP until revoked and recreated; the old Keychain value is not imported or automatically removed.
+- Legacy managed-account rows without encrypted SQLite credentials remain unavailable to MCP until revoked and recreated. Current sources do not establish whether an OS Keychain value from an older version is separately removed.
 - While a managed account exists, changing the profile kind, target, SSL settings, saved username/password, or deleting the profile is rejected until Revoke.
 - MCP adapters and decrypted credentials are process-local. Profile updates, deletions, credential changes, and allowlist changes invalidate cached adapters; sidecar shutdown closes adapters and clears decrypted secrets.
 
@@ -41,6 +101,46 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 - A bind conflict leaves MCP `unavailable`; retry uses the configured port. KamehaDB's ordinary workspace continues to run.
 - `docker-init/MCP-READONLY.md` describes direct grant fixtures. The repository's default MongoDB Docker service has no authentication, so its managed-account probe correctly refuses it.
 
+## MCP tool call history
+
+### Record details
+
+- History records the nine database-backed SQL and MongoDB tools. `list_mcp_profiles` is excluded because it reads local profile metadata rather than a customer database.
+- Recording defaults on for new and existing metadata databases. Turning it off stops new records and retains existing ones; Clear History deletes all records.
+- Records expire after 30 days. History reads return the newest 50 entries.
+- A record stores the profile ID, tool name, validated input, timestamp, success/error status, elapsed duration, item count, truncation flag, and a stable error code on failure.
+- `item_count` is the length of the primary result array: SQL `rows`, MongoDB `documents`, or a metadata list/describe array. Failed calls have no count and are not truncated.
+- Inputs are stored locally as plain text and may contain sensitive SQL literals or filters. The settings UI explains this and provides the toggle and clear action.
+- Returned rows and documents are not persisted or added to MCP responses. Sidecar history-write warnings include only the tool and profile identifiers.
+
+### Flow
+
+1. One wrapper in `registerMcpTools` surrounds all nine database-backed tool callbacks. It captures validated inputs and elapsed time, summarizes the existing result, stores the summary, and returns the original result unchanged.
+2. The authenticated sidecar settings router serves recent history, updates the recording flag, and clears history. These routes stay on the internal sidecar API, separate from the public MCP listener.
+3. The desktop uses the existing MCP settings query and API Settings section to display local inputs and summaries. It never renders returned database content.
+
+### State changes
+
+- `mcp_settings.history_enabled` persists the recording toggle and defaults to enabled.
+- `mcp_call_history` stores the call metadata and serialized input without a result-payload column. Profile IDs remain stored if the corresponding connection is deleted.
+- Disabling recording does not delete history. Clear History deletes all entries; startup, writes, and reads prune expired records.
+
+### Side effects
+
+- Each enabled database-backed MCP call writes a local metadata row. It does not write to the customer database or change the MCP tool response.
+- If summary extraction or the local history write fails, the MCP callback result is still returned and the sidecar logs a warning without the input or result content.
+
+### Authorization & constraints
+
+- History management uses the normal sidecar authentication middleware.
+- Tool inputs are stored in the local metadata database without a new encryption layer. Users can disable future recording or clear existing records.
+- The query-history table and desktop SQL Query History remain separate and unchanged.
+
+### Error paths
+
+- A tool error stores its stable error code, not the formatted error message, and does not store an item count.
+- Failure to parse a result summary or persist a history entry leaves the original MCP tool result unchanged.
+
 ## Error paths
 
 - The listener returns `404 NOT_FOUND` for an unknown path, `405 METHOD_NOT_ALLOWED` for methods other than `POST`, and `401 UNAUTHORIZED` for an invalid bearer token. Invalid/oversized JSON returns `400 INVALID_JSON`.
@@ -49,17 +149,19 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 
 ## Tests
 
-- `apps/sidecar/src/db/metadata-store.test.ts` — metadata persistence and legacy migration.
-- `apps/sidecar/src/routes/mcp-settings.test.ts` — settings validation, credential preparation, profile MCP enablement, connection edits, profile deletion protections, and prepared-account Revoke.
+- `apps/sidecar/src/db/metadata-store.test.ts` — metadata persistence, legacy migration, history defaults, retention pruning, record cap, toggle, and clear behavior.
+- `apps/sidecar/src/routes/mcp-settings.test.ts` — settings validation, credential preparation, profile MCP enablement, connection edits, profile deletion protections, prepared-account Revoke, and call-history routes.
 - `apps/sidecar/src/mcp/adapter-manager.test.ts` — concurrency cap and rejection without a hydrated managed credential.
 - `apps/sidecar/src/mcp/adapters.test.ts` — SQLite read-only behavior, bounded reads, write-stage rejection, server credential requirement, and database scope.
 - `apps/sidecar/src/mcp/account-provisioner.test.ts` — stable generated usernames, random passwords, MongoDB URI preparation, and SQLite exclusion.
-- `apps/sidecar/src/mcp/runtime.test.ts` — loopback transport, auth, tool list, query bounds, and listener recovery.
+- `apps/sidecar/src/mcp/runtime.test.ts` — loopback transport, auth, tool list, query bounds, listener recovery, and SQL call-history integration.
+- `apps/sidecar/src/mcp/tools.test.ts` — item counts, truncation, error codes, excluded profile-list tool, disabled recording, and history-store failure behavior.
+- `apps/desktop/src/components/mcp-settings-section.test.tsx` — verifies the Logs tab displays local inputs and summaries without database results.
 - `apps/desktop/src/lib/mcp-managed-account.test.ts` — prepare/provision order, failed setup cleanup, and recovery retention.
 
 ## Related
 
-- [[architecture/overview|Architecture overview]]
+- [Architecture overview](../architecture/overview.md)
 
 ## Sources
 
@@ -84,10 +186,15 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 - `apps/sidecar/src/mcp/adapters/sqlite-worker.ts`
 - `apps/sidecar/src/mcp/account-provisioner.ts`
 - `apps/sidecar/src/mcp/errors.ts`
+- `apps/sidecar/src/mcp/invalidation.ts`
+- `apps/sidecar/src/lib/constants.ts`
+- `apps/sidecar/src/mcp/tools.test.ts`
+- `apps/desktop/src/components/mcp-settings-section.test.tsx`
 - `apps/sidecar/src/adapters/postgres.ts`
 - `apps/sidecar/src/adapters/mysql.ts`
 - `apps/sidecar/src/adapters/sqlserver.ts`
 - `apps/sidecar/src/adapters/mongodb.ts`
+- `packages/shared/src/types.ts`
 - `packages/shared/src/schemas.ts`
 - `apps/sidecar/src/db/metadata-store.test.ts`
 - `apps/sidecar/src/routes/mcp-settings.test.ts`

@@ -13,6 +13,39 @@ export function useMcpSettings() {
   });
 }
 
+export function useMcpCallHistory() {
+  return useQuery({
+    queryKey: QUERY_KEYS.MCP_CALL_HISTORY,
+    queryFn: api.getMcpCallHistory,
+  });
+}
+
+// Update the shared MCP settings cache immediately after the persisted toggle changes.
+export function useSetMcpHistoryEnabled() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.setMcpHistoryEnabled(enabled),
+    onSuccess: (settings, enabled) => {
+      queryClient.setQueryData(QUERY_KEYS.MCP_SETTINGS, settings);
+      toastSuccess(enabled ? 'MCP call history enabled' : 'MCP call history disabled');
+    },
+    onError: (err) => toastError(safeErrorMessage(err, 'Failed to update MCP call history setting')),
+  });
+}
+
+// Refresh the recent-call list only after the sidecar confirms the delete.
+export function useClearMcpCallHistory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.clearMcpCallHistory,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MCP_CALL_HISTORY });
+      toastSuccess('MCP call history cleared');
+    },
+    onError: (err) => toastError(safeErrorMessage(err, 'Failed to clear MCP call history')),
+  });
+}
+
 export function useMcpAccounts() {
   return useQuery({
     queryKey: QUERY_KEYS.MCP_ACCOUNTS,

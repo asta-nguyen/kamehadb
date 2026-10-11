@@ -3,9 +3,10 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { KIND, MCP_MANAGED_ACCOUNT_STATE } from '@kamehadb/shared';
-import { MCP_DEFAULT_PORT } from '../lib/constants.js';
+import { KIND, MCP_MANAGED_ACCOUNT_STATE, type McpCallHistoryEntry } from '@kamehadb/shared';
+import { MCP_DEFAULT_PORT, MCP_HISTORY_LIST_LIMIT, MCP_HISTORY_RETENTION_DAYS } from '../lib/constants.js';
 import {
+  clearMcpCallHistory,
   clearMcpManagedAccount,
   closeMetadataStore,
   createMcpManagedAccount,
@@ -15,11 +16,14 @@ import {
   getDb,
   initMetadataStore,
   listMcpManagedAccounts,
+  listMcpCallHistory,
   listProfiles,
   loadMcpManagedCredential,
   rotateMcpToken,
+  recordMcpCallHistory,
   saveMcpManagedCredential,
   setMcpManagedAccountState,
+  setMcpHistoryEnabled,
   setProfileMcpEnabled,
   updateMcpPort,
 } from './metadata-store.js';
@@ -47,6 +51,7 @@ describe('MCP settings persistence', () => {
     const settings = getMcpSettings();
     expect(settings.port).toBe(MCP_DEFAULT_PORT);
     expect(settings.token.length).toBeGreaterThanOrEqual(32);
+    expect(settings.historyEnabled).toBe(true);
   });
 
   it('persists a new port and rotated token across reopen', () => {
@@ -64,6 +69,98 @@ describe('MCP settings persistence', () => {
     const after = getMcpSettings();
     expect(after.port).toBe(54321);
     expect(after.token).toBe(rotated);
+    expect(after.historyEnabled).toBe(true);
+  });
+
+  it('enables history when migrating an existing MCP settings row', () => {
+    const dbPath = freshDbPath();
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      CREATE TABLE mcp_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        port INTEGER NOT NULL,
+        token TEXT NOT NULL
+      );
+      INSERT INTO mcp_settings (id, port, token) VALUES (1, ${MCP_DEFAULT_PORT}, 'legacy-token');
+    `);
+    legacyDb.close();
+
+    initMetadataStore(dbPath);
+
+    expect(getMcpSettings()).toMatchObject({ port: MCP_DEFAULT_PORT, token: 'legacy-token', historyEnabled: true });
+  });
+});
+
+function createHistoryInput(executedAt = new Date().toISOString()): Omit<McpCallHistoryEntry, 'id'> {
+  return {
+    profileId: 'profile-1',
+    toolName: 'sql_query',
+    input: { connection_id: 'profile-1', sql: 'SELECT private_value' },
+    executedAt,
+    status: 'success',
+    durationMs: 7,
+    itemCount: 1,
+    truncated: false,
+  };
+}
+
+// Seed an expired row directly to exercise pruning without asking the public writer to accept old calls.
+function insertExpiredHistoryRow(executedAt: string): void {
+  getDb()
+    .prepare(
+      `INSERT INTO mcp_call_history
+        (id, profile_id, tool_name, input_json, executed_at, status, duration_ms, item_count, truncated)
+       VALUES ('expired', 'profile-1', 'sql_query', '{"sql":"old"}', ?, 'success', 1, 1, 0)`,
+    )
+    .run(executedAt);
+}
+
+describe('MCP call history persistence', () => {
+  it('round-trips inputs and metadata without a result payload and caps recent entries', () => {
+    initMetadataStore(freshDbPath());
+    const entries = Array.from({ length: MCP_HISTORY_LIST_LIMIT + 3 }, (_, index) => {
+      const executedAt = new Date(Date.now() + index).toISOString();
+      return { ...createHistoryInput(executedAt), toolName: `tool-${index}` };
+    });
+
+    entries.forEach(recordMcpCallHistory);
+
+    const history = listMcpCallHistory();
+    expect(history).toHaveLength(MCP_HISTORY_LIST_LIMIT);
+    expect(history[0]).toMatchObject(entries.at(-1));
+    expect(history[0].id).toBeTruthy();
+    expect(Object.keys(history[0])).not.toContain('result');
+  });
+
+  it('retains old rows when recording is disabled and clears them on request', () => {
+    initMetadataStore(freshDbPath());
+    recordMcpCallHistory(createHistoryInput());
+
+    expect(setMcpHistoryEnabled(false).historyEnabled).toBe(false);
+    recordMcpCallHistory({ ...createHistoryInput(), toolName: 'new_call' });
+    expect(listMcpCallHistory()).toHaveLength(1);
+
+    clearMcpCallHistory();
+    expect(listMcpCallHistory()).toEqual([]);
+  });
+
+  it('prunes expired rows at startup, write, and read boundaries', () => {
+    const dbPath = freshDbPath();
+    initMetadataStore(dbPath);
+    const expiredAt = new Date(Date.now() - (MCP_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000 + 1)).toISOString();
+    insertExpiredHistoryRow(expiredAt);
+    closeMetadataStore();
+
+    initMetadataStore(dbPath);
+    expect(listMcpCallHistory()).toEqual([]);
+
+    insertExpiredHistoryRow(expiredAt);
+    expect(listMcpCallHistory()).toEqual([]);
+
+    insertExpiredHistoryRow(expiredAt);
+    recordMcpCallHistory(createHistoryInput());
+    expect(listMcpCallHistory()).toHaveLength(1);
+    expect(listMcpCallHistory()[0].toolName).toBe('sql_query');
   });
 });
 

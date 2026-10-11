@@ -341,10 +341,37 @@ export const McpSettingsResponseSchema = z.object({
   port: z.number().int(),
   endpoint: z.string(),
   token: z.string(),
+  historyEnabled: z.boolean(),
   enabledProfiles: z.array(McpProfileSummarySchema),
   message: z.string().optional(),
 });
 export type McpSettingsResponse = z.infer<typeof McpSettingsResponseSchema>;
+
+export const MCP_CALL_HISTORY_STATUSES = ['success', 'error'] as const;
+
+export const McpCallHistoryEntrySchema = z.object({
+  id: z.string(),
+  profileId: z.string(),
+  toolName: z.string(),
+  input: z.record(z.unknown()),
+  executedAt: z.string(),
+  status: z.enum(MCP_CALL_HISTORY_STATUSES),
+  durationMs: z.number().int().nonnegative(),
+  itemCount: z.number().int().nonnegative().nullable(),
+  truncated: z.boolean(),
+  errorCode: z.string().optional(),
+});
+export type McpCallHistoryEntry = z.infer<typeof McpCallHistoryEntrySchema>;
+
+export const McpCallHistoryResponseSchema = z.object({
+  entries: z.array(McpCallHistoryEntrySchema),
+});
+export type McpCallHistoryResponse = z.infer<typeof McpCallHistoryResponseSchema>;
+
+export const SetMcpHistoryEnabledSchema = z.object({
+  enabled: z.boolean(),
+});
+export type SetMcpHistoryEnabledInput = z.infer<typeof SetMcpHistoryEnabledSchema>;
 
 export const UpdateMcpPortSchema = z.object({
   port: z.number().int().min(1).max(65_535),

@@ -1,25 +1,36 @@
 ---
 name: plan-feature
-description: Use when feature design is approved and coding has not started for a non-trivial feature, behavior change, API change, or cross-file implementation.
+description: Use when an architectural design needs its tasks.md before the joint design-and-tasks approval, or an open change or legacy plan needs revision for a non-trivial behavior, API, or cross-file change.
 ---
 
 # Plan Feature
 
-Turn an approved design into a short execution plan before editing code. Save
-the plan at
+Turn a design into a short execution plan before editing code. For a new
+change, `brainstorm-feature` writes `design.md` and calls this skill before any
+approval; the user then approves `design.md` and `tasks.md` together, once. In
+this skill, "the design" means that written `design.md` (or an approved legacy
+design). For a change folder, save `tasks.md` beside its `design.md` under
+`docs/agent-devkit/changes/<folder>/`. For a legacy design with no change
+folder, save the plan at
 `docs/agent-devkit/plans/YYYY-MM-DD-<slug>-plan.md`. Follow the shared artifact
 naming rule in `using-devkit` (read it if it is not loaded). Create the folder
 only when writing the plan.
 
 ## Process
 
-1. Read the approved design, `AGENTS.md`, and related wiki pages. If application
+1. Read the design, `AGENTS.md`, and related wiki pages. If application
    source exists, call the available Skill entry whose local name is
    `read-codebase-context` to inspect
    affected source,
    callers, and tests. Otherwise map planned files and interfaces from the
-   approved design; state that callers and tests do not exist yet.
-   Extract only exact constraints from the approved design that bind more than
+   design; state that callers and tests do not exist yet.
+   Apply the change lifecycle in `using-devkit`: revise an open change's
+   `tasks.md` in place; for new architectural work after a change is archived,
+   use a new design and change folder. An open legacy plan is revised
+   in place (same file, decision log, and approval gate); do not recreate it, and
+   start a new plan only when the old one is complete. Keep completed tasks and
+   results historical; add new work as a new task only while the change is open.
+   Extract only exact constraints from the design that bind more than
    one task. Do not infer constraints from convention or preference.
 2. Map out which files will be created or modified and what each one is
    responsible for. Design units with clear boundaries. Follow existing
@@ -47,7 +58,16 @@ only when writing the plan.
    Interfaces: <what this task consumes from earlier tasks and produces for later ones>
    Change: <observable behavior or implementation>
    Verify: <smallest relevant test/check>
+   Progress: todo
+   Result: none
    ```
+
+   `implement-task` later sets `Progress: done` and records `Result:` with the
+   check it ran and its outcome. Only a new task starts with `Progress: todo`
+   and `Result: none`. When revising an open plan, keep every existing task's
+   `Progress` and `Result` unchanged; never reset a `done` task. Work that
+   changes or extends a `done` task becomes a new task, per step 1. Leave a
+   task with no `Progress` line as is; `implement-task` backfills it.
 
    Plans specify implementation; they do not pre-write code. Do not include
    function bodies or full test code; `implement-task` writes code. Include
@@ -59,8 +79,8 @@ only when writing the plan.
 
    Map every approved edge case to a task and specific verification. If
    planning exposes an unresolved case that would change observable behavior,
-   scope, an interface, a schema, or a protected boundary, tell the user to
-   invoke `brainstorm-feature`; do not invent the behavior. Leave only
+   scope, an interface, a schema, or a protected boundary, stop and call
+   `brainstorm-feature` to resolve it; do not invent the behavior. Leave only
    behavior-equivalent implementation details for `implement-task` rulings.
 
 4. Give each task only the steps needed for its change and a meaningful
@@ -72,68 +92,115 @@ only when writing the plan.
    coverage.
 
    For a source-less new project, the first task bootstraps the runtime and
-   first entry point approved in the design. State its verification procedure.
+   first entry point specified in the design. State its verification procedure.
    If the design does not establish the runtime, build tool, first entry point,
-   or verification approach, tell the user to invoke `brainstorm-feature`;
-   do not invent a toolchain.
+   or verification approach, call `brainstorm-feature` to resolve it; do not
+   invent a toolchain.
 
 5. Put contract/data changes before their callers; put tests beside the
    behavior they verify. Do not add tasks for speculative abstractions.
 6. Do not add `review-and-verify` as an implementation task. After all plan
    tasks are complete, `implement-task` owns the final review and verification.
-   If the feature is new or changes user-visible behavior, instruct the user to
-   invoke `document-wiki` after verification.
-7. Add this section to every plan:
+7. Add this section to every `tasks.md`:
 
    ```md
    ## Approval Gate
 
-   Required: yes | no
-   Reason: <public API, data schema, dependency, CI, broad file impact, or low-risk scope>
-   Status: pending | approved | not-required
+   Status: pending | approved
 
    ## Decision Log
 
    None.
    ```
 
-   Set `Required: yes` when the plan changes public APIs, data schemas,
-   dependencies, CI, or more than a small set of files; its initial status is
-   always `pending`. Otherwise set `Required: no` and `Status: not-required`.
-   Approval of the design/spec, including an instruction to implement given
-   before this plan existed, never changes a required gate from `pending`.
+   A new `tasks.md` always starts at `Status: pending`. The gate covers
+   `design.md`, `tasks.md`, and any `delta.md` together; a `tasks.md` has no
+   `Required`, `Reason`, or `not-required` field. An instruction such as
+   "implement it" given before both files were presented does not approve
+   them. Approval never marks execution complete; a change's `tasks.md` has no
+   `Execution` field, because completion is the archive move.
 
-8. Save the complete plan at the required path. Include `## Approved design`
-   with a link to the exact approved design, immediately followed by
-   `## Global Constraints`. Copy only exact cross-task constraints from the
-   design; write `None.` when there are none. Include `## Impact map` using
-   exactly the seven fields in `read-codebase-context` step 5. Do not add a
-   second design/spec pointer. Add that plan link to the design's `## Execution`
-   section, then add both artifacts to `docs/agent-devkit/INDEX.md` (`## Designs`
-   and `## Plans`). Follow the shared process-artifact link and wiki-boundary
+   A legacy plan in `plans/`, or an open `tasks.md` written before this rule,
+   keeps its existing gate (`Required`, `Reason`,
+   `Status: pending | approved | not-required`, plus
+   `Execution: open | complete` for legacy plans only).
+
+   For every revision, including a repair handoff, preserve the existing gate
+   when scope, observable behavior, interfaces, schemas, and risk are unchanged.
+   For a material revision, append the change and its approval state to
+   `## Decision Log` and set `Status: pending`; a legacy gate also gets
+   `Required: yes` and an updated `Reason`. A repair does not authorize a new
+   behavior decision: route unresolved decisions through `brainstorm-feature`.
+
+8. Save the complete plan. Include `## Design` with a relative link to the
+   exact design, immediately followed by `## Global Constraints`.
+   Copy only exact cross-task constraints from the design; write `None.` when
+   there are none. Include `## Impact map` using exactly the seven fields in
+   `read-codebase-context` step 5. Do not add a second design/spec pointer. For a
+   change folder, `tasks.md` links to its sibling `design.md`, the folder is
+   linked under `## Changes` in `docs/agent-devkit/INDEX.md` only on approval
+   (step 10), and there is no `## Execution` backlink. For a legacy design, add the plan link to the
+   design's `## Execution` section and add both artifacts to
+   `docs/agent-devkit/INDEX.md` (`## Designs` and `## Plans`). Follow the shared
+   process-artifact link and wiki-boundary
    rules in `using-devkit` (read them if they are not loaded). For a planned
    entry point or flow that does not exist yet, keep the seven fields and write
-   `Entry: no existing source; planned entry: <approved file + symbol>` and
-   `Flow: no existing flow; planned flow: <approved flow>`. Fill planned files,
-   effects, and verification only from the approved design. Do not claim
+   `Entry: no existing source; planned entry: <design file + symbol>` and
+   `Flow: no existing flow; planned flow: <design flow>`. Fill planned files,
+   effects, and verification only from the written design; label planned values
+   `pending approval` until joint approval. Do not claim
    nonexistent callers or tests were traced.
-9. Do not estimate effort in this skill. When the user explicitly requests an
-   estimate, tell the user to invoke `estimate-feature` before presenting the
-   approval gate; otherwise continue without an estimate. Estimation never
-   authorizes implementation.
-10. Present the complete plan, requested estimate when present, and approval
-    gate. For
-    `Required: yes`, stop without editing application code. After the user
-    explicitly approves the complete plan, update `Status: pending` to
-    `Status: approved` and tell the user to invoke `implement-task`; that
-    approval is the gate, so do not ask again. If an approved plan changes
-    materially, append the user-confirmed change to `## Decision Log`, reset its
-    `Required` and `Reason` from the new impact, set required plans to
-    `Status: pending`, and present them again. For
-    `Required: no`, tell the user to invoke `implement-task` with
-    `Status: not-required`.
-11. Do not include commit steps. If the user requests a commit, leave that action
-    until after `review-and-verify` passes.
+9. Repair handoff: when this skill was called to fix a plan for another skill
+   (such as `estimate-feature`), return to the caller right after saving the
+   plan and running the self-review below. Skip the rest of this step and
+   step 10: do not call `estimate-feature` or present an approval request.
+   Return the gate preserved or reset by step 7, plus the reason for any reset;
+   the caller reports the plan and its gate. Never start implementation.
+
+   Do not estimate effort in this skill. When the user explicitly requests an
+   estimate, call `estimate-feature` before presenting the approval gate;
+   otherwise continue without an estimate. Estimation never authorizes
+   implementation.
+
+10. Before requesting approval or delivering a planning-only result, give a
+    short summary in the user's language with links to the written files:
+
+- **Goal:** the observable result.
+- **Scope and impact:** affected components/files and consequential API,
+  data, dependency, or risk changes.
+- **Tasks:** the count and ordered task titles; group them when numerous.
+- **Verification:** the checks and expected outcomes, naming any limit.
+- **Documentation:** affected pages to update, or wiki not applicable.
+- **Risks and decisions:** material tradeoffs, open questions, or none.
+
+Summarize the actual design/tasks, not a second plan or copied file contents.
+Include an estimate only when requested. State whether approval authorizes
+implementation or the request stops at planning. Unresolved material
+decisions return to `brainstorm-feature`; do not present the plan as ready
+to implement. A repair handoff returns to its caller under step 9 instead
+of asking for approval or adding another user-facing presentation.
+
+Apply step 7's revision rule first. If an existing plan remains approved
+(or legacy `not-required`), present the summary and continue within the
+requested stopping point without another approval request. Otherwise present
+`design.md`, `tasks.md`, any `delta.md`, and the requested estimate together,
+and ask for one approval. Stop without editing
+application code. Revise the files in place until the user explicitly
+approves them; then set `Status: approved`, add the folder under
+`## Changes` in `docs/agent-devkit/INDEX.md`, and continue: call
+`setup-codebase` first when the target has no `AGENTS.md` or application
+source, then `implement-task`. That approval is the gate, so do not ask
+again. If the user limited the request to design or planning, record the
+approval and stop instead of implementing.
+
+For a revision, apply step 7's gate rule before presenting the affected
+files again; a non-material revision keeps its existing approval. For a
+legacy plan, apply its own gate: `Required: yes` waits for approval;
+`Required: no` proceeds when the user asked for implementation.
+
+End with the `Next:` block from `using-devkit`; for a pending gate it names
+the exact approval the user must give. 11. Do not include commit steps. If the user requests a commit, leave that action
+until after `review-and-verify` passes.
 
 ## No placeholders
 
@@ -149,7 +216,7 @@ plan failures — never write them:
 
 ## Self-review
 
-After writing the complete plan, review it against the approved design:
+After writing the complete plan, review it against the design:
 
 Flag and fix only issues that could change approved behavior, scope, plan
 correctness, or execution. Do not block on wording preferences, stylistic
@@ -163,14 +230,17 @@ polish, or uneven detail that does not create ambiguity.
    property names used in later tasks match what was defined earlier?
 4. **Artifact links** — do the index, design, and plan links resolve? Does the
    design link only to wiki pages actually read as context?
-5. **Approval gate** — do impact and status match the required criteria? Is a
-   required gate still pending until the complete plan is approved?
+5. **Approval gate** — does every new task have `Progress: todo` and
+   `Result: none`, and does every existing task keep its prior `Progress` and
+   `Result`? Does a new `tasks.md` have only `Status: pending`, with no
+   `Required` or `Execution` field? Does a revised legacy plan keep its
+   `Required`/`Reason`/`Execution` fields consistent with its impact?
 6. **Minimal design** — can any proposed file, abstraction, dependency, or
    configuration be removed or replaced by existing, standard-library, native,
    or already-installed behavior without weakening an approved requirement?
 7. **Decision consistency** — does every persisted decision agree with the
    tasks and approval status? Material changes must leave the gate pending.
-8. **Global constraints** — is each entry copied from the approved design,
+8. **Global constraints** — is each entry copied from the design,
    applicable across tasks, and consistent with every task? Is `None.` used
    when the design has no cross-task constraint?
 9. **Edge-case coverage** — does every approved edge case map to a task and a

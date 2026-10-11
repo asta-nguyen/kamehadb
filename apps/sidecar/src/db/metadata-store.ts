@@ -8,12 +8,18 @@ import type {
   AIProvider,
   AISettings,
   AIProviderConfig,
+  McpCallHistoryEntry,
   McpManagedAccountState,
   McpManagedCredentialBundle,
   SchemaWatcherConfig,
 } from '@kamehadb/shared';
 import { MCP_MANAGED_ACCOUNT_STATE, MCP_MANAGED_ACCOUNT_STATES, MCP_SERVER_KINDS } from '@kamehadb/shared';
-import { DEFAULT_AI_PROVIDER, MCP_DEFAULT_PORT } from '../lib/constants.js';
+import {
+  DEFAULT_AI_PROVIDER,
+  MCP_DEFAULT_PORT,
+  MCP_HISTORY_LIST_LIMIT,
+  MCP_HISTORY_RETENTION_DAYS,
+} from '../lib/constants.js';
 import { log } from '../lib/logger.js';
 import { decryptMcpCredential, encryptMcpCredential } from './mcp-credential-vault.js';
 
@@ -467,14 +473,40 @@ export function initMetadataStore(dbPath: string): void {
     CREATE TABLE IF NOT EXISTS mcp_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       port INTEGER NOT NULL,
-      token TEXT NOT NULL
+      token TEXT NOT NULL,
+      history_enabled INTEGER NOT NULL DEFAULT 1
     );
   `);
+  try {
+    db.exec('ALTER TABLE mcp_settings ADD COLUMN history_enabled INTEGER NOT NULL DEFAULT 1');
+  } catch (err) {
+    if (!isDuplicateColumnError(err, 'history_enabled')) throw err;
+    log.debug({ err }, 'migration: MCP history setting already exists');
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_call_history (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL,
+      tool_name TEXT NOT NULL,
+      input_json TEXT NOT NULL,
+      executed_at TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('success', 'error')),
+      duration_ms INTEGER NOT NULL,
+      item_count INTEGER,
+      truncated INTEGER NOT NULL DEFAULT 0,
+      error_code TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_mcp_call_history_executed_at
+      ON mcp_call_history (executed_at DESC);
+  `);
+
   const hasMcpSettings = db.prepare('SELECT id FROM mcp_settings WHERE id = 1').get() as { id: number } | undefined;
   if (!hasMcpSettings) {
     db.prepare('INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)').run(MCP_DEFAULT_PORT, generateMcpToken());
   }
 
+  pruneMcpCallHistory();
   seedDefaultAIProviders();
   migrateLegacyAIConfig();
 }
@@ -607,6 +639,7 @@ export function deleteProfile(id: string): boolean {
 export type McpSettingsRecord = {
   port: number;
   token: string;
+  historyEnabled: boolean;
 };
 
 // 32 random bytes give ample entropy for a static bearer token, and base64url
@@ -616,15 +649,83 @@ function generateMcpToken(): string {
 }
 
 export function getMcpSettings(): McpSettingsRecord {
-  const row = getDb().prepare('SELECT port, token FROM mcp_settings WHERE id = 1').get() as
-    | { port: number; token: string }
+  const row = getDb().prepare('SELECT port, token, history_enabled FROM mcp_settings WHERE id = 1').get() as
+    | { port: number; token: string; history_enabled: number }
     | undefined;
   if (!row) {
     const token = generateMcpToken();
     getDb().prepare('INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)').run(MCP_DEFAULT_PORT, token);
-    return { port: MCP_DEFAULT_PORT, token };
+    return { port: MCP_DEFAULT_PORT, token, historyEnabled: true };
   }
-  return { port: row.port, token: row.token };
+  return { port: row.port, token: row.token, historyEnabled: row.history_enabled === 1 };
+}
+
+// Remove expired inputs on each history boundary so old sensitive queries do not linger.
+function pruneMcpCallHistory(): void {
+  const cutoff = new Date(Date.now() - MCP_HISTORY_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  getDb().prepare('DELETE FROM mcp_call_history WHERE executed_at < ?').run(cutoff);
+}
+
+// Keep SQLite column naming private while returning the shared camelCase contract.
+function rowToMcpCallHistoryEntry(row: Record<string, unknown>): McpCallHistoryEntry {
+  const errorCode = row.error_code as string | null;
+  return {
+    id: row.id as string,
+    profileId: row.profile_id as string,
+    toolName: row.tool_name as string,
+    input: JSON.parse(row.input_json as string) as Record<string, unknown>,
+    executedAt: row.executed_at as string,
+    status: row.status as McpCallHistoryEntry['status'],
+    durationMs: row.duration_ms as number,
+    itemCount: row.item_count as number | null,
+    truncated: row.truncated === 1,
+    ...(errorCode ? { errorCode } : {}),
+  };
+}
+
+// Enforce the persisted toggle here so calls racing with a settings change cannot bypass it.
+export function recordMcpCallHistory(entry: Omit<McpCallHistoryEntry, 'id'>): void {
+  pruneMcpCallHistory();
+  if (!getMcpSettings().historyEnabled) return;
+
+  getDb()
+    .prepare(
+      `INSERT INTO mcp_call_history
+        (id, profile_id, tool_name, input_json, executed_at, status, duration_ms, item_count, truncated, error_code)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      nanoid(),
+      entry.profileId,
+      entry.toolName,
+      JSON.stringify(entry.input),
+      entry.executedAt,
+      entry.status,
+      entry.durationMs,
+      entry.itemCount,
+      entry.truncated ? 1 : 0,
+      entry.errorCode ?? null,
+    );
+}
+
+export function listMcpCallHistory(): McpCallHistoryEntry[] {
+  pruneMcpCallHistory();
+  const rows = getDb()
+    .prepare('SELECT * FROM mcp_call_history ORDER BY executed_at DESC, id DESC LIMIT ?')
+    .all(MCP_HISTORY_LIST_LIMIT) as Record<string, unknown>[];
+  return rows.map(rowToMcpCallHistoryEntry);
+}
+
+export function clearMcpCallHistory(): void {
+  getDb().prepare('DELETE FROM mcp_call_history').run();
+}
+
+export function setMcpHistoryEnabled(enabled: boolean): McpSettingsRecord {
+  getMcpSettings();
+  getDb()
+    .prepare('UPDATE mcp_settings SET history_enabled = ? WHERE id = 1')
+    .run(enabled ? 1 : 0);
+  return getMcpSettings();
 }
 
 export function updateMcpPort(port: number): McpSettingsRecord {

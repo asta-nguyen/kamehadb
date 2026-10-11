@@ -1,35 +1,42 @@
 # KamehaDB Architecture Overview
 
+Verification: [x] Current entry points and domain map checked against the sources below in this run.
+
 ## Purpose
 
-KamehaDB is a local-first database workspace built as a Tauri desktop app with a local Node sidecar. The desktop shell provides the workspace and settings views; the sidecar exposes database APIs; `packages/shared` owns database kinds, validation schemas, and shared contracts. The supported database kinds are defined in the shared schemas.
+KamehaDB is a local-first database workspace built as a Tauri desktop app with a local Node sidecar. The React desktop app owns the workspace and settings views. The sidecar exposes database APIs on loopback and stores connection profiles and application metadata in SQLite. `packages/shared` exports the database kinds, validation schemas, and contracts used by both packages.
 
 ## Runtime entry points
 
-- **Desktop:** `apps/desktop/src/App.tsx` waits for the sidecar and selects the workspace, API Settings, or Logs view. `Sidebar` exposes connections and engine-specific navigation; `WorkspaceContent` renders the active workspace tab.
-- **Sidecar:** `apps/sidecar/src/index.ts` initializes the local metadata store, mounts the internal API route groups, starts the MCP runtime, and binds the Hono server to loopback. Its default internal port is `3170` and can be overridden by `PORT`.
-- **Shared contract:** `packages/shared/src/index.ts` re-exports the Zod schemas and shared types used by the desktop and sidecar.
-- **Local state:** `apps/sidecar/src/db/metadata-store.ts` persists connection profiles and application metadata in SQLite.
+- **Desktop:** `apps/desktop/src/App.tsx` gates saved-connection loading on `useSidecar` readiness and selects the workspace, API Settings, or Logs view.
+- **Native shell:** `apps/desktop/src-tauri/src/lib.rs` starts the Node sidecar on launch, exposes `start_sidecar` to the frontend, and stops the managed child on app exit.
+- **Sidecar:** `apps/sidecar/src/index.ts` initializes metadata SQLite, mounts database and application route groups, starts the MCP runtime, and binds the Hono API to `127.0.0.1`.
+- **Shared contract:** `packages/shared/src/index.ts` re-exports Zod schemas and shared types used by the desktop and sidecar.
+- **Marketing site:** `landing/` is a separate Next.js app outside the pnpm workspace; it is managed by npm.
 
 ## Domain map
 
-| Domain                             | User-visible scope                                                                                                                   | Main entry points                                                                                                                                       |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Connections and workspace          | Create and manage profiles, inspect connection health, navigate database objects, and open workspace tabs.                           | `components/sidebar.tsx`, `components/workspace-content.tsx`, `/connections`                                                                            |
-| SQL and schema exploration         | Edit and run SQL, browse tables and metadata, view database/table statistics, and use engine-specific vector workflows.              | `components/sql-editor.tsx`, `components/schema-tree.tsx`, `/sql`                                                                                       |
-| Schema lifecycle                   | Capture schema snapshots, watch changes, compare snapshots, and generate migration SQL.                                              | `components/schema-timeline.tsx`, `components/schema-diff-view.tsx`, `/sql` schema routes                                                               |
-| Engine-specific explorers          | Browse MongoDB documents, Redis keys, Qdrant collections/points, and TigerBeetle accounts/transfers.                                 | `components/mongo-view.tsx`, `components/redis-view.tsx`, `components/qdrant-view.tsx`, `components/tigerbeetle-explorer.tsx`; dedicated sidecar routes |
-| AI and client integrations         | Configure AI providers and chat with schema context; expose opted-in profiles to local MCP clients through the read-only MCP server. | `components/api-settings-page.tsx`, `/ai`, [[integrations/read-only-mcp]]                                                                               |
-| Query history                      | Revisit saved queries, manage favorites, and inspect slow query patterns.                                                            | `components/query-history-panel.tsx`, `/query-history`                                                                                                  |
-| Diagnostics and native maintenance | View combined app logs and use Tauri-backed PostgreSQL or file-database maintenance workflows.                                       | `components/logs-page.tsx`, `apps/desktop/src-tauri` commands                                                                                           |
+| Domain                                | User-visible scope                                                                                                             | Main entry points                                                                                                                          |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Connections and workspace             | Create and test profiles, monitor health, reload profile data, navigate schemas, search, and persist open tabs and pins.       | [Connections and workspace](../workflows/connections-and-workspace.md), `apps/desktop/src/components/sidebar.tsx`, `/connections`          |
+| SQL workspace                         | Run guarded SQL, inspect tabular results, browse schemas, export results, and open schema graphs.                              | [SQL workspace](../workflows/sql-workspace.md), `apps/desktop/src/components/sql-editor.tsx`, `/sql`                                       |
+| Schema lifecycle                      | Capture and watch schema snapshots, compare versions, and generate migration SQL for review.                                   | [Schema lifecycle](../workflows/schema-lifecycle.md), `/sql`                                                                               |
+| Engine explorers                      | Browse and operate MongoDB, Redis, Qdrant, and TigerBeetle through dedicated routes and views.                                 | [Engine explorers](../workflows/engine-explorers.md), `apps/desktop/src/components/workspace-content.tsx`                                  |
+| Vector workflows                      | Search PostgreSQL pgvector and SQLite vec0 data. Qdrant vector search is documented with its explorer.                         | [Vector search](../workflows/vector-search.md), `/sql/vector`                                                                              |
+| Query history and federated queries   | Reopen saved SQL, manage favorites, inspect slow-query patterns, and compare results from multiple SQL profiles.               | [Query history](../workflows/query-history.md), [Federated queries](../workflows/federated-query.md)                                       |
+| AI and client integrations            | Configure AI providers, use schema-aware chat, and expose opted-in profiles to local MCP clients.                              | [AI assistant](../integrations/ai-assistant.md), [Read-only MCP server](../integrations/read-only-mcp.md)                                  |
+| Diagnostics and maintenance           | Inspect app logs and run PostgreSQL terminal/backup jobs or SQLite/DuckDB file maintenance.                                    | [Diagnostics and maintenance](../operations/diagnostics-and-maintenance.md)                                                                |
+| Desktop runtime and sidecar lifecycle | Start the local API sidecar and check it after focus, visibility, or network events.                                           | `apps/desktop/src/hooks/use-sidecar.ts`, `apps/desktop/src-tauri/src/lib.rs`; [recovery workflow](../workflows/sidecar-resume-recovery.md) |
+| Marketing and documentation site      | Separate Next.js pages for product information, engine overview, changelog, team/video pages, and generated marketing imagery. | [Marketing site](../integrations/marketing-site.md), `landing/src/app/`                                                                    |
 
 ## Cross-domain dependencies
 
-- The desktop API client talks to the sidecar and uses shared contracts for request and response shapes.
-- SQL, MongoDB, Redis, and federated code editors initialize the React Monaco wrapper with the bundled `monaco-editor` package, avoiding its external CDN default inside the Tauri WebView.
-- Sidecar route handlers use the metadata store and engine adapters. Connection profile IDs tie together database operations, query history, AI context, and MCP access.
-- The MCP server uses its own read-only adapter manager rather than reusing the UI SQL adapter cache; its flow and constraints are documented in [[integrations/read-only-mcp|Read-only MCP server]].
-- Tauri supplies desktop lifecycle and native commands; the sidecar remains the database API boundary for the React frontend.
+- The desktop calls the sidecar through an authenticated loopback API client and shares request/response contracts through `packages/shared`.
+- Sidecar route handlers use the SQLite metadata store and database adapters.
+- The desktop workspace and sidecar API support twelve database engines; their SQL adapter path and dedicated engine routes are mapped in [Database support](engine-support.md).
+- The MCP server uses its own read-only adapter manager instead of the UI SQL adapter cache; see [Read-only MCP server](../integrations/read-only-mcp.md).
+- Tauri manages the Node sidecar process while the sidecar remains the database API boundary for the React frontend. Resume checks and cache invalidation are documented in the [recovery workflow](../workflows/sidecar-resume-recovery.md).
+- The landing app has a separate npm package and build path and is not part of the pnpm workspace.
 
 ## Sources
 
@@ -38,8 +45,6 @@ KamehaDB is a local-first database workspace built as a Tauri desktop app with a
 - `apps/desktop/src/components/sidebar.tsx`
 - `apps/desktop/src/components/workspace-content.tsx`
 - `apps/desktop/src/components/sql-editor.tsx`
-- `apps/desktop/src/lib/monaco-loader.ts`
-- `apps/desktop/src/components/schema-tree.tsx`
 - `apps/desktop/src/components/schema-timeline.tsx`
 - `apps/desktop/src/components/schema-diff-view.tsx`
 - `apps/desktop/src/components/mongo-view.tsx`
@@ -47,38 +52,29 @@ KamehaDB is a local-first database workspace built as a Tauri desktop app with a
 - `apps/desktop/src/components/qdrant-view.tsx`
 - `apps/desktop/src/components/tigerbeetle-explorer.tsx`
 - `apps/desktop/src/components/api-settings-page.tsx`
+- `apps/desktop/src/components/ai-chat-panel.tsx`
 - `apps/desktop/src/components/mcp-settings-section.tsx`
 - `apps/desktop/src/components/query-history-panel.tsx`
 - `apps/desktop/src/components/logs-page.tsx`
-- `apps/desktop/src/components/postgres-psql-tab.tsx`
-- `apps/desktop/src/components/postgres-backup-dialog.tsx`
-- `apps/desktop/src/components/postgres-restore-dialog.tsx`
-- `apps/desktop/src/components/file-database-backup-dialog.tsx`
-- `apps/desktop/src/components/file-database-restore-dialog.tsx`
-- `apps/desktop/src/lib/api.ts`
+- `apps/desktop/src/hooks/use-connections.ts`
+- `apps/desktop/src/hooks/use-sidecar.ts`
 - `apps/desktop/src/lib/api-client.ts`
+- `apps/desktop/src/lib/query-keys.ts`
+- `apps/desktop/src/lib/tauri.ts`
+- `apps/desktop/src-tauri/src/lib.rs`
 - `apps/sidecar/src/index.ts`
 - `apps/sidecar/src/db/metadata-store.ts`
-- `apps/sidecar/src/lib/schema-watcher.ts`
-- `apps/sidecar/src/lib/file-database-maintenance.ts`
 - `apps/sidecar/src/routes/connections.ts`
+- `apps/sidecar/src/adapters/factory.ts`
 - `apps/sidecar/src/routes/sql.ts`
 - `apps/sidecar/src/routes/sql-schema.ts`
-- `apps/sidecar/src/routes/sql-vector-pg.ts`
-- `apps/sidecar/src/routes/sql-vector-sqlite.ts`
 - `apps/sidecar/src/routes/mongo.ts`
 - `apps/sidecar/src/routes/redis.ts`
 - `apps/sidecar/src/routes/qdrant.ts`
 - `apps/sidecar/src/routes/tigerbeetle.ts`
-- `apps/sidecar/src/routes/ai.ts`
-- `apps/sidecar/src/routes/query-history.ts`
-- `apps/sidecar/src/routes/mcp-settings.ts`
-- `apps/sidecar/src/mcp/runtime.ts`
-- `apps/sidecar/src/mcp/tools.ts`
 - `apps/sidecar/src/mcp/adapter-manager.ts`
-- `apps/sidecar/src/mcp/adapters/factory.ts`
 - `packages/shared/src/index.ts`
 - `packages/shared/src/schemas.ts`
-- `apps/desktop/src-tauri/src/app_logs.rs`
-- `apps/desktop/src-tauri/src/postgres_psql/mod.rs`
-- `apps/desktop/src-tauri/src/postgres_tools/mod.rs`
+- `landing/package.json`
+- `landing/src/app/page.tsx`
+- `landing/src/app/layout.tsx`

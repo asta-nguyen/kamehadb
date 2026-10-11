@@ -331,6 +331,13 @@ export const api = {
   // Read-only MCP settings
   getMcpSettings: () => request<import('@kamehadb/shared').McpSettingsResponse>('GET', '/mcp/settings'),
 
+  getMcpCallHistory: () => request<import('@kamehadb/shared').McpCallHistoryResponse>('GET', '/mcp/history'),
+
+  setMcpHistoryEnabled: (enabled: boolean) =>
+    request<import('@kamehadb/shared').McpSettingsResponse>('PATCH', '/mcp/settings/history', { enabled }),
+
+  clearMcpCallHistory: () => request<void>('DELETE', '/mcp/history'),
+
   updateMcpPort: (port: number) =>
     request<import('@kamehadb/shared').McpSettingsResponse>('PATCH', '/mcp/settings', { port }),
 

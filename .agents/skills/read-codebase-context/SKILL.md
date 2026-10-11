@@ -70,10 +70,12 @@ edit and every newly found caller. The map guides navigation, not evidence.
 
    If the planned entry point or flow does not exist yet, do not invent current
    callers or trace nonexistent symbols. Keep the same fields and write
-   `Entry: no existing source; planned entry: <approved file + symbol>` and
-   `Flow: no existing flow; planned flow: <approved flow>`. Use planned files,
-   effects, and checks only when the approved design specifies them. Write `not
-specified in approved design` for unknown planned behavior; do not present a
+   `Entry: no existing source; planned entry: <design file + symbol>` and
+   `Flow: no existing flow; planned flow: <design flow>`. Use planned files,
+   effects, and checks only when the written design specifies them. Before
+   joint approval, label those planned values `pending approval`; planning and
+   estimation may use them, but implementation still requires approval. Write
+   `not specified in design` for unknown planned behavior; do not present a
    planned map as a source trace.
 
    ```text

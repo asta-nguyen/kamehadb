@@ -1,6 +1,6 @@
 ---
 name: document-wiki
-description: Use when a repository has no LLM wiki yet, when the wiki is only a skeleton, or when existing pages need verification against current source.
+description: Use for affected task documentation in an existing wiki, or standalone wiki creation and refresh from current source.
 ---
 
 # Document Wiki
@@ -19,6 +19,107 @@ evidence. Use `[~]` for either a `verification limit` or a
 `confirmed content gap`, state which one and why, and do not treat those states
 as equivalent.
 Never call unverified coverage current.
+
+## Task updates
+
+When implementation or review calls this skill for an active task, use this
+procedure instead of the whole-wiki Workflow below. The task's scope selects
+its affected behavior automatically; no extra page-selection approval is
+needed. Standalone wiki requests still use the Workflow and its selection gate.
+
+1. If `docs/llm/` is absent, return `not-applicable` without setup or wiki
+   creation. Otherwise apply Workflow step 1's instruction preflight, without
+   its missing-wiki setup, and read the index and relevant pages. Use approved
+   scope, the diff, and the current impact map/caller trace to select changed
+   behavior, including affected callers outside the diff. Do not inventory or
+   document neighboring features or create a repository-wide overview.
+2. Merge any task delta using `## Merge a task delta` below before other content
+   edits. Preserve its exact after-merge blocks; update other affected sections
+   around them. If a delta block itself needs correction, reconcile the delta
+   and wiki together using source and approved decisions; unresolved conflicts
+   stop the update. A merge marker alone never proves the merge is correct.
+3. Read current source and relevant tests and use the evidence matrix/page
+   template for the selected behavior. Refresh stale content and add missing
+   task behavior to the smallest relevant page. If its domain has no page,
+   create a scoped page and register its prefix using Workflow steps 7-8;
+   source-established domain boundaries need no additional approval. Reuse
+   existing IDs/prefixes, preserve unrelated content, and report unrelated
+   coverage gaps as optional suggestions. A new page documents this task's
+   behavior, not every feature of its module.
+4. Ask only for unresolved behavior, conflicting requirements/source, domain
+   boundaries not established by evidence, missing access, or work beyond the
+   task's scope. Missing evidence for required task behavior keeps the task
+   incomplete. Do not invent it or mark it complete with an open question.
+5. Update Sources, index links, and retired IDs as applicable; run Workflow
+   step 9's link, requirement, and validator checks. Preserve the shared
+   legacy-link migration rule; report any migration conflict or scope issue.
+   Verify each changed claim against source/tests: a validator pass or an
+   existing Evidence path alone does not prove behavior.
+6. Return changed pages, covered behavior, checks, and remaining blockers to
+   the caller. Never archive, mark task progress, or change approval here.
+   Implementation and final review own those actions; there is no new artifact
+   or user handoff for documentation.
+
+## Merge a task delta
+
+Use this only when a delta exists and the code checks pass. Without a delta,
+continue Task updates directly. Run in the task's branch before final review;
+this is the existing merge procedure, including partial-merge recovery.
+
+1. **Check without editing.** Every `Evidence:` path in `Requirement:` and
+   `Replacement:` blocks exists and supports its requirement in current source.
+   `Baseline:` blocks are only compared with the wiki before merge; their
+   `Evidence:` paths may name deleted files or outdated behavior and are not
+   checked against current source. Every requirement ID's prefix is already
+   registered in `## Requirement prefixes`; delta merge never registers one.
+   Every
+   target page that already exists uses `## Requirements`; a page that does not
+   exist yet is valid only as an `ADDED` target in a registered domain. No
+   `ADDED` ID appears in `## Retired requirement IDs`. No other open change
+   folder visible in this branch targets the same ID in its `delta.md`.
+2. **Decide merge state block by block.** Compare each delta block with
+   `docs/llm/`. Before merge, an `ADDED` ID is absent and a `MODIFIED` or
+   `REMOVED` wiki block equals its `Baseline:` exactly; after merge, `ADDED`
+   `Requirement:` and `MODIFIED` `Replacement:` blocks match the wiki exactly and
+   `REMOVED` IDs are absent and listed as retired. A `MODIFIED`/`REMOVED` block
+   matching neither its baseline nor the after-merge state was changed by another
+   branch: never overwrite or delete it. The `Merged into docs/llm/` marker is a
+   trace, not the only evidence. When every block is either before or after
+   merge, apply only the before-merge blocks and complete any missing merge
+   side effects in step 3, regardless of whether the marker exists. When every
+   block is already after merge, verify the side effects and add the missing
+   marker in step 4; never apply the whole delta again. If a block matches
+   neither state, stop the documentation update, report its exact difference,
+   and inspect
+   the approved decisions and source. Ask the user only if the correct behavior
+   remains unclear; do not overwrite a conflicting wiki block.
+3. **Finish the merge.** Apply only blocks still before merge and complete
+   missing side effects for all blocks:
+   - `ADDED`: insert the `Requirement:` block into `Page:` in ID order. For a new
+     page, create it with every section of the `document-wiki` template; a
+     section outside the task's behavior may state an evidence-backed scope
+     limit. Missing evidence for required behavior keeps the task incomplete;
+     never substitute an open question for its documentation. Add a link to the
+     new
+     page in `docs/llm/INDEX.md`.
+   - `MODIFIED`: replace the wiki block that equals the `Baseline:` block with the
+     `Replacement:` block.
+   - `REMOVED`: delete the wiki block that equals the `Baseline:` block, append
+     its ID to `## Retired requirement IDs`, and update or remove every link to
+     its anchor.
+   - For `ADDED` and `MODIFIED`, add each `Evidence:` path to the page's
+     `## Sources`. After `MODIFIED` or `REMOVED`, drop a `## Sources` path only
+     when no remaining claim on that page relies on it.
+4. **Verify the wiki.** Every block is in the after-merge state, every page
+   created by the merge is linked from `docs/llm/INDEX.md`, and the requirement
+   checks in `document-wiki` pass on every changed page. Check `## Sources`,
+   retired IDs, and links affected by the delta. Run the validator from
+   Workflow step 9 below. On failure, keep the change open, report the failing
+   item, and fix the wiki, code, or delta within the approved scope. A changed
+   delta must be reconciled with the already-merged wiki; never overwrite a
+   conflicting block. Rerun this procedure from step 1 before final review.
+   After these checks pass, add `Merged into docs/llm/: YYYY-MM-DD`
+   under the `delta.md` title if it is missing.
 
 ## Workflow
 
@@ -116,8 +217,12 @@ Never call unverified coverage current.
    page, not permission to document every feature in depth.
 6. Present `[ ]` undocumented features and `[~]` features classified as
    `confirmed content gap` as selectable create/refresh candidates, grouped by
-   domain. Do not offer `[~]` items whose only cause is a `verification limit`
-   for rewriting. Continue feasible checks before presenting the list; if a check is
+   domain. Separately, offer a page still using `## Business rules` as a
+   `format conversion` candidate once a fresh source check confirms the page is
+   accurate: converting moves it to `## Requirements` and is not a content gap.
+   Do not offer `[~]` items whose only cause is a `verification limit`
+   for rewriting, and do not offer a conversion for such a page. Continue
+   feasible checks before presenting the list; if a check is
    blocked, report the exact missing evidence and ask only for the access or
    information needed, not for a rewrite decision. Do not create or refresh deep
    pages until the user selects eligible candidates; a generic request to
@@ -130,7 +235,7 @@ Never call unverified coverage current.
    | Category        | Use for                                                |
    | --------------- | ------------------------------------------------------ |
    | `architecture/` | Cross-cutting structure, boundaries, and API topology  |
-   | `domains/`      | Domain concepts, state models, and business rules      |
+   | `domains/`      | Domain concepts, state models, and requirements        |
    | `workflows/`    | User or operator flows across multiple components      |
    | `integrations/` | Stripe, storage, email, and other external systems     |
    | `operations/`   | Jobs, cron, deployment, maintenance, and runbooks      |
@@ -143,17 +248,40 @@ Never call unverified coverage current.
    When documenting or refreshing a selected feature, read
    `references/evidence-matrix-and-page-template.md` before continuing.
 
-8. Update `docs/llm/INDEX.md` with working links. Each wiki page keeps its
-   business content and a `## Sources` section containing exact source/test file
-   paths. Do not create or update a source log or snapshot for wiki freshness.
+8. Update `docs/llm/INDEX.md` with working links. When a written or refreshed
+   page registers a new domain prefix, create or update the `## Requirement
+prefixes` table (`Prefix`, `Domain`) in `docs/llm/INDEX.md`: reuse the
+   domain's existing prefix, and register a new one only when the table has no
+   row for that domain. When a refresh removes or renames a requirement, append
+   its ID to a `## Retired requirement IDs` list in `docs/llm/INDEX.md`; a later
+   refresh must never reuse a retired ID. Each wiki page keeps its business
+   content, its requirements, and a `## Sources` section containing exact
+   source/test file paths. Do not create or update a source log or snapshot for
+   wiki freshness.
    Update `docs/llm/FEATURES.md` only if that file already exists; do not create
    a second tracking system.
 9. Verify that every listed source path exists as a file, every internal
-   relative Markdown link resolves from the file containing it, and no legacy
-   `[[...]]` links remain in `docs/llm/`. Every index link must resolve; every
+   relative Markdown link resolves from the file containing it (including
+   `#<lowercase-id>` anchors in requirement links), and no legacy `[[...]]`
+   links remain in `docs/llm/`. Run
+   `node "<this-skill-directory>/scripts/validate-llm-wiki.mjs" "<target-repository-root>"`
+   using absolute paths after the wiki edits. If the script is missing,
+   cannot run, or reports errors, keep verification incomplete and report the
+   failure. Every index link must resolve; every
    `Tests: none found` claim has a recorded search with no matching result, and
-   `git diff --check` passes. For a confirmed omission or contradiction, mark
-   `[~]` as `confirmed content gap` and report the source evidence. For a check
+   `git diff --check` passes. For pages with `## Requirements`, also verify:
+   every ID is unique across `docs/llm/`; requirements are sorted by ID; each
+   has one `SHALL` statement, at least one scenario, and an `Evidence:` line
+   whose paths exist and appear in the page's `## Sources`; each page uses one
+   prefix that is registered in `## Requirement prefixes`; the table has no
+   repeated prefix; no two requirements that share a prefix describe the
+   same behavior; and no requirement reuses an ID under
+   `## Retired requirement IDs`. When refreshing a legacy page with
+   `## Business rules`, convert it per
+   `references/evidence-matrix-and-page-template.md` and record any dropped ID
+   as retired. For a
+   confirmed omission or contradiction, mark `[~]` as `confirmed content gap`
+   and report the source evidence. For a check
    that remains incomplete or blocked, mark `[~]` as `verification limit`, name
    the exact missing evidence, and do not offer a rewrite. Never silently repair
    claims or report unverified coverage as current. The final report must repeat

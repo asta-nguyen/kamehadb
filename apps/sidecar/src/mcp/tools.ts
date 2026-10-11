@@ -1,7 +1,9 @@
 import { z } from 'zod';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { McpServer, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { ShapeOutput, ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import { isMcpSupportedKind, isQuerySafe } from '@kamehadb/shared';
-import { listProfiles } from '../db/metadata-store.js';
+import { listProfiles, recordMcpCallHistory } from '../db/metadata-store.js';
+import { log } from '../lib/logger.js';
 import {
   MCP_DEFAULT_ROW_LIMIT,
   MCP_MAX_METADATA_ITEMS,
@@ -11,6 +13,19 @@ import {
 import type { McpAdapterManager, McpConnection } from './adapter-manager.js';
 import { MCP_ERROR_CODE, McpToolError, formatToolError, toMcpToolError } from './errors.js';
 import type { McpMongoAdapter, McpSqlAdapter } from './types.js';
+
+// Count each tool's primary item array without retaining its contents.
+const MCP_TOOL_ITEM_FIELDS = {
+  sql_list_databases: 'databases',
+  sql_list_schemas: 'schemas',
+  sql_list_tables: 'tables',
+  sql_describe_table: 'columns',
+  sql_query: 'rows',
+  mongo_list_databases: 'databases',
+  mongo_list_collections: 'collections',
+  mongo_find: 'documents',
+  mongo_aggregate: 'documents',
+} as const;
 
 // Cap a metadata list at the MCP limit and report whether more items existed.
 function capItems<T>(items: T[]): { items: T[]; truncated: boolean } {
@@ -80,7 +95,68 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  const registerDatabaseTool = <Schema extends ZodRawShapeCompat>(
+    name: keyof typeof MCP_TOOL_ITEM_FIELDS,
+    config: { title: string; description: string; inputSchema: Schema },
+    callback: ToolCallback<Schema>,
+  ): void => {
+    // The validated callback response is summarized after execution and passed through unchanged.
+    const wrapped = async (args: ShapeOutput<Schema>, extra: Parameters<ToolCallback<Schema>>[1]) => {
+      const startedAt = Date.now();
+      const executedAt = new Date(startedAt).toISOString();
+      const result = await callback(args, extra);
+      const profileIdValue = (args as Record<string, unknown>).connection_id;
+      if (typeof profileIdValue !== 'string') {
+        log.warn({ toolName: name }, 'MCP call history could not be recorded');
+        return result;
+      }
+      const profileId = profileIdValue;
+
+      try {
+        let itemCount: number | null = null;
+        let truncated = false;
+        let errorCode: string | undefined;
+        if (result.isError) {
+          const errorText = result.content.find((item) => item.type === 'text')?.text ?? '';
+          errorCode = Object.values(MCP_ERROR_CODE).find((code) => errorText.startsWith(`${code}:`));
+          if (!errorCode) throw new Error('MCP error code is missing');
+        } else {
+          const responseText = result.content.find((item) => item.type === 'text')?.text;
+          if (!responseText) throw new Error('MCP result summary is missing');
+          const payload: unknown = JSON.parse(responseText);
+          if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+            throw new Error('MCP result summary is not an object');
+          }
+          const record = payload as Record<string, unknown>;
+          const items = record[MCP_TOOL_ITEM_FIELDS[name]];
+          if (!Array.isArray(items) || typeof record.truncated !== 'boolean') {
+            throw new Error('MCP result summary is incomplete');
+          }
+          itemCount = items.length;
+          truncated = record.truncated;
+        }
+
+        recordMcpCallHistory({
+          profileId,
+          toolName: name,
+          input: Object.fromEntries(Object.entries(args)),
+          executedAt,
+          status: result.isError ? 'error' : 'success',
+          durationMs: Date.now() - startedAt,
+          itemCount,
+          truncated,
+          ...(errorCode ? { errorCode } : {}),
+        });
+      } catch {
+        log.warn({ profileId, toolName: name }, 'MCP call history could not be recorded');
+      }
+
+      return result;
+    };
+    server.registerTool<ZodRawShapeCompat, Schema>(name, config, wrapped as ToolCallback<Schema>);
+  };
+
+  registerDatabaseTool(
     'sql_list_databases',
     {
       title: 'List databases',
@@ -100,7 +176,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'sql_list_schemas',
     {
       title: 'List schemas',
@@ -121,7 +197,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'sql_list_tables',
     {
       title: 'List tables',
@@ -146,7 +222,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'sql_describe_table',
     {
       title: 'Describe table',
@@ -172,7 +248,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'sql_query',
     {
       title: 'Run read-only SQL',
@@ -207,7 +283,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'mongo_list_databases',
     {
       title: 'List MongoDB databases',
@@ -227,7 +303,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'mongo_list_collections',
     {
       title: 'List MongoDB collections',
@@ -248,7 +324,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'mongo_find',
     {
       title: 'Find MongoDB documents',
@@ -286,7 +362,7 @@ export function registerMcpTools(server: McpServer, manager: McpAdapterManager):
     },
   );
 
-  server.registerTool(
+  registerDatabaseTool(
     'mongo_aggregate',
     {
       title: 'Aggregate MongoDB documents',
