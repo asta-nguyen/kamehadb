@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v1.6.2] — 2026-10-11
+
 ### Added
 
 - **MCP call history** — view recent MCP tool inputs and call summaries in the MCP Settings Logs tab, with recording enabled by default and a settings toggle; returned database rows and documents are not stored.
