@@ -265,3 +265,74 @@ func TestEmbeddings(t *testing.T) {
 		t.Error("delete all failed")
 	}
 }
+
+func TestMCPCallHistory(t *testing.T) {
+	s := openTemp(t)
+
+	// Defaults to enabled
+	settings, err := s.GetMCPSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !settings.HistoryEnabled {
+		t.Errorf("expected HistoryEnabled=true by default")
+	}
+
+	entry1 := MCPCallHistoryEntry{
+		ProfileID:  "prof1",
+		ToolName:   "sql_query",
+		Input:      map[string]any{"sql": "SELECT 1"},
+		ExecutedAt: time.Now().UTC().Format(time.RFC3339),
+		Status:     "success",
+		DurationMs: 15,
+		ItemCount:  i64P(1),
+		Truncated:  false,
+	}
+	if err := s.RecordMCPCallHistory(entry1); err != nil {
+		t.Fatal(err)
+	}
+
+	list, err := s.ListMCPCallHistory(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].ToolName != "sql_query" || list[0].ProfileID != "prof1" {
+		t.Fatalf("unexpected call history list: %+v", list)
+	}
+
+	// Disable history recording
+	if _, err := s.SetMCPHistoryEnabled(false); err != nil {
+		t.Fatal(err)
+	}
+	entry2 := MCPCallHistoryEntry{
+		ProfileID:  "prof1",
+		ToolName:   "sql_describe_table",
+		Input:      map[string]any{"table": "users"},
+		ExecutedAt: time.Now().UTC().Format(time.RFC3339),
+		Status:     "success",
+		DurationMs: 5,
+	}
+	if err := s.RecordMCPCallHistory(entry2); err != nil {
+		t.Fatal(err)
+	}
+	list, err = s.ListMCPCallHistory(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 entry when disabled, got %d", len(list))
+	}
+
+	// Clear history
+	if err := s.ClearMCPCallHistory(); err != nil {
+		t.Fatal(err)
+	}
+	list, err = s.ListMCPCallHistory(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected 0 entries after clear, got %d", len(list))
+	}
+}
+

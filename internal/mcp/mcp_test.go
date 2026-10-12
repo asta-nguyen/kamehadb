@@ -247,6 +247,15 @@ func TestToolCallsOverHTTP(t *testing.T) {
 	if resp["error"] == nil {
 		t.Fatal("want rpc error for unknown tool")
 	}
+
+	// Verify call history recording
+	hist, err := st.ListMCPCallHistory(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hist) < 3 {
+		t.Fatalf("expected at least 3 history entries, got %d", len(hist))
+	}
 }
 
 func TestManagerGuards(t *testing.T) {

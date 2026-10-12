@@ -58,6 +58,25 @@ func (s *McpService) RotateMCPToken() (*mcp.SettingsResponse, error) {
 	return s.runtime.SettingsResponse()
 }
 
+// GetMCPCallHistory mirrors GET /mcp/history.
+func (s *McpService) GetMCPCallHistory() (map[string]any, error) {
+	entries, err := s.store.ListMCPCallHistory(50)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"entries": entries}, nil
+}
+
+// SetMCPHistoryEnabled mirrors PATCH /mcp/settings/history.
+func (s *McpService) SetMCPHistoryEnabled(enabled bool) (*mcp.SettingsResponse, error) {
+	return s.runtime.SetHistoryEnabled(enabled)
+}
+
+// ClearMCPCallHistory mirrors DELETE /mcp/history.
+func (s *McpService) ClearMCPCallHistory() error {
+	return s.store.ClearMCPCallHistory()
+}
+
 // ManagedAccountStatus mirrors McpManagedAccountStatus in shared.
 type ManagedAccountStatus struct {
 	ProfileID           string  `json:"profileId"`

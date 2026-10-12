@@ -240,12 +240,31 @@ func (s *Store) migrate() error {
 		`CREATE TABLE IF NOT EXISTS mcp_settings (
 			id INTEGER PRIMARY KEY CHECK (id = 1),
 			port INTEGER NOT NULL,
-			token TEXT NOT NULL
+			token TEXT NOT NULL,
+			history_enabled INTEGER NOT NULL DEFAULT 1
 		)`,
+		`CREATE TABLE IF NOT EXISTS mcp_call_history (
+			id TEXT PRIMARY KEY,
+			profile_id TEXT NOT NULL,
+			tool_name TEXT NOT NULL,
+			input_json TEXT NOT NULL,
+			executed_at TEXT NOT NULL,
+			status TEXT NOT NULL CHECK (status IN ('success', 'error')),
+			duration_ms INTEGER NOT NULL,
+			item_count INTEGER,
+			truncated INTEGER NOT NULL DEFAULT 0,
+			error_code TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_mcp_call_history_executed_at
+			ON mcp_call_history (executed_at DESC)`,
 	} {
 		if _, err := s.db.Exec(q); err != nil {
 			return err
 		}
+	}
+
+	if err := s.addColumn("mcp_settings", "history_enabled", "INTEGER NOT NULL DEFAULT 1"); err != nil {
+		return err
 	}
 
 	var hasSettings int
@@ -257,7 +276,7 @@ func (s *Store) migrate() error {
 		if err != nil {
 			return err
 		}
-		if _, err := s.db.Exec(`INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)`,
+		if _, err := s.db.Exec(`INSERT INTO mcp_settings (id, port, token, history_enabled) VALUES (1, ?, ?, 1)`,
 			MCPDefaultPort, token); err != nil {
 			return err
 		}

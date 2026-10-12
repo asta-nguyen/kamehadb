@@ -81,13 +81,16 @@ import {
   UpdateQueryHistory,
 } from '../../wailsjs/go/api/QueryHistoryService';
 import {
+  ClearMCPCallHistory,
   GetMCPAccounts,
+  GetMCPCallHistory,
   GetMCPSettings,
   PrepareMCPAccount,
   ProvisionMCPAccount,
   RetryMCPListener,
   RevokeMCPAccount,
   RotateMCPToken,
+  SetMCPHistoryEnabled,
   UpdateMCPPort,
 } from '../../wailsjs/go/api/McpService';
 
@@ -350,6 +353,13 @@ export const api = {
 
   // Read-only MCP settings
   getMcpSettings: () => GetMCPSettings() as Promise<import('@kamehadb/shared').McpSettingsResponse>,
+
+  getMcpCallHistory: () => GetMCPCallHistory() as Promise<import('@kamehadb/shared').McpCallHistoryResponse>,
+
+  setMcpHistoryEnabled: (enabled: boolean) =>
+    SetMCPHistoryEnabled(enabled) as Promise<import('@kamehadb/shared').McpSettingsResponse>,
+
+  clearMcpCallHistory: () => ClearMCPCallHistory() as Promise<void>,
 
   updateMcpPort: (port: number) => UpdateMCPPort(port) as Promise<import('@kamehadb/shared').McpSettingsResponse>,
 

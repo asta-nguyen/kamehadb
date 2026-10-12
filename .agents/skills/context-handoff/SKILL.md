@@ -24,7 +24,8 @@ Do not create handoffs for short tasks that are already complete.
    active spec/plan `## Decision Log`, any task-linked decision file, and the
    relevant wiki page or test output. Source and fresh command output are
    authoritative; conversation memory is not.
-2. Create a handoff at
+2. For a change, create `handoff.md` in its change folder. For work that belongs
+   to no change, create the handoff at
    `docs/agent-devkit/handoffs/YYYY-MM-DD-<slug>.md`. Follow the shared
    artifact naming rule in `using-devkit` (read it if it is not loaded). Use
    this structure:
@@ -39,6 +40,7 @@ Do not create handoffs for short tasks that are already complete.
    ## State
 
    - Phase: <brainstorm | plan | implement | verify | document>
+   - Current task: <first `tasks.md` task not `done`, or none>
    - Status: <what is complete and what is in progress>
 
    ## Decisions
@@ -69,10 +71,11 @@ Do not create handoffs for short tasks that are already complete.
 3. Keep the checkpoint factual and short. Do not claim a test, build, link, or
    requirement passes without fresh evidence. Do not copy secrets or full
    logs; record the command and relevant result instead.
-4. If `docs/agent-devkit/INDEX.md` exists, add the handoff under a `##
-Handoffs` section. Follow the shared process-artifact link and wiki-boundary
-   rules in `using-devkit` (read them if they are not loaded). Do not create a
-   second index.
+4. For a standalone handoff, if `docs/agent-devkit/INDEX.md` exists, add it
+   under a `## Handoffs` section. A change's `handoff.md` needs no separate
+   entry because the folder is already under `## Changes`. Follow the shared
+   process-artifact link and wiki-boundary rules in `using-devkit` (read them
+   if they are not loaded). Do not create a second index.
 5. Run `git diff --check` and read the created checkpoint before stopping.
 
 ## Resume

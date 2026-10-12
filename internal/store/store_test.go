@@ -44,6 +44,7 @@ func TestOpenFresh(t *testing.T) {
 		"connection_profiles", "mcp_managed_accounts", "ai_settings",
 		"ai_provider_configs", "chat_messages", "query_history",
 		"schema_snapshots", "schema_watchers", "schema_embeddings", "mcp_settings",
+		"mcp_call_history",
 	}
 	got := tables(t, s)
 	for _, table := range want {
@@ -54,6 +55,7 @@ func TestOpenFresh(t *testing.T) {
 	for _, idx := range []string{
 		"idx_chat_connection", "idx_query_history_connection",
 		"idx_query_history_favorite", "idx_schema_snaps_conn", "idx_schema_embeddings_conn",
+		"idx_mcp_call_history_executed_at",
 	} {
 		var n int
 		if err := s.DB().QueryRow(

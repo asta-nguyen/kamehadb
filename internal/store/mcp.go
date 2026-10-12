@@ -1,6 +1,12 @@
 package store
 
-import "database/sql"
+import (
+	"database/sql"
+	"encoding/json"
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // MCP managed-account lifecycle states, persisted in
 // mcp_managed_accounts.state and baked into its CHECK constraint.
@@ -25,8 +31,9 @@ const MCPDefaultPort = 13979
 // MCPSettings is the singleton mcp_settings row: listener port and the
 // bearer token that survives restarts.
 type MCPSettings struct {
-	Port  int64  `json:"port"`
-	Token string `json:"token"`
+	Port           int64  `json:"port"`
+	Token          string `json:"token"`
+	HistoryEnabled bool   `json:"historyEnabled"`
 }
 
 // MCPManagedAccount mirrors a mcp_managed_accounts row (credential blob is
@@ -39,22 +46,24 @@ type MCPManagedAccount struct {
 
 func (s *Store) GetMCPSettings() (*MCPSettings, error) {
 	var settings MCPSettings
-	err := s.db.QueryRow(`SELECT port, token FROM mcp_settings WHERE id = 1`).
-		Scan(&settings.Port, &settings.Token)
+	var hist int
+	err := s.db.QueryRow(`SELECT port, token, history_enabled FROM mcp_settings WHERE id = 1`).
+		Scan(&settings.Port, &settings.Token, &hist)
 	if err == sql.ErrNoRows {
 		token, err := newMcpToken()
 		if err != nil {
 			return nil, err
 		}
-		if _, err := s.db.Exec(`INSERT INTO mcp_settings (id, port, token) VALUES (1, ?, ?)`,
+		if _, err := s.db.Exec(`INSERT INTO mcp_settings (id, port, token, history_enabled) VALUES (1, ?, ?, 1)`,
 			MCPDefaultPort, token); err != nil {
 			return nil, err
 		}
-		return &MCPSettings{Port: MCPDefaultPort, Token: token}, nil
+		return &MCPSettings{Port: MCPDefaultPort, Token: token, HistoryEnabled: true}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	settings.HistoryEnabled = (hist == 1)
 	return &settings, nil
 }
 
@@ -77,6 +86,116 @@ func (s *Store) RotateMCPToken() (string, error) {
 		return "", err
 	}
 	return token, nil
+}
+
+// SetMCPHistoryEnabled updates the persisted recording toggle.
+// Enforced at runtime so tool executions cannot bypass settings changes. (What / Why)
+func (s *Store) SetMCPHistoryEnabled(enabled bool) (*MCPSettings, error) {
+	if _, err := s.GetMCPSettings(); err != nil {
+		return nil, err
+	}
+	val := 0
+	if enabled {
+		val = 1
+	}
+	if _, err := s.db.Exec(`UPDATE mcp_settings SET history_enabled = ? WHERE id = 1`, val); err != nil {
+		return nil, err
+	}
+	return s.GetMCPSettings()
+}
+
+// MCPHistoryRetentionDays is the retention window matching sidecar policy.
+const MCPHistoryRetentionDays = 30
+
+// MCPHistoryListLimit is the maximum number of recent calls to list.
+const MCPHistoryListLimit = 50
+
+// MCPCallHistoryEntry mirrors McpCallHistoryEntry in @kamehadb/shared.
+type MCPCallHistoryEntry struct {
+	ID         string         `json:"id"`
+	ProfileID  string         `json:"profileId"`
+	ToolName   string         `json:"toolName"`
+	Input      map[string]any `json:"input"`
+	ExecutedAt string         `json:"executedAt"`
+	Status     string         `json:"status"`
+	DurationMs int64          `json:"durationMs"`
+	ItemCount  *int64         `json:"itemCount"`
+	Truncated  bool           `json:"truncated"`
+	ErrorCode  *string        `json:"errorCode,omitempty"`
+}
+
+// PruneMCPCallHistory removes expired inputs past retention days.
+// Keeps metadata store bounded and avoids lingering sensitive queries. (What / Why)
+func (s *Store) PruneMCPCallHistory() error {
+	cutoff := time.Now().UTC().AddDate(0, 0, -MCPHistoryRetentionDays).Format(time.RFC3339)
+	_, err := s.db.Exec(`DELETE FROM mcp_call_history WHERE executed_at < ?`, cutoff)
+	return err
+}
+
+// RecordMCPCallHistory persists an executed tool call if history is enabled.
+// Bounded to input metadata without persisting sensitive result rows. (What / Why)
+func (s *Store) RecordMCPCallHistory(entry MCPCallHistoryEntry) error {
+	_ = s.PruneMCPCallHistory()
+	settings, err := s.GetMCPSettings()
+	if err != nil || !settings.HistoryEnabled {
+		return err
+	}
+	if entry.ID == "" {
+		entry.ID = uuid.NewString()
+	}
+	inputBytes, err := json.Marshal(entry.Input)
+	if err != nil {
+		inputBytes = []byte("{}")
+	}
+	truncInt := 0
+	if entry.Truncated {
+		truncInt = 1
+	}
+	_, err = s.db.Exec(`INSERT INTO mcp_call_history
+		(id, profile_id, tool_name, input_json, executed_at, status, duration_ms, item_count, truncated, error_code)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		entry.ID, entry.ProfileID, entry.ToolName, string(inputBytes), entry.ExecutedAt,
+		entry.Status, entry.DurationMs, entry.ItemCount, truncInt, entry.ErrorCode)
+	return err
+}
+
+// ListMCPCallHistory returns newest-first MCP calls up to the given limit.
+func (s *Store) ListMCPCallHistory(limit int) ([]MCPCallHistoryEntry, error) {
+	_ = s.PruneMCPCallHistory()
+	if limit <= 0 {
+		limit = MCPHistoryListLimit
+	}
+	rows, err := s.db.Query(`SELECT id, profile_id, tool_name, input_json, executed_at, status, duration_ms, item_count, truncated, error_code
+		FROM mcp_call_history ORDER BY executed_at DESC, id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var entries []MCPCallHistoryEntry
+	for rows.Next() {
+		var e MCPCallHistoryEntry
+		var inputJSON string
+		var truncInt int
+		if err := rows.Scan(&e.ID, &e.ProfileID, &e.ToolName, &inputJSON, &e.ExecutedAt, &e.Status, &e.DurationMs, &e.ItemCount, &truncInt, &e.ErrorCode); err != nil {
+			return nil, err
+		}
+		e.Truncated = (truncInt == 1)
+		_ = json.Unmarshal([]byte(inputJSON), &e.Input)
+		if e.Input == nil {
+			e.Input = map[string]any{}
+		}
+		entries = append(entries, e)
+	}
+	if entries == nil {
+		entries = []MCPCallHistoryEntry{}
+	}
+	return entries, nil
+}
+
+// ClearMCPCallHistory deletes all recorded MCP call records.
+func (s *Store) ClearMCPCallHistory() error {
+	_, err := s.db.Exec(`DELETE FROM mcp_call_history`)
+	return err
 }
 
 func (s *Store) GetMCPManagedAccount(profileID string) (*MCPManagedAccount, error) {

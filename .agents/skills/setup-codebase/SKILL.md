@@ -16,11 +16,18 @@ OpenEZ, change `.gitignore`, or execute the remaining setup steps. In direct
 mode, run step 4's preflight before step 3 writes anything. This guard must run
 before any write.
 
+When called automatically for a code task by `using-devkit`, `brainstorm-feature`,
+or `plan-feature`, create only necessary missing repository context. Skip wiki
+skeleton creation unless the user explicitly requested wiki setup. An existing
+wiki remains available for Task updates. This task call is distinct from the
+wiki-only inline call above; direct user setup requests keep the full procedure.
+
 1. Check the exact status of `AGENTS.md`, `CLAUDE.md`, `CONVENTIONS.md`,
    `docs/llm/`, and `.gitignore`. Read every existing context or conventions
    file before writing anything. If the repository has no application source
-   and an approved design exists under `docs/agent-devkit/specs/`, read that
-   design before writing context.
+   and an approved design exists under `docs/agent-devkit/specs/` or as
+   `design.md` in a `docs/agent-devkit/changes/` folder, read that design before
+   writing context.
 2. If context is missing, inspect only enough evidence to ground it: `README*`,
    root/workspace manifests, task scripts, environment examples, CI/config,
    top-level source layout, and any approved design from the previous step. Do
@@ -53,11 +60,16 @@ before any write.
 
    - `CLAUDE.md`: a short repository-specific pointer to `AGENTS.md`; include
      extra instructions only when local evidence establishes them.
-   - `docs/llm/`: create the wiki skeleton with `AGENTS.md` and `INDEX.md`.
+   - `docs/llm/`: for direct setup or wiki-only inline calls, create the wiki
+     skeleton with `AGENTS.md` and `INDEX.md`; skip for a code-task call without
+     an explicit wiki-setup request.
      The generated `AGENTS.md` must match `document-wiki`'s current-source
      verification rules, distinguish verification limits from confirmed
      content gaps, and state that any existing log is legacy, not read or
-     written and not used for freshness. Do not create `LOG.md`. If a legacy
+     written and not used for freshness. It must also state that feature pages
+     use `document-wiki`'s requirement format and the `## Requirement
+prefixes` registry in `INDEX.md`, without restating the format. Do not
+     create `LOG.md`. If a legacy
      `LOG.md` already exists,
      preserve it byte-for-byte without reading or updating it.
      Create wiki category folders (`architecture/`, `domains/`, `workflows/`,

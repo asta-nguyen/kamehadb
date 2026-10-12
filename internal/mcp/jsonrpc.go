@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"reflect"
 	"strings"
+	"time"
+
+	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
 // Minimal Streamable-HTTP JSON-RPC surface matching the TS SDK transport in
@@ -141,11 +145,76 @@ func (r *Runtime) callMethod(ctx context.Context, method string, params json.Raw
 		if handler == nil {
 			return nil, &rpcError{Code: rpcInvalidParams, Message: "Unknown tool: " + p.Name}
 		}
+		start := time.Now()
+		executedAt := start.UTC().Format(time.RFC3339)
 		payload, err := handler(ctx, p.Arguments)
+		durationMs := time.Since(start).Milliseconds()
+
+		// Record MCP call history for database tools. (How / Why / What)
+		if r.st != nil {
+			connID := strArg(p.Arguments, "connection_id")
+			if connID != "" {
+				recordCallHistory(r.st, p.Name, connID, p.Arguments, executedAt, durationMs, payload, err)
+			}
+		}
+
 		if err != nil {
 			return errorContent(err), nil
 		}
 		return jsonContent(payload), nil
 	}
 	return nil, &rpcError{Code: rpcMethodNotFound, Message: "Method not found"}
+}
+
+var mcpToolItemFields = map[string]string{
+	"sql_list_databases":     "databases",
+	"sql_list_schemas":       "schemas",
+	"sql_list_tables":        "tables",
+	"sql_describe_table":     "columns",
+	"sql_query":              "rows",
+	"mongo_list_databases":   "databases",
+	"mongo_list_collections": "collections",
+	"mongo_find":             "documents",
+	"mongo_aggregate":        "documents",
+}
+
+// recordCallHistory saves call execution metadata into SQLite without storing returned results.
+// Protects sensitive database results from lingering in local metadata. (What / Why / How)
+func recordCallHistory(st *store.Store, toolName, profileID string, args map[string]any, executedAt string, durationMs int64, payload any, callErr error) {
+	status := "success"
+	var errorCode *string
+	var itemCount *int64
+	truncated := false
+
+	if callErr != nil {
+		status = "error"
+		te := ToToolError(callErr)
+		code := te.Code
+		errorCode = &code
+	} else if payloadMap, ok := payload.(map[string]any); ok {
+		if trunc, ok := payloadMap["truncated"].(bool); ok {
+			truncated = trunc
+		}
+		if field, ok := mcpToolItemFields[toolName]; ok {
+			if items, exists := payloadMap[field]; exists && items != nil {
+				val := reflect.ValueOf(items)
+				if val.Kind() == reflect.Slice {
+					c := int64(val.Len())
+					itemCount = &c
+				}
+			}
+		}
+	}
+
+	_ = st.RecordMCPCallHistory(store.MCPCallHistoryEntry{
+		ProfileID:  profileID,
+		ToolName:   toolName,
+		Input:      args,
+		ExecutedAt: executedAt,
+		Status:     status,
+		DurationMs: durationMs,
+		ItemCount:  itemCount,
+		Truncated:  truncated,
+		ErrorCode:  errorCode,
+	})
 }

@@ -45,6 +45,7 @@ type SettingsResponse struct {
 	Port            int64            `json:"port"`
 	Endpoint        string           `json:"endpoint"`
 	Token           string           `json:"token"`
+	HistoryEnabled  bool             `json:"historyEnabled"`
 	EnabledProfiles []map[string]any `json:"enabledProfiles"`
 	Message         string           `json:"message,omitempty"`
 }
@@ -131,14 +132,27 @@ func (r *Runtime) SettingsResponse() (*SettingsResponse, error) {
 		}
 	}
 	status := r.GetStatus()
+	historyEnabled := true
+	if s, err := r.st.GetMCPSettings(); err == nil && s != nil {
+		historyEnabled = s.HistoryEnabled
+	}
 	return &SettingsResponse{
 		Status:          status.Status,
 		Port:            status.Port,
 		Endpoint:        status.Endpoint,
 		Token:           r.Token(),
+		HistoryEnabled:  historyEnabled,
 		EnabledProfiles: enabled,
 		Message:         status.Message,
 	}, nil
+}
+
+// SetHistoryEnabled toggles persisted MCP call history and returns current settings.
+func (r *Runtime) SetHistoryEnabled(enabled bool) (*SettingsResponse, error) {
+	if _, err := r.st.SetMCPHistoryEnabled(enabled); err != nil {
+		return nil, err
+	}
+	return r.SettingsResponse()
 }
 
 // Start binds the stored port; failure flips status to unavailable, never

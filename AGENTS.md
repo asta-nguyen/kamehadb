@@ -316,14 +316,17 @@ These rules apply to all TypeScript code in `apps/`, `packages/`, and `landing/`
 
 ### No Code Duplication
 
+- Search for an existing schema, type, helper, or adapter contract before adding another one; reuse the existing source of truth when it fits.
 - Reuse Zod schemas and types from `packages/shared/src/index.ts` — it is the source of truth
 - If the same shape appears in two places, extract it into a shared type or helper
 - For logic duplicated across frontend and backend, keep the Go side authoritative and mirror only the shape in `packages/shared`
+- Do not add a general abstraction for a single use or remove a few clear lines only to reduce repetition.
 
 ### Use Types
 
 - Annotate exported functions, public APIs, and component props explicitly
-- Use `interface` for object shapes, `type` for unions, mapped types, and utility compositions
+- Use `type` aliases for object shapes, component props, API data, adapter contracts, unions, mapped types, and utility compositions; do not introduce `interface` declarations.
+- Convert an existing `interface` to a `type` when editing that declaration. Use `interface` only when TypeScript declaration merging or an external API requires it, and explain the exception next to the declaration.
 - Never use `any` — use `unknown` and narrow with type guards
 
 ### Use Union Types
