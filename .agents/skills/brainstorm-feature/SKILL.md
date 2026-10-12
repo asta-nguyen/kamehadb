@@ -176,7 +176,7 @@ one is provided). Files and owners:
 
 `delta.md` shape:
 
-````md
+`````md
 # Delta
 
 Issue: ENG-123
@@ -233,7 +233,7 @@ Baseline:
 ```md
 <complete current wiki block for PAY-remember-card, copied verbatim>
 ```
-````
+`````
 
 Delta rules:
 
