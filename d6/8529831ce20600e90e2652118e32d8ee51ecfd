@@ -1,0 +1,120 @@
+internal/engines/clickhouse/clickhouse_test.go
+  s_faf43eb2fc3b38::t_91318713fec864 1-110
+internal/store/migrate.go
+  s_faf43eb2fc3b38::t_45a68cd0245630 410-456
+  s_faf43eb2fc3b38::t_76d8803ac932d1 5,7-8,10,13
+  s_faf43eb2fc3b38::t_d097722d1850e1 78-88
+  s_faf43eb2fc3b38::t_6a16fe56514c98 89-91
+build/linux/kamehadb.desktop
+  s_faf43eb2fc3b38::t_32760ab7220a40 1-9
+apps/desktop/src/components/sql-editor.test.ts
+  s_faf43eb2fc3b38::t_213103f64092f6 100-109
+  s_faf43eb2fc3b38::t_f3069eb6bebb4d 72-99
+  s_faf43eb2fc3b38::t_ed068ce002066d 110-121
+  s_faf43eb2fc3b38::t_ef7eee0fcc5f95 10-16
+.gitignore
+  s_b12bef60d891c1::t_633cf41af5f0d7 63-69
+apps/desktop/src/lib/kinds.ts
+  s_faf43eb2fc3b38::t_f1fa5ae7fa9b91 1-3,7-13,17
+  s_faf43eb2fc3b38::t_edfb8a686b56b2 4-6,14-16,18-19,22,26
+internal/store/store_test.go
+  s_faf43eb2fc3b38::t_e92d6a14181e12 11,261-263,265-266,317,327,329,379-472
+  s_faf43eb2fc3b38::t_3e2081771af59f 5
+  s_faf43eb2fc3b38::t_faf8e49d1daa47 328,330-378,473
+  s_faf43eb2fc3b38::t_9caf762baaa5eb 245-247,257-260,264,267,272-280,296-316,318-326
+build/linux/nfpm.yaml
+  s_faf43eb2fc3b38::t_737c88ba206bf1 1-25
+docs/llm/integrations/ai-assistant.md
+  s_faf43eb2fc3b38::t_74ccba273ac961 63
+  s_466f0e8fb6de47::t_1ce3fc39f2bf9b 69
+  s_faf43eb2fc3b38::t_c13f8ba05959db 3,14,17,29,41,51,53,57-61,67,70,80-82,88-90,95-96,111-118
+  s_faf43eb2fc3b38::t_a0a1be3df9087a 76
+  s_b1c19a7fadf6eb::t_15f60ac84cfa10 83
+  s_466f0e8fb6de47::t_f8c3c15b9d4753 5,7,9,11,13,15,19,21,23,25-27,31,33,35,37-39,43,45,47,49-50,55,65,68,72,74-75,78,84,86,91,93,98,101-102,104-110,119
+internal/api/ai_test.go
+  s_faf43eb2fc3b38::t_43fe849ab5fd44 1-29
+build/windows/kamehadb.wxs
+  s_b1c19a7fadf6eb::t_d55a791d2325f1 35
+  s_faf43eb2fc3b38::t_c236be8af7eff8 1-34,36-38
+docs/llm/operations/release-packaging.md
+  s_b1c19a7fadf6eb::t_df809b81b0509c 1-75
+CHANGELOG.md
+  s_b1c19a7fadf6eb::t_d55a791d2325f1 14,31
+  s_faf43eb2fc3b38::t_055148d8d2ef62 33
+  s_faf43eb2fc3b38::t_d1f3c30fe83f70 32
+  s_faf43eb2fc3b38::t_940e80848491c6 37
+docs/llm/INDEX.md
+  s_b1c19a7fadf6eb::t_df809b81b0509c 30,38
+  s_466f0e8fb6de47::t_b20fcfb1c91271 36
+apps/desktop/src/components/sql-editor.tsx
+  s_faf43eb2fc3b38::t_e3b4cdc5ec75a0 318-334
+  s_b1c19a7fadf6eb::t_d55a791d2325f1 290-291,346-347
+  s_faf43eb2fc3b38::t_a06a4806c3589b 299-301
+  s_faf43eb2fc3b38::t_b5effc4fe7abe1 284-289,292-298,302-317,335-345,348-352
+  s_faf43eb2fc3b38::t_8b7cdb471540b2 373
+main.go
+  s_faf43eb2fc3b38::t_f7884e7262eac6 36-45
+.github/workflows/release.yml
+  s_b1c19a7fadf6eb::t_ee851a7dda71c1 33-35
+  s_faf43eb2fc3b38::t_55698c18a3678c 101-108,115,122,128-135,139-146
+  s_b1c19a7fadf6eb::t_f8d4958dded7ac 110
+  s_faf43eb2fc3b38::t_3df61da58888c7 109,111-112
+  s_b1c19a7fadf6eb::t_083f23e34ee38c 163
+  s_faf43eb2fc3b38::t_06d155c3f8ea17 185
+  s_faf43eb2fc3b38::t_f21e5f21dd929b 157-159
+  s_b1c19a7fadf6eb::t_2a9e1eee928d6f 136-138
+  s_faf43eb2fc3b38::t_d0361ef291fe50 147-153
+  s_b1c19a7fadf6eb::t_d55a791d2325f1 37,169
+  s_faf43eb2fc3b38::t_3f71ce920b4bd1 162,164-168,170-171
+  s_faf43eb2fc3b38::t_0ed6de60bdb605 179,181-183
+  s_faf43eb2fc3b38::t_3d54d14b5e6559 209,211-214
+  s_faf43eb2fc3b38::t_47507449bcc696 215
+  s_faf43eb2fc3b38::t_392ef405b35fdc 154
+internal/engines/clickhouse/clickhouse.go
+  s_faf43eb2fc3b38::t_55fad69f6245e9 359-382,384-386,388-391
+internal/api/ai.go
+  s_faf43eb2fc3b38::t_3ad6b439c02075 346
+  s_faf43eb2fc3b38::t_d6bfff54f2a3dd 225-239,288-294,296-297,326,347-349
+build/darwin/Info.plist
+  s_b1c19a7fadf6eb::t_16dd7a168ae5b5 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d68529831ce20600e90e2652118e32d8ee51ecfd",
+  "prompts": {},
+  "sessions": {
+    "s_466f0e8fb6de47": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12f3d-6125-7a93-8a7b-fc31f03d8fbb",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_b12bef60d891c1": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "chestnut-crafter",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_b1c19a7fadf6eb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12fef-51f6-7632-b0f8-fc96b8bbcf8f",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_faf43eb2fc3b38": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "mountain-whip",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
