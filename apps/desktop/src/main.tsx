@@ -4,15 +4,16 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@ta
 import App from './App';
 import { ErrorBoundary } from './components/error-boundary';
 import { appendFrontendLog } from './lib/app-logs';
+import { DEFAULT_QUERY_GC_TIME_MS, DEFAULT_QUERY_STALE_TIME_MS } from './lib/constants';
 import './index.css';
 
-interface QueryErrorMeta {
+type QueryErrorMeta = {
   readonly onError?: (error: Error, id?: string) => void;
-}
+};
 
-interface MutationErrorMeta {
+type MutationErrorMeta = {
   readonly onError?: (error: Error) => void;
-}
+};
 
 // Normalize unknown throw values so the global cache handlers never explode on
 // non-Error payloads while trying to report the original failure.
@@ -32,6 +33,14 @@ function toError(error: unknown): Error {
 }
 
 const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Free inactive query results after 60s instead of default 5m to keep the webview heap lean. (How / Why / What)
+      gcTime: DEFAULT_QUERY_GC_TIME_MS,
+      staleTime: DEFAULT_QUERY_STALE_TIME_MS,
+      retry: 1,
+    },
+  },
   queryCache: new QueryCache({
     onError: (error, query) => {
       const normalized = toError(error);

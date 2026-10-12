@@ -8,6 +8,10 @@ export const PAGE_LIMIT = 20;
 export const SCHEMA_CACHE_TIME = SHARED_SCHEMA_CACHE_TIME;
 export const STATS_CACHE_TIME = SHARED_STATS_CACHE_TIME;
 
+// Query cache garbage collection and stale times to minimize heap usage. (How / Why / What)
+export const DEFAULT_QUERY_GC_TIME_MS = 60 * 1000;
+export const DEFAULT_QUERY_STALE_TIME_MS = 15 * 1000;
+
 export const TOAST_AUTO_HIDE_MS = 5 * 1000;
 export const AUTO_TEST_DEBOUNCE_MS = 500;
 

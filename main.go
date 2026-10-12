@@ -4,13 +4,13 @@ import (
 	"context"
 	"embed"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/asta-nguyen/kamehadb/internal/ai"
 	"github.com/asta-nguyen/kamehadb/internal/api"
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 	_ "github.com/asta-nguyen/kamehadb/internal/engines/clickhouse"
@@ -29,6 +29,11 @@ import (
 var assets embed.FS
 
 func main() {
+	// Restrict Go heap target to 128MB and run GC at 50% growth to quickly
+	// return unused memory pages back to the OS via MADV_DONTNEED. (How / Why / What)
+	debug.SetMemoryLimit(128 * 1024 * 1024)
+	debug.SetGCPercent(50)
+
 	metadata, err := store.Open("")
 	if err != nil {
 		println("Error opening metadata store:", err.Error())
@@ -64,7 +69,6 @@ func main() {
 			app.startup(ctx)
 			services.Health.Start(ctx)
 			services.Watcher.ResumeAll()
-			go ai.IndexAllConnections(ctx, metadata, registry)
 			if mcpRuntime != nil {
 				mcpRuntime.Start()
 			}

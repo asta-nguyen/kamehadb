@@ -1,12 +1,13 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useColumnResize } from '@/hooks/use-column-resize';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from 'cnfast';
 import { ArrowDown, ArrowUp, Table2 } from 'lucide-react';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 
 export type SortDirection = 'asc' | 'desc';
 
-export interface ColumnDef<T> {
+export type ColumnDef<T> = {
   id: string;
   header: ReactNode;
   accessor: (row: T) => unknown;
@@ -14,9 +15,9 @@ export interface ColumnDef<T> {
   cellClassName?: string;
   headerClassName?: string;
   sortable?: boolean;
-}
+};
 
-export interface DataTableProps<T> {
+export type DataTableProps<T> = {
   rows: T[];
   columns: ColumnDef<T>[];
   rowKey: (row: T, index: number) => string;
@@ -35,6 +36,7 @@ export interface DataTableProps<T> {
   suffixCellClassName?: string;
   fixedTemplate?: string;
   stickyHeader?: boolean;
+  scrollElement?: HTMLElement | null | (() => HTMLElement | null);
   onRowClick?: (row: T, index: number, event: React.MouseEvent) => void;
   onSortChange?: (columnId: string) => void;
   sortColumn?: string;
@@ -43,7 +45,7 @@ export interface DataTableProps<T> {
   bodyClassName?: string;
   className?: string;
   emptyMessage?: ReactNode;
-}
+};
 
 export function DataTable<T>({
   rows,
@@ -64,6 +66,7 @@ export function DataTable<T>({
   suffixCellClassName,
   fixedTemplate,
   stickyHeader = false,
+  scrollElement,
   onRowClick,
   onSortChange,
   sortColumn,
@@ -73,6 +76,7 @@ export function DataTable<T>({
   className,
   emptyMessage,
 }: DataTableProps<T>) {
+  const innerRef = useRef<HTMLDivElement>(null);
   const useResize = fixedTemplate === undefined;
   // Sample up to 50 rows of body content per column for content-based sizing.
   const sampleValues =
@@ -104,13 +108,106 @@ export function DataTable<T>({
     [rowClassName],
   );
 
+  // Locate the closest scrollable container so virtualization tracks the real viewport.
+  // Walks up ancestors if scrollElement is unspecified, falling back to innerRef. (How / Why / What)
+  const getScrollParent = useCallback(() => {
+    if (scrollElement) {
+      return typeof scrollElement === 'function' ? scrollElement() : scrollElement;
+    }
+    let el = innerRef.current?.parentElement;
+    while (el) {
+      const overflowY = window.getComputedStyle(el).overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll') {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return innerRef.current;
+  }, [scrollElement]);
+
+  // Window body rows when exceeding 40 rows to avoid allocating thousands of DOM nodes. (How / Why / What)
+  const isVirtualized = rows.length > 40;
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: getScrollParent,
+    estimateSize: () => 29,
+    overscan: 10,
+    enabled: isVirtualized,
+  });
+
+  const virtualItems = isVirtualized ? rowVirtualizer.getVirtualItems() : null;
+  const totalSize = isVirtualized ? rowVirtualizer.getTotalSize() : 0;
+  const paddingTop = virtualItems && virtualItems.length > 0 ? virtualItems[0].start : 0;
+  const paddingBottom =
+    virtualItems && virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0;
+
   const defaultHeaderClass = 'bg-muted px-3 py-1 font-semibold text-foreground text-xs';
+
+  const renderRow = (row: T, rowIndex: number, measureRef?: (el: HTMLElement | null) => void) => {
+    const key = rowKey(row, rowIndex);
+    const extraClass = resolveRowClass(row, rowIndex);
+    return (
+      <TableRow
+        key={key}
+        ref={measureRef}
+        data-index={rowIndex}
+        style={{ gridTemplateColumns }}
+        className={cn(
+          'border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors',
+          onRowClick && 'cursor-pointer',
+          extraClass,
+        )}
+        onClick={onRowClick ? (e) => onRowClick(row, rowIndex, e) : undefined}
+      >
+        {prefix && (
+          <TableCell className={cn('sticky left-0 z-20 px-2 py-1 flex items-center bg-inherit', prefixCellClassName)}>
+            {prefix(row, rowIndex)}
+          </TableCell>
+        )}
+        {showIndex && (
+          <TableCell className="px-3 py-1 flex items-center text-muted-foreground tabular-nums">
+            {indexOffset + rowIndex + 1}
+          </TableCell>
+        )}
+        {columns.map((col) => {
+          const value = col.accessor(row);
+          const title =
+            value === null || value === undefined
+              ? ''
+              : typeof value === 'object'
+                ? JSON.stringify(value)
+                : String(value);
+          return (
+            <TableCell
+              key={col.id}
+              className={cn(
+                'px-2 py-1 overflow-hidden truncate min-w-0',
+                typeof value === 'object' && value !== null && 'overflow-visible whitespace-normal',
+                col.cellClassName,
+              )}
+              title={title}
+            >
+              {col.render ? col.render(value, row, rowIndex) : defaultCellRender(value)}
+            </TableCell>
+          );
+        })}
+        {suffix && (
+          <TableCell className={cn('px-2 py-1 flex items-center justify-center bg-inherit', suffixCellClassName)}>
+            {suffix(row, rowIndex)}
+          </TableCell>
+        )}
+      </TableRow>
+    );
+  };
 
   // Outer div clips children to rounded corners via overflow-hidden.
   // Inner div handles horizontal scroll independently of the clip boundary.
   return (
     <div className="w-full rounded-md overflow-hidden">
-      <div className="overflow-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30">
+      <div
+        ref={innerRef}
+        className="overflow-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30"
+      >
         <Table className={cn('w-full text-xs', className)}>
           {rows.length > 0 ? (
             <>
@@ -177,68 +274,18 @@ export function DataTable<T>({
                       </TableCell>
                     </TableRow>
                   )
+                ) : isVirtualized && virtualItems ? (
+                  <>
+                    {paddingTop > 0 && <div style={{ height: `${paddingTop}px`, border: 0 }} aria-hidden />}
+                    {virtualItems.map((virtualRow) => {
+                      const row = rows[virtualRow.index];
+                      if (!row) return null;
+                      return renderRow(row, virtualRow.index, rowVirtualizer.measureElement);
+                    })}
+                    {paddingBottom > 0 && <div style={{ height: `${paddingBottom}px`, border: 0 }} aria-hidden />}
+                  </>
                 ) : (
-                  rows.map((row, rowIndex) => {
-                    const key = rowKey(row, rowIndex);
-                    const extraClass = resolveRowClass(row, rowIndex);
-                    return (
-                      <TableRow
-                        key={key}
-                        style={{ gridTemplateColumns }}
-                        className={cn(
-                          'border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors',
-                          onRowClick && 'cursor-pointer',
-                          extraClass,
-                        )}
-                        onClick={onRowClick ? (e) => onRowClick(row, rowIndex, e) : undefined}
-                      >
-                        {prefix && (
-                          <TableCell
-                            className={cn(
-                              'sticky left-0 z-20 px-2 py-1 flex items-center bg-inherit',
-                              prefixCellClassName,
-                            )}
-                          >
-                            {prefix(row, rowIndex)}
-                          </TableCell>
-                        )}
-                        {showIndex && (
-                          <TableCell className="px-3 py-1 flex items-center text-muted-foreground tabular-nums">
-                            {indexOffset + rowIndex + 1}
-                          </TableCell>
-                        )}
-                        {columns.map((col) => {
-                          const value = col.accessor(row);
-                          const title =
-                            value === null || value === undefined
-                              ? ''
-                              : typeof value === 'object'
-                                ? JSON.stringify(value)
-                                : String(value);
-                          return (
-                            <TableCell
-                              key={col.id}
-                              className={cn(
-                                'px-2 py-1 overflow-hidden truncate min-w-0',
-                                typeof value === 'object' && value !== null && 'overflow-visible whitespace-normal',
-                                col.cellClassName,
-                              )}
-                              title={title}
-                            >
-                              {col.render ? col.render(value, row, rowIndex) : defaultCellRender(value)}
-                            </TableCell>
-                          );
-                        })}
-                        {suffix && (
-                          <TableCell
-                            className={cn('px-2 py-1 flex items-center justify-center bg-inherit', suffixCellClassName)}
-                          >
-                            {suffix(row, rowIndex)}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  })
+                  rows.map((row, rowIndex) => renderRow(row, rowIndex))
                 )}
               </TableBody>
             </>
