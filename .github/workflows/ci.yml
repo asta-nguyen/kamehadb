@@ -51,6 +51,9 @@ jobs:
       - name: Run desktop tests
         run: pnpm --filter @kamehadb/desktop test
 
+      - name: Build desktop
+        run: pnpm --filter @kamehadb/desktop build
+
       - name: Run Go tests
         run: go test ./...
 
