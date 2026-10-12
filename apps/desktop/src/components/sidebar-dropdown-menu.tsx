@@ -4,7 +4,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { isTauriRuntime } from '@/lib/tauri';
 import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
@@ -59,7 +58,7 @@ export function ConnectionDropdownMenu({
           AI Chat
         </DropdownMenuItem>
 
-        {conn.kind === 'postgres' && isTauriRuntime() && (
+        {conn.kind === 'postgres' && (
           <>
             <DropdownMenuItem
               onClick={() => {

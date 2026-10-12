@@ -2,20 +2,19 @@ import type { UseFormReturn } from 'react-hook-form';
 import {
   type CreateConnectionProfileInput,
   type DbKind,
-  KIND,
   isPasswordRequired,
   isUsernameRequired,
-  isFileDatabaseKind,
 } from '@kamehadb/shared';
+import { KIND, DEFAULT_PORTS, isFileDatabaseKind } from '@/lib/kinds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Check, Plus, FolderOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { DbIcon } from '@/components/db-icon';
-import { KIND_LABELS, KINDS, DEFAULT_PORTS, PRESET_COLORS } from '@/lib/constants';
+import { KIND_LABELS, KINDS, PRESET_COLORS } from '@/lib/constants';
 
-const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; ring: string }> = {
+const KIND_ACCENTS: Partial<Record<DbKind, { border: string; bg: string; icon: string; ring: string }>> = {
   [KIND.POSTGRES]: {
     border: 'hover:border-primary/50',
     bg: 'data-[selected=true]:bg-primary/10',
@@ -45,12 +44,6 @@ const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; r
     bg: 'data-[selected=true]:bg-accent/50',
     icon: 'text-accent-foreground',
     ring: 'data-[selected=true]:ring-accent-foreground/20',
-  },
-  [KIND.QDRANT]: {
-    border: 'hover:border-primary/50',
-    bg: 'data-[selected=true]:bg-primary/10',
-    icon: 'text-primary',
-    ring: 'data-[selected=true]:ring-primary/20',
   },
   [KIND.SQLSERVER]: {
     border: 'hover:border-blue-500/50',
@@ -82,12 +75,6 @@ const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; r
     icon: 'text-emerald-500',
     ring: 'data-[selected=true]:ring-emerald-500/20',
   },
-  [KIND.TIGERBEETLE]: {
-    border: 'hover:border-orange-500/50',
-    bg: 'data-[selected=true]:bg-orange-500/10',
-    icon: 'text-orange-500',
-    ring: 'data-[selected=true]:ring-orange-500/20',
-  },
 };
 
 function selectKind(form: UseFormReturn<CreateConnectionProfileInput>, dbKind: DbKind) {
@@ -98,13 +85,6 @@ function selectKind(form: UseFormReturn<CreateConnectionProfileInput>, dbKind: D
     form.setValue('database', undefined);
     form.setValue('username', undefined);
     form.setValue('password', undefined);
-  } else if (dbKind === KIND.QDRANT) {
-    form.setValue('filePath', undefined);
-    form.setValue('database', undefined);
-    form.setValue('username', undefined);
-    form.setValue('password', undefined);
-    if (!form.getValues('host')) form.setValue('host', 'localhost');
-    form.setValue('port', DEFAULT_PORTS[dbKind]);
   } else {
     form.setValue('filePath', undefined);
     if (!form.getValues('host')) form.setValue('host', 'localhost');
@@ -119,7 +99,7 @@ export function DatabaseTypeGrid({ form, kind }: { form: UseFormReturn<CreateCon
       <div className="grid grid-cols-3 gap-2">
         {KINDS.map((dbKind) => {
           const selected = kind === dbKind;
-          const accent = KIND_ACCENTS[dbKind];
+          const accent = KIND_ACCENTS[dbKind]!;
           return (
             <Button
               key={dbKind}
@@ -335,53 +315,35 @@ export function ConnectionDetailsSection({
               />
             </div>
           </div>
-          {kind !== KIND.QDRANT && kind !== KIND.TIGERBEETLE && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Database
-                </Label>
-                <Input id="database" {...form.register('database')} placeholder="mydb" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="username"
-                    className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                  >
-                    Username {isUsernameRequired(kind) && <span className="text-destructive">*</span>}
-                  </Label>
-                  <Input
-                    id="username"
-                    {...form.register('username')}
-                    placeholder={kind === KIND.POSTGRES ? 'postgres' : 'root'}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="password"
-                    className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                  >
-                    Password {isPasswordRequired(kind) && <span className="text-destructive">*</span>}
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    onChange={(e) => form.setValue('password', e.target.value)}
-                    placeholder={isEditing ? '(unchanged)' : ''}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-          {kind === KIND.TIGERBEETLE && (
+          <div className="space-y-1.5">
+            <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Database
+            </Label>
+            <Input id="database" {...form.register('database')} placeholder="mydb" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Cluster ID
+              <Label htmlFor="username" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Username {isUsernameRequired(kind) && <span className="text-destructive">*</span>}
               </Label>
-              <Input id="database" {...form.register('database')} placeholder="0" />
+              <Input
+                id="username"
+                {...form.register('username')}
+                placeholder={kind === KIND.POSTGRES ? 'postgres' : 'root'}
+              />
             </div>
-          )}
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Password {isPasswordRequired(kind) && <span className="text-destructive">*</span>}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                onChange={(e) => form.setValue('password', e.target.value)}
+                placeholder={isEditing ? '(unchanged)' : ''}
+              />
+            </div>
+          </div>
           {kind === KIND.POSTGRES && (
             <Label className="flex items-center gap-2 cursor-pointer select-none">
               {/* eslint-disable-next-line local/no-restricted-syntax -- native checkbox, no shadcn equivalent */}

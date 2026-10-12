@@ -2,18 +2,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { appendFrontendLog } from '@/lib/app-logs';
-import { loadMonacoEditor } from '@/lib/monaco-loader';
+import { CodeEditor, schemaCompletionSource, schemaCompletions } from '@/lib/code-editor';
 import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
 import { useTableColumns } from '@/hooks/use-schema';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
 import { api } from '@/lib/api';
 import { buildRowUpdateQuery, getQueryResultEditabilityState, inferSimpleSelectTableId } from '@/lib/table-editability';
-import type { OnMount } from '@monaco-editor/react';
-import type { editor as monacoEditor } from 'monaco-editor';
+import { EditorView } from '@codemirror/view';
+import { sql as sqlLang } from '@codemirror/lang-sql';
+import { setDiagnostics } from '@codemirror/lint';
 import { useQuery } from '@tanstack/react-query';
-import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-const Editor = lazy(loadMonacoEditor);
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // SQL keywords that can begin a new statement. Used to detect blank-line-separated
 // multi-statement SQL (e.g. "SELECT 1\n\nSELECT 2") where no semicolons exist.
@@ -303,7 +303,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
-    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
+    queryFn: () => api.getCompletions(connectionId!) as Promise<CompletionsData>,
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
   });
@@ -606,9 +606,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   // so we can paginate by varying the offset while keeping the query intact.
   const baseSqlRef = useRef(sql);
 
-  // Monaco editor ref for selection-aware execution and error markers
-  const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+  // CodeMirror view ref for selection-aware execution and error markers
+  const editorViewRef = useRef<EditorView | null>(null);
 
   const { data: completions } = useCompletionsSchema(connectionId);
   const completionsRef = useRef(completions);
@@ -650,10 +649,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       setActiveResultIndex(0);
       setIsExecutingBatch(true);
       // Clear previous error markers before a new execution
-      const model = editorRef.current?.getModel();
-      const monaco = monacoRef.current;
-      if (model && monaco) {
-        monaco.editor.setModelMarkers(model, 'sql-error', []);
+      const editorView = editorViewRef.current;
+      if (editorView) {
+        editorView.dispatch(setDiagnostics(editorView.state, []));
       }
 
       // Validate the original input before splitting so a semicolon-delimited
@@ -718,52 +716,49 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
           message: `Query execution failed: ${message}`,
           details: err instanceof Error ? err.stack : String(err),
         });
-        // Parse the error message for line number and add marker in Monaco
-        const editor = editorRef.current;
-        const m = monacoRef.current;
-        if (editor && m) {
-          const errModel = editor.getModel();
-          if (errModel) {
-            // Extract line/position from SQL error messages:
-            //   PostgreSQL "LINE N:", MySQL "at line N", Postgres "at character N"
-            const lineCount = errModel.getLineCount();
-            let errorLine = 1;
-            const lineMatch = message.match(/LINE\s+(\d+)/i);
-            if (lineMatch) {
-              errorLine = parseInt(lineMatch[1], 10);
+        // Parse the error message for line number and add a diagnostic marker
+        const view = editorViewRef.current;
+        if (view) {
+          const doc = view.state.doc;
+          // Extract line/position from SQL error messages:
+          //   PostgreSQL "LINE N:", MySQL "at line N", Postgres "at character N"
+          let errorLine = 1;
+          const lineMatch = message.match(/LINE\s+(\d+)/i);
+          if (lineMatch) {
+            errorLine = parseInt(lineMatch[1], 10);
+          } else {
+            const atLineMatch = message.match(/at line (\d+)/i);
+            if (atLineMatch) {
+              errorLine = parseInt(atLineMatch[1], 10);
             } else {
-              const atLineMatch = message.match(/at line (\d+)/i);
-              if (atLineMatch) {
-                errorLine = parseInt(atLineMatch[1], 10);
-              } else {
-                const charMatch = message.match(/at character (\d+)/i);
-                if (charMatch) {
-                  // Convert 1-based character offset to line number by walking lines
-                  const charOffset = parseInt(charMatch[1], 10);
-                  let currentChar = 0;
-                  for (let ln = 1; ln <= lineCount; ln++) {
-                    currentChar += errModel.getLineLength(ln) + 1; // +1 for newline
-                    if (currentChar >= charOffset) {
-                      errorLine = ln;
-                      break;
-                    }
+              const charMatch = message.match(/at character (\d+)/i);
+              if (charMatch) {
+                // Convert 1-based character offset to line number by walking lines
+                const charOffset = parseInt(charMatch[1], 10);
+                let currentChar = 0;
+                for (let ln = 1; ln <= doc.lines; ln++) {
+                  currentChar += doc.line(ln).length + 1; // +1 for newline
+                  if (currentChar >= charOffset) {
+                    errorLine = ln;
+                    break;
                   }
                 }
               }
             }
-            // Clamp line number to valid range
-            errorLine = Math.min(errorLine, lineCount);
-            m.editor.setModelMarkers(errModel, 'sql-error', [
-              {
-                severity: m.MarkerSeverity.Error,
-                message,
-                startLineNumber: errorLine,
-                startColumn: 1,
-                endLineNumber: errorLine,
-                endColumn: errModel.getLineMaxColumn(errorLine),
-              },
-            ]);
           }
+          // Clamp line number to valid range
+          errorLine = Math.min(errorLine, doc.lines);
+          const line = doc.line(errorLine);
+          view.dispatch(
+            setDiagnostics(view.state, [
+              {
+                from: line.from,
+                to: Math.max(line.to, line.from + 1),
+                severity: 'error',
+                message,
+              },
+            ]),
+          );
         }
       } finally {
         setIsExecutingBatch(false);
@@ -777,12 +772,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     setOffset(0);
     // If text is selected in the editor, execute only the selected text
     let sqlToExecute = sql.trim();
-    const editor = editorRef.current;
-    if (editor) {
-      const selection = editor.getSelection();
-      if (selection && !selection.isEmpty()) {
-        const selectedText = editor.getModel()?.getValueInRange(selection);
-        if (selectedText?.trim()) {
+    const view = editorViewRef.current;
+    if (view) {
+      const selection = view.state.selection.main;
+      if (!selection.empty) {
+        const selectedText = view.state.sliceDoc(selection.from, selection.to);
+        if (selectedText.trim()) {
           sqlToExecute = selectedText.trim();
         }
       }
@@ -811,15 +806,10 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     void executeQuery(fullQuery);
   }, [executeQuery, offset, queryLimit]);
 
-  // Ref to avoid stale closure in Monaco keybinding (registered once on mount)
-  const handleRunRef = useRef(handleRun);
-  handleRunRef.current = handleRun;
-
   const handleChange = useCallback(
-    (value: string | undefined) => {
-      const v = value ?? '';
-      setSql(v);
-      updateTabSql(tab.id, v);
+    (value: string) => {
+      setSql(value);
+      updateTabSql(tab.id, value);
     },
     [tab.id],
   );
@@ -832,64 +822,18 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     [tab.id],
   );
 
-  const handleEditorDidMount: OnMount = useCallback(
-    (editor, monaco) => {
-      editorRef.current = editor;
-      monacoRef.current = monaco as unknown as typeof import('monaco-editor');
-      editor.focus();
-
-      editor.addAction({
-        id: 'run-query',
-        label: 'Run Query',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-        run: () => handleRunRef.current(),
-      });
-
-      const provider = monaco.languages.registerCompletionItemProvider('sql', {
-        triggerCharacters: ['.', ' ', '(', ',', '='],
-        provideCompletionItems: (model, position) => {
+  const editorExtensions = useMemo(
+    () => [
+      sqlLang(),
+      schemaCompletions(
+        schemaCompletionSource((_ctx, textUntil, fullSql) => {
           const data = completionsRef.current;
-          if (!data) return { suggestions: [] };
-
-          const word = model.getWordUntilPosition(position);
-          const fullSql = model.getValue();
-          const textUntil = model.getValueInRange({
-            startLineNumber: position.lineNumber,
-            startColumn: 1,
-            endLineNumber: position.lineNumber,
-            endColumn: position.column,
-          });
-
-          const suggestions = buildSqlCompletionEntries(fullSql, textUntil, data).map((item) => ({
-            label: item.label,
-            kind:
-              item.kind === 'table'
-                ? monaco.languages.CompletionItemKind.Struct
-                : item.kind === 'column'
-                  ? monaco.languages.CompletionItemKind.Field
-                  : item.kind === 'function'
-                    ? monaco.languages.CompletionItemKind.Function
-                    : item.kind === 'operator'
-                      ? monaco.languages.CompletionItemKind.Operator
-                      : monaco.languages.CompletionItemKind.Keyword,
-            insertText: item.insertText,
-            detail: item.detail,
-            sortText: item.sortText,
-            range: {
-              startLineNumber: position.lineNumber,
-              endLineNumber: position.lineNumber,
-              startColumn: word.startColumn,
-              endColumn: position.column,
-            },
-          }));
-
-          return { suggestions };
-        },
-      });
-
-      editor.onDidDispose(() => provider.dispose());
-    },
-    [handleRun],
+          if (!data) return [];
+          return buildSqlCompletionEntries(fullSql, textUntil, data);
+        }),
+      ),
+    ],
+    [],
   );
 
   useEffect(() => {
@@ -969,21 +913,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-col flex-1 min-w-0">
           <div className="min-h-0 border-b border-border" style={{ flex: splitRatio }}>
-            <Editor
-              height="100%"
-              defaultLanguage="sql"
-              theme="vs-dark"
+            <CodeEditor
               value={sql}
               onChange={handleChange}
-              onMount={handleEditorDidMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 8 },
-              }}
+              onRun={handleRun}
+              viewRef={editorViewRef}
+              extensions={editorExtensions}
             />
           </div>
 

@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with a single Wails/Go binary. All backend routes are now in-process Go services and the frontend communicates through generated Wails bindings, eliminating sidecar IPC.
+- **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
+
+### Removed
+
+- **Qdrant and TigerBeetle** — drop the vector and ledger engines and their dedicated explorers; supported engines are PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis.
+
 ---
 
 ## [v1.6.1] — 2026-10-04

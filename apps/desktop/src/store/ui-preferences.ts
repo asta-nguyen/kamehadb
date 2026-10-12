@@ -33,7 +33,10 @@ appStore.subscribe(() => {
     localStorage.setItem('kamehadb_tabs', JSON.stringify(openedTabs));
     if (activeTabId) localStorage.setItem('kamehadb_active_tab', activeTabId);
     else localStorage.removeItem('kamehadb_active_tab');
-  } catch {}
+  } catch (err) {
+    // localStorage can throw (private mode, quota) — preferences stay in-memory.
+    console.warn('Failed to persist UI preferences:', err);
+  }
 });
 
 export function togglePinnedConnection(id: string): void {

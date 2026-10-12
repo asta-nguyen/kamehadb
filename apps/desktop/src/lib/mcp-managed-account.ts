@@ -1,10 +1,8 @@
 import { api } from './api';
-import { isTauriRuntime } from './tauri';
 
-// The sidecar stores the generated credential before it provisions the database account.
+// The backend stores the generated credential before it provisions the database account.
 // A prepared account has made no database change, so a failed setup can discard it safely.
 export async function createMcpManagedAccount(profileId: string): Promise<void> {
-  if (!isTauriRuntime()) throw new Error('Managed MCP accounts require the KamehaDB desktop app');
   let prepared = false;
   try {
     await api.prepareMcpAccount(profileId);
@@ -25,6 +23,5 @@ export async function createMcpManagedAccount(profileId: string): Promise<void> 
 }
 
 export async function revokeMcpManagedAccount(profileId: string): Promise<void> {
-  if (!isTauriRuntime()) throw new Error('Managed MCP accounts require the KamehaDB desktop app');
   await api.revokeMcpAccount(profileId);
 }

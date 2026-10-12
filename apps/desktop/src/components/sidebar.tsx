@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
-import { getAuthenticatedApiUrl } from '@/lib/api-client';
+import { api } from '@/lib/api';
 import {
   SIDEBAR_DEFAULT_WIDTH as DEFAULT_WIDTH,
   GROUP_LABELS,
@@ -10,7 +10,6 @@ import {
   SIDEBAR_MAX_WIDTH as MAX_WIDTH,
   SIDEBAR_MIN_WIDTH as MIN_WIDTH,
 } from '@/lib/constants';
-import { isTauriRuntime } from '@/lib/tauri';
 import { toastError } from '@/lib/toast';
 import {
   appStore,
@@ -39,8 +38,6 @@ import { ConnectionStatusDot } from './sidebar-status-dot';
 import { ConnectionTooltip } from './sidebar-tooltip';
 import { SpinningRefresh } from './sidebar.helpers';
 import { MongoExplorer } from './mongo-explorer';
-import { QdrantExplorer } from './qdrant-explorer';
-import { TigerBeetleExplorer } from './tigerbeetle-explorer';
 import { SchemaTree } from './schema-tree';
 
 const ConnectionItem = memo(function ConnectionItem({
@@ -150,7 +147,7 @@ const ConnectionItem = memo(function ConnectionItem({
       </div>
 
       {showEdit && <ConnectionDialog open onOpenChange={setShowEdit} editConnection={conn} />}
-      {conn.kind === 'postgres' && isTauriRuntime() && (
+      {conn.kind === 'postgres' && (
         <>
           <PostgresBackupDialog connection={conn} open={showBackup} onOpenChange={setShowBackup} />
           <PostgresRestoreDialog connection={conn} open={showRestore} onOpenChange={setShowRestore} />
@@ -172,10 +169,6 @@ const ConnectionItem = memo(function ConnectionItem({
         <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
           {conn.kind === 'mongodb' ? (
             <MongoExplorer key={conn.id} connectionId={conn.id} />
-          ) : conn.kind === 'qdrant' ? (
-            <QdrantExplorer key={conn.id} connectionId={conn.id} />
-          ) : conn.kind === 'tigerbeetle' ? (
-            <TigerBeetleExplorer key={conn.id} connectionId={conn.id} />
           ) : (
             <SchemaTree
               key={conn.id}
@@ -277,43 +270,48 @@ export function Sidebar() {
     };
   }, [isResizing]);
 
-  // Single SSE stream for all connection health — replaces per-item polling
+  // Single health event stream for all connections — replaces per-item polling
   useEffect(() => {
-    const es = new EventSource(getAuthenticatedApiUrl('/connections/health'));
     const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-    es.onmessage = (event) => {
-      try {
-        const results: Record<string, { success: boolean; latencyMs?: number }> = JSON.parse(event.data);
-        for (const [id, r] of Object.entries(results)) {
-          if (r.success) {
-            clearTimeout(reconnectTimers.get(id));
-            reconnectTimers.delete(id);
-            if (r.latencyMs !== undefined) setConnectionLatency(id, r.latencyMs);
-            else setConnectionStatus(id, 'connected');
-          } else {
-            const prev = appStore.state.connectionStatus[id];
-            if (prev === 'connected' || prev === 'slow') {
-              setConnectionStatus(id, 'reconnecting');
-              const timer = setTimeout(() => {
-                if (appStore.state.connectionStatus[id] === 'reconnecting') {
-                  setConnectionStatus(id, 'disconnected');
-                }
-                reconnectTimers.delete(id);
-              }, 5000);
-              reconnectTimers.set(id, timer);
-            } else if (prev !== 'reconnecting') {
-              setConnectionStatus(id, 'disconnected');
-            }
+    const unsubscribe = api.onConnectionHealth((results) => {
+      for (const [id, r] of Object.entries(results)) {
+        if (r.success) {
+          clearTimeout(reconnectTimers.get(id));
+          reconnectTimers.delete(id);
+          if (r.latencyMs !== undefined) setConnectionLatency(id, r.latencyMs);
+          else setConnectionStatus(id, 'connected');
+        } else {
+          const prev = appStore.state.connectionStatus[id];
+          if (prev === 'connected' || prev === 'slow') {
+            setConnectionStatus(id, 'reconnecting');
+            const timer = setTimeout(() => {
+              if (appStore.state.connectionStatus[id] === 'reconnecting') {
+                setConnectionStatus(id, 'disconnected');
+              }
+              reconnectTimers.delete(id);
+            }, 5000);
+            reconnectTimers.set(id, timer);
+          } else if (prev !== 'reconnecting') {
+            setConnectionStatus(id, 'disconnected');
           }
         }
-      } catch {
-        // Malformed SSE payload — skip
       }
-    };
+    });
+
+    // First round immediately — the backend ticks every 60s; the SSE stream
+    // used to yield a round on connect too.
+    void api.checkAllConnectionHealth().then((results) => {
+      for (const [id, r] of Object.entries(results)) {
+        if (r.success) {
+          if (r.latencyMs !== undefined) setConnectionLatency(id, r.latencyMs);
+          else setConnectionStatus(id, 'connected');
+        }
+      }
+    });
 
     return () => {
-      es.close();
+      unsubscribe();
       for (const timer of reconnectTimers.values()) clearTimeout(timer);
     };
   }, []);

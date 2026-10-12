@@ -6,7 +6,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 export function useSchemas(connectionId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.SCHEMAS(connectionId),
-    queryFn: () => api.request<import('@kamehadb/shared').SchemaInfo[]>('GET', `/sql/${connectionId}/schemas`),
+    queryFn: () => api.listSqlSchemas(connectionId!),
     enabled: !!connectionId,
     staleTime: SCHEMA_CACHE_TIME,
   });
@@ -15,10 +15,7 @@ export function useSchemas(connectionId: string | null) {
 export function useTables(connectionId: string | null, schema?: string) {
   return useQuery({
     queryKey: QUERY_KEYS.TABLES(connectionId, schema),
-    queryFn: () => {
-      const params = schema ? `?schema=${encodeURIComponent(schema)}` : '';
-      return api.request<import('@kamehadb/shared').TableInfo[]>('GET', `/sql/${connectionId}/tables${params}`);
-    },
+    queryFn: () => api.listTables(connectionId!, schema),
     enabled: !!connectionId,
     staleTime: SCHEMA_CACHE_TIME,
   });
@@ -27,8 +24,7 @@ export function useTables(connectionId: string | null, schema?: string) {
 export function useTableColumns(connectionId: string | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.COLUMNS(connectionId, tableId),
-    queryFn: () =>
-      api.request<import('@kamehadb/shared').ColumnInfo[]>('GET', `/sql/${connectionId}/tables/${tableId}/columns`),
+    queryFn: () => api.getTableColumns(connectionId!, tableId!),
     enabled: !!connectionId && !!tableId,
     staleTime: SCHEMA_CACHE_TIME,
   });
@@ -37,8 +33,7 @@ export function useTableColumns(connectionId: string | null, tableId: string | n
 export function useTableIndexes(connectionId: string | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.INDEXES(connectionId, tableId),
-    queryFn: () =>
-      api.request<import('@kamehadb/shared').IndexInfo[]>('GET', `/sql/${connectionId}/tables/${tableId}/indexes`),
+    queryFn: () => api.getTableIndexes(connectionId!, tableId!),
     enabled: !!connectionId && !!tableId,
     staleTime: SCHEMA_CACHE_TIME,
   });
@@ -47,7 +42,7 @@ export function useTableIndexes(connectionId: string | null, tableId: string | n
 export function usePreviewRows(connectionId: string | null, input: import('@kamehadb/shared').PreviewRowsInput | null) {
   return useQuery({
     queryKey: QUERY_KEYS.PREVIEW(connectionId, input),
-    queryFn: () => api.request<import('@kamehadb/shared').QueryResult>('POST', `/sql/${connectionId}/rows`, input!),
+    queryFn: () => api.previewRows(connectionId!, input!),
     enabled: !!connectionId && !!input,
     staleTime: STATS_CACHE_TIME,
     placeholderData: keepPreviousData,
@@ -57,8 +52,7 @@ export function usePreviewRows(connectionId: string | null, input: import('@kame
 export function useTableStats(connectionId: string | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.TABLE_STATS(connectionId, tableId),
-    queryFn: () =>
-      api.request<import('@kamehadb/shared').TableStats>('GET', `/sql/${connectionId}/tables/${tableId}/stats`),
+    queryFn: () => api.getTableStats(connectionId!, tableId!),
     enabled: !!connectionId && !!tableId,
     staleTime: STATS_CACHE_TIME,
   });
@@ -67,11 +61,7 @@ export function useTableStats(connectionId: string | null, tableId: string | nul
 export function useIndexStats(connectionId: string | null, tableId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.INDEX_STATS(connectionId, tableId),
-    queryFn: () =>
-      api.request<import('@kamehadb/shared').IndexStats[]>(
-        'GET',
-        `/sql/${connectionId}/tables/${tableId}/indexes/stats`,
-      ),
+    queryFn: () => api.getIndexStats(connectionId!, tableId!),
     enabled: !!connectionId && !!tableId,
     staleTime: STATS_CACHE_TIME,
   });
@@ -80,13 +70,7 @@ export function useIndexStats(connectionId: string | null, tableId: string | nul
 export function useDatabaseSizes(connectionId: string | null, schema?: string) {
   return useQuery({
     queryKey: QUERY_KEYS.DATABASES(connectionId, schema),
-    queryFn: () => {
-      const params = schema ? `?schema=${encodeURIComponent(schema)}` : '';
-      return api.request<import('@kamehadb/shared').DatabaseSize[]>(
-        'GET',
-        `/sql/${connectionId}/database/sizes${params}`,
-      );
-    },
+    queryFn: () => api.getDatabaseSizes(connectionId!, schema),
     enabled: !!connectionId,
     staleTime: STATS_CACHE_TIME,
   });

@@ -138,7 +138,11 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
               return '';
             }
           }
-        } catch {}
+        } catch (err) {
+          // Invalid JSON is expected while the user is typing the sort spec —
+          // treat it as unsorted and start fresh. Debug-level to avoid spam.
+          console.debug('mongo sort spec parse failed:', err);
+        }
         const next = JSON.stringify({ [field]: 1 });
         dispatch({ type: 'querySort', value: next });
         return next;
@@ -262,7 +266,9 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
       const parsed = JSON.parse(state.sortStr);
       const entry = Object.entries(parsed)[0];
       if (entry && (entry[1] === 1 || entry[1] === -1)) return entry[0];
-    } catch {}
+    } catch (err) {
+      console.debug('mongo sort field parse failed:', err);
+    }
     return '';
   }, [state.sortStr]);
 
@@ -273,7 +279,9 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
       if (entry && (entry[1] === 1 || entry[1] === -1)) {
         return `${entry[0]} ${entry[1] === 1 ? '↑' : '↓'}`;
       }
-    } catch {}
+    } catch (err) {
+      console.debug('mongo sort label parse failed:', err);
+    }
     return null;
   }, [state.sortStr]);
 

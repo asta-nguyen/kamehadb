@@ -106,5 +106,5 @@ export default [
     },
   },
   // Ignore patterns — ESLint 9 default ignores node_modules/ already
-  { ignores: ["src-tauri/**", "dist/**", "*.config.*"] },
+  { ignores: ["dist/**", "*.config.*"] },
 ];

@@ -17,7 +17,7 @@ export function useRunQuery(connectionId: string | null) {
   return useMutation({
     mutationFn: async ({ query, params }: { query: string; params?: unknown[] }): Promise<QueryResult> => {
       if (!connectionId) throw new Error('No active connection');
-      return api.request<QueryResult>('POST', `/sql/${connectionId}/query`, { query, params });
+      return api.runQuery(connectionId, query, params);
     },
     onSuccess: (_data, variables) => {
       // Read-only queries (SELECT, WITH, etc.) don't change schema — skip invalidating metadata

@@ -1,55 +1,146 @@
-import { getApiHeaders, getApiBase, getAuthenticatedApiUrl, request } from './api-client';
+import { EventsOn } from '../../wailsjs/runtime/runtime';
+import {
+  CheckAllHealth,
+  CheckConnectionHealth,
+  CreateConnection,
+  DeleteConnection,
+  GetConnection,
+  ListConnections,
+  SetConnectionMCPEnabled,
+  TestConnection,
+  UpdateConnection,
+  BackupFileDatabase,
+  RestoreFileDatabase,
+} from '../../wailsjs/go/api/ConnectionsService';
+import {
+  CancelQuery,
+  GetActiveConnections,
+  GetCompletions,
+  GetDatabaseSizes,
+  GetIndexStats,
+  GetTableColumns,
+  GetTableIndexes,
+  GetTableStats,
+  ListSchemas,
+  ListTables,
+  PreviewRows,
+  RunQuery,
+  SearchSchema,
+} from '../../wailsjs/go/api/SqlService';
+import {
+  CaptureSchemaSnapshot,
+  GetSchemaSnapshots,
+  GetSchemaChangelog,
+  GetSchemaDiff,
+  GenerateMigration,
+  StartSchemaWatcher,
+  StopSchemaWatcher,
+  GetSchemaWatcherStatus,
+  StartSchemaNotifyWatcher,
+  StopSchemaNotifyWatcher,
+} from '../../wailsjs/go/api/SchemaService';
+import type { engines, store } from '../../wailsjs/go/models';
+import {
+  AttachMongoShell,
+  DeleteMongoDocument,
+  AggregateMongoDocuments,
+  FindMongoDocuments,
+  GetMongoCollectionStats,
+  GetMongoCompletions,
+  ListMongoCollections,
+  ListMongoDatabases,
+  PingMongoShell,
+  ResizeMongoShell,
+  RunMongoCommand,
+  StartMongoShell,
+  StopMongoShell,
+  UpdateMongoDocument,
+  WriteMongoShell,
+} from '../../wailsjs/go/api/MongoService';
+import {
+  GetRedisKey,
+  GetRedisStats,
+  GetRedisTTL,
+  RunRedisCommand,
+  ScanRedisKeys,
+} from '../../wailsjs/go/api/RedisService';
+import {
+  CancelChat,
+  ClearChatHistory,
+  ClearSchemaCache,
+  GetAISettings,
+  GetChatHistory,
+  ListModels,
+  SaveAISettings,
+  StartChat,
+} from '../../wailsjs/go/api/AiService';
+import {
+  DeleteQueryHistory,
+  GetQueryHistory,
+  SaveQueryHistory,
+  UpdateQueryHistory,
+} from '../../wailsjs/go/api/QueryHistoryService';
+import {
+  GetMCPAccounts,
+  GetMCPSettings,
+  PrepareMCPAccount,
+  ProvisionMCPAccount,
+  RetryMCPListener,
+  RevokeMCPAccount,
+  RotateMCPToken,
+  UpdateMCPPort,
+} from '../../wailsjs/go/api/McpService';
+
+type ConnectionProfile = import('@kamehadb/shared').ConnectionProfile;
+type HealthResults = Record<string, { success: boolean; latencyMs?: number; message?: string }>;
 
 export const api = {
-  request,
-  health: () => request<{ status: string; uptime: number; version: string }>('GET', '/health'),
+  listConnections: () => ListConnections() as Promise<ConnectionProfile[]>,
 
-  listConnections: () => request<import('@kamehadb/shared').ConnectionProfile[]>('GET', '/connections'),
-
-  getConnection: (id: string) => request<import('@kamehadb/shared').ConnectionProfile>('GET', `/connections/${id}`),
+  getConnection: (id: string) => GetConnection(id) as Promise<ConnectionProfile>,
 
   backupFileDatabase: (connectionId: string, input: import('@kamehadb/shared').FileDatabaseBackupRequest) =>
-    request<import('@kamehadb/shared').FileDatabaseMaintenanceResult>(
-      'POST',
-      `/connections/${connectionId}/backup`,
-      input,
-    ),
+    BackupFileDatabase(connectionId, input.outputPath) as Promise<
+      import('@kamehadb/shared').FileDatabaseMaintenanceResult
+    >,
 
   restoreFileDatabase: (connectionId: string, input: import('@kamehadb/shared').FileDatabaseRestoreRequest) =>
-    request<import('@kamehadb/shared').FileDatabaseMaintenanceResult>(
-      'POST',
-      `/connections/${connectionId}/restore`,
-      input,
-    ),
+    RestoreFileDatabase(connectionId, input.inputPath) as Promise<
+      import('@kamehadb/shared').FileDatabaseMaintenanceResult
+    >,
 
   createConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
-    request<import('@kamehadb/shared').ConnectionProfile>('POST', '/connections', input),
+    CreateConnection(input as store.ProfileInput) as Promise<ConnectionProfile>,
 
   updateConnection: (id: string, input: import('@kamehadb/shared').UpdateConnectionProfileInput) =>
-    request<import('@kamehadb/shared').ConnectionProfile>('PATCH', `/connections/${id}`, input),
+    UpdateConnection(id, input as store.ProfileInput) as Promise<ConnectionProfile>,
 
-  deleteConnection: (id: string) => request<void>('DELETE', `/connections/${id}`),
+  deleteConnection: (id: string) => DeleteConnection(id),
 
   testConnection: (input: import('@kamehadb/shared').CreateConnectionProfileInput) =>
-    request<import('@kamehadb/shared').TestConnectionResult>('POST', '/connections/test', input),
+    TestConnection(input as store.ProfileInput) as Promise<import('@kamehadb/shared').TestConnectionResult>,
 
   checkConnectionHealth: (id: string) =>
-    request<import('@kamehadb/shared').TestConnectionResult>('GET', `/connections/${id}/health`),
+    CheckConnectionHealth(id) as Promise<import('@kamehadb/shared').TestConnectionResult>,
 
-  getAISettings: () => request<import('@kamehadb/shared').AISettings>('GET', '/ai/settings'),
+  checkAllConnectionHealth: () => CheckAllHealth() as Promise<HealthResults>,
 
-  fetchAvailableModels: (baseUrl: string, apiKey?: string, signal?: AbortSignal) => {
-    const params = new URLSearchParams({ baseUrl });
-    if (apiKey) params.set('apiKey', apiKey);
-    return request<{ models: string[] }>('GET', `/ai/models?${params}`, undefined, false, signal);
-  },
+  // Single health stream for all connections — the SSE /connections/health
+  // stream, now a Wails event. Returns an unsubscribe function.
+  onConnectionHealth: (handler: (results: HealthResults) => void) =>
+    EventsOn('connections:health', handler as (data: unknown) => void),
 
-  saveAISettings: (input: import('@kamehadb/shared').AISettings) =>
-    request<{ success: boolean }>('POST', '/ai/settings', input),
+  getAISettings: () => GetAISettings() as Promise<import('@kamehadb/shared').AISettings>,
 
-  getChatHistory: (connectionId: string, limit = 50, mongoDatabase?: string) => {
-    const dbParam = mongoDatabase ? `&database=${encodeURIComponent(mongoDatabase)}` : '';
-    return request<{
+  // Bound calls have no AbortSignal — the third arg is accepted for
+  // call-site compatibility and ignored.
+  fetchAvailableModels: (baseUrl: string, apiKey?: string, _signal?: AbortSignal) =>
+    ListModels(baseUrl, apiKey ?? '').then((models) => ({ models })),
+
+  saveAISettings: (input: import('@kamehadb/shared').AISettings) => SaveAISettings(input as never),
+
+  getChatHistory: (connectionId: string, limit = 50, mongoDatabase?: string) =>
+    GetChatHistory(connectionId, limit, mongoDatabase ?? '') as Promise<{
       messages: {
         id: string;
         connectionId: string;
@@ -58,310 +149,231 @@ export const api = {
         content: string;
         createdAt: string;
       }[];
-    }>(`GET`, `/ai/chat-history/${connectionId}?limit=${limit}${dbParam}`);
-  },
+    }>,
 
-  clearChatHistory: (connectionId: string, mongoDatabase?: string) => {
-    const dbParam = mongoDatabase ? `?database=${encodeURIComponent(mongoDatabase)}` : '';
-    return request<{ success: boolean }>('DELETE', `/ai/chat-history/${connectionId}${dbParam}`);
-  },
+  clearChatHistory: (connectionId: string, mongoDatabase?: string) =>
+    ClearChatHistory(connectionId, mongoDatabase ?? ''),
 
-  clearSchemaCache: (connectionId: string) =>
-    request<{ success: boolean }>('POST', `/ai/clear-schema-cache/${connectionId}`),
+  clearSchemaCache: (connectionId: string, mongoDatabase?: string) =>
+    ClearSchemaCache(connectionId, mongoDatabase ?? ''),
 
-  searchSchema: (connectionId: string, query: string, schema?: string, limit?: number) => {
-    const params = new URLSearchParams({ q: query });
-    if (schema) params.set('schema', schema);
-    if (limit) params.set('limit', String(limit));
-    return request<import('@kamehadb/shared').SchemaSearchMatch[]>(
-      'GET',
-      `/sql/${connectionId}/schema/search?${params}`,
-    );
-  },
+  // AI chat — StartChat returns a request id; tokens arrive on the
+  // `chat:<id>` event ({type:'content'|'done'|'error'}).
+  startChat: (input: {
+    connectionId?: string;
+    mongoDatabase?: string;
+    tableId?: string;
+    messages: { role: string; content: string }[];
+    provider?: string;
+    model?: string;
+  }) => StartChat(input as never) as Promise<string>,
+
+  cancelChat: (requestId: string) => CancelChat(requestId),
+
+  onChatEvent: (requestId: string, handler: (ev: { type: string; delta?: string; message?: string }) => void) =>
+    EventsOn(`chat:${requestId}`, handler as (data: unknown) => void),
+
+  // Query history (bound QueryHistoryService — replaces /query-history/*)
+  getQueryHistory: (connectionId: string, limit: number, favoritesOnly: boolean) =>
+    GetQueryHistory(connectionId, limit, favoritesOnly) as Promise<import('@kamehadb/shared').QueryHistoryEntry[]>,
+
+  saveQueryHistory: (connectionId: string, input: import('@kamehadb/shared').SaveQueryHistoryInput) =>
+    SaveQueryHistory(connectionId, input as never) as Promise<import('@kamehadb/shared').QueryHistoryEntry>,
+
+  updateQueryHistory: (id: string, input: import('@kamehadb/shared').UpdateQueryHistoryInput) =>
+    UpdateQueryHistory(id, input as never),
+
+  deleteQueryHistory: (id: string) => DeleteQueryHistory(id),
+
+  // SQL browse + query (bound SqlService — replaces /sql/* routes)
+  listSqlSchemas: (connectionId: string) =>
+    ListSchemas(connectionId) as Promise<import('@kamehadb/shared').SchemaInfo[]>,
+
+  listTables: (connectionId: string, schema?: string) =>
+    ListTables(connectionId, schema ?? '') as Promise<import('@kamehadb/shared').TableInfo[]>,
+
+  getTableColumns: (connectionId: string, tableId: string) =>
+    GetTableColumns(connectionId, tableId) as Promise<import('@kamehadb/shared').ColumnInfo[]>,
+
+  getTableIndexes: (connectionId: string, tableId: string) =>
+    GetTableIndexes(connectionId, tableId) as Promise<import('@kamehadb/shared').IndexInfo[]>,
+
+  getCompletions: (connectionId: string, schema?: string) =>
+    GetCompletions(connectionId, schema ?? '') as Promise<{
+      tables: import('@kamehadb/shared').TableCompletions[];
+    }>,
+
+  previewRows: (connectionId: string, input: import('@kamehadb/shared').PreviewRowsInput) =>
+    PreviewRows(connectionId, input as engines.PreviewRowsInput) as Promise<import('@kamehadb/shared').QueryResult>,
+
+  runQuery: (connectionId: string, query: string, params?: unknown[]) =>
+    RunQuery(connectionId, { query, params } as engines.RunQueryInput) as Promise<
+      import('@kamehadb/shared').QueryResult
+    >,
+
+  cancelQuery: (connectionId: string) => CancelQuery(connectionId),
+
+  searchSchema: (connectionId: string, query: string, schema?: string, limit?: number) =>
+    SearchSchema(connectionId, query, schema ?? '', limit ?? -1) as Promise<
+      import('@kamehadb/shared').SchemaSearchMatch[]
+    >,
 
   // PostgreSQL stats
   getTableStats: (connectionId: string, tableId: string) =>
-    request<import('@kamehadb/shared').TableStats>(
-      'GET',
-      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/stats`,
-    ),
+    GetTableStats(connectionId, tableId) as Promise<import('@kamehadb/shared').TableStats>,
 
   getIndexStats: (connectionId: string, tableId: string) =>
-    request<import('@kamehadb/shared').IndexStats[]>(
-      'GET',
-      `/sql/${connectionId}/tables/${encodeURIComponent(tableId)}/indexes/stats`,
-    ),
+    GetIndexStats(connectionId, tableId) as Promise<import('@kamehadb/shared').IndexStats[]>,
 
-  getDatabaseSizes: (connectionId: string, schema?: string) => {
-    const query = schema ? `?schema=${encodeURIComponent(schema)}` : '';
-    return request<import('@kamehadb/shared').DatabaseSize[]>('GET', `/sql/${connectionId}/database/sizes${query}`);
-  },
+  getDatabaseSizes: (connectionId: string, schema?: string) =>
+    GetDatabaseSizes(connectionId, schema ?? '') as Promise<import('@kamehadb/shared').DatabaseSize[]>,
 
   getActiveConnections: (connectionId: string) =>
-    request<import('@kamehadb/shared').ConnectionInfo[]>('GET', `/sql/${connectionId}/sessions`),
+    GetActiveConnections(connectionId) as Promise<import('@kamehadb/shared').ConnectionInfo[]>,
 
   captureSchemaSnapshot: (connectionId: string) =>
-    request<{ id: string; capturedAt: string; tableCount: number }>('POST', `/sql/${connectionId}/schema/snapshots`),
+    CaptureSchemaSnapshot(connectionId) as Promise<{ id: string; capturedAt: string; tableCount: number }>,
 
   getSchemaSnapshots: (connectionId: string) =>
-    request<{ snapshots: readonly import('@kamehadb/shared').SchemaSnapshotSummary[] }>(
-      'GET',
-      `/sql/${connectionId}/schema/snapshots`,
-    ),
+    GetSchemaSnapshots(connectionId) as Promise<{
+      snapshots: readonly import('@kamehadb/shared').SchemaSnapshotSummary[];
+    }>,
 
   getSchemaChangelog: (connectionId: string) =>
-    request<import('@kamehadb/shared').SchemaChangelog>('GET', `/sql/${connectionId}/schema/changelog`),
+    GetSchemaChangelog(connectionId) as Promise<import('@kamehadb/shared').SchemaChangelog>,
 
   getSchemaDiff: (connectionId: string, input: import('@kamehadb/shared').SchemaDiffInput) =>
-    request<import('@kamehadb/shared').SchemaDiffResult>('POST', `/sql/${connectionId}/schema/diff`, input),
+    GetSchemaDiff(connectionId, input as never) as Promise<import('@kamehadb/shared').SchemaDiffResult>,
 
   generateMigration: (connectionId: string, input: import('@kamehadb/shared').MigrationInput) =>
-    request<import('@kamehadb/shared').MigrationResult>('POST', `/sql/${connectionId}/schema/migrations`, input),
+    GenerateMigration(connectionId, input as never) as Promise<import('@kamehadb/shared').MigrationResult>,
 
   startSchemaWatcher: (connectionId: string, intervalMs?: number) =>
-    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/start`, { intervalMs }),
+    StartSchemaWatcher(connectionId, intervalMs ?? 0) as Promise<{ ok: boolean }>,
 
-  stopSchemaWatcher: (connectionId: string) =>
-    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/stop`),
+  stopSchemaWatcher: (connectionId: string) => StopSchemaWatcher(connectionId) as Promise<{ ok: boolean }>,
 
   getSchemaWatcherStatus: (connectionId: string) =>
-    request<import('@kamehadb/shared').SchemaWatcherStatus>('GET', `/sql/${connectionId}/schema/watcher/status`),
+    GetSchemaWatcherStatus(connectionId) as Promise<import('@kamehadb/shared').SchemaWatcherStatus>,
 
   startSchemaNotifyWatcher: (connectionId: string) =>
-    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/notify/start`),
+    StartSchemaNotifyWatcher(connectionId) as Promise<{ ok: boolean }>,
 
-  stopSchemaNotifyWatcher: (connectionId: string) =>
-    request<{ ok: boolean }>('POST', `/sql/${connectionId}/schema/watcher/notify/stop`),
-
-  // PostgreSQL pgvector API
-  getPostgresVectorCapabilities: (connectionId: string) =>
-    request<import('@kamehadb/shared').PostgresVectorCapability>(
-      'GET',
-      `/sql/${connectionId}/vectors/capabilities`,
-      undefined,
-    ),
-
-  searchPostgresVector: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSearchInput) =>
-    request<import('@kamehadb/shared').PostgresVectorSearchResult>(
-      'POST',
-      `/sql/${connectionId}/vectors/search`,
-      input,
-    ),
-
-  getPostgresVectorSample: (connectionId: string, input: import('@kamehadb/shared').PostgresVectorSampleInput) =>
-    request<import('@kamehadb/shared').PostgresVectorSampleResult>(
-      'POST',
-      `/sql/${connectionId}/vectors/sample`,
-      input,
-    ),
-
-  // sqlite-vec API
-  getSqliteVecCapabilities: (connectionId: string) =>
-    request<import('@kamehadb/shared').SqliteVecCapability>(
-      'GET',
-      `/sql/${connectionId}/sqlite-vec/capabilities`,
-      undefined,
-    ),
-
-  searchSqliteVec: (connectionId: string, input: import('@kamehadb/shared').SqliteVecSearchInput) =>
-    request<import('@kamehadb/shared').SqliteVecSearchResult>('POST', `/sql/${connectionId}/sqlite-vec/search`, input),
-
-  sampleSqliteVec: (connectionId: string, input: { table: string; column: string }) =>
-    request<{ vector: number[]; dimensions: number }>('POST', `/sql/${connectionId}/sqlite-vec/sample`, input),
-
-  sampleSqliteVecVectors: (connectionId: string, input: { table: string; column: string; limit: number }) =>
-    request<{
-      points: { id: string | number; vector: number[]; payload: Record<string, unknown> }[];
-      dimensions: number;
-    }>('POST', `/sql/${connectionId}/sqlite-vec/vectors/sample`, input),
+  stopSchemaNotifyWatcher: (connectionId: string) => StopSchemaNotifyWatcher(connectionId) as Promise<{ ok: boolean }>,
 
   // MongoDB API
   listMongoDatabases: (connectionId: string) =>
-    request<import('@kamehadb/shared').DatabaseInfo[]>('GET', `/mongo/${connectionId}/databases`, undefined),
+    ListMongoDatabases(connectionId) as Promise<import('@kamehadb/shared').DatabaseInfo[]>,
 
-  listMongoCollections: (connectionId: string, database?: string) => {
-    const query = database ? `?database=${encodeURIComponent(database)}` : '';
-    return request<import('@kamehadb/shared').CollectionInfo[]>(
-      'GET',
-      `/mongo/${connectionId}/collections${query}`,
-      undefined,
-    );
-  },
+  listMongoCollections: (connectionId: string, database?: string) =>
+    ListMongoCollections(connectionId, database ?? '') as Promise<import('@kamehadb/shared').CollectionInfo[]>,
 
   findMongoDocuments: (connectionId: string, input: import('@kamehadb/shared').FindDocumentsInput) =>
-    request<import('@kamehadb/shared').DocumentResult>('POST', `/mongo/${connectionId}/find`, input),
+    FindMongoDocuments(connectionId, input as never) as Promise<import('@kamehadb/shared').DocumentResult>,
+
+  aggregateMongoDocuments: (
+    connectionId: string,
+    input: {
+      collection: string;
+      database?: string;
+      pipeline: Record<string, unknown>[];
+      skip?: number;
+      limit?: number;
+    },
+  ) => AggregateMongoDocuments(connectionId, input as never) as Promise<import('@kamehadb/shared').DocumentResult>,
 
   deleteMongoDocument: (
     connectionId: string,
     input: { collection: string; database?: string; filter: Record<string, unknown> },
-  ) => request<{ deletedCount: number }>('POST', `/mongo/${connectionId}/delete`, input),
+  ) => DeleteMongoDocument(connectionId, input as never) as Promise<{ deletedCount: number }>,
 
   updateMongoDocument: (
     connectionId: string,
     input: { collection: string; database?: string; filter: Record<string, unknown>; update: Record<string, unknown> },
-  ) => request<{ matchedCount: number; modifiedCount: number }>('POST', `/mongo/${connectionId}/update`, input),
+  ) =>
+    UpdateMongoDocument(connectionId, input as never) as Promise<{
+      matchedCount: number;
+      modifiedCount: number;
+    }>,
 
   getMongoCollectionStats: (connectionId: string, database: string, collection: string) =>
-    request<{ documentCount: number; indexes: { name: string; key: Record<string, unknown>; unique: boolean }[] }>(
-      'GET',
-      `/mongo/${connectionId}/stats?database=${encodeURIComponent(database)}&collection=${encodeURIComponent(collection)}`,
-      undefined,
-    ),
+    GetMongoCollectionStats(connectionId, database, collection) as Promise<{
+      documentCount: number;
+      indexes: { name: string; key: Record<string, unknown>; unique: boolean }[];
+    }>,
 
   // Redis API
   getRedisStats: (connectionId: string) =>
-    request<import('@kamehadb/shared').RedisStats>('GET', `/redis/${connectionId}/stats`, undefined),
+    GetRedisStats(connectionId) as Promise<import('@kamehadb/shared').RedisStats>,
+
+  scanRedisKeys: (connectionId: string, input: { pattern?: string; count?: number; cursor?: number }) =>
+    ScanRedisKeys(connectionId, input as never) as Promise<import('@kamehadb/shared').KeyPage>,
+
+  getRedisKey: (connectionId: string, key: string) =>
+    GetRedisKey(connectionId, key) as Promise<import('@kamehadb/shared').RedisValue>,
+
+  getRedisTTL: (connectionId: string, key: string) => GetRedisTTL(connectionId, key) as Promise<{ ttl: number }>,
 
   runRedisCommand: (connectionId: string, command: string) =>
-    request<import('@kamehadb/shared').RedisCommandResult>('POST', `/redis/${connectionId}/commands`, { command }),
+    RunRedisCommand(connectionId, command) as Promise<import('@kamehadb/shared').RedisCommandResult>,
 
-  // MongoDB shell
+  // MongoDB shell — PTY sessions on the Go side; output streams over the
+  // `terminal:<sessionId>` Wails event instead of SSE.
   startMongoShell: (connectionId: string, cols = 80, rows = 24) =>
-    request<{ sessionId: string }>('POST', `/mongo/${connectionId}/shell`, { cols, rows }),
+    StartMongoShell(connectionId, cols, rows) as Promise<{ sessionId: string }>,
 
-  writeMongoShell: (sessionId: string, data: string) =>
-    request<void>('POST', `/mongo/shell/${sessionId}/write`, { data }),
+  /** Returns buffered output captured before the stream attached. */
+  attachMongoShell: (sessionId: string) => AttachMongoShell(sessionId) as Promise<string>,
 
-  /** Check if a shell session is still alive (204 = alive, 404 = dead).
-   *  Distinguish 404 (no such session) from transient server errors — don't
-   *  kill a healthy session on a temporary 5xx. */
-  pingMongoShell: (sessionId: string) =>
-    fetch(`${getApiBase()}/mongo/shell/${sessionId}/write`, {
-      method: 'POST',
-      headers: getApiHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ data: '' }),
-    }).then((r) => {
-      if (r.ok) return true;
-      if (r.status === 404) return false;
-      return true; // transient server error — keep session alive
-    }),
+  writeMongoShell: (sessionId: string, data: string) => WriteMongoShell(sessionId, data) as Promise<void>,
 
-  stopMongoShell: (sessionId: string) => request<void>('DELETE', `/mongo/shell/${sessionId}`, undefined),
+  /** Whether the PTY session still exists and runs (replaces the 204/404 probe). */
+  pingMongoShell: (sessionId: string) => PingMongoShell(sessionId) as Promise<boolean>,
+
+  stopMongoShell: (sessionId: string) => StopMongoShell(sessionId) as Promise<void>,
 
   resizeMongoShell: (sessionId: string, cols: number, rows: number) =>
-    // MongoDB autocomplete
-    request<void>('POST', `/mongo/shell/${sessionId}/resize`, { cols, rows }),
+    ResizeMongoShell(sessionId, cols, rows) as Promise<void>,
 
-  getShellStreamUrl: (connectionId: string, sessionId: string) =>
-    getAuthenticatedApiUrl(`/mongo/${connectionId}/shell/${sessionId}/stream`),
+  /** Subscribe to a shell's live output/exit events. Returns an unsubscribe. */
+  onTerminalOutput: (sessionId: string, cb: (payload: { type: string; data?: string; code?: number }) => void) =>
+    EventsOn(`terminal:${sessionId}`, cb),
 
-  getMongoCompletions: (connectionId: string, database?: string) => {
-    const query = database ? `?database=${encodeURIComponent(database)}` : '';
-    return request<{ collections: { name: string; fields: string[] }[] }>(
-      'GET',
-      `/mongo/${connectionId}/autocomplete${query}`,
-      undefined,
-    );
-  },
+  getMongoCompletions: (connectionId: string, database?: string) =>
+    GetMongoCompletions(connectionId, database ?? '') as Promise<{
+      collections: { name: string; fields: string[] }[];
+    }>,
 
   // MongoDB command
   runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
-    request<unknown>('POST', `/mongo/${connectionId}/command`, { database, command }),
-
-  // Qdrant API
-  listQdrantCollections: (connectionId: string) =>
-    request<import('@kamehadb/shared').QdrantCollection[]>('GET', `/qdrant/${connectionId}/collections`, undefined),
-
-  scrollQdrantPoints: (connectionId: string, input: import('@kamehadb/shared').ScrollPointsInput) =>
-    request<import('@kamehadb/shared').QdrantPointPage>('POST', `/qdrant/${connectionId}/points`, input),
-
-  searchQdrant: (connectionId: string, input: import('@kamehadb/shared').QdrantSearchInput) =>
-    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/search`, input),
-
-  recommendQdrant: (connectionId: string, input: import('@kamehadb/shared').RecommendInput) =>
-    request<import('@kamehadb/shared').QdrantSearchResult>('POST', `/qdrant/${connectionId}/recommend`, input),
-
-  getQdrantStats: (connectionId: string, collection: string) =>
-    request<import('@kamehadb/shared').QdrantStats>(
-      'GET',
-      `/qdrant/${connectionId}/stats?collection=${encodeURIComponent(collection)}`,
-      undefined,
-    ),
-
-  embedText: (text: string, model?: string) =>
-    request<{ vector: number[]; dimensions: number }>('POST', `/ai/embed`, { text, model }),
-
-  // TigerBeetle API
-  tbListAccounts: (connectionId: string, limit?: number) => {
-    const query = limit ? `?limit=${limit}` : '';
-    return request<{ accounts: import('@kamehadb/shared').TigerBeetleAccount[] }>(
-      'GET',
-      `/tigerbeetle/${connectionId}/accounts${query}`,
-      undefined,
-    );
-  },
-
-  tbLookupAccount: (connectionId: string, id: string) =>
-    request<import('@kamehadb/shared').TigerBeetleAccount>(
-      'GET',
-      `/tigerbeetle/${connectionId}/accounts/${id}`,
-      undefined,
-    ),
-
-  tbCreateAccounts: (connectionId: string, accounts: import('@kamehadb/shared').CreateTigerBeetleAccountInput[]) =>
-    request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
-      'POST',
-      `/tigerbeetle/${connectionId}/accounts`,
-      { accounts },
-    ),
-
-  tbGetTransfers: (connectionId: string, accountId: string, limit?: number) => {
-    const query = limit ? `?limit=${limit}` : '';
-    return request<{ transfers: import('@kamehadb/shared').TigerBeetleTransfer[] }>(
-      'GET',
-      `/tigerbeetle/${connectionId}/transfers/${accountId}${query}`,
-      undefined,
-    );
-  },
-
-  tbGetBalances: (connectionId: string, accountId: string) =>
-    request<{ balances: import('@kamehadb/shared').TigerBeetleAccountBalance[] }>(
-      'GET',
-      `/tigerbeetle/${connectionId}/balances/${accountId}`,
-      undefined,
-    ),
-
-  tbCreateTransfers: (connectionId: string, transfers: import('@kamehadb/shared').CreateTigerBeetleTransferInput[]) =>
-    request<{ results: import('@kamehadb/shared').TigerBeetleCreateResult[] }>(
-      'POST',
-      `/tigerbeetle/${connectionId}/transfers`,
-      { transfers },
-    ),
+    RunMongoCommand(connectionId, database, command) as Promise<unknown>,
 
   // Read-only MCP settings
-  getMcpSettings: () => request<import('@kamehadb/shared').McpSettingsResponse>('GET', '/mcp/settings'),
+  getMcpSettings: () => GetMCPSettings() as Promise<import('@kamehadb/shared').McpSettingsResponse>,
 
-  updateMcpPort: (port: number) =>
-    request<import('@kamehadb/shared').McpSettingsResponse>('PATCH', '/mcp/settings', { port }),
+  updateMcpPort: (port: number) => UpdateMCPPort(port) as Promise<import('@kamehadb/shared').McpSettingsResponse>,
 
-  retryMcpListener: () => request<import('@kamehadb/shared').McpSettingsResponse>('POST', '/mcp/settings/retry'),
+  retryMcpListener: () => RetryMCPListener() as Promise<import('@kamehadb/shared').McpSettingsResponse>,
 
-  rotateMcpToken: () => request<import('@kamehadb/shared').McpSettingsResponse>('POST', '/mcp/settings/rotate-token'),
+  rotateMcpToken: () => RotateMCPToken() as Promise<import('@kamehadb/shared').McpSettingsResponse>,
 
-  getMcpAccounts: () => request<import('@kamehadb/shared').McpManagedAccountsResponse>('GET', '/mcp/accounts'),
+  getMcpAccounts: () => GetMCPAccounts() as Promise<import('@kamehadb/shared').McpManagedAccountsResponse>,
 
   prepareMcpAccount: (profileId: string) =>
-    request<{ profileId: string; state: import('@kamehadb/shared').McpManagedAccountState }>(
-      'POST',
-      `/mcp/profiles/${encodeURIComponent(profileId)}/account/prepare`,
-    ),
+    PrepareMCPAccount(profileId) as Promise<{
+      profileId: string;
+      state: import('@kamehadb/shared').McpManagedAccountState;
+    }>,
 
   provisionMcpAccount: (profileId: string) =>
-    request<{ profileId: string; state: import('@kamehadb/shared').McpManagedAccountState }>(
-      'POST',
-      `/mcp/profiles/${encodeURIComponent(profileId)}/account/provision`,
-    ),
+    ProvisionMCPAccount(profileId) as Promise<{
+      profileId: string;
+      state: import('@kamehadb/shared').McpManagedAccountState;
+    }>,
 
   revokeMcpAccount: (profileId: string) =>
-    request<{ profileId: string; revoked: boolean }>(
-      'POST',
-      `/mcp/profiles/${encodeURIComponent(profileId)}/account/revoke`,
-    ),
+    RevokeMCPAccount(profileId) as Promise<{ profileId: string; revoked: boolean }>,
 
   setConnectionMcpEnabled: (connectionId: string, enabled: boolean) =>
-    request<Pick<import('@kamehadb/shared').ConnectionProfile, 'id' | 'mcpEnabled'>>(
-      'PATCH',
-      `/connections/${connectionId}/mcp`,
-      { enabled },
-    ),
+    SetConnectionMCPEnabled(connectionId, enabled) as Promise<Pick<ConnectionProfile, 'id' | 'mcpEnabled'>>,
 };

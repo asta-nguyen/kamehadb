@@ -1,5 +1,5 @@
 import { useConnections } from '@/hooks/use-connections';
-import { DbIcon } from '@/components/db-icon';
+
 import { getIndicatorColor } from '@/components/sidebar.helpers';
 import {
   appStore,
@@ -52,7 +52,6 @@ import {
   Pin,
   PinOff,
   Plus,
-  Search,
   Share2,
   Table2,
   Terminal,
@@ -63,26 +62,10 @@ import { useRef, useState } from 'react';
 function tabIcon(tabType: string) {
   if (tabType === 'query' || tabType === 'redis-query' || tabType === 'migration')
     return <Terminal className="size-3" />;
-  if (
-    tabType === 'graph' ||
-    tabType === 'qdrant-graph' ||
-    tabType === 'postgres-vector-map' ||
-    tabType === 'sqlite-vec-map'
-  )
-    return <Share2 className="size-3" />;
+  if (tabType === 'graph') return <Share2 className="size-3" />;
   if (tabType === 'mongo' || tabType === 'mongo-query') return <Table2 className="size-3" />;
   if (tabType === 'redis') return <Box className="size-3" />;
-  if (tabType === 'qdrant') return <DbIcon kind="qdrant" className="size-3" />;
-  if (tabType === 'tigerbeetle') return <DbIcon kind="tigerbeetle" className="size-3" />;
-  if (tabType === 'qdrant-search' || tabType === 'postgres-vector-search' || tabType === 'sqlite-vec-search')
-    return <Search className="size-3" />;
-  if (
-    tabType === 'qdrant-stats' ||
-    tabType === 'stats' ||
-    tabType === 'database-stats' ||
-    tabType === 'tigerbeetle-stats'
-  )
-    return <BarChart3 className="size-3" />;
+  if (tabType === 'stats' || tabType === 'database-stats') return <BarChart3 className="size-3" />;
   if (tabType === 'table-stats') return <Activity className="size-3" />;
   if (tabType === 'schema-timeline' || tabType === 'schema-diff') return <History className="size-3" />;
   if (tabType === 'federated-query') return <GitCompare className="size-3" />;

@@ -2,50 +2,68 @@
 
 ## Purpose
 
-KamehaDB is a local-first database workspace built as a Tauri desktop app with a local Node sidecar. The desktop shell provides the workspace and settings views; the sidecar exposes database APIs; `packages/shared` owns database kinds, validation schemas, and shared contracts. The supported database kinds are defined in the shared schemas.
+KamehaDB is a local-first database workspace built as a single Wails v2 desktop app: a Go backend embedded in the executable plus a React 19 + Vite frontend. There is no external sidecar process or HTTP API — the frontend calls bound Go services through generated Wails bindings. `packages/shared` owns the frontend-facing kind constants, validation schemas, and shared types. The supported database kinds are defined in the shared schemas and mirrored in `internal/engines/kinds.go`.
 
 ## Runtime entry points
 
-- **Desktop:** `apps/desktop/src/App.tsx` waits for the sidecar and selects the workspace, API Settings, or Logs view. `Sidebar` exposes connections and engine-specific navigation; `WorkspaceContent` renders the active workspace tab.
-- **Sidecar:** `apps/sidecar/src/index.ts` initializes the local metadata store, mounts the internal API route groups, starts the MCP runtime, and binds the Hono server to loopback. Its default internal port is `3170` and can be overridden by `PORT`.
-- **Shared contract:** `packages/shared/src/index.ts` re-exports the Zod schemas and shared types used by the desktop and sidecar.
-- **Local state:** `apps/sidecar/src/db/metadata-store.ts` persists connection profiles and application metadata in SQLite.
+- **App:** `main.go` opens the SQLite metadata store, constructs the bound services in `internal/api`, starts the MCP runtime, and runs the Wails app. `app.go` holds `main.App` lifecycle hooks and native file-picker bindings.
+- **Frontend:** `apps/desktop/src/App.tsx` selects the workspace, API Settings, or Logs view. `Sidebar` exposes connections and engine-specific navigation; `WorkspaceContent` renders the active workspace tab.
+- **Shared contract:** `packages/shared/src/index.ts` re-exports the Zod schemas and shared types used by the desktop frontend. `apps/desktop/src/lib/api.ts` wraps the generated bindings in `apps/desktop/wailsjs/`.
+- **Local state:** `internal/store/` persists connection profiles, query history, AI settings, MCP state, and the AES-256-GCM credential vault in `kamehadb.db` under the app data dir (`KAMEHADB_DATA_DIR` override).
 
 ## Domain map
 
-| Domain                             | User-visible scope                                                                                                                   | Main entry points                                                                                                                                       |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Connections and workspace          | Create and manage profiles, inspect connection health, navigate database objects, and open workspace tabs.                           | `components/sidebar.tsx`, `components/workspace-content.tsx`, `/connections`                                                                            |
-| SQL and schema exploration         | Edit and run SQL, browse tables and metadata, view database/table statistics, and use engine-specific vector workflows.              | `components/sql-editor.tsx`, `components/schema-tree.tsx`, `/sql`                                                                                       |
-| Schema lifecycle                   | Capture schema snapshots, watch changes, compare snapshots, and generate migration SQL.                                              | `components/schema-timeline.tsx`, `components/schema-diff-view.tsx`, `/sql` schema routes                                                               |
-| Engine-specific explorers          | Browse MongoDB documents, Redis keys, Qdrant collections/points, and TigerBeetle accounts/transfers.                                 | `components/mongo-view.tsx`, `components/redis-view.tsx`, `components/qdrant-view.tsx`, `components/tigerbeetle-explorer.tsx`; dedicated sidecar routes |
-| AI and client integrations         | Configure AI providers and chat with schema context; expose opted-in profiles to local MCP clients through the read-only MCP server. | `components/api-settings-page.tsx`, `/ai`, [[integrations/read-only-mcp]]                                                                               |
-| Query history                      | Revisit saved queries, manage favorites, and inspect slow query patterns.                                                            | `components/query-history-panel.tsx`, `/query-history`                                                                                                  |
-| Diagnostics and native maintenance | View combined app logs and use Tauri-backed PostgreSQL or file-database maintenance workflows.                                       | `components/logs-page.tsx`, `apps/desktop/src-tauri` commands                                                                                           |
+| Domain                             | User-visible scope                                                                                                                   | Main entry points                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Connections and workspace          | Create and manage profiles, inspect connection health, navigate database objects, and open workspace tabs.                           | `components/sidebar.tsx`, `components/workspace-content.tsx`, `internal/api/connections.go`                                |
+| SQL and schema exploration         | Edit and run SQL, browse tables and metadata, and view database/table statistics.                                                    | `components/sql-editor.tsx`, `components/schema-tree.tsx`, `internal/api/sql.go`, `internal/engines/`                      |
+| Schema lifecycle                   | Capture schema snapshots, watch changes, compare snapshots, and generate migration SQL.                                              | `components/schema-timeline.tsx`, `components/schema-diff-view.tsx`, `internal/schema/`, `internal/api/schema.go`          |
+| Engine-specific explorers          | Browse MongoDB documents and Redis keys.                                                                                             | `components/mongo-view.tsx`, `components/redis-view.tsx`, `internal/mongo/`, `internal/redis/`, `internal/api/mongo.go`    |
+| AI and client integrations         | Configure AI providers and chat with schema context; expose opted-in profiles to local MCP clients through the read-only MCP server. | `components/api-settings-page.tsx`, `internal/api/ai.go`, `internal/ai/`, [[integrations/read-only-mcp]]                   |
+| Query history                      | Revisit saved queries, manage favorites, and inspect slow query patterns.                                                            | `components/query-history-panel.tsx`, `internal/api/history.go`                                                            |
+| Diagnostics and native maintenance | View combined app logs and use PostgreSQL `psql`/`pg_dump` or file-database maintenance workflows.                                   | `components/logs-page.tsx`, `internal/logs/`, `internal/terminal/`, `internal/maintenance/`, `internal/api/maintenance.go` |
 
 ## Cross-domain dependencies
 
-- The desktop API client talks to the sidecar and uses shared contracts for request and response shapes.
-- SQL, MongoDB, Redis, and federated code editors initialize the React Monaco wrapper with the bundled `monaco-editor` package, avoiding its external CDN default inside the Tauri WebView.
-- Sidecar route handlers use the metadata store and engine adapters. Connection profile IDs tie together database operations, query history, AI context, and MCP access.
-- The MCP server uses its own read-only adapter manager rather than reusing the UI SQL adapter cache; its flow and constraints are documented in [[integrations/read-only-mcp|Read-only MCP server]].
-- Tauri supplies desktop lifecycle and native commands; the sidecar remains the database API boundary for the React frontend.
+- `apps/desktop/src/lib/api.ts` calls generated Wails bindings; `wailsjs/go/models.ts` mirrors the Go response shapes. Backend→frontend notifications (health ticks, terminal output, AI streaming, tool jobs) use `runtime.EventsEmit`/`EventsOn`.
+- SQL, MongoDB, Redis, and federated editors share `apps/desktop/src/lib/code-editor.tsx`, a CodeMirror 6 wrapper; completion logic stays in `lib/sql-autocomplete.ts` and `lib/mongo-autocomplete.ts`.
+- Bound services use the metadata store and the engine adapter registry (`internal/engines/registry.go`). Connection profile IDs tie together database operations, query history, AI context, and MCP access.
+- The MCP server uses its own read-only adapter manager rather than reusing the UI adapter cache; its flow and constraints are documented in [[integrations/read-only-mcp|Read-only MCP server]].
+- Wails supplies the desktop lifecycle and native dialogs; `internal/` is the entire database boundary — no network hop exists between frontend and backend.
 
 ## Sources
 
 - `README.md`
+- `main.go`
+- `app.go`
+- `internal/api/connections.go`
+- `internal/api/sql.go`
+- `internal/api/schema.go`
+- `internal/api/mongo.go`
+- `internal/api/redis.go`
+- `internal/api/ai.go`
+- `internal/api/history.go`
+- `internal/api/mcp.go`
+- `internal/api/maintenance.go`
+- `internal/api/terminal.go`
+- `internal/store/profiles.go`
+- `internal/engines/registry.go`
+- `internal/engines/kinds.go`
+- `internal/schema/watcher.go`
+- `internal/mcp/runtime.go`
+- `internal/mcp/tools.go`
+- `internal/mcp/manager.go`
+- `internal/logs/logs.go`
 - `apps/desktop/src/App.tsx`
 - `apps/desktop/src/components/sidebar.tsx`
 - `apps/desktop/src/components/workspace-content.tsx`
 - `apps/desktop/src/components/sql-editor.tsx`
-- `apps/desktop/src/lib/monaco-loader.ts`
+- `apps/desktop/src/lib/code-editor.tsx`
 - `apps/desktop/src/components/schema-tree.tsx`
 - `apps/desktop/src/components/schema-timeline.tsx`
 - `apps/desktop/src/components/schema-diff-view.tsx`
 - `apps/desktop/src/components/mongo-view.tsx`
 - `apps/desktop/src/components/redis-view.tsx`
-- `apps/desktop/src/components/qdrant-view.tsx`
-- `apps/desktop/src/components/tigerbeetle-explorer.tsx`
 - `apps/desktop/src/components/api-settings-page.tsx`
 - `apps/desktop/src/components/mcp-settings-section.tsx`
 - `apps/desktop/src/components/query-history-panel.tsx`
@@ -56,29 +74,5 @@ KamehaDB is a local-first database workspace built as a Tauri desktop app with a
 - `apps/desktop/src/components/file-database-backup-dialog.tsx`
 - `apps/desktop/src/components/file-database-restore-dialog.tsx`
 - `apps/desktop/src/lib/api.ts`
-- `apps/desktop/src/lib/api-client.ts`
-- `apps/sidecar/src/index.ts`
-- `apps/sidecar/src/db/metadata-store.ts`
-- `apps/sidecar/src/lib/schema-watcher.ts`
-- `apps/sidecar/src/lib/file-database-maintenance.ts`
-- `apps/sidecar/src/routes/connections.ts`
-- `apps/sidecar/src/routes/sql.ts`
-- `apps/sidecar/src/routes/sql-schema.ts`
-- `apps/sidecar/src/routes/sql-vector-pg.ts`
-- `apps/sidecar/src/routes/sql-vector-sqlite.ts`
-- `apps/sidecar/src/routes/mongo.ts`
-- `apps/sidecar/src/routes/redis.ts`
-- `apps/sidecar/src/routes/qdrant.ts`
-- `apps/sidecar/src/routes/tigerbeetle.ts`
-- `apps/sidecar/src/routes/ai.ts`
-- `apps/sidecar/src/routes/query-history.ts`
-- `apps/sidecar/src/routes/mcp-settings.ts`
-- `apps/sidecar/src/mcp/runtime.ts`
-- `apps/sidecar/src/mcp/tools.ts`
-- `apps/sidecar/src/mcp/adapter-manager.ts`
-- `apps/sidecar/src/mcp/adapters/factory.ts`
 - `packages/shared/src/index.ts`
 - `packages/shared/src/schemas.ts`
-- `apps/desktop/src-tauri/src/app_logs.rs`
-- `apps/desktop/src-tauri/src/postgres_psql/mod.rs`
-- `apps/desktop/src-tauri/src/postgres_tools/mod.rs`

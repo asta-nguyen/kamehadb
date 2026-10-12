@@ -472,7 +472,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   // effect sends the prompt via the panel's useChat instance and clears the
   // field. The sentPromptRef guard prevents double-sends from React strict-mode
   // double-invocation. The tableId from pendingAiPrompt flows into forwardedProps
-  // so the sidecar builds table-scoped DDL instead of full-schema DDL.
+  // so the backend builds table-scoped DDL instead of full-schema DDL.
   const pendingAiPrompt = useStore(appStore, (s) => s.pendingAiPrompt);
   const sentPromptRef = useRef<PendingAiPrompt | null>(null);
 

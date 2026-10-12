@@ -5,28 +5,23 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"pnpm --filter @kamehadb/sidecar dev\" \"pnpm --filter @kamehadb/desktop dev\"",
+    "dev": "wails dev -tags webkit2_41",
     "dev:desktop": "pnpm --filter @kamehadb/desktop dev",
-    "dev:sidecar": "pnpm --filter @kamehadb/sidecar dev",
     "dev:landing": "npm --prefix landing run dev",
-    "dev:all": "concurrently \"npm --prefix landing run dev\" \"pnpm dev:desktop\" \"pnpm dev:sidecar\"",
-    "build": "pnpm --filter @kamehadb/shared build && pnpm --filter @kamehadb/sidecar build && pnpm --filter @kamehadb/desktop build",
+    "dev:all": "concurrently \"npm --prefix landing run dev\" \"pnpm dev\"",
+    "build": "wails build -tags webkit2_41",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
+    "test:go": "go test ./...",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "tauri": "pnpm --filter @kamehadb/desktop tauri",
     "prepare": "husky"
   },
   "lint-staged": {
     "*.{json,css,md}": "prettier --write",
     "apps/desktop/**/*.{ts,tsx}": [
       "pnpm --dir apps/desktop exec eslint --fix",
-      "prettier --write"
-    ],
-    "apps/sidecar/**/*.ts": [
-      "pnpm --dir apps/sidecar exec eslint --fix",
       "prettier --write"
     ],
     "packages/shared/**/*.ts": [
@@ -39,20 +34,7 @@
     ],
     "./*.{js,jsx,ts,tsx}": "prettier --write",
     "apps/desktop/*.{js,jsx,ts,tsx}": "prettier --write",
-    "apps/sidecar/*.{js,jsx,ts,tsx}": "prettier --write",
     "packages/shared/*.{js,jsx,ts,tsx}": "prettier --write"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "duckdb",
-      "esbuild",
-      "msw",
-      "node-pty",
-      "oracledb",
-      "sharp",
-      "unrs-resolver"
-    ]
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.1",

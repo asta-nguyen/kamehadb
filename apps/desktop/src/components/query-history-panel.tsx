@@ -110,7 +110,7 @@ export function QueryHistoryPanel({ connectionId, onSelectQuery, onClose, width 
   // Pre-seed the AI chat from a slow query. Reuses the Phase 4 pendingAiPrompt
   // store flow: openAiChatPanel scopes the panel to this connection, then
   // setPendingAiPrompt queues the prompt for AIChatPanel to send. No tableId
-  // is set — a slow query is not table-scoped, so the sidecar uses full-schema
+  // is set — a slow query is not table-scoped, so the backend uses full-schema
   // DDL context.
   function handleSlowQueryAiAction(group: PatternGroup, action: 'suggest-index' | 'explain') {
     if (group.p95 === null) return;

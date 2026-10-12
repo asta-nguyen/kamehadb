@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "kamehadb",
+  "outputfilename": "kamehadb",
+  "frontend:dir": "apps/desktop",
+  "frontend:install": "pnpm install",
+  "frontend:build": "pnpm -r --filter @kamehadb/desktop... build",
+  "frontend:dev:watcher": "pnpm dev",
+  "frontend:dev:serverUrl": "http://localhost:1420",
+  "author": {
+    "name": "asta-nguyen"
+  }
+}

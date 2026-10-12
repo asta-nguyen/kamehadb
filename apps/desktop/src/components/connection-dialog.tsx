@@ -5,16 +5,13 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import {
   CreateConnectionProfileSchema,
   EditConnectionProfileSchema,
-  KIND,
-  ALL_KINDS,
-  PROTOCOL_ALIASES,
-  isFileDatabaseKind,
   safeErrorMessage,
   type CreateConnectionProfileInput,
   type UpdateConnectionProfileInput,
   type ConnectionProfile,
   type DbKind,
 } from '@kamehadb/shared';
+import { KIND, ALL_KINDS, PROTOCOL_ALIASES, DEFAULT_PORTS, isFileDatabaseKind } from '@/lib/kinds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +19,7 @@ import { Label } from '@/components/ui/label';
 
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Plus } from 'lucide-react';
-import { DEFAULT_PORTS, TOAST_AUTO_HIDE_MS, AUTO_TEST_DEBOUNCE_MS } from '@/lib/constants';
+import { TOAST_AUTO_HIDE_MS, AUTO_TEST_DEBOUNCE_MS } from '@/lib/constants';
 import { appendFrontendLog } from '@/lib/app-logs';
 import {
   DatabaseTypeGrid,

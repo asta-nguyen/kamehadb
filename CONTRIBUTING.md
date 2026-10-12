@@ -14,8 +14,9 @@ Thanks for contributing to KamehaDB. This guide covers the expected workflow for
 Requirements:
 
 - Node.js and pnpm
+- Go and the Wails CLI (`go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0`)
 - Docker for the local development databases
-- Rust and Tauri prerequisites when working on desktop packaging
+- Platform webview prerequisites for `wails build`/`wails dev` (on Linux: `libgtk-3` and `webkit2gtk-4.1` dev packages)
 
 Install dependencies and start the development environment:
 
@@ -28,12 +29,12 @@ pnpm dev
 Useful development commands:
 
 ```bash
-pnpm dev:desktop
-pnpm dev:sidecar
-pnpm build
+pnpm dev:desktop   # frontend-only Vite dev server
+pnpm build         # wails build → build/bin/
 pnpm typecheck
 pnpm lint
-pnpm test
+pnpm test          # frontend vitest
+pnpm test:go       # Go backend tests
 ```
 
 The `landing/` directory is managed separately with npm:
@@ -48,13 +49,13 @@ Do not use pnpm commands to manage `landing/` dependencies.
 
 ## Repository Boundaries
 
-- `packages/shared/src/index.ts` is the source of truth for shared schemas, types, and adapter contracts.
-- `apps/sidecar/` owns database adapters, HTTP routes, metadata persistence, and AI provider integrations.
-- `apps/desktop/` owns the Tauri and React desktop experience.
-- `packages/ui/` contains reusable workspace UI utilities and components.
+- `packages/shared/src/index.ts` is the frontend-facing contract for shared schemas and types.
+- `internal/` owns the Go backend: database adapters, the SQLite metadata store, Wails-bound services, MCP, and AI provider integrations.
+- `apps/desktop/` owns the React desktop experience plus the generated Wails bindings in `wailsjs/`.
+- `main.go`/`app.go` and `wails.json` hold the Wails entrypoint and project config.
 - `landing/` is the separate marketing and documentation site.
 
-When frontend and backend data shapes change, update the shared contract first and verify both consumers.
+When frontend and backend data shapes change, update the Go service signature first, regenerate bindings (`wails generate module`), and keep `packages/shared` shapes aligned.
 
 ## Making Changes
 
@@ -75,8 +76,10 @@ For most workspace changes:
 
 ```bash
 pnpm typecheck
+pnpm --dir apps/desktop exec tsc --noEmit
 pnpm test
-pnpm build
+pnpm test:go
+go build ./...
 ```
 
 For desktop UI changes:

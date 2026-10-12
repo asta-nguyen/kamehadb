@@ -4,24 +4,13 @@ import { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-import {
-  siPostgresql,
-  siMysql,
-  siMongodb,
-  siRedis,
-  siSqlite,
-  siClickhouse,
-  siDuckdb,
-  siMariadb,
-  siQdrant,
-} from 'simple-icons';
+import { siPostgresql, siMysql, siMongodb, siRedis, siSqlite, siClickhouse, siDuckdb, siMariadb } from 'simple-icons';
 
 const ENGINES = [
   { name: 'PostgreSQL', color: '#336791', path: siPostgresql.path },
   { name: 'MySQL', color: '#00758F', path: siMysql.path },
   { name: 'MongoDB', color: '#4DB33D', path: siMongodb.path },
   { name: 'Redis', color: '#DC382D', path: siRedis.path },
-  { name: 'Qdrant', color: '#19CCA3', path: siQdrant.path },
   { name: 'SQLite', color: '#fbbf24', path: siSqlite.path },
   { name: 'ClickHouse', color: '#FCC624', path: siClickhouse.path },
   { name: 'DuckDB', color: '#FFF000', path: siDuckdb.path },

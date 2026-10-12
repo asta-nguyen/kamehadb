@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: '%s | KamehaDB',
     },
     description:
-      'A cross-platform desktop GUI for SQL, document, cache, vector, and ledger systems. PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle in one local-first app, with AI built in and a read-only MCP server that provisions database-scoped accounts and stores their credentials in the OS Keychain.',
+      'A cross-platform desktop GUI for SQL, document, and cache systems. PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis in one local-first app, with AI built in and a read-only MCP server that provisions database-scoped accounts and stores their credentials in the OS Keychain.',
     keywords: [
       'database management',
       'database client',
@@ -31,9 +31,6 @@ export async function generateMetadata(): Promise<Metadata> {
       'DuckDB',
       'MongoDB',
       'Redis',
-      'Qdrant',
-      'vector database',
-      'TigerBeetle',
       'AI query',
       'schema visualization',
       'ER diagram',
@@ -41,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
       'MCP',
       'Model Context Protocol',
       'read-only MCP server',
-      'Tauri',
+      'Wails',
       'open source',
       'local-first',
     ],
@@ -54,7 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'KamehaDB',
       title: 'KamehaDB — Local-first desktop database workspace',
       description:
-        'One local-first desktop GUI for PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle, with AI built in and a read-only MCP server that uses managed, database-scoped credentials.',
+        'One local-first desktop GUI for PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis, with AI built in and a read-only MCP server that uses managed, database-scoped credentials.',
       images: [
         {
           url: '/og-animated.gif',
@@ -71,7 +68,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title: 'KamehaDB — Local-first desktop database workspace',
       description:
-        'One local-first desktop GUI for SQL, document, cache, vector, and ledger systems, with AI built in and a read-only MCP server that uses managed, database-scoped credentials.',
+        'One local-first desktop GUI for SQL, document, and cache systems, with AI built in and a read-only MCP server that uses managed, database-scoped credentials.',
       images: [`${baseUrl}/og-animated.gif`],
     },
     robots: {
@@ -116,7 +113,7 @@ export default async function RootLayout({
               '@type': 'SoftwareApplication',
               name: 'KamehaDB',
               description:
-                'A cross-platform, local-first desktop GUI for SQL, document, cache, vector, and ledger systems — PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle. Built with AI.',
+                'A cross-platform, local-first desktop GUI for SQL, document, and cache systems — PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis. Built with AI.',
               url: baseUrl,
               applicationCategory: 'DeveloperApplication',
               operatingSystem: 'Windows, macOS, Linux',

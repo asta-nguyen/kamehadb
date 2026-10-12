@@ -4,8 +4,8 @@ import type { WorkspaceTab } from '@/lib/types';
 import { TerminalPane } from '@/components/terminal-pane';
 import { useConnections } from '@/hooks/use-connections';
 import { useTerminalSession } from '@/hooks/use-terminal-session';
-import { invokeTauri } from '@/lib/tauri';
 import type { TerminalSessionStarted, TerminalSize } from '@/lib/terminal-session';
+import { StartPostgresPsqlSession } from '../../wailsjs/go/api/TerminalService';
 import { appStore } from '@/store';
 import { useStore } from '@tanstack/react-store';
 
@@ -37,13 +37,7 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
       terminalRef.current?.write(data);
     },
     startSession: (size) =>
-      invokeTauri<TerminalSessionStarted>('start_postgres_psql_session', {
-        request: {
-          connectionId: tab.connectionId,
-          cols: size.cols,
-          rows: size.rows,
-        },
-      }),
+      StartPostgresPsqlSession(tab.connectionId, size.cols, size.rows) as Promise<TerminalSessionStarted>,
   });
 
   useEffect(() => {

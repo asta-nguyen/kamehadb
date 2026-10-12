@@ -11,12 +11,10 @@ import { Spinner } from '@/components/ui/spinner';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
 import { isQuerySafe } from '@kamehadb/shared';
-import type { OnMount } from '@monaco-editor/react';
-import { loadMonacoEditor } from '@/lib/monaco-loader';
-import { lazy, useCallback, useMemo, useRef, useState } from 'react';
+import { sql as sqlLang } from '@codemirror/lang-sql';
+import { CodeEditor } from '@/lib/code-editor';
+import { useCallback, useMemo, useState } from 'react';
 import { AlertCircle, Clock, Play, Loader2 } from 'lucide-react';
-
-const Editor = lazy(loadMonacoEditor);
 
 export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceTab, { type: 'federated-query' }> }) {
   const [sql, setSql] = useState(tab.sql ?? 'SELECT * FROM ');
@@ -26,7 +24,6 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
   const [isRunning, setIsRunning] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.5);
-  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
   const { data: connections } = useConnections();
   const sqlConnections = useMemo(() => (connections ?? []).filter((c) => isSqlKind(c.kind)), [connections]);
@@ -43,8 +40,7 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
   );
 
   const handleChange = useCallback(
-    (value: string | undefined) => {
-      const next = value ?? '';
+    (next: string) => {
       setSql(next);
       updateTabSql(tab.id, next);
     },
@@ -74,7 +70,7 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
       selectedIds.map(async (id): Promise<PerConnectionResult> => {
         const conn = connMap.get(id);
         try {
-          const result = await api.request<QueryResult>('POST', `/sql/${id}/query`, { query: sql });
+          const result = await api.runQuery(id, sql);
           return { connectionId: id, connectionName: conn?.name ?? id, result, error: null };
         } catch (err) {
           return {
@@ -93,23 +89,7 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
     setIsRunning(false);
   }, [sql, selectedIds, connections]);
 
-  // Ref to avoid stale closure in Monaco keybinding (registered once on mount).
-  // handleEditorMount runs only once, so addCommand would capture handleRun at
-  // mount time; the ref always points at the latest handleRun (same pattern as
-  // SqlEditor lines 776-777) so subsequent state changes are reflected when the
-  // shortcut fires.
-  const handleRunRef = useRef(handleRun);
-  handleRunRef.current = handleRun;
-
-  const handleEditorMount: OnMount = useCallback((editor) => {
-    editorRef.current = editor;
-    editor.addCommand(
-      // Ctrl+Enter — monaco KeyCode doesn't reliably cross platforms for this,
-      // so use the raw keybinding string. This matches SqlEditor's approach.
-      2048 | 3, // KeyMod.CtrlCmd | KeyCode.Enter
-      () => void handleRunRef.current(),
-    );
-  }, []);
+  const editorExtensions = useMemo(() => [sqlLang()], []);
 
   const handleSplitMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -210,25 +190,15 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
         )}
       </div>
 
-      {/* Split panel: Monaco editor (top) + merged DataTable (bottom) */}
+      {/* Split panel: editor (top) + merged DataTable (bottom) */}
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-col flex-1 min-w-0">
           <div className="min-h-0 border-b border-border" style={{ flex: splitRatio }}>
-            <Editor
-              height="100%"
-              defaultLanguage="sql"
-              theme="vs-dark"
+            <CodeEditor
               value={sql}
               onChange={handleChange}
-              onMount={handleEditorMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 8 },
-              }}
+              onRun={() => void handleRun()}
+              extensions={editorExtensions}
             />
           </div>
 

@@ -1,8 +1,7 @@
-import { lazy, Suspense, useCallback, useMemo, useReducer, useRef, useState } from 'react';
-import type { OnMount } from '@monaco-editor/react';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { javascript } from '@codemirror/lang-javascript';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { get, post } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,9 +20,7 @@ import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '
 import { safeErrorMessage } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
 import { buildMongoCompletionEntries, type MongoCompletionsData } from '@/lib/mongo-autocomplete';
-import { loadMonacoEditor } from '@/lib/monaco-loader';
-
-const Editor = lazy(loadMonacoEditor);
+import { CodeEditor, schemaCompletionSource, schemaCompletions } from '@/lib/code-editor';
 
 type MongoQueryProps = {
   tab: WorkspaceTab & { pipeline?: string };
@@ -389,8 +386,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
   );
 
   const handlePipelineChange = useCallback(
-    (v: string | undefined) => {
-      const value = v ?? '';
+    (value: string) => {
       dispatch({ type: 'setPipeline', value });
       updateTabPipeline(tab.id, value);
     },
@@ -399,13 +395,13 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
 
   const { data: databases, isLoading: databasesLoading } = useQuery({
     queryKey: ['mongo-databases', connectionId],
-    queryFn: () => get<DatabaseInfo[]>(`/mongo/${connectionId}/databases`),
+    queryFn: () => api.listMongoDatabases(connectionId),
     enabled: !!connectionId,
   });
 
   const { data: collections, isLoading: collectionsLoading } = useQuery({
     queryKey: QUERY_KEYS.MONGO_COLLECTIONS(connectionId, state.db),
-    queryFn: () => get<CollectionInfo[]>(`/mongo/${connectionId}/collections?database=${encodeURIComponent(state.db)}`),
+    queryFn: () => api.listMongoCollections(connectionId, state.db),
     enabled: !!connectionId && !!state.db,
   });
 
@@ -434,7 +430,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           throw new Error('Invalid aggregation pipeline — check syntax');
         }
 
-        const res = await post<DocumentResult>(`/mongo/${connectionId}/aggregate`, {
+        const res = await api.aggregateMongoDocuments(connectionId, {
           collection: state.collection,
           database: state.db,
           pipeline: parsed,
@@ -457,59 +453,21 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
   );
   runRef.current = handleRun;
 
-  const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
-    editor.focus();
-    editor.addAction({
-      id: 'run-aggregation',
-      label: 'Run Aggregation',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-      run: () => {
-        runRef.current();
-      },
-    });
-
-    const provider = monaco.languages.registerCompletionItemProvider('javascript', {
-      triggerCharacters: ['.', ' ', '$', '{', '[', '"', ':'],
-      provideCompletionItems: (model, position) => {
-        const data = completionsRef.current;
-        if (!data) return { suggestions: [] };
-
-        const textUntil = model.getValueInRange({
-          startLineNumber: 1,
-          startColumn: 1,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column,
-        });
-
-        const suggestions = buildMongoCompletionEntries(textUntil, data).map((item) => ({
-          label: item.label,
-          kind:
-            item.kind === 'stage'
-              ? monaco.languages.CompletionItemKind.Function
-              : item.kind === 'operator'
-                ? monaco.languages.CompletionItemKind.Operator
-                : item.kind === 'field'
-                  ? monaco.languages.CompletionItemKind.Field
-                  : item.kind === 'collection'
-                    ? monaco.languages.CompletionItemKind.Struct
-                    : monaco.languages.CompletionItemKind.Keyword,
-          insertText: item.insertText,
-          detail: item.detail,
-          sortText: item.sortText,
-          range: {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: Math.max(1, position.column - 20),
-            endColumn: position.column,
-          },
-        }));
-
-        return { suggestions };
-      },
-    });
-
-    editor.onDidDispose(() => provider.dispose());
-  }, []);
+  const editorExtensions = useMemo(
+    () => [
+      javascript({ typescript: false }),
+      schemaCompletions(
+        schemaCompletionSource((ctx, _textUntil, _fullText) => {
+          const data = completionsRef.current;
+          if (!data) return [];
+          // The mongo builder needs the whole doc prefix (pipeline depth is
+          // context-sensitive), not just the current line.
+          return buildMongoCompletionEntries(ctx.state.sliceDoc(0, ctx.pos), data);
+        }),
+      ),
+    ],
+    [],
+  );
 
   const handleDbChange = useCallback((value: string | null) => {
     if (value) dispatch({ type: 'setDb', value, resetCollection: true });
@@ -547,30 +505,12 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
 
       <div className="flex flex-col min-h-0 flex-1">
         <div className="min-h-0 border-b border-border" style={{ flex: editorRatio }}>
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center h-full">
-                <Spinner size="md" />
-              </div>
-            }
-          >
-            <Editor
-              height="100%"
-              defaultLanguage="javascript"
-              theme="vs-dark"
-              value={state.pipeline}
-              onChange={handlePipelineChange}
-              onMount={handleEditorDidMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 8 },
-              }}
-            />
-          </Suspense>
+          <CodeEditor
+            value={state.pipeline}
+            onChange={handlePipelineChange}
+            onRun={() => runRef.current()}
+            extensions={editorExtensions}
+          />
         </div>
 
         <div

@@ -7,13 +7,11 @@ export const KIND = {
   MYSQL: 'mysql',
   REDIS: 'redis',
   MONGODB: 'mongodb',
-  QDRANT: 'qdrant',
   SQLSERVER: 'sqlserver',
   ORACLE: 'oracle',
   CLICKHOUSE: 'clickhouse',
   MARIADB: 'mariadb',
   DUCKDB: 'duckdb',
-  TIGERBEETLE: 'tigerbeetle',
 } as const;
 
 export type DbKind = (typeof KIND)[keyof typeof KIND];
@@ -32,13 +30,11 @@ export const ALL_KINDS: readonly DbKind[] = [
   KIND.MYSQL,
   KIND.REDIS,
   KIND.MONGODB,
-  KIND.QDRANT,
   KIND.SQLSERVER,
   KIND.ORACLE,
   KIND.CLICKHOUSE,
   KIND.MARIADB,
   KIND.DUCKDB,
-  KIND.TIGERBEETLE,
 ];
 
 export const SQL_KINDS: readonly DbKind[] = [
@@ -52,7 +48,7 @@ export const SQL_KINDS: readonly DbKind[] = [
   KIND.DUCKDB,
 ];
 
-export const NOSQL_KINDS: readonly DbKind[] = [KIND.REDIS, KIND.MONGODB, KIND.QDRANT, KIND.TIGERBEETLE];
+export const NOSQL_KINDS: readonly DbKind[] = [KIND.REDIS, KIND.MONGODB];
 
 /** Engines the read-only MCP server can expose. Writes and unsupported engines stay out. */
 export const MCP_SUPPORTED_KINDS: readonly DbKind[] = [
@@ -119,13 +115,11 @@ export const DEFAULT_PORTS: Record<DbKind, number> = {
   [KIND.SQLITE]: 0,
   [KIND.REDIS]: 6379,
   [KIND.MONGODB]: 27017,
-  [KIND.QDRANT]: 6333,
   [KIND.SQLSERVER]: 1433,
   [KIND.ORACLE]: 1521,
   [KIND.CLICKHOUSE]: 8123,
   [KIND.MARIADB]: 3306,
   [KIND.DUCKDB]: 0,
-  [KIND.TIGERBEETLE]: 3001,
 };
 
 /** SQL migration dialect names. */
@@ -153,8 +147,6 @@ export const DIALECT_BY_KIND: Record<DbKind, string> = {
   [KIND.DUCKDB]: DIALECT.DUCKDB,
   [KIND.REDIS]: DEFAULT_DIALECT,
   [KIND.MONGODB]: DEFAULT_DIALECT,
-  [KIND.QDRANT]: DEFAULT_DIALECT,
-  [KIND.TIGERBEETLE]: DEFAULT_DIALECT,
 };
 
 export function resolveDialect(kind: DbKind): string {

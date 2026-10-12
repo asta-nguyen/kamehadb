@@ -4,19 +4,17 @@ import { updateTabCommand } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { RedisCommandResult } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
-import type { Monaco, OnMount } from '@monaco-editor/react';
 import { AlertCircle, Clock, Play, Terminal } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { loadMonacoEditor } from '@/lib/monaco-loader';
-import { lazy, Suspense, useCallback, useState } from 'react';
-const Editor = lazy(loadMonacoEditor);
+import { CodeEditor } from '@/lib/code-editor';
+import { useCallback, useState } from 'react';
 
 type RedisQueryProps = {
   tab: WorkspaceTab;
   connectionId: string;
 };
 
-// Redis commands
+// Redis commands — kept as a completion wordlist.
 const REDIS_COMMANDS = [
   'APPEND',
   'AUTH',
@@ -173,26 +171,22 @@ const REDIS_COMMANDS = [
   'ZUNIONSTORE',
 ];
 
-function registerRedisLanguage(monaco: Monaco) {
-  if (monaco.languages.getLanguages().some((l: { id: string }) => l.id === 'redis')) {
-    return;
-  }
+import { autocompletion } from '@codemirror/autocomplete';
 
-  monaco.languages.register({ id: 'redis' });
-
-  monaco.languages.setMonarchTokensProvider('redis', {
-    tokenizer: {
-      root: [
-        [new RegExp(`\\b(${REDIS_COMMANDS.join('|')})\\b`, 'i'), 'keyword'],
-        [/"[^"]*"/, 'string'],
-        [/'[^']*'/, 'string'],
-        [/\b\d+\b/, 'number'],
-        [/#.*$/, 'comment'],
-        [/[\[\]{}():,]/, 'delimiter'],
-      ],
+const redisCompletions = autocompletion({
+  override: [
+    (ctx) => {
+      const word = ctx.matchBefore(/[A-Z]+/i);
+      if (!word || (word.from === word.to && !ctx.explicit)) return null;
+      const text = word.text.toUpperCase();
+      const options = REDIS_COMMANDS.filter((command) => command.startsWith(text)).map((command) => ({
+        label: command,
+        type: 'keyword',
+      }));
+      return options.length > 0 ? { from: word.from, options } : null;
     },
-  });
-}
+  ],
+});
 
 export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
   const initialCommand = 'command' in tab ? (tab.command ?? '') : '';
@@ -223,21 +217,6 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
     }
   }, [command, redisCommand]);
 
-  const handleEditorDidMount: OnMount = useCallback(
-    (editor, monaco) => {
-      registerRedisLanguage(monaco);
-      editor.focus();
-
-      editor.addAction({
-        id: 'run-command',
-        label: 'Run Command',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-        run: () => handleRun(),
-      });
-    },
-    [handleRun],
-  );
-
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center px-4 py-2 border-b border-border gap-2 shrink-0">
@@ -251,25 +230,13 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
       </div>
 
       <div className="flex-1 min-h-0 border-b border-border">
-        <Suspense fallback={<div className="flex-1" />}>
-          <Editor
-            height="100%"
-            language="redis"
-            theme="vs-dark"
-            value={command}
-            onChange={(v) => handleCommandChange(v ?? '')}
-            onMount={handleEditorDidMount}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineNumbers: 'off',
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              padding: { top: 8 },
-              wordWrap: 'on',
-            }}
-          />
-        </Suspense>
+        <CodeEditor
+          value={command}
+          onChange={handleCommandChange}
+          onRun={handleRun}
+          showLineNumbers={false}
+          extensions={[redisCompletions]}
+        />
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">

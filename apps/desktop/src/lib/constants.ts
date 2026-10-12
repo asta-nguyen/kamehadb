@@ -13,45 +13,32 @@ export const AUTO_TEST_DEBOUNCE_MS = 500;
 
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';
 import type { DbKind } from '@kamehadb/shared';
-import {
-  KIND,
-  ALL_KINDS as SHARED_ALL_KINDS,
-  SQL_KINDS as SHARED_SQL_KINDS,
-  isSqlKind as sharedIsSqlKind,
-  DEFAULT_PORTS as SHARED_DEFAULT_PORTS,
-} from '@kamehadb/shared';
-import { FileText, History, BarChart3, Search, Share2, Terminal, Database, type LucideIcon } from 'lucide-react';
+import { KIND, ALL_KINDS, SQL_KINDS, isSqlKind, DEFAULT_PORTS } from './kinds';
+import { FileText, History, BarChart3, Share2, Terminal, type LucideIcon } from 'lucide-react';
 import {
   openNewQueryTab,
   openGraphTab,
   openDatabaseStatsTab,
   openSchemaTimelineTab,
-  openQdrantSearchTab,
   openMongoQueryTab,
   openMongoShellTab,
   openRedisQueryTab,
   openRedisTab,
-  openSqliteVecSearchTab,
-  openPostgresVectorSearchTab,
-  openTigerBeetleTab,
-  openTigerBeetleStatsTab,
   appStore,
 } from '@/store';
 import type { ConnectionProfile } from '@kamehadb/shared';
 
-export const KIND_ICON_COMPONENT: Record<DbKind, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+export const KIND_ICON_COMPONENT: Partial<Record<DbKind, React.ComponentType<React.SVGProps<SVGSVGElement>>>> = {
   [KIND.POSTGRES]: PostgreSQL,
   [KIND.MYSQL]: MySQL,
   [KIND.SQLITE]: MySQL,
   [KIND.REDIS]: Redis,
   [KIND.MONGODB]: MongoDB,
-  [KIND.QDRANT]: MongoDB,
   [KIND.SQLSERVER]: MicrosoftSQLServer,
   [KIND.ORACLE]: Oracle,
   [KIND.CLICKHOUSE]: ClickHouse,
   [KIND.MARIADB]: MySQL,
   [KIND.DUCKDB]: PostgreSQL,
-  [KIND.TIGERBEETLE]: PostgreSQL,
 };
 
 export const GROUP_ORDER: Record<string, number> = {
@@ -60,28 +47,24 @@ export const GROUP_ORDER: Record<string, number> = {
   [KIND.SQLITE]: 2,
   [KIND.REDIS]: 3,
   [KIND.MONGODB]: 4,
-  [KIND.QDRANT]: 5,
-  [KIND.SQLSERVER]: 6,
-  [KIND.ORACLE]: 7,
-  [KIND.CLICKHOUSE]: 8,
-  [KIND.MARIADB]: 9,
-  [KIND.DUCKDB]: 10,
-  [KIND.TIGERBEETLE]: 11,
+  [KIND.SQLSERVER]: 5,
+  [KIND.ORACLE]: 6,
+  [KIND.CLICKHOUSE]: 7,
+  [KIND.MARIADB]: 8,
+  [KIND.DUCKDB]: 9,
 };
 
-export const KIND_LABELS: Record<DbKind, string> = {
+export const KIND_LABELS: Partial<Record<DbKind, string>> = {
   [KIND.POSTGRES]: 'PostgreSQL',
   [KIND.SQLITE]: 'SQLite',
   [KIND.MYSQL]: 'MySQL',
   [KIND.REDIS]: 'Redis',
   [KIND.MONGODB]: 'MongoDB',
-  [KIND.QDRANT]: 'Qdrant',
   [KIND.SQLSERVER]: 'SQL Server',
   [KIND.ORACLE]: 'Oracle',
   [KIND.CLICKHOUSE]: 'ClickHouse',
   [KIND.MARIADB]: 'MariaDB',
   [KIND.DUCKDB]: 'DuckDB',
-  [KIND.TIGERBEETLE]: 'TigerBeetle',
 };
 
 // Alias for GROUP_LABELS to match semantic usage — labels by engine kind are the
@@ -92,16 +75,10 @@ export const SIDEBAR_MIN_WIDTH = 250;
 export const SIDEBAR_MAX_WIDTH = 400;
 export const SIDEBAR_DEFAULT_WIDTH = 300;
 
-export const KINDS: DbKind[] = [...SHARED_ALL_KINDS];
+export const KINDS: DbKind[] = [...ALL_KINDS];
 
-/** Engine kinds that use the SQL adapter path (not Mongo/Redis/Qdrant/TigerBeetle). */
-export const SQL_KINDS: readonly DbKind[] = SHARED_SQL_KINDS;
-
-export function isSqlKind(kind: string | undefined): kind is DbKind {
-  return kind !== undefined && sharedIsSqlKind(kind);
-}
-
-export const DEFAULT_PORTS = SHARED_DEFAULT_PORTS;
+/** Engine kinds that use the SQL adapter path (not Mongo/Redis). */
+export { SQL_KINDS, isSqlKind, DEFAULT_PORTS };
 
 export const PRESET_COLORS = [
   { hex: '#3b82f6', name: 'Blue' },
@@ -196,7 +173,7 @@ export const SHORTCUT_GROUPS: { heading: string; entries: ShortcutEntry[] }[] = 
     heading: 'Navigation',
     entries: [
       { keys: 'Enter / Space', description: 'Activate focused row or item' },
-      { keys: 'Arrow Up / Down', description: 'Adjust split ratio in Monaco / Mongo editor panels' },
+      { keys: 'Arrow Up / Down', description: 'Adjust split ratio in SQL / Mongo editor panels' },
     ],
   },
 ];
@@ -215,9 +192,6 @@ export const SQL_TAB_ACTIONS: TabAction[] = [
 ];
 
 export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAction[]>> = {
-  [KIND.POSTGRES]: [{ label: 'Vector Search', icon: Search, open: openPostgresVectorSearchTab }],
-  qdrant: [{ label: 'Vector Search', icon: Search, open: openQdrantSearchTab }],
-  sqlite: [{ label: 'Vector Search', icon: Search, open: openSqliteVecSearchTab }],
   mongodb: [
     { label: 'Mongo Shell', icon: Terminal, open: openMongoShellTab },
     {
@@ -230,10 +204,6 @@ export const ENGINE_TAB_ACTIONS: Partial<Record<ConnectionProfile['kind'], TabAc
     { label: 'Query', icon: Terminal, open: openRedisQueryTab },
     { label: 'Stats', icon: BarChart3, open: openRedisTab },
   ],
-  [KIND.TIGERBEETLE]: [
-    { label: 'Explorer', icon: Database, open: openTigerBeetleTab },
-    { label: 'Stats', icon: BarChart3, open: openTigerBeetleStatsTab },
-  ],
 };
 
 import type { AiSchemaAction } from '@kamehadb/shared';
@@ -242,7 +212,7 @@ import { Sparkles, Beaker, KeyRound } from 'lucide-react';
 /** Schema-tree right-click AI action definitions. Each action has a menu label,
  * a lucide icon, and a prompt template that takes the qualified table name
  * (schema.table) and returns the user message sent to the AI chat. The table
- * DDL is injected separately by the sidecar via the tableId on the chat request. */
+ * DDL is injected separately by the backend via the tableId on the chat request. */
 export const AI_SCHEMA_ACTIONS: Record<
   AiSchemaAction,
   { label: string; icon: LucideIcon; buildPrompt: (qualifiedTable: string) => string }
@@ -290,7 +260,7 @@ export type SlowQueryPromptContext = {
 /** Slow-query AI actions. Each row in the Slow queries tab exposes two
  * buttons ("Suggest index" and "Explain") that pre-seed the AI chat via the
  * existing pendingAiPrompt store field (reused from Phase 4). No tableId is
- * set because a slow query is not table-scoped; the sidecar falls back to
+ * set because a slow query is not table-scoped; the backend falls back to
  * full-schema DDL context. */
 export const SLOW_QUERY_AI_ACTIONS: Record<
   'suggest-index' | 'explain',

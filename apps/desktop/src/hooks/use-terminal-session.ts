@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { TerminalSize, TerminalSessionStarted } from '@/lib/terminal-session';
 import {
+  onTerminalSessionEvent,
   resizeTerminalSession,
   stopTerminalSession,
-  TERMINAL_SESSION_EVENT,
   writeTerminalSession,
 } from '@/lib/terminal-session';
 import {
@@ -15,7 +15,6 @@ import {
   type TerminalSessionKind,
   type TerminalSessionState,
 } from '@/lib/terminal-session-state';
-import { listenTauri } from '@/lib/tauri';
 
 export function canStartTerminalSession(status: TerminalSessionState['status'], startPending: boolean) {
   return !startPending && status !== 'starting' && status !== 'running';
@@ -105,7 +104,7 @@ export function useTerminalSession({ kind, onData, startSession }: UseTerminalSe
       pendingSizeRef.current = size;
 
       try {
-        const unlisten = await listenTauri<TerminalSessionEvent>(TERMINAL_SESSION_EVENT, applyEvent);
+        const unlisten = onTerminalSessionEvent(applyEvent);
         if (!isMountedRef.current || startTokenRef.current !== startToken) {
           unlisten();
           return;

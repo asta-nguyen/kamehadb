@@ -122,7 +122,7 @@ function Workspace() {
   }
   if (!activeConnectionId || !activeConnection) return <WelcomePage greeting={greeting[0]} prompt={greeting[1]} />;
   if (openedTabs.length === 0) {
-    if (activeConnection.kind === 'mongodb' || activeConnection.kind === 'qdrant') {
+    if (activeConnection.kind === 'mongodb') {
       return (
         <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
           Select a collection from the sidebar
