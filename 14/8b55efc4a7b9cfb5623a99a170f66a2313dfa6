@@ -1,0 +1,14 @@
+.agents/skills/brainstorm-feature/SKILL.md
+  h_611058a46223af 179,236
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "148b55efc4a7b9cfb5623a99a170f66a2313dfa6",
+  "prompts": {},
+  "humans": {
+    "h_611058a46223af": {
+      "author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
