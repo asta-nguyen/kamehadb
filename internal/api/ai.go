@@ -222,6 +222,21 @@ func newRequestID() string {
 	return hex.EncodeToString(b)
 }
 
+// schemaCacheKey derives the TTL-cache key for a chat's schema context:
+// database-scoped for MongoDB, table-scoped when a table is selected, and
+// connection-scoped otherwise. Reads and writes share this function so a
+// cached entry is always read back under the key it was written with. (Why)
+func schemaCacheKey(connectionID, tableID, mongoDatabase string) string {
+	switch {
+	case mongoDatabase != "":
+		return "ai-schema:" + connectionID + ":mongo:" + mongoDatabase
+	case tableID != "":
+		return "ai-schema:" + connectionID + ":sql:" + tableID
+	default:
+		return "ai-schema:" + connectionID + ":sql"
+	}
+}
+
 // StartChat validates synchronously (like the route's pre-stream phase), then
 // streams the answer over `chat:<id>` events. Returns the request id.
 func (s *AiService) StartChat(input ChatInput) (string, error) {
@@ -270,14 +285,17 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 			connectionKind = profile.Kind
 		}
 
-		cacheKey := "ai-schema:" + input.ConnectionID + ":sql"
-		if input.MongoDatabase != "" {
-			cacheKey = "ai-schema:" + input.ConnectionID + ":mongo:" + input.MongoDatabase
-			if cached := s.cache.get(cacheKey, aiSchemaCacheTime); cached != nil {
+		// Reads and writes share schemaCacheKey so a cached entry is always read
+		// back under the key it was written with; a table-scoped chat reads the
+		// table key, so a connection-level entry cannot shadow the selected
+		// table's context. (Why)
+		cacheKey := schemaCacheKey(input.ConnectionID, input.TableID, input.MongoDatabase)
+		if cached := s.cache.get(cacheKey, aiSchemaCacheTime); cached != nil {
+			if input.MongoDatabase != "" {
 				mongoSchema = cached.(string)
+			} else {
+				ddl = cached.(string)
 			}
-		} else if cached := s.cache.get(cacheKey, aiSchemaCacheTime); cached != nil {
-			ddl = cached.(string)
 		}
 
 		if ddl == "" && mongoSchema == "" && profile != nil {
@@ -305,7 +323,7 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 						return "", errors.New("Schema context is unavailable due to an error")
 					}
 					if ddl != "" {
-						s.cache.set("ai-schema:"+input.ConnectionID+":sql:"+input.TableID, ddl)
+						s.cache.set(schemaCacheKey(input.ConnectionID, input.TableID, ""), ddl)
 					}
 				}
 				if ddl == "" {
@@ -325,7 +343,10 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 							return "", errors.New("Schema context is unavailable due to an error")
 						}
 					}
-					s.cache.set(cacheKey, ddl)
+					// Full-schema fallbacks always cache at connection scope, so a
+					// table-scoped chat cannot pin a full-schema entry under its
+					// table key. (Why)
+					s.cache.set(schemaCacheKey(input.ConnectionID, "", ""), ddl)
 				}
 				if profile.Kind == engines.KindPostgres {
 					vectorPrompt = s.resolvePostgresVectorPrompt(ctx, input.ConnectionID, profile)

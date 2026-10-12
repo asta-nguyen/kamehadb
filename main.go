@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"embed"
-	"path/filepath"
 	"runtime/debug"
 
 	"github.com/wailsapp/wails/v2"
@@ -34,14 +33,20 @@ func main() {
 	debug.SetMemoryLimit(128 * 1024 * 1024)
 	debug.SetGCPercent(50)
 
+	// Log files live beside the metadata DB, like the Tauri app_data_dir/logs.
+	// Init before Open so migration-time entries (legacy profile export)
+	// reach the log. (Why)
+	dataDir, err := store.DataDir()
+	if err != nil {
+		dataDir = "."
+	}
+	if err := logs.Init(dataDir); err != nil {
+		println("Error initializing logs:", err.Error())
+	}
 	metadata, err := store.Open("")
 	if err != nil {
 		println("Error opening metadata store:", err.Error())
 		return
-	}
-	// Log files live beside the metadata DB, like the Tauri app_data_dir/logs.
-	if err := logs.Init(filepath.Dir(metadata.Path())); err != nil {
-		println("Error initializing logs:", err.Error())
 	}
 	registry := engines.NewRegistry(metadata)
 

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="KamehaDB"
+    Manufacturer="asta-nguyen"
+    Version="$(Version)"
+    UpgradeCode="E7B3D0F2-6A4C-4E8B-9C1D-2F5A7B9C0D31"
+    Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of KamehaDB is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="KamehaDB" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="KamehaDB" />
+    </StandardDirectory>
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable">
+        <File Id="KamehadbExe" Source="$(ExePath)" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder">
+      <Shortcut Id="AppShortcut" Name="KamehaDB" Target="[INSTALLFOLDER]kamehadb.exe" WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKLM" Key="Software\KamehaDB" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

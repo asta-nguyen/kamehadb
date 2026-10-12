@@ -281,6 +281,75 @@ export function stripLeadingComments(sql: string): string {
   return s;
 }
 
+// Detect an ORDER BY that belongs to the outermost query. Skips comments,
+// string literals and quoted identifiers, and ignores anything inside
+// parentheses (window expressions, subqueries), because T-SQL OFFSET...FETCH
+// only accepts an ORDER BY at the same query level. (How / Why / What)
+export function hasTopLevelOrderBy(sql: string): boolean {
+  let depth = 0;
+  // Sticky matching allows arbitrary whitespace without allocating each suffix.
+  const orderByPattern = /order\s+by\b/iy;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    if (ch === "'" || ch === '"' || ch === '[') {
+      const closer = ch === '[' ? ']' : ch;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === closer) {
+          // A doubled closer is an escaped character ('' , "" or ]]), not the
+          // terminator, so the quoted region continues past it.
+          if (sql[i + 1] === closer) {
+            i += 2;
+            continue;
+          }
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (ch === '-' && sql[i + 1] === '-') {
+      const newlineIdx = sql.indexOf('\n', i);
+      if (newlineIdx === -1) return false;
+      i = newlineIdx;
+      continue;
+    }
+    if (ch === '/' && sql[i + 1] === '*') {
+      // T-SQL block comments nest, so track depth instead of stopping at the
+      // first */ — text after a nested close must not be read as SQL.
+      let commentDepth = 1;
+      i += 2;
+      while (i < sql.length && commentDepth > 0) {
+        if (sql[i] === '/' && sql[i + 1] === '*') {
+          commentDepth++;
+          i += 2;
+        } else if (sql[i] === '*' && sql[i + 1] === '/') {
+          commentDepth--;
+          i += 2;
+        } else {
+          i++;
+        }
+      }
+      if (commentDepth > 0) return false;
+      i--;
+      continue;
+    }
+    if (ch === '(') {
+      depth++;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0 && (ch === 'o' || ch === 'O') && !/[\w$#@]/.test(sql[i - 1] ?? '')) {
+      orderByPattern.lastIndex = i;
+      if (orderByPattern.test(sql)) return true;
+    }
+  }
+  return false;
+}
+
 // Append dialect-aware limit and offset clauses to read-only queries (SELECT / WITH / VALUES / TABLE).
 // Prevents syntax errors on T-SQL (OFFSET...FETCH instead of LIMIT) and Oracle (FETCH FIRST),
 // and respects leading comments without bypassing safety caps. (How / Why / What)
@@ -301,7 +370,7 @@ export function applyQueryLimit(sql: string, limit: number, offsetVal?: number, 
     if (/\b(TOP\s*\(?\s*\d+|OFFSET\s+\d+|FETCH\s+(NEXT|FIRST))\b/i.test(sql)) return sql;
     const offset = offsetVal ?? 0;
     // T-SQL requires an ORDER BY clause when using OFFSET...FETCH. Fall back to ORDER BY (SELECT NULL) if absent.
-    if (/\bORDER\s+BY\b/i.test(sql)) {
+    if (hasTopLevelOrderBy(sql)) {
       return `${trimmed}\nOFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
     }
     return `${trimmed}\nORDER BY (SELECT NULL) OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;

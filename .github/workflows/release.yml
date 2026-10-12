@@ -30,8 +30,11 @@ jobs:
         with:
           tag_name: ${{ steps.release_tag.outputs.value }}
           name: KamehaDB ${{ steps.release_tag.outputs.value }}
+          body: |
+            Linux RPM targets Fedora 40+ (`gtk3`, `webkit2gtk4.1`).
+            The AppImage requires WebKit2GTK 4.1 on the host; this workflow does not bundle WebKit helper processes.
           draft: true
-          prerelease: ${{ contains(steps.release_tag.outputs.value, 'alpha') || contains(steps.release_tag.outputs.value, 'beta') || contains(steps.release_tag.outputs.value, 'rc') }}
+          prerelease: ${{ contains(steps.release_tag.outputs.value, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -95,24 +98,76 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: wails build -platform ${{ matrix.wails_platform }} -tags webkit2_41
 
+      - name: Ensure NSIS (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            choco install nsis -y --no-progress
+          }
+
+      - name: Install WiX (Windows)
+        if: ${{ matrix.platform == 'windows-latest' && !contains(needs.create-release.outputs.tag_name, '-') }}
+        run: dotnet tool install --global wix --version 6.0.2
+
       - name: Build Wails app (Windows)
         if: matrix.platform == 'windows-latest'
-        run: wails build -platform ${{ matrix.wails_platform }}
+        run: wails build -platform ${{ matrix.wails_platform }} -nsis
 
       - name: Package macOS bundle
         if: matrix.platform == 'macos-latest'
         run: |
           cd build/bin
           ditto -c -k --sequesterRsrc --keepParent kamehadb.app ../../kamehadb-${{ matrix.artifact_name }}.zip
+          hdiutil create -volname KamehaDB -srcfolder kamehadb.app -ov -format UDZO ../../kamehadb-${{ matrix.artifact_name }}.dmg
 
       - name: Package Linux binary
         if: matrix.platform == 'ubuntu-22.04'
         run: tar -czf kamehadb-${{ matrix.artifact_name }}.tar.gz -C build/bin kamehadb
 
+      - name: Package Linux packages (deb/rpm)
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          VERSION: ${{ needs.create-release.outputs.tag_name }}
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
+          NFPM="$(go env GOPATH)/bin/nfpm"
+          VERSION="${VERSION#v}" "$NFPM" package --config build/linux/nfpm.yaml --packager deb --target .
+          mkdir -p rpm-output
+          VERSION="${VERSION#v}" "$NFPM" package --config build/linux/nfpm.yaml --packager rpm --target rpm-output
+          mv rpm-output/*.rpm "kamehadb-${{ matrix.artifact_name }}-fedora40.rpm"
+
+      - name: Package AppImage
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp build/bin/kamehadb AppDir/usr/bin/kamehadb
+          cp build/linux/kamehadb.desktop AppDir/usr/share/applications/kamehadb.desktop
+          cp apps/desktop/public/logo.png AppDir/usr/share/icons/hicolor/256x256/apps/kamehadb.png
+          curl -fsSL -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+          curl -fsSL -o linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/7a3fbc31a9e5075073ff8790f26effbac5f84453/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy linuxdeploy-plugin-gtk.sh
+          export DEPLOY_GTK_VERSION=3
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          export OUTPUT=kamehadb-${{ matrix.artifact_name }}.AppImage
+          ./linuxdeploy --appdir AppDir --plugin gtk --output appimage
+
       - name: Package Windows binary
         if: matrix.platform == 'windows-latest'
-        run: copy "build\bin\kamehadb.exe" "kamehadb-${{ matrix.artifact_name }}.exe"
+        run: |
+          copy "build\bin\kamehadb.exe" "kamehadb-${{ matrix.artifact_name }}.exe"
+          copy "build\bin\kamehadb-amd64-installer.exe" "kamehadb-${{ matrix.artifact_name }}-installer.exe"
         shell: cmd
+
+      - name: Package Windows MSI
+        if: ${{ matrix.platform == 'windows-latest' && !contains(needs.create-release.outputs.tag_name, '-') }}
+        shell: pwsh
+        env:
+          TAG: ${{ needs.create-release.outputs.tag_name }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          $version = (($env:TAG -replace '^v','') -replace '\+.*$','')
+          wix build -arch x64 -d Version=$version -d ExePath=build\bin\kamehadb.exe -o "kamehadb-${{ matrix.artifact_name }}.msi" build\windows\kamehadb.wxs
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -121,8 +176,13 @@ jobs:
           if-no-files-found: error
           path: |
             kamehadb-*.zip
+            kamehadb-*.dmg
             kamehadb-*.tar.gz
+            kamehadb*.deb
+            kamehadb*.rpm
+            kamehadb-*.AppImage
             kamehadb-*.exe
+            kamehadb-*.msi
 
   publish-release-assets:
     needs:
@@ -146,7 +206,12 @@ jobs:
           tag_name: ${{ needs.create-release.outputs.tag_name }}
           files: |
             release-assets/**/*.zip
-            release-assets/**/*.exe
+            release-assets/**/*.dmg
             release-assets/**/*.tar.gz
+            release-assets/**/*.deb
+            release-assets/**/*.rpm
+            release-assets/**/*.AppImage
+            release-assets/**/*.exe
+            release-assets/**/*.msi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

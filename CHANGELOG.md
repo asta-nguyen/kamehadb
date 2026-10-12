@@ -11,6 +11,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with a single Wails/Go binary. All backend routes are now in-process Go services and the frontend communicates through generated Wails bindings, eliminating sidecar IPC.
 - **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
+- **Release packaging** — ship `.dmg`, `.deb`, Fedora 40+ `.rpm`, and `.AppImage` packages, plus a Windows NSIS installer and a WiX `.msi` for stable tags. The AppImage uses the GTK bundling plugin and requires the host WebKit2GTK 4.1 runtime; it does not bundle the WebKit subprocess runtime.
 
 ### Added
 
@@ -27,10 +28,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - **Dialect-aware query limiting** — update `sql-editor.tsx` to apply T-SQL `OFFSET...FETCH` on SQL Server and Oracle `OFFSET...FETCH` instead of invalid `LIMIT` clauses; strip leading single and multi-line comments so commented queries (`/* ... */`, `-- ...`) are correctly limited without syntax errors.
+- **T-SQL pagination with window/comment ORDER BY** — detect only the outermost `ORDER BY` when appending `OFFSET...FETCH` in `sql-editor.tsx`, including clauses with arbitrary whitespace and ignoring occurrences inside window expressions, comments (including nested block comments), string literals, and quoted identifiers (including escaped `]]`) that previously produced invalid T-SQL.
+- **ClickHouse search escaping & fail-closed probe** — escape backslashes before quotes in Table View search literals (ClickHouse treats backslash as the escape character) and return an error instead of running the query unfiltered when the search-column metadata probe fails.
+- **AI schema cache scoping** — read schema context back under the key it was written with: a table-scoped chat reuses its table-keyed cache entry instead of being shadowed by a connection-level entry, and full-schema fallbacks cache at connection scope.
 - **Tab bar action button visibility** — pin tab bar action buttons (`New Aggregation`, `New Query`, `Schema Graph`, `Federated Query`) to a fixed right-side container so they remain accessible when opening many tabs.
 - **Connection tooltip click blocking** — add `pointer-events-none` to connection tooltips so hover cards never intercept clicks on the `...` action menu.
 - **CodeMirror theme switching** — dynamically toggle CodeMirror between native light styling and `oneDark` using a `Compartment` to respect light/dark mode.
-- **Legacy engine profile cleanup** — purge dropped `tigerbeetle` and `qdrant` profiles during metadata migration and filter them in the sidebar with `ALL_KINDS`.
+- **Legacy engine profile cleanup** — export dropped `tigerbeetle` and `qdrant` profiles to a `removed-profiles-*.json` file beside the metadata database, then purge them during metadata migration and filter them in the sidebar with `ALL_KINDS`.
 - **SQL query cancellation** — wire `api.cancelQuery` to Escape key press, toolbar Cancel button, and tab unmount cleanup so long-running queries can be aborted on demand and do not outlive closed tabs.
 - **Query tab connection visibility** — display target database name and color badge in the query editor toolbar and tab bar to avoid running queries against the wrong database.
 - **Table virtualization offset** — pass `scrollMargin` to `useVirtualizer` in `DataTable` and compute dynamic index column width to prevent offset calculation bugs and cell text clipping on deep offsets.

@@ -2,11 +2,13 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/asta-nguyen/kamehadb/internal/engines"
 	_ "modernc.org/sqlite"
 )
 
@@ -240,8 +242,9 @@ func TestMcpNormalization(t *testing.T) {
 	}
 }
 
-// TestRealDB runs the migration against a copy of a real kamehadb.db.
-// Skipped unless REAL_KAMEHADB_DB points at the source file.
+// TestRealDB runs the migration against a copy of a real kamehadb.db and
+// verifies profiles plus MCP state survive. Skipped unless REAL_KAMEHADB_DB
+// points at the source file.
 func TestRealDB(t *testing.T) {
 	src := os.Getenv("REAL_KAMEHADB_DB")
 	if src == "" {
@@ -251,9 +254,29 @@ func TestRealDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Capture the source bearer token before migration: GetMCPSettings
+	// re-seeds a missing row, so existence alone would not prove survival.
+	srcToken := ""
+	if raw, err := sql.Open("sqlite", "file:"+src+"?mode=ro"); err == nil {
+		if err := raw.QueryRow(`SELECT token FROM mcp_settings WHERE id = 1`).Scan(&srcToken); err != nil && err != sql.ErrNoRows {
+			t.Logf("could not read source token: %v", err)
+		}
+		raw.Close()
+	} else {
+		t.Logf("could not open source db read-only: %v", err)
+	}
 	dst := filepath.Join(t.TempDir(), "kamehadb.db")
 	if err := os.WriteFile(dst, data, 0o600); err != nil {
 		t.Fatal(err)
+	}
+	// Copy the vault key next to the migrated copy so stored MCP credentials
+	// can still be decrypted. (Why)
+	keyCopied := false
+	if key, err := os.ReadFile(src + ".mcp.key"); err == nil {
+		if err := os.WriteFile(dst+".mcp.key", key, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		keyCopied = true
 	}
 	s, err := Open(dst)
 	if err != nil {
@@ -269,5 +292,183 @@ func TestRealDB(t *testing.T) {
 		if p.ID == "" || p.Kind == "" {
 			t.Errorf("bad migrated profile: %+v", p)
 		}
+	}
+	settings, err := s.GetMCPSettings()
+	if err != nil {
+		t.Fatalf("read mcp settings: %v", err)
+	}
+	if srcToken != "" && settings.Token != srcToken {
+		t.Error("mcp_settings token did not survive migration")
+	}
+	accounts, err := s.ListMCPManagedAccounts()
+	if err != nil {
+		t.Fatalf("list mcp managed accounts: %v", err)
+	}
+	t.Logf("migrated real db: %d mcp managed accounts", len(accounts))
+	for _, acc := range accounts {
+		has, err := s.HasMCPManagedCredential(acc.ProfileID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !has {
+			continue
+		}
+		if !keyCopied {
+			t.Errorf("credential for %s cannot be verified: no %s.mcp.key beside the source db", acc.ProfileID, src)
+			continue
+		}
+		bundle, err := s.LoadMCPManagedCredential(acc.ProfileID)
+		if err != nil {
+			t.Errorf("credential for %s did not decrypt after migration: %v", acc.ProfileID, err)
+			continue
+		}
+		if bundle == nil || !bundle.valid() {
+			t.Errorf("credential for %s reloaded invalid: %+v", acc.ProfileID, bundle)
+		}
+	}
+}
+
+// Legacy profiles for engines removed in the rewrite must be exported to a
+// JSON file beside the database before their rows are deleted. (Why)
+func TestMigrationExportsRemovedProfiles(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kamehadb.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB().Exec(`INSERT INTO connection_profiles (id, name, kind, host, port)
+		VALUES ('q1', 'Old Qdrant', 'qdrant', 'localhost', 6333),
+		       ('t1', 'Old TigerBeetle', 'tigerbeetle', 'localhost', 3001)`); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+
+	s2, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	var count int64
+	if err := s2.DB().QueryRow(
+		`SELECT COUNT(*) FROM connection_profiles WHERE kind IN ('qdrant','tigerbeetle')`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("legacy profiles should be purged, found %d", count)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "removed-profiles-*.json"))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("expected exactly one export file, got %v (err %v)", matches, err)
+	}
+	data, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		Profiles []Profile `json:"profiles"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Profiles) != 2 {
+		t.Fatalf("expected 2 exported profiles, got %d", len(payload.Profiles))
+	}
+	if strings.Contains(string(data), "password") {
+		t.Error("export must not contain password fields")
+	}
+}
+
+// TestMigrationFromLegacySidecarDB replicates a last-version sidecar metadata
+// database (pre-mariadb profile CHECK, no mcp_settings.history_enabled) with a
+// stored MCP credential and verifies the migration keeps the bearer token, the
+// managed-account row, and a decryptable credential. (Why)
+func TestMigrationFromLegacySidecarDB(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kamehadb.db")
+
+	raw, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := []string{
+		`CREATE TABLE connection_profiles (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			kind TEXT NOT NULL CHECK(kind IN ('postgres','sqlite','mysql','redis','mongodb','qdrant','sqlserver','oracle','clickhouse')),
+			host TEXT,
+			port INTEGER,
+			database TEXT,
+			username TEXT,
+			password TEXT,
+			ssl INTEGER DEFAULT 0,
+			file_path TEXT,
+			color TEXT,
+			connection_string TEXT,
+			created_at TEXT NOT NULL DEFAULT (datetime('now')),
+			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+		)`,
+		`CREATE TABLE mcp_managed_accounts (
+			profile_id TEXT PRIMARY KEY,
+			keychain_ref TEXT NOT NULL UNIQUE,
+			state TEXT NOT NULL CHECK(state IN ('prepared','provisioning','recovery_required','ready','revoke_failed','keychain_cleanup_pending')),
+			credential_ciphertext TEXT
+		)`,
+		`CREATE TABLE mcp_settings (id INTEGER PRIMARY KEY, port INTEGER NOT NULL, token TEXT NOT NULL)`,
+		`INSERT INTO connection_profiles (id, name, kind, host, port, username, password)
+			VALUES ('p1', 'Legacy PG', 'postgres', 'localhost', 5432, 'u', 'p')`,
+		`INSERT INTO mcp_managed_accounts (profile_id, keychain_ref, state)
+			VALUES ('p1', 'kamehadb_mcp_p1', 'ready')`,
+		`INSERT INTO mcp_settings (id, port, token) VALUES (1, 13979, 'legacy-token-123')`,
+	}
+	for _, q := range legacy {
+		if _, err := raw.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Simulate the sidecar-written credential: same v1 vault format with the
+	// key file beside the database.
+	bundle := MCPCredentialBundle{Kind: engines.KindPostgres, Username: "mcp_ro", Password: "secret"}
+	ciphertext, err := encryptMCPCredential(path, "p1", "kamehadb_mcp_p1", bundle, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(
+		`UPDATE mcp_managed_accounts SET credential_ciphertext = ? WHERE profile_id = 'p1'`,
+		ciphertext); err != nil {
+		t.Fatal(err)
+	}
+	raw.Close()
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("open legacy db: %v", err)
+	}
+	defer s.Close()
+
+	settings, err := s.GetMCPSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.Token != "legacy-token-123" {
+		t.Errorf("token = %q, want the legacy token preserved", settings.Token)
+	}
+	profiles, err := s.ListProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(profiles) != 1 || profiles[0].Kind != engines.KindPostgres {
+		t.Fatalf("profiles after migration = %+v", profiles)
+	}
+	has, err := s.HasMCPManagedCredential("p1")
+	if err != nil || !has {
+		t.Fatalf("credential row lost in migration: has=%v err=%v", has, err)
+	}
+	loaded, err := s.LoadMCPManagedCredential("p1")
+	if err != nil {
+		t.Fatalf("decrypt after migration: %v", err)
+	}
+	if loaded == nil || loaded.Username != "mcp_ro" || loaded.Password != "secret" {
+		t.Fatalf("credential = %+v, want the seeded bundle", loaded)
 	}
 }

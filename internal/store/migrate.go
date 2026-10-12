@@ -2,10 +2,15 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/internal/logs"
 )
 
 // migrate applies the metadata schema, mirroring the migration sequence in
@@ -70,8 +75,20 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	// Drop legacy profiles for engines that were removed in the rewrite (Qdrant & TigerBeetle).
-	_, _ = s.db.Exec("DELETE FROM connection_profiles WHERE kind IN ('tigerbeetle', 'qdrant')")
+	// Drop legacy profiles for engines that were removed in the rewrite
+	// (Qdrant & TigerBeetle), exporting them first so the purge stays
+	// recoverable. A failed export aborts the migration rather than losing
+	// the rows. (How / Why / What)
+	exportPath, err := s.exportRemovedProfiles()
+	if err != nil {
+		return fmt.Errorf("export removed profiles: %w", err)
+	}
+	if exportPath != "" {
+		logs.Info("store", "exported legacy qdrant/tigerbeetle profiles to "+exportPath)
+	}
+	if _, err := s.db.Exec("DELETE FROM connection_profiles WHERE kind IN ('tigerbeetle', 'qdrant')"); err != nil {
+		return fmt.Errorf("purge removed profiles: %w", err)
+	}
 
 	managedStates := "'" + strings.Join(MCPManagedAccountStates, "', '") + "'"
 	if _, err := s.db.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS mcp_managed_accounts (
@@ -389,4 +406,51 @@ func (s *Store) rebuildProfiles(checkList string) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// exportRemovedProfiles dumps profiles for engines removed in the rewrite
+// (Qdrant & TigerBeetle) to a JSON file beside the database before their
+// rows are deleted, so the purge stays recoverable. Passwords are not
+// included. Returns "" when there is nothing to export. (How / Why / What)
+func (s *Store) exportRemovedProfiles() (string, error) {
+	rows, err := s.db.Query(
+		`SELECT ` + profileColumns + ` FROM connection_profiles
+		 WHERE kind IN ('tigerbeetle', 'qdrant') ORDER BY updated_at DESC`)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var profiles []Profile
+	for rows.Next() {
+		p, err := scanProfile(rows)
+		if err != nil {
+			return "", err
+		}
+		profiles = append(profiles, p)
+	}
+	if err := rows.Err(); err != nil {
+		return "", err
+	}
+	if len(profiles) == 0 {
+		return "", nil
+	}
+	payload := struct {
+		ExportedAt string    `json:"exportedAt"`
+		Reason     string    `json:"reason"`
+		Profiles   []Profile `json:"profiles"`
+	}{
+		ExportedAt: time.Now().UTC().Format(time.RFC3339),
+		Reason:     "Engines removed in the Wails/Go rewrite; profiles are not usable by this app version.",
+		Profiles:   profiles,
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(filepath.Dir(s.path),
+		"removed-profiles-"+time.Now().UTC().Format("20060102T150405Z")+".json")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
 }

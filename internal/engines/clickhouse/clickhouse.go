@@ -356,33 +356,39 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 		colRows, err := a.db.QueryContext(ctx,
 			"SELECT name FROM system.columns WHERE database = ? AND table = ? AND (type LIKE '%String%' OR type LIKE '%FixedString%') ORDER BY position",
 			db, table)
-		if err == nil {
-			var cols []string
-			for colRows.Next() {
-				var name string
-				if err := colRows.Scan(&name); err == nil {
-					if input.SearchColumn != "" && name != input.SearchColumn {
-						continue
-					}
-					cols = append(cols, name)
-				}
+		if err != nil {
+			// Fail closed: a search must never silently run without its filter.
+			return nil, err
+		}
+		defer colRows.Close()
+		var cols []string
+		for colRows.Next() {
+			var name string
+			if err := colRows.Scan(&name); err != nil {
+				return nil, err
 			}
-			colRows.Close()
-			if len(cols) > 0 {
-				clauses := make([]string, len(cols))
-				fn := "positionCaseInsensitive"
-				if input.MatchCase {
-					fn = "position"
-				}
-				escapedSearch := strings.ReplaceAll(input.Search, "'", "\\'")
-				for i, col := range cols {
-					clauses[i] = fmt.Sprintf("%s(%s, '%s') > 0", fn, esc(col), escapedSearch)
-				}
-				sb.WriteString(" WHERE ")
-				sb.WriteString(strings.Join(clauses, " OR "))
-			} else {
-				sb.WriteString(" WHERE 1 = 0")
+			if input.SearchColumn != "" && name != input.SearchColumn {
+				continue
 			}
+			cols = append(cols, name)
+		}
+		if err := colRows.Err(); err != nil {
+			return nil, err
+		}
+		if len(cols) > 0 {
+			clauses := make([]string, len(cols))
+			fn := "positionCaseInsensitive"
+			if input.MatchCase {
+				fn = "position"
+			}
+			searchLit := escVal(input.Search)
+			for i, col := range cols {
+				clauses[i] = fmt.Sprintf("%s(%s, %s) > 0", fn, esc(col), searchLit)
+			}
+			sb.WriteString(" WHERE ")
+			sb.WriteString(strings.Join(clauses, " OR "))
+		} else {
+			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
 

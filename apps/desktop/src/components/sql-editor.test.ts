@@ -7,7 +7,13 @@ vi.hoisted(() => {
   });
 });
 
-import { applyQueryLimit, containsMultipleStatements, normalizeSqlForSafety, stripLeadingComments } from './sql-editor';
+import {
+  applyQueryLimit,
+  containsMultipleStatements,
+  hasTopLevelOrderBy,
+  normalizeSqlForSafety,
+  stripLeadingComments,
+} from './sql-editor';
 import { isQuerySafe, KIND } from '@kamehadb/shared';
 
 describe('SQL editor statement detection', () => {
@@ -60,6 +66,56 @@ describe('SQL editor dialect-aware query limiting', () => {
     // Already has TOP: does not inject
     expect(applyQueryLimit('SELECT TOP 10 * FROM users', 100, undefined, KIND.SQLSERVER)).toBe(
       'SELECT TOP 10 * FROM users',
+    );
+  });
+
+  it('ignores ORDER BY in window expressions, comments and literals for T-SQL', () => {
+    // A window function's ORDER BY does not satisfy OFFSET...FETCH's outer clause.
+    expect(
+      applyQueryLimit('SELECT ROW_NUMBER() OVER (PARTITION BY a ORDER BY b) AS rn FROM users', 100, 0, KIND.SQLSERVER),
+    ).toBe(
+      'SELECT ROW_NUMBER() OVER (PARTITION BY a ORDER BY b) AS rn FROM users\nORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY',
+    );
+    // Comment / literal occurrences must not be mistaken for a real clause.
+    expect(applyQueryLimit('SELECT * FROM users -- order by id', 100, 0, KIND.SQLSERVER)).toBe(
+      'SELECT * FROM users -- order by id\nORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY',
+    );
+    expect(applyQueryLimit('SELECT * FROM users /* ORDER BY id */', 100, 0, KIND.SQLSERVER)).toBe(
+      'SELECT * FROM users /* ORDER BY id */\nORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY',
+    );
+    expect(applyQueryLimit("SELECT 'ORDER BY' AS x FROM users", 100, 0, KIND.SQLSERVER)).toBe(
+      "SELECT 'ORDER BY' AS x FROM users\nORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY",
+    );
+  });
+
+  it('finds only a top-level ORDER BY for T-SQL pagination', () => {
+    expect(hasTopLevelOrderBy('SELECT * FROM users ORDER BY id')).toBe(true);
+    expect(hasTopLevelOrderBy('SELECT * FROM users\nORDER\nBY id')).toBe(true);
+    expect(hasTopLevelOrderBy('SELECT ROW_NUMBER() OVER (ORDER BY id) FROM users')).toBe(false);
+    expect(hasTopLevelOrderBy('SELECT * FROM users -- ORDER BY id')).toBe(false);
+    expect(hasTopLevelOrderBy('SELECT [ORDER BY] FROM users')).toBe(false);
+    expect(hasTopLevelOrderBy("SELECT 'it''s ORDER BY' FROM users")).toBe(false);
+  });
+
+  it('does not expose an escaped bracket inside a quoted identifier for T-SQL', () => {
+    // ]] inside [..] is an escaped ], not the terminator, so this whole token
+    // is one identifier and the query has no outer ORDER BY.
+    expect(hasTopLevelOrderBy('SELECT [name]] ORDER BY text] FROM t')).toBe(false);
+    expect(hasTopLevelOrderBy('SELECT [a]]] FROM t ORDER BY id')).toBe(true);
+    expect(applyQueryLimit('SELECT [name]] ORDER BY text] FROM t', 100, 0, KIND.SQLSERVER)).toBe(
+      'SELECT [name]] ORDER BY text] FROM t\nORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY',
+    );
+  });
+
+  it('handles nested T-SQL block comments', () => {
+    // T-SQL block comments nest, so ORDER BY text after an inner close is
+    // still inside the comment and must not count as a real clause.
+    expect(hasTopLevelOrderBy('SELECT * FROM users /* outer /* inner ORDER BY id */ still comment */ WHERE 1=1')).toBe(
+      false,
+    );
+    expect(hasTopLevelOrderBy('SELECT * FROM users /* a /* b */ c */ ORDER BY id')).toBe(true);
+    expect(applyQueryLimit('SELECT * FROM users /* a /* b */ c */', 100, 0, KIND.SQLSERVER)).toBe(
+      'SELECT * FROM users /* a /* b */ c */\nORDER BY (SELECT NULL) OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY',
     );
   });
 

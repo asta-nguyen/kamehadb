@@ -27,9 +27,12 @@ This wiki records behavior checked against current repository source and relevan
 ## Operations
 
 - [Diagnostics and database maintenance](operations/diagnostics-and-maintenance.md)
+- [Release packaging](operations/release-packaging.md)
 
 ## Requirement prefixes
 
 | Prefix | Domain                             |
 | ------ | ---------------------------------- |
+| AI     | AI provider and chat integration   |
 | MCP    | Model Context Protocol integration |
+| OPS    | Release packaging                  |
