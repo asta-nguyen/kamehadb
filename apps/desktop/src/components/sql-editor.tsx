@@ -280,6 +280,7 @@ import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
 import { isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
+import { useConnections } from '@/hooks/use-connections';
 import {
   AlertCircle,
   BarChart3,
@@ -292,8 +293,8 @@ import {
   Eye,
   FileJson,
   History,
-  Loader2,
   Play,
+  Square,
   Table2,
 } from 'lucide-react';
 import { QUERY_KEYS } from '@/lib/query-keys';
@@ -616,6 +617,35 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const runQuery = useRunQuery(connectionId);
   const saveHistory = useSaveQueryHistory(connectionId);
 
+  const { data: connections } = useConnections();
+  const targetConn = useMemo(() => connections?.find((c) => c.id === connectionId), [connections, connectionId]);
+
+  const handleCancel = useCallback(() => {
+    void api.cancelQuery(connectionId);
+  }, [connectionId]);
+
+  // Wire Escape key to cancel query while running. (How / Why / What)
+  useEffect(() => {
+    if (!runQuery.isPending && !isExecutingBatch) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [runQuery.isPending, isExecutingBatch, handleCancel]);
+
+  // Abort running query and clear result references when tab unmounts to free memory. (How / Why / What)
+  useEffect(() => {
+    return () => {
+      setResult(null);
+      setResults([]);
+      void api.cancelQuery(connectionId);
+    };
+  }, [connectionId]);
+
   // Only append LIMIT for queries that support it (SELECT / WITH / VALUES / TABLE).
   // Otherwise many engines error with "syntax error at or near 'LIMIT'".
   function queryWithLimit(sql: string, limit: number, offsetVal?: number): string {
@@ -875,17 +905,26 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
-        <Button size="sm" onClick={handleRun} disabled={runQuery.isPending || isExecutingBatch} className="gap-1.5">
-          {runQuery.isPending || isExecutingBatch ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
+        {runQuery.isPending || isExecutingBatch ? (
+          <Button size="sm" variant="destructive" onClick={handleCancel} className="gap-1.5">
+            <Square className="size-3.5 fill-current" />
+            Cancel
+          </Button>
+        ) : (
+          <Button size="sm" onClick={handleRun} className="gap-1.5">
             <Play className="size-3.5" />
-          )}
-          Run
-        </Button>
+            Run
+          </Button>
+        )}
         <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[10px] font-mono text-muted-foreground/50">
           {runQuery.isPending || isExecutingBatch ? 'Esc' : 'Ctrl+Enter'}
         </kbd>
+        {targetConn && (
+          <Badge variant="outline" className="gap-1.5 px-2 py-0.5 text-xs font-normal">
+            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: targetConn.color || '#3b82f6' }} />
+            <span className="font-medium text-foreground">{targetConn.name}</span>
+          </Badge>
+        )}
         <div className="flex-1" />
         <div className="w-px h-4 bg-border mx-0.5" />
         {result && (

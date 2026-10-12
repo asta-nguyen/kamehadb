@@ -78,6 +78,13 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const innerRef = useRef<HTMLDivElement>(null);
   const useResize = fixedTemplate === undefined;
+
+  // Dynamically compute index column width based on digit count to prevent overflow
+  // on deep offsets (e.g. offset > 10,000 or 1,000,000). (How / Why / What)
+  const maxRowIndex = indexOffset + rows.length;
+  const digits = Math.max(2, String(maxRowIndex).length);
+  const effectiveIndexWidth = indexWidth !== '32px' ? indexWidth : `${Math.max(40, digits * 8 + 24)}px`;
+
   // Sample up to 50 rows of body content per column for content-based sizing.
   const sampleValues =
     rows.length > 0
@@ -92,7 +99,7 @@ export function DataTable<T>({
         })
       : undefined;
   const { fullTemplate, onMouseDown: onColResize } = useColumnResize(columns.length, {
-    prefix: [prefix ? prefixWidth : '', showIndex ? indexWidth : ''].filter(Boolean).join(' '),
+    prefix: [prefix ? prefixWidth : '', showIndex ? effectiveIndexWidth : ''].filter(Boolean).join(' '),
     suffix: suffix ? suffixWidth : '',
     sampleValues,
     columnIds: columns.map((col) => col.id),
@@ -125,13 +132,15 @@ export function DataTable<T>({
     return innerRef.current;
   }, [scrollElement]);
 
-  // Window body rows when exceeding 40 rows to avoid allocating thousands of DOM nodes. (How / Why / What)
+  // Window body rows when exceeding 40 rows to avoid allocating thousands of DOM nodes.
+  // scrollMargin accounts for elements positioned above the table inside the same scroll parent. (How / Why / What)
   const isVirtualized = rows.length > 40;
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: getScrollParent,
     estimateSize: () => 29,
     overscan: 10,
+    scrollMargin: innerRef.current ? innerRef.current.offsetTop : 0,
     enabled: isVirtualized,
   });
 
@@ -165,7 +174,7 @@ export function DataTable<T>({
           </TableCell>
         )}
         {showIndex && (
-          <TableCell className="px-3 py-1 flex items-center text-muted-foreground tabular-nums">
+          <TableCell className="px-2 py-1 flex items-center justify-end text-muted-foreground tabular-nums select-none truncate">
             {indexOffset + rowIndex + 1}
           </TableCell>
         )}
@@ -220,7 +229,7 @@ export function DataTable<T>({
                       {prefixHeader ?? ''}
                     </TableHead>
                   )}
-                  {showIndex && <TableHead className={defaultHeaderClass}>#</TableHead>}
+                  {showIndex && <TableHead className={cn(defaultHeaderClass, 'text-right pr-2')}>#</TableHead>}
                   {columns.map((col, i) => {
                     const isSorted = sortColumn === col.id;
                     const clickable = !!col.sortable && !!onSortChange;

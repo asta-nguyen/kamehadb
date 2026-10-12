@@ -118,6 +118,7 @@ export function WorkspaceTabBar() {
             <ContextMenuTrigger
               role="button"
               tabIndex={0}
+              title={connection ? `${tab.title} (${connection.name})` : tab.title}
               draggable
               onDragStart={(e) => {
                 dragIndexRef.current = index;
@@ -163,6 +164,11 @@ export function WorkspaceTabBar() {
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
               {tabIcon(tab.type)}
               <span className="max-w-30 truncate">{tab.title}</span>
+              {connection && (tab.type === 'query' || tab.type === 'mongo-query' || tab.type === 'redis-query') && (
+                <span className="text-[10px] text-muted-foreground/70 truncate max-w-24 font-normal">
+                  ({connection.name})
+                </span>
+              )}
               {tab.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
               <Button
                 type="button"

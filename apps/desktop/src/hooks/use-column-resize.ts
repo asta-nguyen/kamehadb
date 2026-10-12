@@ -54,7 +54,7 @@ function computeMinWidths(
 }
 
 export function useColumnResize(columnCount: number, options: Options = {}) {
-  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 50, columnIds, headers } = options;
+  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 64, columnIds, headers } = options;
 
   const colIdsStr = columnIds ? columnIds.join(',') : '';
   const lastColIdsRef = useRef(colIdsStr);

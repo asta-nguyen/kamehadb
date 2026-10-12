@@ -18,6 +18,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Go runtime memory limits** — cap Go heap target at 128MB with `debug.SetMemoryLimit` and GOGC=50 to eagerly reclaim and release unused pages back to the OS.
 - **Query cache trimming & lazy indexing** — reduce frontend query cache retention from 5 minutes to 60 seconds and eliminate eager startup AI schema indexing across all configured profiles.
 
+### Fixed
+
+- **SQL query cancellation** — wire `api.cancelQuery` to Escape key press, toolbar Cancel button, and tab unmount cleanup so long-running queries can be aborted on demand and do not outlive closed tabs.
+- **Query tab connection visibility** — display target database name and color badge in the query editor toolbar and tab bar to avoid running queries against the wrong database.
+- **Table virtualization offset** — pass `scrollMargin` to `useVirtualizer` in `DataTable` and compute dynamic index column width to prevent offset calculation bugs and cell text clipping on deep offsets.
+- **Defensive record field collection** — guard `collectRecordFields` and `useFieldVisibility` against undefined records to prevent runtime navigation crashes.
+
 ### Removed
 
 - **Qdrant and TigerBeetle** — drop the vector and ledger engines and their dedicated explorers; supported engines are PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis.

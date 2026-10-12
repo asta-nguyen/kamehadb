@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
@@ -138,6 +138,14 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; column: string } | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Evict cached preview rows when this table unmounts so closing tabs immediately
+  // frees row datasets from webview memory instead of lingering in the TanStack cache. (How / Why / What)
+  useEffect(() => {
+    return () => {
+      queryClient.removeQueries({ queryKey: ['previewRows', connectionId, tableId] });
+    };
+  }, [queryClient, connectionId, tableId]);
 
   // Find primary key columns for constructing UPDATE WHERE clause
   const pkColumns = useMemo(

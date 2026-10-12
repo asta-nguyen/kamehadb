@@ -20,7 +20,7 @@ The system SHALL record validated inputs and call summaries for database-backed 
 - WHEN the tool callback completes
 - THEN history stores the error code with no item count, and `list_mcp_profiles` does not create a history entry
 
-Evidence: `apps/sidecar/src/mcp/tools.ts`, `apps/sidecar/src/mcp/tools.test.ts`, `apps/sidecar/src/mcp/runtime.test.ts`
+Evidence: `internal/mcp/tools.go`, `internal/mcp/mcp_test.go`
 
 ### MCP-call-history-limits
 
@@ -32,7 +32,7 @@ The system SHALL prune history older than 30 days and return no more than the ne
 - WHEN the store initializes or history is read
 - THEN expired entries are removed and at most the newest 50 entries are returned
 
-Evidence: `apps/sidecar/src/lib/constants.ts`, `apps/sidecar/src/db/metadata-store.ts`, `apps/sidecar/src/db/metadata-store.test.ts`
+Evidence: `internal/store/mcp.go`, `internal/store/store_test.go`
 
 ### MCP-call-history-recording
 
@@ -44,7 +44,7 @@ The system SHALL default history to enabled for new and existing metadata stores
 - WHEN the metadata store initializes and recording is later disabled
 - THEN history starts enabled, existing entries remain, and later calls are not added
 
-Evidence: `apps/sidecar/src/db/metadata-store.ts`, `apps/sidecar/src/db/metadata-store.test.ts`, `apps/sidecar/src/routes/mcp-settings.ts`, `apps/sidecar/src/routes/mcp-settings.test.ts`
+Evidence: `internal/store/mcp.go`, `internal/store/store_test.go`, `internal/api/mcp.go`
 
 ### MCP-call-history-ui
 
@@ -56,7 +56,7 @@ The desktop SHALL show recorded inputs and summaries with a plain-text storage w
 - WHEN the MCP Server Logs tab is rendered
 - THEN the user sees the recording toggle, Clear History action, local-storage warning, and recorded inputs and summaries without database results
 
-Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/src/components/mcp-settings-section.test.tsx`, `apps/sidecar/src/routes/mcp-settings.ts`, `apps/sidecar/src/routes/mcp-settings.test.ts`
+Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/src/components/mcp-settings-section.test.tsx`, `internal/api/mcp.go`
 
 ## Business rules
 
@@ -175,7 +175,7 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 - `internal/mcp/jsonrpc.go`
 - `internal/mcp/tools.go`
 - `internal/mcp/manager.go`
-- `internal/engines/sqlite/sqlite.go` (`NewMCP` — the read-only SQLite MCP adapter)
+- `internal/engines/sqlite/sqlite.go`
 - `internal/mcp/provisioner.go`
 - `internal/mcp/credentials.go`
 - `internal/mcp/errors.go`
