@@ -3,11 +3,13 @@
 // EditorView is exposed via viewRef for selection reads and diagnostics.
 import { useEffect, useRef } from 'react';
 import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine } from '@codemirror/view';
-import { EditorState, Prec, type Extension } from '@codemirror/state';
+import { EditorState, Prec, Compartment, type Extension } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
 import { closeBrackets, autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { useStore } from '@tanstack/react-store';
+import { appStore } from '@/store';
 
 const editorTheme = EditorView.theme({
   '&': { height: '100%', fontSize: '13px' },
@@ -44,6 +46,14 @@ export function CodeEditor({
   const externalRef = useRef(viewRef);
   externalRef.current = viewRef;
 
+  const appTheme = useStore(appStore, (s) => s.theme);
+  const isDark =
+    appTheme === 'dark' ||
+    (appTheme === 'system' &&
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const themeCompartmentRef = useRef(new Compartment());
+
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -76,7 +86,7 @@ export function CodeEditor({
           showLineNumbers ? lineNumbers() : [],
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-          oneDark,
+          themeCompartmentRef.current.of(isDark ? oneDark : []),
           editorTheme,
           runKeymap,
           listener,
@@ -94,6 +104,15 @@ export function CodeEditor({
     };
     // Editor is created once per mount; extension set is static per consumer.
   }, []);
+
+  // Dynamically reconfigure the theme compartment when light/dark theme switches. (How / Why / What)
+  useEffect(() => {
+    const view = viewHandleRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: themeCompartmentRef.current.reconfigure(isDark ? oneDark : []),
+    });
+  }, [isDark]);
 
   // External value updates (history select, tab restore) push into the doc.
   useEffect(() => {

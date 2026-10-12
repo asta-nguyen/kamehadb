@@ -70,6 +70,9 @@ func (s *Store) migrate() error {
 		return err
 	}
 
+	// Drop legacy profiles for engines that were removed in the rewrite (Qdrant & TigerBeetle).
+	_, _ = s.db.Exec("DELETE FROM connection_profiles WHERE kind IN ('tigerbeetle', 'qdrant')")
+
 	managedStates := "'" + strings.Join(MCPManagedAccountStates, "', '") + "'"
 	if _, err := s.db.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS mcp_managed_accounts (
 		profile_id TEXT PRIMARY KEY,

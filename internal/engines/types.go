@@ -5,6 +5,11 @@ import "context"
 // Result/metadata types mirror packages/shared/src/types.ts field-for-field
 // (camelCase JSON keeps the generated Wails bindings shape-compatible).
 
+// MaxGuiRows caps the maximum number of rows returned to the GUI in a single
+// un-paginated query (50,000 rows). This prevents massive IPC transfers and
+// WebKit heap saturation when queries accidentally match multi-million row tables.
+const MaxGuiRows = 50000
+
 type QueryColumn struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"`

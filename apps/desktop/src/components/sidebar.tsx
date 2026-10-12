@@ -22,7 +22,7 @@ import {
   toggleExpandedConnection,
 } from '@/store';
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
-import { safeErrorMessage } from '@kamehadb/shared';
+import { ALL_KINDS, safeErrorMessage } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
 import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
 import type { ConnectionStatus } from './sidebar.helpers';
@@ -240,6 +240,7 @@ export function Sidebar() {
     const pinned: ConnectionProfile[] = [];
     const grouped: Record<string, ConnectionProfile[]> = {};
     for (const conn of connections) {
+      if (!(ALL_KINDS as readonly string[]).includes(conn.kind)) continue;
       if (pinnedConnections.includes(conn.id)) {
         pinned.push(conn);
       } else {

@@ -112,10 +112,13 @@ func normalizeValue(v any) any {
 	}
 }
 
-func rowsToMaps(rows *sql.Rows) ([]engines.QueryColumn, []map[string]any, error) {
+// rowsToMaps scans an active sql.Rows cursor into map rows, capping at maxRows (0 for unlimited).
+// Pre-allocates and reuses the scan pointer buffer across iterations to prevent millions of
+// small heap allocations when reading large result sets. (How / Why / What)
+func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[string]any, bool, error) {
 	names, err := rows.Columns()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	types, _ := rows.ColumnTypes()
 	qcols := make([]engines.QueryColumn, len(names))
@@ -126,15 +129,20 @@ func rowsToMaps(rows *sql.Rows) ([]engines.QueryColumn, []map[string]any, error)
 		}
 		qcols[i] = engines.QueryColumn{Name: name, Type: typ}
 	}
-	var out []map[string]any
+	out := make([]map[string]any, 0, 64)
+	vals := make([]any, len(names))
+	ptrs := make([]any, len(names))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	truncated := false
 	for rows.Next() {
-		vals := make([]any, len(names))
-		ptrs := make([]any, len(names))
-		for i := range vals {
-			ptrs[i] = &vals[i]
+		if maxRows > 0 && int64(len(out)) >= maxRows {
+			truncated = true
+			break
 		}
 		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		m := make(map[string]any, len(names))
 		for i, name := range names {
@@ -142,7 +150,7 @@ func rowsToMaps(rows *sql.Rows) ([]engines.QueryColumn, []map[string]any, error)
 		}
 		out = append(out, m)
 	}
-	return qcols, out, rows.Err()
+	return qcols, out, truncated, rows.Err()
 }
 
 func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionResult, error) {
@@ -415,7 +423,7 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, err := rowsToMaps(rows)
+	qcols, mapRows, _, err := rowsToMaps(rows, 0)
 	rows.Close()
 	if err != nil {
 		return nil, err
@@ -437,7 +445,7 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, err := rowsToMaps(rows)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows)
 	rows.Close()
 	if err != nil {
 		return nil, err
@@ -450,6 +458,7 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 		Rows:       mapRows,
 		RowCount:   int64(len(mapRows)),
 		DurationMs: float64(time.Since(start).Milliseconds()),
+		Truncated:  truncated,
 	}, nil
 }
 

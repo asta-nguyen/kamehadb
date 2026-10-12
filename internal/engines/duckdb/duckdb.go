@@ -68,15 +68,18 @@ func normalizeValue(v any) any {
 	}
 }
 
-func (a *Adapter) queryMaps(ctx context.Context, query string) ([]engines.QueryColumn, []map[string]any, error) {
+// queryMaps scans an active query into map rows, capping at maxRows (0 for unlimited).
+// Pre-allocates and reuses the scan pointer buffer across iterations to prevent millions of
+// small heap allocations when reading large result sets. (How / Why / What)
+func (a *Adapter) queryMaps(ctx context.Context, query string, maxRows int64) ([]engines.QueryColumn, []map[string]any, bool, error) {
 	rows, err := a.db.QueryContext(ctx, query)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	defer rows.Close()
 	names, err := rows.Columns()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	types, _ := rows.ColumnTypes()
 	qcols := make([]engines.QueryColumn, len(names))
@@ -87,15 +90,20 @@ func (a *Adapter) queryMaps(ctx context.Context, query string) ([]engines.QueryC
 		}
 		qcols[i] = engines.QueryColumn{Name: name, Type: typ}
 	}
-	var out []map[string]any
+	out := make([]map[string]any, 0, 64)
+	vals := make([]any, len(names))
+	ptrs := make([]any, len(names))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	truncated := false
 	for rows.Next() {
-		vals := make([]any, len(names))
-		ptrs := make([]any, len(names))
-		for i := range vals {
-			ptrs[i] = &vals[i]
+		if maxRows > 0 && int64(len(out)) >= maxRows {
+			truncated = true
+			break
 		}
 		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		m := make(map[string]any, len(names))
 		for i, name := range names {
@@ -103,7 +111,7 @@ func (a *Adapter) queryMaps(ctx context.Context, query string) ([]engines.QueryC
 		}
 		out = append(out, m)
 	}
-	return qcols, out, rows.Err()
+	return qcols, out, truncated, rows.Err()
 }
 
 func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionResult, error) {
@@ -335,7 +343,7 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 	fmt.Fprintf(&sb, " LIMIT %d OFFSET %d", limit, offset)
 
 	start := time.Now()
-	qcols, mapRows, err := a.queryMaps(ctx, sb.String())
+	qcols, mapRows, _, err := a.queryMaps(ctx, sb.String(), 0)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +358,7 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	start := time.Now()
-	qcols, mapRows, err := a.queryMaps(ctx, input.Query)
+	qcols, mapRows, truncated, err := a.queryMaps(ctx, input.Query, engines.MaxGuiRows)
 	if err != nil {
 		return nil, err
 	}
@@ -362,6 +370,7 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 		Rows:       mapRows,
 		RowCount:   int64(len(mapRows)),
 		DurationMs: float64(time.Since(start).Milliseconds()),
+		Truncated:  truncated,
 	}, nil
 }
 

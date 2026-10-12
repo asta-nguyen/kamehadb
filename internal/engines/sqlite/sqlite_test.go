@@ -140,3 +140,36 @@ func TestTestSqliteConnection(t *testing.T) {
 		t.Fatalf("missing path should fail with message: %+v %v", res, err)
 	}
 }
+
+func TestSearchColumnFilterAndTruncation(t *testing.T) {
+	a, _ := openTest(t)
+	ctx := context.Background()
+
+	// Text search finds matching users via email
+	res, err := a.PreviewRows(ctx, engines.PreviewRowsInput{
+		TableID: "users", Search: "x@x",
+	})
+	if err != nil || res.RowCount != 1 || res.Rows[0]["name"] != "x" {
+		t.Fatalf("text search failed: %+v %v", res, err)
+	}
+
+	// Non-matching text search yields 0 rows without error
+	res, err = a.PreviewRows(ctx, engines.PreviewRowsInput{
+		TableID: "users", Search: "nonexistent_string_12345",
+	})
+	if err != nil || res.RowCount != 0 {
+		t.Fatalf("empty search failed: %+v %v", res, err)
+	}
+
+	// Truncation check with recursive CTE generating rows exceeding MaxGuiRows
+	q := "WITH RECURSIVE cnt(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM cnt LIMIT 60000) SELECT x FROM cnt"
+	res, err = a.RunQuery(ctx, engines.RunQueryInput{Query: q})
+	if err != nil {
+		t.Fatalf("run query with 60000 rows: %v", err)
+	}
+	if !res.Truncated || res.RowCount != engines.MaxGuiRows {
+		t.Fatalf("expected truncated query at %d rows, got rowCount=%d truncated=%v",
+			engines.MaxGuiRows, res.RowCount, res.Truncated)
+	}
+}
+

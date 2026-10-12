@@ -30,6 +30,15 @@ func New(cp engines.ConnProfile) (*Adapter, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
+
+	// Tune SQLite connection with high-performance PRAGMAs: (How / Why / What)
+	// - mmap_size: Memory-map up to 256MB to bypass read() syscalls during scans.
+	// - cache_size: Increase page cache to 64MB (default is 2MB) to prevent thrashing.
+	// - temp_store: Keep temporary sort and join b-trees in RAM instead of disk.
+	_, _ = db.Exec("PRAGMA mmap_size = 268435456")
+	_, _ = db.Exec("PRAGMA cache_size = -64000")
+	_, _ = db.Exec("PRAGMA temp_store = MEMORY")
+
 	return &Adapter{db: db}, nil
 }
 
@@ -51,6 +60,11 @@ func NewMCP(filePath string) (*Adapter, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
+
+	_, _ = db.Exec("PRAGMA mmap_size = 268435456")
+	_, _ = db.Exec("PRAGMA cache_size = -64000")
+	_, _ = db.Exec("PRAGMA temp_store = MEMORY")
+
 	return &Adapter{db: db}, nil
 }
 
@@ -63,20 +77,65 @@ func normalizeValue(v any) any {
 	return v
 }
 
-func rowsToMaps(rows *sql.Rows) ([]engines.QueryColumn, []map[string]any, error) {
+// isSearchableColumn skips binary/blob columns and non-numeric columns when searching strings,
+// avoiding expensive per-row string conversions on millions of numeric/blob rows. (How / Why / What)
+func isSearchableColumn(colType string, search string) bool {
+	t := strings.ToLower(colType)
+	// Skip blobs/binary: string LIKE does not match binary without casting
+	if strings.Contains(t, "blob") || strings.Contains(t, "binary") || strings.Contains(t, "bytea") {
+		return false
+	}
+	// Textual columns are always searched
+	if t == "" || strings.Contains(t, "char") || strings.Contains(t, "text") ||
+		strings.Contains(t, "clob") || strings.Contains(t, "string") ||
+		strings.Contains(t, "json") || strings.Contains(t, "uuid") {
+		return true
+	}
+	// Numeric columns (int, real, float, numeric) only searched if search term is numeric
+	isNumCol := strings.Contains(t, "int") || strings.Contains(t, "real") ||
+		strings.Contains(t, "float") || strings.Contains(t, "double") ||
+		strings.Contains(t, "numeric") || strings.Contains(t, "decimal")
+	if isNumCol {
+		return isNumericString(search)
+	}
+	return true
+}
+
+func isNumericString(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && r != '.' && r != '-' && r != '+' {
+			return false
+		}
+	}
+	return true
+}
+
+// rowsToMaps scans an active sql.Rows cursor into map rows, capping at maxRows (0 for unlimited).
+// Pre-allocates and reuses the scan pointer buffer across iterations to prevent millions of
+// small heap allocations when reading large result sets. (How / Why / What)
+func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[string]any, bool, error) {
 	names, err := rows.Columns()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
-	var out []map[string]any
+	out := make([]map[string]any, 0, 64)
+	vals := make([]any, len(names))
+	ptrs := make([]any, len(names))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	truncated := false
 	for rows.Next() {
-		vals := make([]any, len(names))
-		ptrs := make([]any, len(names))
-		for i := range vals {
-			ptrs[i] = &vals[i]
+		if maxRows > 0 && int64(len(out)) >= maxRows {
+			truncated = true
+			break
 		}
 		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, err
+			return nil, nil, false, err
 		}
 		m := make(map[string]any, len(names))
 		for i, name := range names {
@@ -95,7 +154,7 @@ func rowsToMaps(rows *sql.Rows) ([]engines.QueryColumn, []map[string]any, error)
 		}
 		qcols[i] = engines.QueryColumn{Name: name, Type: strings.ToLower(typ)}
 	}
-	return qcols, out, rows.Err()
+	return qcols, out, truncated, rows.Err()
 }
 
 func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionResult, error) {
@@ -361,14 +420,22 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 		if err != nil {
 			return nil, err
 		}
-		if len(cols) > 0 {
-			clauses := make([]string, len(cols))
-			for i, col := range cols {
-				clauses[i] = esc(col.Name) + " LIKE ?"
+		var targetCols []string
+		for _, col := range cols {
+			if isSearchableColumn(col.Type, input.Search) {
+				targetCols = append(targetCols, col.Name)
+			}
+		}
+		if len(targetCols) > 0 {
+			clauses := make([]string, len(targetCols))
+			for i, name := range targetCols {
+				clauses[i] = esc(name) + " LIKE ?"
 				params = append(params, "%"+input.Search+"%")
 			}
 			sb.WriteString(" WHERE ")
 			sb.WriteString(strings.Join(clauses, " OR "))
+		} else {
+			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
 
@@ -389,7 +456,7 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, err := rowsToMaps(rows)
+	qcols, mapRows, _, err := rowsToMaps(rows, 0)
 	rows.Close()
 	if err != nil {
 		return nil, err
@@ -426,7 +493,7 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, err := rowsToMaps(rows)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows)
 	rows.Close()
 	if err != nil {
 		return nil, err
@@ -439,6 +506,7 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 		Rows:       mapRows,
 		RowCount:   int64(len(mapRows)),
 		DurationMs: float64(time.Since(start).Milliseconds()),
+		Truncated:  truncated,
 	}, nil
 }
 

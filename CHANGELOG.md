@@ -17,9 +17,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Virtual table scrolling** — add `@tanstack/react-virtual` row windowing in `DataTable` for results over 40 rows to prevent massive DOM tree and WebProcess memory expansion.
 - **Go runtime memory limits** — cap Go heap target at 128MB with `debug.SetMemoryLimit` and GOGC=50 to eagerly reclaim and release unused pages back to the OS.
 - **Query cache trimming & lazy indexing** — reduce frontend query cache retention from 5 minutes to 60 seconds and eliminate eager startup AI schema indexing across all configured profiles.
+- **SQL engine query allocation & GUI row cap** — preallocate and reuse scan pointer buffers across SQLite, MySQL, Postgres, SQL Server, Oracle, DuckDB, and ClickHouse to eliminate millions of per-row heap allocations; cap unpaginated GUI results at 50,000 rows with a `Truncated` badge to prevent WebKit IPC freezes.
+- **SQLite engine PRAGMAs & LIKE search filtering** — tune SQLite connections with `mmap_size` (256MB), `cache_size` (64MB), and `temp_store = MEMORY` for faster scans, sorts, and joins; restrict `LIKE` search in table views to text columns (skipping blobs and non-numeric columns when searching text).
 
 ### Fixed
 
+- **Tab bar action button visibility** — pin tab bar action buttons (`New Aggregation`, `New Query`, `Schema Graph`, `Federated Query`) to a fixed right-side container so they remain accessible when opening many tabs.
+- **Connection tooltip click blocking** — add `pointer-events-none` to connection tooltips so hover cards never intercept clicks on the `...` action menu.
+- **CodeMirror theme switching** — dynamically toggle CodeMirror between native light styling and `oneDark` using a `Compartment` to respect light/dark mode.
+- **Legacy engine profile cleanup** — purge dropped `tigerbeetle` and `qdrant` profiles during metadata migration and filter them in the sidebar with `ALL_KINDS`.
 - **SQL query cancellation** — wire `api.cancelQuery` to Escape key press, toolbar Cancel button, and tab unmount cleanup so long-running queries can be aborted on demand and do not outlive closed tabs.
 - **Query tab connection visibility** — display target database name and color badge in the query editor toolbar and tab bar to avoid running queries against the wrong database.
 - **Table virtualization offset** — pass `scrollMargin` to `useVirtualizer` in `DataTable` and compute dynamic index column width to prevent offset calculation bugs and cell text clipping on deep offsets.

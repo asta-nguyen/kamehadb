@@ -15,7 +15,12 @@ export function ConnectionTooltip({
   const color = getIndicatorColor(conn, status);
   const label = getStatusLabel(status, latency);
   return (
-    <TooltipContent side="right" align="start" sideOffset={12} className="rounded-lg shadow-sm px-4 py-3">
+    <TooltipContent
+      side="right"
+      align="start"
+      sideOffset={12}
+      className="rounded-lg shadow-sm px-4 py-3 pointer-events-none select-none"
+    >
       <div className="text-xs leading-relaxed min-w-45">
         <p className="font-semibold mb-2">{conn.name}</p>
         <div className="space-y-1.5 text-popover-foreground/65">

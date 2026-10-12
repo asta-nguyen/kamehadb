@@ -45,6 +45,8 @@ dist/
 *.db-shm
 *.db-wal
 *.sqlite3
+*.duckdb
+data/
 .openez/
 
 # Wails build output

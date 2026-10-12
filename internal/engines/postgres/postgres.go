@@ -681,7 +681,7 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	start := time.Now()
-	res, err := a.collect(ctx, input.Query, input.Params, 0)
+	res, err := a.collect(ctx, input.Query, input.Params, engines.MaxGuiRows)
 	if err != nil {
 		return nil, err
 	}
@@ -690,7 +690,7 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 		Rows:       rowsToMaps(res),
 		RowCount:   int64(len(res.rows)),
 		DurationMs: float64(time.Since(start).Microseconds()) / 1000,
-		Truncated:  false,
+		Truncated:  int64(len(res.rows)) >= engines.MaxGuiRows,
 	}, nil
 }
 
