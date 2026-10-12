@@ -341,6 +341,15 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               </Button>
             )}
           </div>
+          <Button
+            variant={state.matchCase ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => dispatch({ type: 'setMatchCase', value: !state.matchCase })}
+            className={`h-7 px-2 text-xs font-mono shrink-0 border border-border/50 ${state.matchCase ? 'font-bold text-foreground bg-muted' : 'text-muted-foreground'}`}
+            title={state.matchCase ? 'Match case: ON (Case-sensitive)' : 'Match case: OFF (Case-insensitive)'}
+          >
+            Aa
+          </Button>
           <Select
             value={state.searchColumn || '__ALL__'}
             onValueChange={(v) => dispatch({ type: 'setSearchColumn', value: v === '__ALL__' ? '' : (v ?? '') })}
@@ -360,15 +369,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               ))}
             </SelectContent>
           </Select>
-          <Button
-            variant={state.matchCase ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => dispatch({ type: 'setMatchCase', value: !state.matchCase })}
-            className={`h-7 px-2 text-xs font-mono shrink-0 border border-border/50 ${state.matchCase ? 'font-bold text-foreground bg-muted' : 'text-muted-foreground'}`}
-            title={state.matchCase ? 'Match case: ON (Case-sensitive)' : 'Match case: OFF (Case-insensitive)'}
-          >
-            Aa
-          </Button>
         </div>
         <div className="flex items-center gap-1">
           <Select
