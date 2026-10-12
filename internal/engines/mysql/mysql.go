@@ -439,17 +439,26 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 				colRows.Close()
 				return nil, err
 			}
+			if input.SearchColumn != "" && c != input.SearchColumn {
+				continue
+			}
 			searchCols = append(searchCols, c)
 		}
 		colRows.Close()
 		if len(searchCols) > 0 {
 			clauses := make([]string, len(searchCols))
 			for i, col := range searchCols {
-				clauses[i] = a.esc(col) + " LIKE ?"
+				if input.MatchCase {
+					clauses[i] = "BINARY " + a.esc(col) + " LIKE ?"
+				} else {
+					clauses[i] = a.esc(col) + " LIKE ?"
+				}
 				params = append(params, "%"+input.Search+"%")
 			}
 			sb.WriteString(" WHERE ")
 			sb.WriteString(strings.Join(clauses, " OR "))
+		} else {
+			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
 

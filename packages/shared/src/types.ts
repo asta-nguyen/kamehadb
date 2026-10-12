@@ -82,6 +82,8 @@ export type PreviewRowsInput = {
   sortColumn?: string;
   sortDirection?: 'asc' | 'desc';
   search?: string;
+  searchColumn?: string;
+  matchCase?: boolean;
   filters?: { column: string; operator: string; value: string }[];
 };
 

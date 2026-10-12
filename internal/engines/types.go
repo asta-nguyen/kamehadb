@@ -99,6 +99,8 @@ type PreviewRowsInput struct {
 	SortColumn    string          `json:"sortColumn,omitempty"`
 	SortDirection string          `json:"sortDirection,omitempty"`
 	Search        string          `json:"search,omitempty"`
+	SearchColumn  string          `json:"searchColumn,omitempty"`
+	MatchCase     bool            `json:"matchCase,omitempty"`
 	Filters       []PreviewFilter `json:"filters,omitempty"`
 }
 

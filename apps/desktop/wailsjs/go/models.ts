@@ -397,6 +397,8 @@ export namespace engines {
     sortColumn?: string;
     sortDirection?: string;
     search?: string;
+    searchColumn?: string;
+    matchCase?: boolean;
     filters?: PreviewFilter[];
 
     static createFrom(source: any = {}) {
@@ -412,6 +414,8 @@ export namespace engines {
       this.sortColumn = source['sortColumn'];
       this.sortDirection = source['sortDirection'];
       this.search = source['search'];
+      this.searchColumn = source['searchColumn'];
+      this.matchCase = source['matchCase'];
       this.filters = this.convertValues(source['filters'], PreviewFilter);
     }
 

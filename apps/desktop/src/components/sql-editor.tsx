@@ -263,6 +263,62 @@ export function normalizeSqlForSafety(sql: string): string {
   return sql.trim().replace(/;+$/, '');
 }
 
+// Strip leading single-line (--) and multi-line (/* */) comments to locate the
+// actual executable statement keyword. (How / Why / What)
+export function stripLeadingComments(sql: string): string {
+  let s = sql.trimStart();
+  while (s.startsWith('--') || s.startsWith('/*')) {
+    if (s.startsWith('--')) {
+      const newlineIdx = s.indexOf('\n');
+      if (newlineIdx === -1) return '';
+      s = s.slice(newlineIdx + 1).trimStart();
+    } else if (s.startsWith('/*')) {
+      const closeIdx = s.indexOf('*/');
+      if (closeIdx === -1) return '';
+      s = s.slice(closeIdx + 2).trimStart();
+    }
+  }
+  return s;
+}
+
+// Append dialect-aware limit and offset clauses to read-only queries (SELECT / WITH / VALUES / TABLE).
+// Prevents syntax errors on T-SQL (OFFSET...FETCH instead of LIMIT) and Oracle (FETCH FIRST),
+// and respects leading comments without bypassing safety caps. (How / Why / What)
+export function applyQueryLimit(sql: string, limit: number, offsetVal?: number, kind?: DbKind): string {
+  if (limit <= 0) return sql;
+  if (containsMultipleStatements(sql)) return sql;
+
+  const stripped = stripLeadingComments(sql);
+  const upper = stripped.toUpperCase();
+  const supportsLimit =
+    upper.startsWith('SELECT') || upper.startsWith('WITH') || upper.startsWith('VALUES') || upper.startsWith('TABLE');
+  if (!supportsLimit) return sql;
+
+  const trimmed = sql.trimEnd().replace(/;+$/, '');
+
+  if (kind === KIND.SQLSERVER) {
+    // T-SQL does not support LIMIT. Avoid double-limiting if query already contains TOP, OFFSET, or FETCH.
+    if (/\b(TOP\s*\(?\s*\d+|OFFSET\s+\d+|FETCH\s+(NEXT|FIRST))\b/i.test(sql)) return sql;
+    const offset = offsetVal ?? 0;
+    // T-SQL requires an ORDER BY clause when using OFFSET...FETCH. Fall back to ORDER BY (SELECT NULL) if absent.
+    if (/\bORDER\s+BY\b/i.test(sql)) {
+      return `${trimmed}\nOFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+    }
+    return `${trimmed}\nORDER BY (SELECT NULL) OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+  }
+
+  if (kind === KIND.ORACLE) {
+    // Oracle 12c+ supports OFFSET...FETCH. Avoid double-limiting if query already contains ROWNUM or FETCH.
+    if (/\b(ROWNUM\b|OFFSET\s+\d+|FETCH\s+(FIRST|NEXT)|LIMIT\b)\b/i.test(sql)) return sql;
+    const offset = offsetVal ?? 0;
+    return `${trimmed}\nOFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+  }
+
+  // Standard engines (Postgres, MySQL, SQLite, DuckDB, ClickHouse, MariaDB) support LIMIT...OFFSET
+  if (/\bLIMIT\b/i.test(sql)) return sql;
+  return offsetVal !== undefined ? `${trimmed} LIMIT ${limit} OFFSET ${offsetVal}` : `${trimmed} LIMIT ${limit}`;
+}
+
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import {
@@ -278,7 +334,7 @@ import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autoc
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
-import { isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
+import { KIND, type DbKind, isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
 import { useConnections } from '@/hooks/use-connections';
 import {
@@ -646,22 +702,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     };
   }, [connectionId]);
 
-  // Only append LIMIT for queries that support it (SELECT / WITH / VALUES / TABLE).
-  // Otherwise many engines error with "syntax error at or near 'LIMIT'".
+  // Only append dialect-aware limit/offset for queries that support it.
   function queryWithLimit(sql: string, limit: number, offsetVal?: number): string {
-    if (limit <= 0) return sql;
-    // Multi-statement SQL: each statement is executed individually after
-    // splitting. A global LIMIT at the end would become a standalone statement
-    // after the split, causing a syntax error on every engine.
-    if (containsMultipleStatements(sql)) return sql;
-    const upper = sql.trimStart().toUpperCase();
-    const supportsLimit =
-      upper.startsWith('SELECT') || upper.startsWith('WITH') || upper.startsWith('VALUES') || upper.startsWith('TABLE');
-    if (!supportsLimit) return sql;
-    // Don't double-append if the query already has a LIMIT clause
-    if (/\bLIMIT\b/i.test(sql)) return sql;
-    const trimmed = sql.trimEnd().replace(/;+$/, '');
-    return offsetVal !== undefined ? `${trimmed} LIMIT ${limit} OFFSET ${offsetVal}` : `${trimmed} LIMIT ${limit}`;
+    return applyQueryLimit(sql, limit, offsetVal, targetConn?.kind as DbKind | undefined);
   }
 
   // Build the full SQL with LIMIT / OFFSET and execute it.

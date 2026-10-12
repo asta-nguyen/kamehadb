@@ -318,16 +318,25 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 				colRows.Close()
 				return nil, err
 			}
+			if input.SearchColumn != "" && c != input.SearchColumn {
+				continue
+			}
 			cols = append(cols, c)
 		}
 		colRows.Close()
 		if len(cols) > 0 {
 			clauses := make([]string, len(cols))
 			for i, col := range cols {
-				clauses[i] = "CAST(" + esc(col) + " AS VARCHAR) ILIKE " + escVal("%"+input.Search+"%")
+				if input.MatchCase {
+					clauses[i] = "contains(CAST(" + esc(col) + " AS VARCHAR), " + escVal(input.Search) + ")"
+				} else {
+					clauses[i] = "CAST(" + esc(col) + " AS VARCHAR) ILIKE " + escVal("%"+input.Search+"%")
+				}
 			}
 			sb.WriteString(" WHERE ")
 			sb.WriteString(strings.Join(clauses, " OR "))
+		} else {
+			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
 

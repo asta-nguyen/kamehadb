@@ -370,16 +370,25 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 				colRows.Close()
 				return nil, err
 			}
+			if input.SearchColumn != "" && c != input.SearchColumn {
+				continue
+			}
 			searchCols = append(searchCols, c)
 		}
 		colRows.Close()
 		if len(searchCols) > 0 {
 			clauses := make([]string, len(searchCols))
 			for i, col := range searchCols {
-				clauses[i] = "LOWER(" + esc(col) + ") LIKE LOWER(:search)"
+				if input.MatchCase {
+					clauses[i] = "INSTR(" + esc(col) + ", :search) > 0"
+				} else {
+					clauses[i] = "LOWER(" + esc(col) + ") LIKE LOWER(:search)"
+				}
 			}
 			sb.WriteString(" WHERE ")
 			sb.WriteString(strings.Join(clauses, " OR "))
+		} else {
+			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
 
@@ -401,7 +410,11 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 	var rows *sql.Rows
 	var err error
 	if input.Search != "" {
-		rows, err = a.db.QueryContext(ctx, q, sql.Named("search", "%"+input.Search+"%"))
+		searchParam := "%" + input.Search + "%"
+		if input.MatchCase {
+			searchParam = input.Search
+		}
+		rows, err = a.db.QueryContext(ctx, q, sql.Named("search", searchParam))
 	} else {
 		rows, err = a.db.QueryContext(ctx, q)
 	}

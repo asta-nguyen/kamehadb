@@ -27,6 +27,7 @@ import {
   Download,
   Ellipsis,
   Search,
+  Filter,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -58,6 +59,8 @@ type DataGridState = {
   selectedRow: Record<string, unknown> | null;
   searchText: string;
   querySearch: string;
+  searchColumn: string;
+  matchCase: boolean;
   sortColumn: string;
   sortDirection: 'asc' | 'desc';
 };
@@ -68,6 +71,8 @@ type DataGridAction =
   | { type: 'selectRow'; row: Record<string, unknown> | null }
   | { type: 'setSearchText'; value: string }
   | { type: 'setQuerySearch'; value: string }
+  | { type: 'setSearchColumn'; value: string }
+  | { type: 'setMatchCase'; value: boolean }
   | { type: 'setSortColumn'; value: string }
   | { type: 'setSortDirection'; value: 'asc' | 'desc' }
   | { type: 'cycleSort'; column: string }
@@ -85,6 +90,10 @@ function dataGridReducer(state: DataGridState, action: DataGridAction): DataGrid
       return { ...state, searchText: action.value };
     case 'setQuerySearch':
       return { ...state, querySearch: action.value, offset: 0 };
+    case 'setSearchColumn':
+      return { ...state, searchColumn: action.value, offset: 0 };
+    case 'setMatchCase':
+      return { ...state, matchCase: action.value, offset: 0 };
     case 'setSortColumn':
       return { ...state, sortColumn: action.value };
     case 'setSortDirection':
@@ -107,6 +116,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     selectedRow: null,
     searchText: '',
     querySearch: '',
+    searchColumn: '',
+    matchCase: false,
     sortColumn: '',
     sortDirection: 'asc',
   });
@@ -132,6 +143,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     offset: state.offset,
     limit: state.pageSize,
     search: state.querySearch || undefined,
+    searchColumn: state.searchColumn || undefined,
+    matchCase: state.matchCase,
     sortColumn: state.sortColumn || undefined,
     sortDirection: state.sortColumn ? state.sortDirection : undefined,
   });
@@ -301,17 +314,61 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center gap-2 mb-3 shrink-0">
-        <div className="relative flex-1 max-w-64">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            value={state.searchText}
-            onChange={(e) => {
-              dispatch({ type: 'setSearchText', value: e.target.value });
-              debouncedSearchFn(e.target.value);
-            }}
-            placeholder="Search all fields..."
-            className="h-7 pl-7 text-xs"
-          />
+        <div className="flex items-center gap-1.5 flex-1 max-w-md">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={state.searchText}
+              onChange={(e) => {
+                dispatch({ type: 'setSearchText', value: e.target.value });
+                debouncedSearchFn(e.target.value);
+              }}
+              placeholder={state.searchColumn ? `Search in ${state.searchColumn}...` : 'Search all fields...'}
+              className="h-7 pl-7 pr-7 text-xs"
+            />
+            {state.searchText && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  dispatch({ type: 'setSearchText', value: '' });
+                  dispatch({ type: 'setQuerySearch', value: '' });
+                }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground hover:text-foreground"
+                title="Clear search"
+              >
+                <X className="size-3" />
+              </Button>
+            )}
+          </div>
+          <Select
+            value={state.searchColumn || '__ALL__'}
+            onValueChange={(v) => dispatch({ type: 'setSearchColumn', value: v === '__ALL__' ? '' : (v ?? '') })}
+          >
+            <SelectTrigger className="h-7 w-28 text-xs gap-1 px-2 shrink-0" title="Filter by column">
+              <Filter className="size-3 text-muted-foreground shrink-0" />
+              <SelectValue placeholder="All fields" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__ALL__" className="text-xs">
+                All fields
+              </SelectItem>
+              {displayColumns.map((col) => (
+                <SelectItem key={col.name} value={col.name} className="text-xs">
+                  {col.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant={state.matchCase ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => dispatch({ type: 'setMatchCase', value: !state.matchCase })}
+            className={`h-7 px-2 text-xs font-mono shrink-0 border border-border/50 ${state.matchCase ? 'font-bold text-foreground bg-muted' : 'text-muted-foreground'}`}
+            title={state.matchCase ? 'Match case: ON (Case-sensitive)' : 'Match case: OFF (Case-insensitive)'}
+          >
+            Aa
+          </Button>
         </div>
         <div className="flex items-center gap-1">
           <Select

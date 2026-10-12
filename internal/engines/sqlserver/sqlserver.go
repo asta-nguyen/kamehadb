@@ -389,17 +389,26 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 				colRows.Close()
 				return nil, err
 			}
+			if input.SearchColumn != "" && c != input.SearchColumn {
+				continue
+			}
 			searchCols = append(searchCols, c)
 		}
 		colRows.Close()
 		if len(searchCols) > 0 {
 			clauses := make([]string, len(searchCols))
 			for i, col := range searchCols {
-				clauses[i] = esc(col) + fmt.Sprintf(" LIKE @p%d", len(params)+1)
+				if input.MatchCase {
+					clauses[i] = esc(col) + fmt.Sprintf(" COLLATE Latin1_General_BIN LIKE @p%d", len(params)+1)
+				} else {
+					clauses[i] = esc(col) + fmt.Sprintf(" LIKE @p%d", len(params)+1)
+				}
 				params = append(params, "%"+input.Search+"%")
 			}
 			sb.WriteString(" WHERE ")
 			sb.WriteString(strings.Join(clauses, " OR "))
+		} else {
+			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
 

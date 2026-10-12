@@ -171,5 +171,37 @@ func TestSearchColumnFilterAndTruncation(t *testing.T) {
 		t.Fatalf("expected truncated query at %d rows, got rowCount=%d truncated=%v",
 			engines.MaxGuiRows, res.RowCount, res.Truncated)
 	}
+
+	// Specific column search on 'email' matches
+	res, err = a.PreviewRows(ctx, engines.PreviewRowsInput{
+		TableID: "users", Search: "x@x", SearchColumn: "email",
+	})
+	if err != nil || res.RowCount != 1 {
+		t.Fatalf("searchColumn 'email' failed: %+v %v", res, err)
+	}
+
+	// Specific column search on 'name' doesn't match 'x@x'
+	res, err = a.PreviewRows(ctx, engines.PreviewRowsInput{
+		TableID: "users", Search: "x@x", SearchColumn: "name",
+	})
+	if err != nil || res.RowCount != 0 {
+		t.Fatalf("searchColumn 'name' should not match 'x@x': %+v %v", res, err)
+	}
+
+	// Case-sensitive search with MatchCase = true (uses instr)
+	res, err = a.PreviewRows(ctx, engines.PreviewRowsInput{
+		TableID: "users", Search: "x@x", MatchCase: true,
+	})
+	if err != nil || res.RowCount != 1 {
+		t.Fatalf("MatchCase=true instr search failed: %+v %v", res, err)
+	}
+
+	// Case-sensitive search with wrong casing yields 0 rows
+	res, err = a.PreviewRows(ctx, engines.PreviewRowsInput{
+		TableID: "users", Search: "X@X", MatchCase: true,
+	})
+	if err != nil || res.RowCount != 0 {
+		t.Fatalf("MatchCase=true wrong case should yield 0 rows: %+v %v", res, err)
+	}
 }
 

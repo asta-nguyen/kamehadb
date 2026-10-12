@@ -351,6 +351,41 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 	sb.WriteString(esc(db))
 	sb.WriteString(".")
 	sb.WriteString(esc(table))
+
+	if input.Search != "" {
+		colRows, err := a.db.QueryContext(ctx,
+			"SELECT name FROM system.columns WHERE database = ? AND table = ? AND (type LIKE '%String%' OR type LIKE '%FixedString%') ORDER BY position",
+			db, table)
+		if err == nil {
+			var cols []string
+			for colRows.Next() {
+				var name string
+				if err := colRows.Scan(&name); err == nil {
+					if input.SearchColumn != "" && name != input.SearchColumn {
+						continue
+					}
+					cols = append(cols, name)
+				}
+			}
+			colRows.Close()
+			if len(cols) > 0 {
+				clauses := make([]string, len(cols))
+				fn := "positionCaseInsensitive"
+				if input.MatchCase {
+					fn = "position"
+				}
+				escapedSearch := strings.ReplaceAll(input.Search, "'", "\\'")
+				for i, col := range cols {
+					clauses[i] = fmt.Sprintf("%s(%s, '%s') > 0", fn, esc(col), escapedSearch)
+				}
+				sb.WriteString(" WHERE ")
+				sb.WriteString(strings.Join(clauses, " OR "))
+			} else {
+				sb.WriteString(" WHERE 1 = 0")
+			}
+		}
+	}
+
 	if input.SortColumn != "" {
 		sb.WriteString(" ORDER BY ")
 		sb.WriteString(esc(input.SortColumn))

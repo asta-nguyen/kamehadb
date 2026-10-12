@@ -636,14 +636,27 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 		if err != nil {
 			return nil, err
 		}
-		if len(colRes.rows) > 0 {
-			clauses := make([]string, len(colRes.rows))
-			for i, r := range colRes.rows {
-				col := str(r, 0)
-				clauses[i] = engines.QuoteIdentifier(engines.KindPostgres, col) + `::text ILIKE $` + fmt.Sprint(i+1)
+		var targetCols []string
+		for _, r := range colRes.rows {
+			col := str(r, 0)
+			if input.SearchColumn != "" && col != input.SearchColumn {
+				continue
+			}
+			targetCols = append(targetCols, col)
+		}
+		if len(targetCols) > 0 {
+			clauses := make([]string, len(targetCols))
+			op := `::text ILIKE $`
+			if input.MatchCase {
+				op = `::text LIKE $`
+			}
+			for i, col := range targetCols {
+				clauses[i] = engines.QuoteIdentifier(engines.KindPostgres, col) + op + fmt.Sprint(len(params)+1)
 				params = append(params, "%"+input.Search+"%")
 			}
 			sql += ` WHERE ` + strings.Join(clauses, ` OR `)
+		} else {
+			sql += ` WHERE 1 = 0`
 		}
 	}
 

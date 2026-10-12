@@ -422,6 +422,9 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 		}
 		var targetCols []string
 		for _, col := range cols {
+			if input.SearchColumn != "" && col.Name != input.SearchColumn {
+				continue
+			}
 			if isSearchableColumn(col.Type, input.Search) {
 				targetCols = append(targetCols, col.Name)
 			}
@@ -429,8 +432,13 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 		if len(targetCols) > 0 {
 			clauses := make([]string, len(targetCols))
 			for i, name := range targetCols {
-				clauses[i] = esc(name) + " LIKE ?"
-				params = append(params, "%"+input.Search+"%")
+				if input.MatchCase {
+					clauses[i] = "instr(" + esc(name) + ", ?) > 0"
+					params = append(params, input.Search)
+				} else {
+					clauses[i] = esc(name) + " LIKE ?"
+					params = append(params, "%"+input.Search+"%")
+				}
 			}
 			sb.WriteString(" WHERE ")
 			sb.WriteString(strings.Join(clauses, " OR "))

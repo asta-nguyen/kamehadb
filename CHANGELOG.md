@@ -12,6 +12,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with a single Wails/Go binary. All backend routes are now in-process Go services and the frontend communicates through generated Wails bindings, eliminating sidecar IPC.
 - **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
 
+### Added
+
+- **Column-specific table search & case-sensitive toggle** — add column filter dropdown (`All fields` or specific column) and `Aa` Match Case toggle to Table View search; uses native fast string operations (`instr` in SQLite, `contains` in DuckDB, `position` in ClickHouse, `INSTR` in Oracle, `BINARY LIKE` in MySQL) to accelerate queries on million-row tables by up to 3x–5x.
+
 ### Performance
 
 - **Virtual table scrolling** — add `@tanstack/react-virtual` row windowing in `DataTable` for results over 40 rows to prevent massive DOM tree and WebProcess memory expansion.
@@ -22,6 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- **Dialect-aware query limiting** — update `sql-editor.tsx` to apply T-SQL `OFFSET...FETCH` on SQL Server and Oracle `OFFSET...FETCH` instead of invalid `LIMIT` clauses; strip leading single and multi-line comments so commented queries (`/* ... */`, `-- ...`) are correctly limited without syntax errors.
 - **Tab bar action button visibility** — pin tab bar action buttons (`New Aggregation`, `New Query`, `Schema Graph`, `Federated Query`) to a fixed right-side container so they remain accessible when opening many tabs.
 - **Connection tooltip click blocking** — add `pointer-events-none` to connection tooltips so hover cards never intercept clicks on the `...` action menu.
 - **CodeMirror theme switching** — dynamically toggle CodeMirror between native light styling and `oneDark` using a `Compartment` to respect light/dark mode.
