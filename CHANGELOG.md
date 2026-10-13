@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with a single Wails/Go binary. All backend routes are now in-process Go services and the frontend communicates through generated Wails bindings, eliminating sidecar IPC.
+- **Desktop bundle size** — the local macOS ARM64 Wails app bundle is about 80% smaller than the previously installed app.
 - **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
 - **Release packaging** — ship `.dmg`, `.deb`, Fedora 40+ `.rpm`, and `.AppImage` packages, plus a Windows NSIS installer and a WiX `.msi` for stable tags. The AppImage uses the GTK bundling plugin and requires the host WebKit2GTK 4.1 runtime; it does not bundle the WebKit subprocess runtime.
 
@@ -19,6 +20,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Performance
 
+- **Go/Wails runtime comparison** — local synthetic PostgreSQL timings were similar to the previous Tauri/Node build: median ~8 ms for 1,000 rows in both builds and ~15 ms vs. ~13 ms for 10,000 rows. A one-time macOS ARM64 process-footprint snapshot measured ~179 MB vs. ~206 MB across app processes; the apps had different UI states, so treat the RAM figures as indicative only.
 - **Virtual table scrolling** — add `@tanstack/react-virtual` row windowing in `DataTable` for results over 40 rows to prevent massive DOM tree and WebProcess memory expansion.
 - **Go runtime memory limits** — cap Go heap target at 128MB with `debug.SetMemoryLimit` and GOGC=50 to eagerly reclaim and release unused pages back to the OS.
 - **Query cache trimming & lazy indexing** — reduce frontend query cache retention from 5 minutes to 60 seconds and eliminate eager startup AI schema indexing across all configured profiles.
