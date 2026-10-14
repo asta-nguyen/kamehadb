@@ -1,0 +1,135 @@
+internal/api/mongo.go
+  s_5002405c73cd64::t_e1d7785b34a6cd 274-278,286
+apps/desktop/src/lib/api.ts
+  s_5002405c73cd64::t_4ac6d0c799b8cb 325-328,333-337,340-341,347-355,358-359,453-457
+internal/store/vault_test.go
+  s_a370fa50600135::t_f33f885d803cd0 4,10-11,158-217
+  s_a370fa50600135::t_b729cd5a71a0d3 218-242
+internal/store/vault.go
+  s_a370fa50600135::t_b729cd5a71a0d3 12,79-80,82-88,92-99,107,119
+  s_a370fa50600135::t_465d7b75f5c57f 14,17-18,29-30,60-74,76-78,90-91,102-104,106,108,110-118,120-129,131-132,134
+  s_a370fa50600135::t_ab40afe0577f30 100-101
+docs/llm/integrations/read-only-mcp.md
+  s_a370fa50600135::t_b729cd5a71a0d3 86
+internal/engines/mysql/mysql.go
+  s_5002405c73cd64::t_0351e1beaed506 497-499
+  s_5002405c73cd64::t_130b6146b4a42c 9,59-60,83,88,100-110,112,114,117-135,137-151,155-156,159-163
+internal/engines/sqlite/preview_order_test.go
+  s_5002405c73cd64::t_a36dc0e7643b02 12-14
+  s_5002405c73cd64::t_0dcd940b5d14f3 1-11,15-47
+internal/engines/mysql/preview_order_sql_test.go
+  s_5002405c73cd64::t_89d3e341ac59f6 1-53
+internal/mongo/ordered_inputs_test.go
+  s_5002405c73cd64::t_b96397a9340a84 1-120
+internal/engines/sqlserver/preview_order_sql_test.go
+  s_5002405c73cd64::t_89d3e341ac59f6 1-53
+internal/redis/info_test.go
+  s_5002405c73cd64::t_44eee91be3a489 1-48
+internal/engines/sqlite/preview_order_sql_test.go
+  s_5002405c73cd64::t_89d3e341ac59f6 37
+  s_5002405c73cd64::t_edbb17af54f085 1-36,38-53
+internal/engines/preview-order.go
+  s_5002405c73cd64::t_0351e1beaed506 1-28
+internal/engines/sqlite/sqlite.go
+  s_5002405c73cd64::t_0351e1beaed506 496-498
+CHANGELOG.md
+  s_5002405c73cd64::t_4daf165333f7a2 54-57
+  s_a370fa50600135::t_3ba62f6092a67d 12
+  s_5002405c73cd64::t_a4bb3fd9c8f6b6 62
+  s_5002405c73cd64::t_8ec264e5702b71 58-61
+internal/engines/postgres/export.go
+  s_5002405c73cd64::t_dc35b7d46eed72 44-48
+  s_5002405c73cd64::t_4db1e0fb4375a8 18,26-32
+internal/mcp/manager_race_test.go
+  s_5002405c73cd64::t_9e386a91597c11 1-114
+internal/mongo/ordered.go
+  s_5002405c73cd64::t_343d44d188e3bc 1-158
+internal/redis/redis.go
+  s_5002405c73cd64::t_71fe64e7f04683 45-54
+  s_5002405c73cd64::t_3463ddd2826b2d 240-243,246-255
+go.mod
+  s_a370fa50600135::t_f33f885d803cd0 16,18
+  s_a370fa50600135::t_35eb8da8207ad4 30,43
+internal/sqlsafety/sqlsafety.go
+  s_5002405c73cd64::t_e41ce5a630e888 2-3,29-51,56-71,73,76,79-185,189,191-200
+internal/mcp/provisioner_postgres_integration_test.go
+  s_5002405c73cd64::t_b41d629d210178 37-39
+  s_5002405c73cd64::t_8ec8841b7aae08 1-36,40-83
+internal/engines/postgres/export_test.go
+  s_5002405c73cd64::t_0d9248508e93c6 119-122,125-140,142-143,149-162
+  s_5002405c73cd64::t_683a4beae6982a 123-124,141,144-148
+internal/mcp/provisioner.go
+  s_5002405c73cd64::t_c34de3951e69bc 673,691-692,698-700,749
+  s_5002405c73cd64::t_74aeb2c82cff48 121,147,172,196,199,226,257
+  s_5002405c73cd64::t_cc0096179b0030 16,686-690,693-697
+internal/engines/duckdb/embedded/preview_order_test.go
+  s_5002405c73cd64::t_0dcd940b5d14f3 1-11,16-55
+  s_5002405c73cd64::t_a36dc0e7643b02 12-15
+internal/engines/duckdb/embedded/preview_order_sql_test.go
+  s_5002405c73cd64::t_89d3e341ac59f6 1-53
+internal/engines/mysql/timeout_test.go
+  s_5002405c73cd64::t_d6dd614268b5a2 1-44,47-78,80-175
+  s_5002405c73cd64::t_130b6146b4a42c 79
+  s_5002405c73cd64::t_bd77957aa77f08 45-46
+internal/engines/oracle/oracle.go
+  s_5002405c73cd64::t_0351e1beaed506 425-430
+internal/engines/oracle/preview_order_sql_test.go
+  s_5002405c73cd64::t_89d3e341ac59f6 1-53
+apps/desktop/wailsjs/go/models.ts
+  s_5002405c73cd64::t_3f298727df7b22 932-933,947,1037-1038,1049,1059,1076
+apps/desktop/src/lib/api-requests.test.ts
+  s_5002405c73cd64::t_4ac6d0c799b8cb 46,53,55-61,64-100
+internal/sqlsafety/sqlsafety_test.go
+  s_5002405c73cd64::t_e70732e1bad9ad 55-100,102,107,111,116,120-124
+internal/engines/postgres/preview_order_test.go
+  s_5002405c73cd64::t_0dcd940b5d14f3 1-76
+internal/engines/postgres/postgres.go
+  s_5002405c73cd64::t_0351e1beaed506 733-736
+internal/engines/duckdb/embedded/duckdb.go
+  s_5002405c73cd64::t_0351e1beaed506 395-399
+internal/engines/sqlserver/sqlserver.go
+  s_5002405c73cd64::t_0351e1beaed506 414-417
+internal/mcp/provisioner_mongo_test.go
+  s_5002405c73cd64::t_c34de3951e69bc 1-62
+internal/mcp/manager.go
+  s_5002405c73cd64::t_9e386a91597c11 311-313
+  s_5002405c73cd64::t_161e57147dfd4c 57-63,66-132,498-500,502,518-520,522-529,531-544
+internal/mongo/ordered_test.go
+  s_5002405c73cd64::t_b96397a9340a84 1-111
+internal/engines/preview-order_test.go
+  s_5002405c73cd64::t_0351e1beaed506 1-27
+internal/mongo/aggregate_plan_test.go
+  s_5002405c73cd64::t_b96397a9340a84 1-73
+internal/mongo/mongo.go
+  s_5002405c73cd64::t_343d44d188e3bc 228-234,260-271
+  s_5002405c73cd64::t_886ca5ac2fe485 272,330-335,369-371,411-417,421-426,429-433,435-440,442-455,457-468,470-478,480-481,483-490,493-494,499,502-504,507-517,519-533
+  s_5002405c73cd64::t_1e552eb8a81a05 273
+internal/redis/protocol_test.go
+  s_5002405c73cd64::t_c523ab7b836a3f 1-136
+go.sum
+  s_a370fa50600135::t_a2cd5bfd0be85f 37-38,68-69,169-170,198-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f9ba443168aaadfdfd2d3ee787ea8d641ebfa742",
+  "prompts": {},
+  "sessions": {
+    "s_5002405c73cd64": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ec5602824ffexlLFlE6rG5E8EV",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_a370fa50600135": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59ffe329-bd85-4769-9d12-6fe203c182be",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
