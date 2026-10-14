@@ -1,7 +1,8 @@
 import { api } from '@/lib/api';
-import { SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
+import { PREVIEW_RESULT_GC_TIME_MS, SCHEMA_CACHE_TIME, STATS_CACHE_TIME } from '@/lib/constants';
 import { QUERY_KEYS } from '@/lib/query-keys';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
+import type { PreviewRowsInput, QueryResult } from '@kamehadb/shared';
 
 export function useSchemas(connectionId: string | null) {
   return useQuery({
@@ -39,12 +40,18 @@ export function useTableIndexes(connectionId: string | null, tableId: string | n
   });
 }
 
-export function usePreviewRows(connectionId: string | null, input: import('@kamehadb/shared').PreviewRowsInput | null) {
+export function usePreviewRows(
+  connectionId: string | null,
+  input: PreviewRowsInput | null,
+): UseQueryResult<QueryResult> {
+  // Cache ownership follows actual workspace close events, not view unmounts:
+  // only the active tab mounts, so unmount also happens during a tab switch.
   return useQuery({
     queryKey: QUERY_KEYS.PREVIEW(connectionId, input),
-    queryFn: () => api.previewRows(connectionId!, input!),
+    queryFn: ({ signal }) => api.previewRows(connectionId!, input!, signal),
     enabled: !!connectionId && !!input,
     staleTime: STATS_CACHE_TIME,
+    gcTime: PREVIEW_RESULT_GC_TIME_MS,
     placeholderData: keepPreviousData,
   });
 }

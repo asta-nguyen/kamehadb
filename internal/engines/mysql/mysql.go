@@ -58,10 +58,11 @@ func dsn(cp engines.ConnProfile) string {
 // Adapter is the database/sql-backed SqlAdapter for MySQL and MariaDB.
 // timeoutMs mirrors McpAdapterTimeoutOptions (MCP adapters only).
 type Adapter struct {
-	db        *sql.DB
-	database  string
-	isMariaDB bool
-	timeoutMs int64
+	db           *sql.DB
+	database     string
+	isMariaDB    bool
+	timeoutMs    int64
+	previewScope string
 }
 
 // New mirrors createMysqlAdapter's validation.
@@ -84,7 +85,7 @@ func NewWithTimeout(cp engines.ConnProfile, timeoutMs int64) (*Adapter, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(5)
-	return &Adapter{db: db, database: cp.Database, isMariaDB: cp.Kind == engines.KindMariaDB, timeoutMs: timeoutMs}, nil
+	return &Adapter{db: db, database: cp.Database, isMariaDB: cp.Kind == engines.KindMariaDB, timeoutMs: timeoutMs, previewScope: engines.NewPreviewScope(cp.Kind)}, nil
 }
 
 func init() {
@@ -135,7 +136,7 @@ func (a *Adapter) queryRows(ctx context.Context, query string, args ...any) (*sq
 // rowsToMaps scans an active sql.Rows cursor into map rows, capping at maxRows (0 for unlimited).
 // Pre-allocates and reuses the scan pointer buffer across iterations to prevent millions of
 // small heap allocations when reading large result sets. (How / Why / What)
-func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[string]any, bool, error) {
+func rowsToMaps(rows *sql.Rows, maxRows int64, budget *engines.ResultBudget) ([]engines.QueryColumn, []map[string]any, bool, error) {
 	cols, err := rows.ColumnTypes()
 	if err != nil {
 		return nil, nil, false, err
@@ -149,28 +150,7 @@ func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[str
 		nullable, _ := c.Nullable()
 		qcols[i] = engines.QueryColumn{Name: names[i], Type: c.DatabaseTypeName(), Nullable: &nullable}
 	}
-	out := make([]map[string]any, 0, 64)
-	vals := make([]any, len(cols))
-	ptrs := make([]any, len(cols))
-	for i := range vals {
-		ptrs[i] = &vals[i]
-	}
-	truncated := false
-	for rows.Next() {
-		if maxRows > 0 && int64(len(out)) >= maxRows {
-			truncated = true
-			break
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, false, err
-		}
-		m := make(map[string]any, len(cols))
-		for i, name := range names {
-			m[name] = normalizeValue(vals[i])
-		}
-		out = append(out, m)
-	}
-	return qcols, out, truncated, rows.Err()
+	return engines.CollectSQLRows(rows, qcols, maxRows, normalizeValue, budget)
 }
 
 func normalizeValue(v any) any {
@@ -408,97 +388,124 @@ func (a *Adapter) GetTableIndexes(ctx context.Context, tableID string) ([]engine
 	return out, rows.Err()
 }
 
+// Direct calls obtain metadata once; service calls reuse its existing TTL cache.
 func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInput) (*engines.QueryResult, error) {
+	columns, err := a.GetTableColumns(ctx, input.TableID)
+	if err != nil {
+		return nil, err
+	}
+	return a.PreviewRowsWithColumns(ctx, input, columns)
+}
+
+// Keep native collation/order and bind exact signed/unsigned anchors. Search OR
+// terms are grouped so the seek predicate applies to every matching column.
+func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.PreviewRowsInput, columns []engines.ColumnInfo) (*engines.QueryResult, error) {
+	input = engines.ScopePreview(input, a.previewScope)
+	start := time.Now()
 	schema, table := splitTableID(a.database, input.TableID)
-	offset := int64(0)
-	if input.Offset != nil {
-		offset = *input.Offset
+	limit, offset, err := engines.PreviewBounds(input)
+	if err != nil {
+		return nil, err
 	}
-	limit := int64(100)
-	if input.Limit != nil {
-		limit = *input.Limit
+	kind := engines.KindMySQL
+	if a.isMariaDB {
+		kind = engines.KindMariaDB
 	}
+	key := engines.PreviewPrimaryKey(kind, columns)
+	seek, err := engines.UsePreviewCursor(input, key, offset)
+	if err != nil {
+		return nil, err
+	}
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, limit, engines.MaxPreviewResultBytes)
 	var sb strings.Builder
 	var params []any
-	sb.WriteString("SELECT * FROM ")
-	sb.WriteString(a.esc(schema))
-	sb.WriteString(".")
-	sb.WriteString(a.esc(table))
-
+	sb.WriteString("SELECT * FROM " + a.esc(schema) + "." + a.esc(table))
 	if input.Search != "" {
-		colRows, err := a.queryRows(ctx,
-			"SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
-			schema, table)
-		if err != nil {
-			return nil, err
-		}
-		var searchCols []string
-		for colRows.Next() {
-			var c string
-			if err := colRows.Scan(&c); err != nil {
-				colRows.Close()
-				return nil, err
-			}
-			if input.SearchColumn != "" && c != input.SearchColumn {
+		var clauses []string
+		for _, col := range columns {
+			if input.SearchColumn != "" && col.Name != input.SearchColumn {
 				continue
 			}
-			searchCols = append(searchCols, c)
-		}
-		colRows.Close()
-		if len(searchCols) > 0 {
-			clauses := make([]string, len(searchCols))
-			for i, col := range searchCols {
-				if input.MatchCase {
-					clauses[i] = "BINARY " + a.esc(col) + " LIKE ?"
-				} else {
-					clauses[i] = a.esc(col) + " LIKE ?"
-				}
-				params = append(params, "%"+input.Search+"%")
+			clause := a.esc(col.Name) + " LIKE ?"
+			if input.MatchCase {
+				clause = "BINARY " + clause
 			}
-			sb.WriteString(" WHERE ")
-			sb.WriteString(strings.Join(clauses, " OR "))
+			clauses = append(clauses, clause)
+			params = append(params, "%"+input.Search+"%")
+		}
+		if len(clauses) > 0 {
+			sb.WriteString(" WHERE (" + strings.Join(clauses, " OR ") + ")")
 		} else {
 			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
-
-	if input.SortColumn != "" {
-		sb.WriteString(" ORDER BY ")
-		sb.WriteString(a.esc(input.SortColumn))
+	if seek && input.Cursor != "" {
+		value, err := engines.DecodePreviewCursor(input, *key)
+		if err != nil {
+			return nil, err
+		}
+		if input.Search != "" {
+			sb.WriteString(" AND ")
+		} else {
+			sb.WriteString(" WHERE ")
+		}
+		sb.WriteString(a.esc(key.Name))
+		if input.SortDirection == "desc" {
+			sb.WriteString(" < ?")
+		} else {
+			sb.WriteString(" > ?")
+		}
+		params = append(params, value)
+	}
+	order := input.SortColumn
+	if order == "" && key != nil {
+		order = key.Name
+	}
+	if order != "" {
+		sb.WriteString(" ORDER BY " + a.esc(order))
 		if input.SortDirection == "desc" {
 			sb.WriteString(" DESC")
 		} else {
 			sb.WriteString(" ASC")
 		}
 	}
-	fmt.Fprintf(&sb, " LIMIT %d OFFSET %d", limit, offset)
-
-	start := time.Now()
+	sb.WriteString(" LIMIT ?")
+	params = append(params, limit+1)
+	if !seek {
+		sb.WriteString(" OFFSET ?")
+		params = append(params, offset)
+	}
 	rows, err := a.db.QueryContext(ctx, sb.String(), params...)
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, _, err := rowsToMaps(rows, 0)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, limit, budget)
 	rows.Close()
 	if err != nil {
 		return nil, err
 	}
-	return &engines.QueryResult{
-		Columns:    qcols,
-		Rows:       mapRows,
-		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
-		Truncated:  int64(len(mapRows)) >= limit,
-	}, nil
+	result := budget.Apply(&engines.QueryResult{
+		Columns: qcols, Rows: mapRows, RowCount: int64(len(mapRows)),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
+		Truncated:  truncated,
+	})
+	return engines.FinishPreview(result, input, key, seek), nil
 }
 
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	start := time.Now()
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, engines.MaxGuiRows, engines.MaxGUIResultBytes)
 	rows, err := a.queryRows(ctx, input.Query, input.Params...)
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows, budget)
 	rows.Close()
 	if err != nil {
 		return nil, err
@@ -506,13 +513,11 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 	if mapRows == nil {
 		mapRows = []map[string]any{}
 	}
-	return &engines.QueryResult{
-		Columns:    qcols,
-		Rows:       mapRows,
-		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
+	return budget.Apply(&engines.QueryResult{
+		Columns: qcols, Rows: mapRows, RowCount: int64(len(mapRows)),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		Truncated:  truncated,
-	}, nil
+	}), nil
 }
 
 // RunQueryBounded is the MCP-only bounded read: stops after maxRows+1 rows so
@@ -565,7 +570,7 @@ func (a *Adapter) RunQueryBounded(ctx context.Context, input engines.BoundedQuer
 	return &engines.BoundedQueryResult{
 		Columns:    qcols,
 		Rows:       out,
-		DurationMs: float64(time.Since(start).Milliseconds()),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		Truncated:  truncated,
 	}, rows.Err()
 }

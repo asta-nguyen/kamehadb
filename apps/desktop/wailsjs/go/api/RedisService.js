@@ -6,6 +6,10 @@ export function GetRedisKey(arg1, arg2) {
   return window['go']['api']['RedisService']['GetRedisKey'](arg1, arg2);
 }
 
+export function GetRedisKeyWithRequest(arg1, arg2) {
+  return window['go']['api']['RedisService']['GetRedisKeyWithRequest'](arg1, arg2);
+}
+
 export function GetRedisStats(arg1) {
   return window['go']['api']['RedisService']['GetRedisStats'](arg1);
 }
@@ -20,6 +24,10 @@ export function Invalidate(arg1) {
 
 export function RunRedisCommand(arg1, arg2) {
   return window['go']['api']['RedisService']['RunRedisCommand'](arg1, arg2);
+}
+
+export function RunRedisCommandWithRequest(arg1, arg2) {
+  return window['go']['api']['RedisService']['RunRedisCommandWithRequest'](arg1, arg2);
 }
 
 export function ScanRedisKeys(arg1, arg2) {

@@ -90,13 +90,29 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The matching helper is a separate asset, never part of the app bundle.
+      # Its exact SHA/protocol version is baked into this platform's desktop.
+      - name: Build optional DuckDB driver
+        env:
+          RELEASE_TAG: ${{ needs.create-release.outputs.tag_name }}
+          DRIVER_PLATFORM: ${{ matrix.artifact_name }}
+        run: node scripts/build-duckdb-driver.mjs --version "$env:RELEASE_TAG" --platform "$env:DRIVER_PLATFORM"
+        if: matrix.platform == 'windows-latest'
+
+      - name: Build optional DuckDB driver (Unix)
+        if: matrix.platform != 'windows-latest'
+        env:
+          RELEASE_TAG: ${{ needs.create-release.outputs.tag_name }}
+          DRIVER_PLATFORM: ${{ matrix.artifact_name }}
+        run: node scripts/build-duckdb-driver.mjs --version "$RELEASE_TAG" --platform "$DRIVER_PLATFORM"
+
       - name: Build Wails app (macOS)
         if: matrix.platform == 'macos-latest'
-        run: wails build -platform ${{ matrix.wails_platform }}
+        run: wails build -platform ${{ matrix.wails_platform }} -ldflags "$DUCKDB_LDFLAGS"
 
       - name: Build Wails app (Linux)
         if: matrix.platform == 'ubuntu-22.04'
-        run: wails build -platform ${{ matrix.wails_platform }} -tags webkit2_41
+        run: wails build -platform ${{ matrix.wails_platform }} -tags webkit2_41 -ldflags "$DUCKDB_LDFLAGS"
 
       - name: Ensure NSIS (Windows)
         if: matrix.platform == 'windows-latest'
@@ -112,7 +128,7 @@ jobs:
 
       - name: Build Wails app (Windows)
         if: matrix.platform == 'windows-latest'
-        run: wails build -platform ${{ matrix.wails_platform }} -nsis
+        run: wails build -platform ${{ matrix.wails_platform }} -nsis -ldflags "$env:DUCKDB_LDFLAGS"
 
       - name: Package macOS bundle
         if: matrix.platform == 'macos-latest'
@@ -183,6 +199,7 @@ jobs:
             kamehadb-*.AppImage
             kamehadb-*.exe
             kamehadb-*.msi
+            build/duckdb-driver/kamehadb-duckdb-driver-*.gz
 
   publish-release-assets:
     needs:
@@ -213,5 +230,6 @@ jobs:
             release-assets/**/*.AppImage
             release-assets/**/*.exe
             release-assets/**/*.msi
+            release-assets/**/kamehadb-duckdb-driver-*.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

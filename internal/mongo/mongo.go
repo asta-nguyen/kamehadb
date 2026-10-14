@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	serverSelectionTimeout = 5 * time.Second
-	mcpQueryTimeout        = 30 * time.Second
-	defaultLimit           = 100
-	maxLimit               = 1000
+	serverSelectionTimeout  = 5 * time.Second
+	mcpQueryTimeout         = 30 * time.Second
+	defaultLimit            = 100
+	maxLimit                = 1000
+	disabledAdaptiveRetries = 0
 )
 
 type Config struct {
@@ -34,13 +35,20 @@ type Adapter struct {
 	client *mongo.Client
 }
 
+// RunCommand has no ordinary retry mode, but driver v2 also retries Atlas
+// overload labels. Override URI adaptive retries so an arbitrary write is not
+// replayed; ordinary safe-read retry behavior remains unchanged.
+func clientOptions(cfg Config) *options.ClientOptions {
+	return options.Client().ApplyURI(cfg.ConnectionString).
+		SetServerSelectionTimeout(serverSelectionTimeout).
+		SetMaxAdaptiveRetries(disabledAdaptiveRetries)
+}
+
 func New(cfg Config) (*Adapter, error) {
 	if cfg.ConnectionString == "" {
 		return nil, errors.New("MongoDB connection string is required")
 	}
-	client, err := mongo.Connect(options.Client().
-		ApplyURI(cfg.ConnectionString).
-		SetServerSelectionTimeout(serverSelectionTimeout))
+	client, err := mongo.Connect(clientOptions(cfg))
 	if err != nil {
 		return nil, err
 	}
@@ -220,6 +228,7 @@ type FindDocumentsInput struct {
 	Skip       int64            `json:"skip,omitempty"`
 	Limit      int64            `json:"limit,omitempty"`
 	Search     string           `json:"search,omitempty"`
+	RequestID  *string          `json:"requestId,omitempty"`
 }
 
 type DocumentResult struct {
@@ -379,6 +388,13 @@ type AggregateInput struct {
 	Pipeline   []map[string]any `json:"pipeline"`
 	Limit      int64            `json:"limit,omitempty"`
 	Skip       int64            `json:"skip,omitempty"`
+	RequestID  *string          `json:"requestId,omitempty"`
+}
+
+type MongoCommandRequest struct {
+	Database  string         `json:"database,omitempty"`
+	Command   map[string]any `json:"command"`
+	RequestID *string        `json:"requestId,omitempty"`
 }
 
 func (a *Adapter) Aggregate(ctx context.Context, in AggregateInput) (*DocumentResult, error) {

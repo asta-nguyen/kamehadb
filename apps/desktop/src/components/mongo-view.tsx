@@ -516,19 +516,17 @@ function DocumentsPanel({
   if (viewMode === 'table') {
     return (
       <div className="flex flex-col flex-1 h-full min-h-0 p-4 pt-2 gap-0">
-        <div className="min-h-0 max-h-full flex flex-col border border-border rounded-md overflow-hidden">
-          <div className="overflow-auto min-h-0">
-            <DocumentTableView
-              documents={documents}
-              connectionId={connectionId}
-              collection={collection}
-              database={database}
-              onDelete={onDelete}
-              onUpdate={onUpdate}
-              sortStr={sortStr}
-              onSortChange={onSortFieldChange}
-            />
-          </div>
+        <div className="min-h-0 flex-1 flex flex-col border border-border rounded-md overflow-hidden">
+          <DocumentTableView
+            documents={documents}
+            connectionId={connectionId}
+            collection={collection}
+            database={database}
+            onDelete={onDelete}
+            onUpdate={onUpdate}
+            sortStr={sortStr}
+            onSortChange={onSortFieldChange}
+          />
           <DataFooter rowCount={documents.length} {...footerProps} />
         </div>
       </div>

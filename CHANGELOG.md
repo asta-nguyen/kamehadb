@@ -16,10 +16,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **Native full CSV export** — stream read-only PostgreSQL/SQLite queries or whole tables directly to disk, preserving intentional query limits and keeping displayed-row exports available. Cancel or close the view without replacing an existing destination; changing connections cannot launch a stale export dialog.
 - **Column-specific table search & case-sensitive toggle** — add column filter dropdown (`All fields` or specific column) and `Aa` Match Case toggle to Table View search; uses native fast string operations (`instr` in SQLite, `contains` in DuckDB, `position` in ClickHouse, `INSTR` in Oracle, `BINARY LIKE` in MySQL) to accelerate queries on million-row tables by up to 3x–5x.
 
 ### Performance
 
+- **Interim sorting/RAM benchmark** — three private Wails/SQLite runs over one million rows measured median instrumented sort interactions of 79 ms (primary key), 89 ms (indexed column), and 374 ms (unindexed text), displaying 50 rows. Whole-app PSS medians were 321.5 MiB idle and 424.4 MiB with five small tabs: RAM targets remain unmet, and no matched-baseline improvement is claimed. See the [method and remaining evidence](docs/agent-devkit/changes/2026-10-13-footprint-and-large-tables/benchmark.md).
+
+- **Exact SQL paging** — extend eligible primary-key seeks to MySQL/MariaDB, SQL Server, Oracle and DuckDB with exact unsigned/wider anchors and connection-owned bookmarks. Unsupported keys and arbitrary sorts retain server-side offset fallback; ClickHouse stays non-unique offset paging and streams bounded native responses without admitting failed partial queries.
+- **Request-scoped cancellation** — SQL, Mongo and Redis GUI calls use bounded per-request ownership. Cancelling, closing or changing one view no longer targets a connection-wide query slot; exports keep independent cancellation. Ambiguous commands are not automatically replayed, and cancellation does not claim rollback.
+- **Optional DuckDB driver** — keep DuckDB support in an app-managed helper instead of linking its native library into the desktop. Matching release builds verify the first-use download and cached executable, use private cancellable stdio RPC, and clean up owned children/spill files. Background health does not install/start unused helpers or create databases; development uses an explicit local build.
 - **Go/Wails runtime comparison** — local synthetic PostgreSQL timings were similar to the previous Tauri/Node build: median ~8 ms for 1,000 rows in both builds and ~15 ms vs. ~13 ms for 10,000 rows. A one-time macOS ARM64 process-footprint snapshot measured ~179 MB vs. ~206 MB across app processes; the apps had different UI states, so treat the RAM figures as indicative only.
 - **Virtual table scrolling** — add `@tanstack/react-virtual` row windowing in `DataTable` for results over 40 rows to prevent massive DOM tree and WebProcess memory expansion.
 - **Go runtime memory limits** — cap Go heap target at 128MB with `debug.SetMemoryLimit` and GOGC=50 to eagerly reclaim and release unused pages back to the OS.
@@ -29,6 +35,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- **Empty workspace startup** — return an empty connection array instead of `null` so fresh installs and deleting the last profile do not crash the welcome screen.
+- **Query history durations** — round fractional execution times only when saving history to match the Go integer-millisecond binding, preserving precise timings in query results.
+- **Closed-table result retention** — evict all cached preview pages for an unmounted table and collect unobserved SQL mutation results without discarding active or pending executions.
 - **Dialect-aware query limiting** — update `sql-editor.tsx` to apply T-SQL `OFFSET...FETCH` on SQL Server and Oracle `OFFSET...FETCH` instead of invalid `LIMIT` clauses; strip leading single and multi-line comments so commented queries (`/* ... */`, `-- ...`) are correctly limited without syntax errors.
 - **T-SQL pagination with window/comment ORDER BY** — detect only the outermost `ORDER BY` when appending `OFFSET...FETCH` in `sql-editor.tsx`, including clauses with arbitrary whitespace and ignoring occurrences inside window expressions, comments (including nested block comments), string literals, and quoted identifiers (including escaped `]]`) that previously produced invalid T-SQL.
 - **ClickHouse search escaping & fail-closed probe** — escape backslashes before quotes in Table View search literals (ClickHouse treats backslash as the escape character) and return an error instead of running the query unfiltered when the search-column metadata probe fails.

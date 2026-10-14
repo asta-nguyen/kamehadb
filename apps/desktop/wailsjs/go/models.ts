@@ -134,6 +134,42 @@ export namespace api {
       this.update = source['update'];
     }
   }
+  export class QueryExportInput {
+    id: string;
+    path: string;
+    query: string;
+    params?: any[];
+
+    static createFrom(source: any = {}) {
+      return new QueryExportInput(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.id = source['id'];
+      this.path = source['path'];
+      this.query = source['query'];
+      this.params = source['params'];
+    }
+  }
+  export class QueryExportResult {
+    rows: number;
+    bytes: number;
+    path: string;
+    cancelled: boolean;
+
+    static createFrom(source: any = {}) {
+      return new QueryExportResult(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.rows = source['rows'];
+      this.bytes = source['bytes'];
+      this.path = source['path'];
+      this.cancelled = source['cancelled'];
+    }
+  }
   export class SaveQueryHistoryInput {
     query: string;
     durationMs?: number;
@@ -400,6 +436,9 @@ export namespace engines {
     searchColumn?: string;
     matchCase?: boolean;
     filters?: PreviewFilter[];
+    cursor?: string;
+    paginationMode?: string;
+    requestId?: string;
 
     static createFrom(source: any = {}) {
       return new PreviewRowsInput(source);
@@ -417,6 +456,9 @@ export namespace engines {
       this.searchColumn = source['searchColumn'];
       this.matchCase = source['matchCase'];
       this.filters = this.convertValues(source['filters'], PreviewFilter);
+      this.cursor = source['cursor'];
+      this.paginationMode = source['paginationMode'];
+      this.requestId = source['requestId'];
     }
 
     convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -459,6 +501,11 @@ export namespace engines {
     rowCount: number;
     durationMs: number;
     truncated: boolean;
+    payloadBytes?: number;
+    limitReason?: string;
+    hasMore?: boolean;
+    nextCursor?: string;
+    paginationMode?: string;
 
     static createFrom(source: any = {}) {
       return new QueryResult(source);
@@ -471,6 +518,11 @@ export namespace engines {
       this.rowCount = source['rowCount'];
       this.durationMs = source['durationMs'];
       this.truncated = source['truncated'];
+      this.payloadBytes = source['payloadBytes'];
+      this.limitReason = source['limitReason'];
+      this.hasMore = source['hasMore'];
+      this.nextCursor = source['nextCursor'];
+      this.paginationMode = source['paginationMode'];
     }
 
     convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -494,6 +546,7 @@ export namespace engines {
   export class RunQueryInput {
     query: string;
     params?: any[];
+    requestId?: string;
 
     static createFrom(source: any = {}) {
       return new RunQueryInput(source);
@@ -503,6 +556,7 @@ export namespace engines {
       if ('string' === typeof source) source = JSON.parse(source);
       this.query = source['query'];
       this.params = source['params'];
+      this.requestId = source['requestId'];
     }
   }
   export class SchemaInfo {
@@ -878,6 +932,7 @@ export namespace mongo {
     pipeline: any[];
     limit?: number;
     skip?: number;
+    requestId?: string;
 
     static createFrom(source: any = {}) {
       return new AggregateInput(source);
@@ -890,6 +945,7 @@ export namespace mongo {
       this.pipeline = source['pipeline'];
       this.limit = source['limit'];
       this.skip = source['skip'];
+      this.requestId = source['requestId'];
     }
   }
   export class CollectionInfo {
@@ -974,6 +1030,22 @@ export namespace mongo {
       this.durationMs = source['durationMs'];
     }
   }
+  export class MongoCommandRequest {
+    database?: string;
+    command: Record<string, any>;
+    requestId?: string;
+
+    static createFrom(source: any = {}) {
+      return new MongoCommandRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.database = source['database'];
+      this.command = source['command'];
+      this.requestId = source['requestId'];
+    }
+  }
   export class FindDocumentsInput {
     collection: string;
     database?: string;
@@ -983,6 +1055,7 @@ export namespace mongo {
     skip?: number;
     limit?: number;
     search?: string;
+    requestId?: string;
 
     static createFrom(source: any = {}) {
       return new FindDocumentsInput(source);
@@ -998,6 +1071,7 @@ export namespace mongo {
       this.skip = source['skip'];
       this.limit = source['limit'];
       this.search = source['search'];
+      this.requestId = source['requestId'];
     }
   }
 }
@@ -1123,10 +1197,39 @@ export namespace redis {
       this.value = source['value'];
     }
   }
+  export class RedisCommandRequest {
+    command: string;
+    requestId?: string;
+
+    static createFrom(source: any = {}) {
+      return new RedisCommandRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.command = source['command'];
+      this.requestId = source['requestId'];
+    }
+  }
+  export class RedisKeyRequest {
+    key: string;
+    requestId?: string;
+
+    static createFrom(source: any = {}) {
+      return new RedisKeyRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.key = source['key'];
+      this.requestId = source['requestId'];
+    }
+  }
   export class ScanKeysInput {
     pattern?: string;
     count?: number;
     cursor?: number;
+    requestId?: string;
 
     static createFrom(source: any = {}) {
       return new ScanKeysInput(source);
@@ -1137,6 +1240,7 @@ export namespace redis {
       this.pattern = source['pattern'];
       this.count = source['count'];
       this.cursor = source['cursor'];
+      this.requestId = source['requestId'];
     }
   }
 }

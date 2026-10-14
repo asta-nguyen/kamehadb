@@ -389,7 +389,10 @@ export function applyQueryLimit(sql: string, limit: number, offsetVal?: number, 
 }
 
 import { DataTable, type ColumnDef } from '@/components/data-table';
+import { MiddleTruncate } from '@/components/middle-truncate';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
+import { ResultLimitNotice } from '@/components/result-limit-notice';
+import { NativeCSVExportButton } from '@/components/native-csv-export-button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -418,6 +421,7 @@ import {
   Eye,
   FileJson,
   History,
+  Info,
   Play,
   Square,
   Table2,
@@ -425,6 +429,13 @@ import {
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { ChartView } from '@/components/chart-view';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// Format query duration with sub-millisecond precision for fast queries (<1ms) or rounded integers otherwise. (How / Why / What)
+function formatDuration(ms: number | undefined): string {
+  if (ms === undefined || ms === null) return '<1ms';
+  if (ms < 1) return '<1ms';
+  return `${Math.round(ms)}ms`;
+}
 
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
@@ -589,16 +600,20 @@ function QueryResultTable({
       return (
         <span
           onDoubleClick={editability.canEditCells ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
-          className={editability.canEditCells ? 'flex-1 min-w-0 truncate cursor-pointer' : 'flex-1 min-w-0 truncate'}
+          className={
+            editability.canEditCells
+              ? 'flex-1 min-w-0 cursor-pointer flex items-center overflow-hidden'
+              : 'flex-1 min-w-0 flex items-center overflow-hidden'
+          }
         >
           {value === null ? (
             <span className="text-muted-foreground italic">null</span>
           ) : value === undefined ? (
             <span className="text-muted-foreground">-</span>
           ) : typeof value === 'object' ? (
-            <span className="text-primary">{JSON.stringify(value)}</span>
+            <MiddleTruncate text={JSON.stringify(value)} className="text-primary font-mono" />
           ) : (
-            <span>{String(value)}</span>
+            <MiddleTruncate text={String(value)} />
           )}
         </span>
       );
@@ -618,23 +633,32 @@ function QueryResultTable({
           {editability.warningMessage}
         </div>
       )}
-      <div className="min-h-0 overflow-hidden border border-border rounded-md">
-        <div className="overflow-auto max-h-full">
-          <DataTable
-            rows={result.rows}
-            columns={columns}
-            rowKey={(_, i) => String(i)}
-            showIndex
-            stickyHeader
-            onRowClick={editability.canEditCells ? undefined : (row) => onSelectRow(row)}
-            suffixHeader="Actions"
-            suffixWidth="64px"
-            suffix={(row) => (
+      <div className="min-h-0 flex-1 flex flex-col overflow-hidden border border-border rounded-md">
+        <DataTable
+          rows={result.rows}
+          columns={columns}
+          rowKey={(_, i) => String(i)}
+          showIndex
+          stickyHeader
+          onRowClick={editability.canEditCells ? undefined : (row) => onSelectRow(row)}
+          suffixHeader="Actions"
+          suffixWidth="64px"
+          suffix={(row) => (
+            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Row actions"
+                    />
+                  }
+                >
                   <Ellipsis className="size-3.5" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuContent side="left" align="start" sideOffset={4} className="w-40">
                   <DropdownMenuItem onClick={() => onSelectRow(row)}>
                     <Eye className="size-3.5 mr-2" />
                     View details
@@ -645,17 +669,18 @@ function QueryResultTable({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-          />
-        </div>
+            </div>
+          )}
+        />
       </div>
+      <ResultLimitNotice result={result} />
       <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
           <span>{result.rowCount} rows returned</span>
           {offset > 0 && <span className="text-muted-foreground/60">(offset {offset})</span>}
           <span className="flex items-center gap-1">
             <Clock className="size-3" />
-            {result.durationMs}ms
+            {formatDuration(result.durationMs)}
           </span>
           {result.truncated && (
             <Badge variant="outline" className="text-xs">
@@ -692,12 +717,13 @@ function QueryResultTable({
               <SelectItem value="0">No limit</SelectItem>
             </SelectContent>
           </Select>
+          <NativeCSVExportButton connectionId={connectionId} query={executedSql} />
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" title="Export" />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" title="Export displayed rows" />}>
               <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Displayed rows as CSV</DropdownMenuItem>
               <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
               <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -716,6 +742,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const [sql, setSql] = useState('sql' in tab ? (tab.sql ?? 'SELECT * FROM ') : 'SELECT * FROM ');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCancelled, setIsCancelled] = useState(false);
+  const isCancellingRef = useRef(false);
   const [results, setResults] = useState<QueryResult[]>([]);
   const [executedStatements, setExecutedStatements] = useState<string[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
@@ -746,8 +774,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const targetConn = useMemo(() => connections?.find((c) => c.id === connectionId), [connections, connectionId]);
 
   const handleCancel = useCallback(() => {
-    void api.cancelQuery(connectionId);
-  }, [connectionId]);
+    isCancellingRef.current = true;
+    runQuery.cancel();
+  }, [runQuery.cancel]);
 
   // Wire Escape key to cancel query while running. (How / Why / What)
   useEffect(() => {
@@ -762,12 +791,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [runQuery.isPending, isExecutingBatch, handleCancel]);
 
-  // Abort running query and clear result references when tab unmounts to free memory. (How / Why / What)
+  // The mutation hook cancels only its own jobs; clear displayed references on close.
   useEffect(() => {
     return () => {
       setResult(null);
       setResults([]);
-      void api.cancelQuery(connectionId);
     };
   }, [connectionId]);
 
@@ -785,6 +813,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     async (querySql: string) => {
       if (!querySql.trim()) return;
       setError(null);
+      setIsCancelled(false);
+      isCancellingRef.current = false;
       setResult(null);
       setResults([]);
       setExecutedStatements([]);
@@ -851,56 +881,75 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         }
       } catch (err) {
         const message = safeErrorMessage(err, 'Query failed');
-        setError(message);
-        void appendFrontendLog({
-          level: 'error',
-          scope: 'sql-editor.query',
-          message: `Query execution failed: ${message}`,
-          details: err instanceof Error ? err.stack : String(err),
-        });
-        // Parse the error message for line number and add a diagnostic marker
-        const view = editorViewRef.current;
-        if (view) {
-          const doc = view.state.doc;
-          // Extract line/position from SQL error messages:
-          //   PostgreSQL "LINE N:", MySQL "at line N", Postgres "at character N"
-          let errorLine = 1;
-          const lineMatch = message.match(/LINE\s+(\d+)/i);
-          if (lineMatch) {
-            errorLine = parseInt(lineMatch[1], 10);
-          } else {
-            const atLineMatch = message.match(/at line (\d+)/i);
-            if (atLineMatch) {
-              errorLine = parseInt(atLineMatch[1], 10);
+        // Distinguish intentional user cancellations (Esc, Cancel button, Go context cancel)
+        // from actual query execution errors so cancellations aren't styled as failures. (How / Why / What)
+        const wasCancelled =
+          isCancellingRef.current ||
+          /context canceled|canceling statement due to user request|query canceled|query was cancelled|operation canceled|abort/i.test(
+            message,
+          ) ||
+          (err instanceof Error && err.name === 'AbortError');
+
+        if (wasCancelled) {
+          setIsCancelled(true);
+          setError(null);
+          void appendFrontendLog({
+            level: 'info',
+            scope: 'sql-editor.query',
+            message: 'Query cancelled by user',
+          });
+        } else {
+          setError(message);
+          void appendFrontendLog({
+            level: 'error',
+            scope: 'sql-editor.query',
+            message: `Query execution failed: ${message}`,
+            details: err instanceof Error ? err.stack : String(err),
+          });
+          // Parse the error message for line number and add a diagnostic marker
+          const view = editorViewRef.current;
+          if (view) {
+            const doc = view.state.doc;
+            // Extract line/position from SQL error messages:
+            //   PostgreSQL "LINE N:", MySQL "at line N", Postgres "at character N"
+            let errorLine = 1;
+            const lineMatch = message.match(/LINE\s+(\d+)/i);
+            if (lineMatch) {
+              errorLine = parseInt(lineMatch[1], 10);
             } else {
-              const charMatch = message.match(/at character (\d+)/i);
-              if (charMatch) {
-                // Convert 1-based character offset to line number by walking lines
-                const charOffset = parseInt(charMatch[1], 10);
-                let currentChar = 0;
-                for (let ln = 1; ln <= doc.lines; ln++) {
-                  currentChar += doc.line(ln).length + 1; // +1 for newline
-                  if (currentChar >= charOffset) {
-                    errorLine = ln;
-                    break;
+              const atLineMatch = message.match(/at line (\d+)/i);
+              if (atLineMatch) {
+                errorLine = parseInt(atLineMatch[1], 10);
+              } else {
+                const charMatch = message.match(/at character (\d+)/i);
+                if (charMatch) {
+                  // Convert 1-based character offset to line number by walking lines
+                  const charOffset = parseInt(charMatch[1], 10);
+                  let currentChar = 0;
+                  for (let ln = 1; ln <= doc.lines; ln++) {
+                    currentChar += doc.line(ln).length + 1; // +1 for newline
+                    if (currentChar >= charOffset) {
+                      errorLine = ln;
+                      break;
+                    }
                   }
                 }
               }
             }
+            // Clamp line number to valid range
+            errorLine = Math.min(errorLine, doc.lines);
+            const line = doc.line(errorLine);
+            view.dispatch(
+              setDiagnostics(view.state, [
+                {
+                  from: line.from,
+                  to: Math.max(line.to, line.from + 1),
+                  severity: 'error',
+                  message,
+                },
+              ]),
+            );
           }
-          // Clamp line number to valid range
-          errorLine = Math.min(errorLine, doc.lines);
-          const line = doc.line(errorLine);
-          view.dispatch(
-            setDiagnostics(view.state, [
-              {
-                from: line.from,
-                to: Math.max(line.to, line.from + 1),
-                severity: 'error',
-                message,
-              },
-            ]),
-          );
         }
       } finally {
         setIsExecutingBatch(false);
@@ -1083,6 +1132,13 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
             {(runQuery.isPending || isExecutingBatch) && (
               <div className="flex items-center justify-center py-8">
                 <Spinner size="lg" />
+              </div>
+            )}
+
+            {isCancelled && (
+              <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                <Info className="size-4 shrink-0" />
+                <span>Query cancelled</span>
               </div>
             )}
 

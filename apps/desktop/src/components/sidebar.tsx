@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 import { useConnections, useDeleteConnection, useRefreshConnection } from '@/hooks/use-connections';
 import { api } from '@/lib/api';
 import {
@@ -56,6 +57,8 @@ const ConnectionItem = memo(function ConnectionItem({
   const expanded = expandedConnections.includes(conn.id);
   const pinned = pinnedConnections.includes(conn.id);
 
+  const rowRef = useRef<HTMLDivElement>(null);
+
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBackup, setShowBackup] = useState(false);
@@ -66,6 +69,26 @@ const ConnectionItem = memo(function ConnectionItem({
 
   const status: ConnectionStatus = connectionStatus[conn.id] ?? 'disconnected';
   const latency = connectionLatency[conn.id];
+
+  // Virtual anchor positioned at the right border of the sidebar at the vertical level of the row.
+  // This guarantees the tooltip appears cleanly in the workspace canvas outside the sidebar,
+  // making it physically impossible for the sidebar's scrollbar to intersect or render over it. (How / Why / What)
+  const anchor = useMemo<TooltipPrimitive.Positioner.Props['anchor']>(
+    () => ({
+      getBoundingClientRect: () => {
+        const el = rowRef.current;
+        if (!el) return new DOMRect();
+        const rect = el.getBoundingClientRect();
+        const aside = el.closest('aside');
+        const rightEdge = aside ? aside.getBoundingClientRect().right : rect.right;
+        return new DOMRect(rightEdge, rect.top, 0, rect.height);
+      },
+      get contextElement() {
+        return rowRef.current ?? undefined;
+      },
+    }),
+    [],
+  );
 
   function handleRowActivate() {
     setActiveConnection(conn.id);
@@ -79,6 +102,7 @@ const ConnectionItem = memo(function ConnectionItem({
   return (
     <div className="relative grow">
       <div
+        ref={rowRef}
         role="button"
         tabIndex={0}
         onClick={handleRowActivate}
@@ -102,14 +126,13 @@ const ConnectionItem = memo(function ConnectionItem({
           <span className="shrink-0 size-4" />
         )}
 
-        <DbIcon kind={conn.kind} className="shrink-0 size-4" />
-
         <Tooltip>
-          <TooltipTrigger className="flex min-w-0 flex-1 items-center justify-start gap-1.5 text-foreground/90 font-medium cursor-default text-left">
+          <TooltipTrigger className="flex min-w-0 flex-1 items-center justify-start gap-2 text-foreground/90 font-medium cursor-default text-left">
+            <DbIcon kind={conn.kind} className="shrink-0 size-4" />
             <span className="min-w-0 flex-1 truncate">{conn.name}</span>
             {pinned && <Pin className="size-3 shrink-0 text-muted-foreground/50" />}
           </TooltipTrigger>
-          <ConnectionTooltip conn={conn} status={status} latency={latency} />
+          <ConnectionTooltip conn={conn} status={status} latency={latency} anchor={anchor} />
         </Tooltip>
 
         <Button
@@ -320,10 +343,10 @@ export function Sidebar() {
   return (
     <aside
       ref={sidebarRef}
-      className="flex h-full bg-muted/30 border-border border-r"
-      style={{ width: sidebarWidth, minWidth: sidebarWidth }}
+      className="flex h-full bg-muted/30 border-border border-r shrink-0"
+      style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
     >
-      <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">
+      <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
           <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />

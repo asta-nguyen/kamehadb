@@ -11,6 +11,14 @@ export const STATS_CACHE_TIME = SHARED_STATS_CACHE_TIME;
 // Query cache garbage collection and stale times to minimize heap usage. (How / Why / What)
 export const DEFAULT_QUERY_GC_TIME_MS = 60 * 1000;
 export const DEFAULT_QUERY_STALE_TIME_MS = 15 * 1000;
+// Visible SQL results belong to their editor; don't retain a second mutation copy after unmount.
+export const SQL_RESULT_GC_TIME_MS = 0;
+// Open tabs retain previews only under the workspace owner's byte budget.
+export const PREVIEW_RESULT_GC_TIME_MS = Infinity;
+export const PREVIEW_CACHE_BYTES = 32 * 1024 * 1024;
+export const MAX_PREVIEW_BOOKMARKS = 100;
+export const PREVIEW_STRING_STORAGE_FACTOR = 2;
+export const PREVIEW_HEAP_BYTES_PER_ROW = 128;
 
 export const TOAST_AUTO_HIDE_MS = 5 * 1000;
 export const AUTO_TEST_DEBOUNCE_MS = 500;

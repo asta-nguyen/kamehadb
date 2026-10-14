@@ -48,7 +48,10 @@ func openDB(cp engines.ConnProfile) *sql.DB {
 			Username: user,
 			Password: cp.Password,
 		},
-		Settings: ch.Settings{"wait_end_of_query": 1},
+		// Stream native blocks so collection can stop before the full result
+		// is buffered server-side. Late driver errors still reject the entire
+		// GUI result; a native block may exceed the admission budget transiently.
+		Settings: ch.Settings{"wait_end_of_query": 0},
 	})
 }
 
@@ -107,7 +110,7 @@ func normalizeValue(v any) any {
 // queryMaps scans an active query into map rows, capping at maxRows (0 for unlimited).
 // Pre-allocates and reuses the scan pointer buffer across iterations to prevent millions of
 // small heap allocations when reading large result sets. (How / Why / What)
-func (a *Adapter) queryMaps(ctx context.Context, query string, maxRows int64) ([]engines.QueryColumn, []map[string]any, bool, error) {
+func (a *Adapter) queryMaps(ctx context.Context, query string, maxRows int64, budget *engines.ResultBudget) ([]engines.QueryColumn, []map[string]any, bool, error) {
 	rows, err := a.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, nil, false, err
@@ -126,28 +129,7 @@ func (a *Adapter) queryMaps(ctx context.Context, query string, maxRows int64) ([
 		}
 		qcols[i] = engines.QueryColumn{Name: name, Type: typ}
 	}
-	out := make([]map[string]any, 0, 64)
-	vals := make([]any, len(names))
-	ptrs := make([]any, len(names))
-	for i := range vals {
-		ptrs[i] = &vals[i]
-	}
-	truncated := false
-	for rows.Next() {
-		if maxRows > 0 && int64(len(out)) >= maxRows {
-			truncated = true
-			break
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, false, err
-		}
-		m := make(map[string]any, len(names))
-		for i, name := range names {
-			m[name] = normalizeValue(vals[i])
-		}
-		out = append(out, m)
-	}
-	return qcols, out, truncated, rows.Err()
+	return engines.CollectSQLRows(rows, qcols, maxRows, normalizeValue, budget)
 }
 
 func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionResult, error) {
@@ -337,15 +319,21 @@ func (a *Adapter) GetCompletions(ctx context.Context, schema *string) ([]engines
 
 // PreviewRows — no search clause on ClickHouse in the TS adapter either.
 func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInput) (*engines.QueryResult, error) {
+	start := time.Now()
 	db, table := splitTableID(a.database, input.TableID)
-	offset := int64(0)
-	if input.Offset != nil {
-		offset = *input.Offset
+	limit, offset, err := engines.PreviewBounds(input)
+	if err != nil {
+		return nil, err
 	}
-	limit := int64(100)
-	if input.Limit != nil {
-		limit = *input.Limit
+	// A MergeTree sorting key is not unique. Reject foreign/stale anchors
+	// rather than silently ignoring them and restarting an offset window.
+	if _, err := engines.UsePreviewCursor(input, nil, offset); err != nil {
+		return nil, err
 	}
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, limit, engines.MaxPreviewResultBytes)
 	var sb strings.Builder
 	sb.WriteString("SELECT * FROM ")
 	sb.WriteString(esc(db))
@@ -401,38 +389,37 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 			sb.WriteString(" ASC")
 		}
 	}
-	fmt.Fprintf(&sb, " LIMIT %d OFFSET %d", limit, offset)
+	fmt.Fprintf(&sb, " LIMIT %d OFFSET %d", limit+1, offset)
 
-	start := time.Now()
-	qcols, mapRows, _, err := a.queryMaps(ctx, sb.String(), 0)
+	qcols, mapRows, truncated, err := a.queryMaps(ctx, sb.String(), limit, budget)
 	if err != nil {
 		return nil, err
 	}
-	return &engines.QueryResult{
-		Columns:    qcols,
-		Rows:       mapRows,
-		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
-		Truncated:  int64(len(mapRows)) >= limit,
-	}, nil
+	return budget.Apply(&engines.QueryResult{
+		Columns: qcols, Rows: mapRows, RowCount: int64(len(mapRows)),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
+		Truncated:  truncated, PaginationMode: "offset",
+	}), nil
 }
 
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	start := time.Now()
-	qcols, mapRows, truncated, err := a.queryMaps(ctx, input.Query, engines.MaxGuiRows)
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, engines.MaxGuiRows, engines.MaxGUIResultBytes)
+	qcols, mapRows, truncated, err := a.queryMaps(ctx, input.Query, engines.MaxGuiRows, budget)
 	if err != nil {
 		return nil, err
 	}
 	if mapRows == nil {
 		mapRows = []map[string]any{}
 	}
-	return &engines.QueryResult{
-		Columns:    qcols,
-		Rows:       mapRows,
-		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
+	return budget.Apply(&engines.QueryResult{
+		Columns: qcols, Rows: mapRows, RowCount: int64(len(mapRows)),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		Truncated:  truncated,
-	}, nil
+	}), nil
 }
 
 func (a *Adapter) GetDatabaseSizes(ctx context.Context, _ *string) ([]engines.DatabaseSize, error) {

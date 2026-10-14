@@ -35,4 +35,7 @@ This wiki records behavior checked against current repository source and relevan
 | ------ | ---------------------------------- |
 | AI     | AI provider and chat integration   |
 | MCP    | Model Context Protocol integration |
+| SQL    | SQL results, previews, and exports |
+| ENG    | Database adapter runtime           |
+| WSP    | Workspace result lifetime          |
 | OPS    | Release packaging                  |

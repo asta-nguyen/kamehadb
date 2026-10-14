@@ -2,6 +2,7 @@ import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import { javascript } from '@codemirror/lang-javascript';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useGUIRequests } from '@/hooks/use-gui-requests';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -54,11 +55,11 @@ const DEFAULT_PIPELINE = '[\n  { $match: {} }\n]';
 function mongoQueryReducer(state: MongoQueryState, action: MongoQueryAction): MongoQueryState {
   switch (action.type) {
     case 'setPipeline':
-      return { ...state, pipeline: action.value };
+      return { ...state, pipeline: action.value, running: false };
     case 'setDb':
-      return { ...state, db: action.value, collection: action.resetCollection ? '' : state.collection };
+      return { ...state, db: action.value, collection: action.resetCollection ? '' : state.collection, running: false };
     case 'setCollection':
-      return { ...state, collection: action.value };
+      return { ...state, collection: action.value, running: false };
     case 'startRun':
       return { ...state, error: null, result: null, running: true, page: action.page };
     case 'finishRun':
@@ -412,6 +413,10 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Context changes own a new cancellation scope. A run sequence also rejects
+  // late completions when the keyboard starts another run in the same context.
+  const requests = useGUIRequests(JSON.stringify([connectionId, state.db, state.collection, state.pipeline]));
+  const runSequence = useRef(0);
   const runRef = useRef<() => Promise<void>>(async () => {});
   const completionsRef = useRef<MongoCompletionsData | null>(null);
   completionsRef.current = completionsData ?? null;
@@ -419,6 +424,8 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     async (p?: number) => {
       if (!state.collection || !state.db) return;
       const currentPage = p ?? 0;
+      const sequence = ++runSequence.current;
+      requests.cancel();
       dispatch({ type: 'startRun', page: currentPage });
 
       try {
@@ -430,15 +437,23 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           throw new Error('Invalid aggregation pipeline — check syntax');
         }
 
-        const res = await api.aggregateMongoDocuments(connectionId, {
-          collection: state.collection,
-          database: state.db,
-          pipeline: parsed,
-          skip: currentPage * PAGE_LIMIT,
-          limit: PAGE_LIMIT,
-        });
+        const res = await requests.run((signal) =>
+          api.aggregateMongoDocuments(
+            connectionId,
+            {
+              collection: state.collection,
+              database: state.db,
+              pipeline: parsed,
+              skip: currentPage * PAGE_LIMIT,
+              limit: PAGE_LIMIT,
+            },
+            signal,
+          ),
+        );
+        if (!requests.isCurrent() || sequence !== runSequence.current) return;
         dispatch({ type: 'finishRun', result: res, page: currentPage });
       } catch (err) {
+        if (!requests.isCurrent() || sequence !== runSequence.current) return;
         const message = safeErrorMessage(err, 'Aggregation failed');
         dispatch({ type: 'failRun', error: message });
         void appendFrontendLog({
@@ -449,7 +464,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         });
       }
     },
-    [state.collection, state.db, state.pipeline, connectionId],
+    [state.collection, state.db, state.pipeline, connectionId, requests.run, requests.cancel, requests.isCurrent],
   );
   runRef.current = handleRun;
 

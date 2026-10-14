@@ -42,11 +42,12 @@ func newClient(cfg Config, dialTimeout time.Duration, noRetry bool) *goredis.Cli
 		maxRetries = -1 // fail fast, like retryStrategy: () => null
 	}
 	return goredis.NewClient(&goredis.Options{
-		Addr:        fmt.Sprintf("%s:%d", host, port),
-		Password:    cfg.Password,
-		DB:          cfg.Database,
-		DialTimeout: dialTimeout,
-		MaxRetries:  maxRetries,
+		Addr:                  fmt.Sprintf("%s:%d", host, port),
+		Password:              cfg.Password,
+		DB:                    cfg.Database,
+		DialTimeout:           dialTimeout,
+		MaxRetries:            maxRetries,
+		ContextTimeoutEnabled: true,
 	})
 }
 
@@ -56,7 +57,16 @@ type Adapter struct {
 }
 
 func New(cfg Config) *Adapter {
-	return &Adapter{cfg: cfg, client: newClient(cfg, connectTimeout, false)}
+	// Ambiguous command failures must never replay a possibly completed write.
+	return &Adapter{cfg: cfg, client: newClient(cfg, connectTimeout, true)}
+}
+
+// A GUI request gets its own pool: cancellation closes only that request's
+// sockets, including blocking commands, never another tab's shared client.
+func (a *Adapter) ForRequest(ctx context.Context) (*Adapter, func()) {
+	owned := New(a.cfg)
+	stop := context.AfterFunc(ctx, func() { _ = owned.client.Close() })
+	return owned, func() { stop(); _ = owned.client.Close() }
 }
 
 type TestConnectionResult = engines.TestConnectionResult
@@ -82,9 +92,20 @@ type RedisValue struct {
 }
 
 type ScanKeysInput struct {
-	Pattern string `json:"pattern,omitempty"`
-	Count   int64  `json:"count,omitempty"`
-	Cursor  int64  `json:"cursor,omitempty"`
+	Pattern   string  `json:"pattern,omitempty"`
+	Count     int64   `json:"count,omitempty"`
+	Cursor    int64   `json:"cursor,omitempty"`
+	RequestID *string `json:"requestId,omitempty"`
+}
+
+type RedisCommandRequest struct {
+	Command   string  `json:"command"`
+	RequestID *string `json:"requestId,omitempty"`
+}
+
+type RedisKeyRequest struct {
+	Key       string  `json:"key"`
+	RequestID *string `json:"requestId,omitempty"`
 }
 
 type RedisStats struct {

@@ -1,5 +1,6 @@
 import { mergeQueryResults, type PerConnectionResult } from '@/lib/federated-merge';
 import { updateTabFederatedConnections, updateTabSql } from '@/store';
+import { useGUIRequests } from '@/hooks/use-gui-requests';
 import { useConnections } from '@/hooks/use-connections';
 import { api } from '@/lib/api';
 import { isSqlKind } from '@/lib/constants';
@@ -13,7 +14,7 @@ import type { QueryResult } from '@kamehadb/shared';
 import { isQuerySafe } from '@kamehadb/shared';
 import { sql as sqlLang } from '@codemirror/lang-sql';
 import { CodeEditor } from '@/lib/code-editor';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Clock, Play, Loader2 } from 'lucide-react';
 
 export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceTab, { type: 'federated-query' }> }) {
@@ -24,6 +25,8 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
   const [isRunning, setIsRunning] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.5);
+  const requests = useGUIRequests(tab.id);
+  const runSequence = useRef(0);
 
   const { data: connections } = useConnections();
   const sqlConnections = useMemo(() => (connections ?? []).filter((c) => isSqlKind(c.kind)), [connections]);
@@ -50,12 +53,15 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
   const handleRun = useCallback(async () => {
     if (!sql.trim() || selectedIds.length === 0) return;
 
+    const sequence = ++runSequence.current;
+    requests.cancel();
     // Read-only safety gate — reject writes before dispatching anything (D-03).
     const { safe, reason } = isQuerySafe(sql);
     if (!safe) {
       setSafetyError(reason ?? 'Query is not allowed in read-only mode');
       setMergedResult(null);
       setPerConnectionErrors([]);
+      setIsRunning(false);
       return;
     }
     setSafetyError(null);
@@ -63,14 +69,14 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
     setMergedResult(null);
     setPerConnectionErrors([]);
 
-    // Parallel dispatch — fire one POST /sql/:id/query per selected connection.
-    // Each promise catches its own error so Promise.all never rejects (D-11).
+    // Dispatch each connection with a view-owned signal, retaining per-connection
+    // error isolation without letting a closed/superseded run merge late data.
     const connMap = new Map((connections ?? []).map((c) => [c.id, c]));
     const perConnection = await Promise.all(
       selectedIds.map(async (id): Promise<PerConnectionResult> => {
         const conn = connMap.get(id);
         try {
-          const result = await api.runQuery(id, sql);
+          const result = await requests.run((signal) => api.runQuery(id, sql, undefined, signal));
           return { connectionId: id, connectionName: conn?.name ?? id, result, error: null };
         } catch (err) {
           return {
@@ -83,11 +89,12 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
       }),
     );
 
+    if (!requests.isCurrent() || sequence !== runSequence.current) return;
     const merged = mergeQueryResults(perConnection);
     setMergedResult(merged.result);
     setPerConnectionErrors(perConnection.filter((p) => p.error !== null));
     setIsRunning(false);
-  }, [sql, selectedIds, connections]);
+  }, [sql, selectedIds, connections, requests.run, requests.cancel, requests.isCurrent]);
 
   const editorExtensions = useMemo(() => [sqlLang()], []);
 

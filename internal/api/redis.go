@@ -19,15 +19,25 @@ type RedisService struct {
 	mu       sync.Mutex
 	adapters map[string]*redis.Adapter
 	cache    *ttlCache
+	requests *requestJobs
 }
 
 func NewRedisService(st *store.Store, cache *ttlCache) *RedisService {
-	return &RedisService{st: st, adapters: map[string]*redis.Adapter{}, cache: cache}
+	return &RedisService{st: st, adapters: map[string]*redis.Adapter{}, cache: cache, requests: newRequestJobs()}
 }
 
 // adapterFor mirrors getNonSqlAdapter(REDIS) — profile.database parses to
 // the logical DB index like createRedisDbAdapter.
 func (s *RedisService) adapterFor(connectionID string) (*redis.Adapter, error) {
+	return s.adapterForContext(context.Background(), connectionID)
+}
+
+// Do not publish a newly constructed old-profile client after cancellation.
+// Only the winning cache owner keeps its prototype; other clients are closed.
+func (s *RedisService) adapterForContext(ctx context.Context, connectionID string) (*redis.Adapter, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	if a, ok := s.adapters[connectionID]; ok {
 		s.mu.Unlock()
@@ -58,6 +68,16 @@ func (s *RedisService) adapterFor(connectionID string) (*redis.Adapter, error) {
 	}
 	a := redis.New(cfg)
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		_ = a.Close()
+		return nil, err
+	}
+	if cached := s.adapters[connectionID]; cached != nil {
+		s.mu.Unlock()
+		_ = a.Close()
+		return cached, nil
+	}
 	s.adapters[connectionID] = a
 	s.mu.Unlock()
 	return a, nil
@@ -86,20 +106,46 @@ func (s *RedisService) Shutdown() {
 
 // ScanRedisKeys — POST /redis/:id/keys.
 func (s *RedisService) ScanRedisKeys(connectionID string, input redis.ScanKeysInput) (*redis.KeyPage, error) {
-	a, err := s.adapterFor(connectionID)
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	return a.ScanKeys(context.Background(), input)
+	defer s.requests.finish(job)
+	a, err := s.adapterForContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	owned, close := a.ForRequest(job.ctx)
+	defer close()
+	return owned.ScanKeys(job.ctx, input)
 }
 
 // GetRedisKey — POST /redis/:id/keys/value.
 func (s *RedisService) GetRedisKey(connectionID, key string) (*redis.RedisValue, error) {
-	a, err := s.adapterFor(connectionID)
+	return s.GetRedisKeyWithRequest(connectionID, redis.RedisKeyRequest{Key: key})
+}
+
+// The controlled companion keeps old scalar calls compatible and registers
+// the request before any adapter lookup or value read.
+func (s *RedisService) GetRedisKeyWithRequest(connectionID string, input redis.RedisKeyRequest) (*redis.RedisValue, error) {
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	return a.GetKey(context.Background(), key)
+	defer s.requests.finish(job)
+	a, err := s.adapterForContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	owned, close := a.ForRequest(job.ctx)
+	defer close()
+	return owned.GetKey(job.ctx, input.Key)
 }
 
 // GetRedisTTL — POST /redis/:id/keys/ttl (returns {ttl} like the route).
@@ -117,11 +163,31 @@ func (s *RedisService) GetRedisTTL(connectionID, key string) (map[string]int64, 
 
 // RunRedisCommand — POST /redis/:id/commands.
 func (s *RedisService) RunRedisCommand(connectionID, command string) (*redis.CommandResult, error) {
-	a, err := s.adapterFor(connectionID)
+	return s.RunRedisCommandWithRequest(connectionID, redis.RedisCommandRequest{Command: command})
+}
+
+// A request-owned Redis pool makes blocking commands genuinely interruptible
+// without closing another tab's socket; ambiguous writes are never replayed.
+func (s *RedisService) RunRedisCommandWithRequest(connectionID string, input redis.RedisCommandRequest) (*redis.CommandResult, error) {
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	return a.RunCommand(context.Background(), command)
+	defer s.requests.finish(job)
+	a, err := s.adapterForContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	owned, close := a.ForRequest(job.ctx)
+	defer close()
+	result, err := owned.RunCommand(job.ctx, input.Command)
+	if job.ctx.Err() != nil {
+		return nil, fmt.Errorf("Redis command cancelled; it may already have executed; do not replay automatically: %w", job.ctx.Err())
+	}
+	return result, err
 }
 
 // GetRedisStats — GET /redis/:id/stats (STATS TTL cache).

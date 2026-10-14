@@ -40,7 +40,7 @@ export function useMongoDocuments(
 ) {
   return useQuery({
     queryKey: QUERY_KEYS.MONGO_DOCUMENTS(connectionId, database, collection, filter, sort, limit, skip, search),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!connectionId || !collection) throw new Error('Missing connection or collection');
       const input: FindDocumentsInput = {
         collection,
@@ -51,7 +51,7 @@ export function useMongoDocuments(
         skip,
         search,
       };
-      return api.findMongoDocuments(connectionId, input);
+      return api.findMongoDocuments(connectionId, input, signal);
     },
     enabled: !!connectionId && !!database && !!collection,
     staleTime: STATS_CACHE_TIME,

@@ -250,7 +250,8 @@ export function GlobalSearch({
                   onSelect={() =>
                     select(() => {
                       setActiveConnection(connId);
-                      const tabId = `${connId}:${match.table}`;
+                      const fullTableId = match.schema ? `${match.schema}.${match.table}` : match.table;
+                      const tabId = `${connId}:${fullTableId}`;
                       const existingTab = appStore.state.openedTabs.find((t) => t.id === tabId);
                       if (existingTab) {
                         appStore.setState((s) => ({ ...s, view: 'workspace', activeTabId: tabId }));
@@ -260,7 +261,7 @@ export function GlobalSearch({
                           view: 'workspace',
                           openedTabs: [
                             ...s.openedTabs,
-                            { id: tabId, type: 'table' as const, title: match.table, connectionId: connId },
+                            { id: tabId, type: 'table' as const, title: fullTableId, connectionId: connId },
                           ],
                           activeTabId: tabId,
                         }));

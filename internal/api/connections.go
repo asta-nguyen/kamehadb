@@ -85,6 +85,15 @@ type Services struct {
 	Watcher     *schema.WatcherManager
 }
 
+// Export lifetime uses the existing unbound service container, not another
+// Wails-bound app or native-dialog implementation.
+func (sv *Services) StartExports(ctx context.Context) { sv.SQL.startExports(ctx) }
+func (sv *Services) CloseExports()                    { sv.SQL.closeExports() }
+
+// GUI request ownership is shared across services and ends before adapters.
+func (sv *Services) StartRequests(ctx context.Context) { sv.SQL.requests.start(ctx) }
+func (sv *Services) CloseRequests()                    { sv.SQL.requests.close() }
+
 // Bound returns the service list for wails Run's Bind option.
 func (sv *Services) Bound() []interface{} {
 	return []interface{}{
@@ -105,6 +114,8 @@ func NewServices(s *store.Store, reg *engines.Registry, emit terminal.EmitFunc, 
 	term := terminal.NewManager(emit)
 	sv.Mongo = NewMongoService(s, term, cache)
 	sv.Redis = NewRedisService(s, cache)
+	sv.Mongo.requests = sv.SQL.requests
+	sv.Redis.requests = sv.SQL.requests
 	sv.History = NewQueryHistoryService(s)
 	sv.AI = NewAiService(s, reg, sv.Mongo, sv.SQL, cache, emit)
 	sv.Terminal = NewTerminalService(s, term, emit)
@@ -112,6 +123,7 @@ func NewServices(s *store.Store, reg *engines.Registry, emit terminal.EmitFunc, 
 	sv.Logs = NewLogsService()
 	sv.MCP = NewMcpService(s, mcpRuntime)
 	sv.Connections.onCacheClear = func(connectionID string) {
+		sv.SQL.requests.cancelConnection(connectionID)
 		sv.SQL.clearConnectionCache(connectionID)
 		sv.Mongo.Invalidate(connectionID)
 		sv.Redis.Invalidate(connectionID)
@@ -247,10 +259,11 @@ func (s *ConnectionsService) DeleteConnection(id string) error {
 // invalidateConnection mirrors clearConnectionCache + invalidateAdapterCache
 // + invalidateMcpConnection + activeHealthChecks eviction.
 func (s *ConnectionsService) invalidateConnection(id string) {
-	s.registry.Invalidate(id)
+	// Cancel owned work before any adapter is closed for the changed profile.
 	if s.onCacheClear != nil {
 		s.onCacheClear(id)
 	}
+	s.registry.Invalidate(id)
 	s.inflightMu.Lock()
 	delete(s.inflight, id)
 	s.inflightMu.Unlock()
@@ -267,7 +280,7 @@ func (s *ConnectionsService) BackupFileDatabase(id, outputPath string) (*mainten
 	if profile == nil {
 		return nil, errConnectionNotFound
 	}
-	s.registry.Invalidate(id)
+	s.invalidateConnection(id)
 	res, err := maintenance.BackupFileDatabase(profile.Kind, strOf(profile.FilePath), outputPath)
 	if err != nil {
 		return nil, err
@@ -287,7 +300,7 @@ func (s *ConnectionsService) RestoreFileDatabase(id, inputPath string) (*mainten
 	if profile == nil {
 		return nil, errConnectionNotFound
 	}
-	s.registry.Invalidate(id)
+	s.invalidateConnection(id)
 	res, err := maintenance.RestoreFileDatabase(profile.Kind, strOf(profile.FilePath), inputPath)
 	if err != nil {
 		return nil, err
@@ -416,7 +429,27 @@ func (s *ConnectionsService) activeHealthCheck(id string, cp engines.ConnProfile
 	s.inflight[id] = c
 	s.inflightMu.Unlock()
 
-	res, err := s.testConnectionByKind(id, cp)
+	var res *engines.TestConnectionResult
+	var err error
+	if cp.Kind == engines.KindDuckDB {
+		// Background rounds must not download/start an unused helper or open
+		// another process against a database already locked by its active child.
+		ctx, cancel := context.WithTimeout(s.ctxOrBG(), connTestTimeoutMs)
+		defer cancel()
+		var adapter engines.SQLAdapter
+		adapter, err = s.registry.Get(ctx, id)
+		if err == nil {
+			if probe, ok := adapter.(interface {
+				BackgroundHealth(context.Context) (*engines.TestConnectionResult, error)
+			}); ok {
+				res, err = probe.BackgroundHealth(ctx)
+			} else {
+				res = &engines.TestConnectionResult{Success: false, Message: "Open DuckDB to initialize its optional driver"}
+			}
+		}
+	} else {
+		res, err = s.testConnectionByKind(id, cp)
+	}
 	if err != nil {
 		res = &engines.TestConnectionResult{Success: false, Message: err.Error()}
 	}

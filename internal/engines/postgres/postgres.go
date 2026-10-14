@@ -77,8 +77,9 @@ func init() {
 // Adapter is the pgx-backed SqlAdapter. timeoutMs applies the native
 // statement deadline per acquired connection (MCP adapters only).
 type Adapter struct {
-	pool      *pgxpool.Pool
-	timeoutMs int64
+	pool         *pgxpool.Pool
+	timeoutMs    int64
+	previewScope string
 }
 
 func New(cp engines.ConnProfile) (*Adapter, error) { return newAdapter(cp, 0) }
@@ -153,7 +154,7 @@ func newAdapter(cp engines.ConnProfile, timeoutMs int64) (*Adapter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Adapter{pool: pool, timeoutMs: timeoutMs}, nil
+	return &Adapter{pool: pool, timeoutMs: timeoutMs, previewScope: engines.NewPreviewScope(engines.KindPostgres)}, nil
 }
 
 // collected is a fully-materialized result: field descriptions plus rows in
@@ -166,7 +167,11 @@ type collected struct {
 // collect acquires a connection (applying the MCP timeout when set), reads
 // up to maxRows (0 = all), and releases — a cursor-bounded read like
 // pg-cursor's read(count) + close.
-func (a *Adapter) collect(ctx context.Context, sql string, args []any, maxRows int64) (*collected, error) {
+func (a *Adapter) collect(ctx context.Context, sql string, args []any, maxRows int64, budgets ...*engines.ResultBudget) (*collected, error) {
+	var budget *engines.ResultBudget
+	if len(budgets) > 0 {
+		budget = budgets[0]
+	}
 	var rows pgx.Rows
 	var conn *pgxpool.Conn
 	var err error
@@ -197,9 +202,17 @@ func (a *Adapter) collect(ctx context.Context, sql string, args []any, maxRows i
 	}()
 
 	fields := rows.FieldDescriptions()
+	if budget != nil {
+		if err := budget.SetColumns(queryColumns(fields)); err != nil {
+			return nil, err
+		}
+	}
 	out := &collected{fields: fields}
 	for rows.Next() {
 		if maxRows > 0 && int64(len(out.rows)) >= maxRows {
+			if budget != nil {
+				budget.StopRows()
+			}
 			break
 		}
 		vals, err := rows.Values()
@@ -211,9 +224,26 @@ func (a *Adapter) collect(ctx context.Context, sql string, args []any, maxRows i
 				vals[i] = normalizeValue(&fields[i], v)
 			}
 		}
+		if budget != nil {
+			row := make(map[string]any, len(fields))
+			for i, field := range fields {
+				row[field.Name] = vals[i]
+			}
+			accepted, err := budget.Add(row)
+			if err != nil {
+				return nil, err
+			}
+			if !accepted {
+				break
+			}
+		}
 		out.rows = append(out.rows, vals)
 	}
-	return out, rows.Err()
+	err = rows.Err()
+	if budget != nil {
+		err = budget.Error(err)
+	}
+	return out, err
 }
 
 // normalizeValue maps pgx-decoded values to the JSON shapes node-pg produced:
@@ -252,7 +282,7 @@ func normalizeValue(f *pgconn.FieldDescription, v any) any {
 	case [16]byte:
 		return uuidString(t)
 	}
-	return v
+	return engines.JSONSafeInteger(v)
 }
 
 func uuidString(b [16]byte) string {
@@ -613,15 +643,34 @@ func (a *Adapter) GetTableIndexes(ctx context.Context, tableID string) ([]engine
 	return out, nil
 }
 
+// Direct callers obtain metadata here; the service supplies its cached copy
+// through PreviewRowsWithColumns so normal page navigation avoids this read.
 func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInput) (*engines.QueryResult, error) {
-	schema, table := splitTableID(input.TableID)
-	offset := int64(0)
-	if input.Offset != nil {
-		offset = *input.Offset
+	columns, err := a.GetTableColumns(ctx, input.TableID)
+	if err != nil {
+		return nil, err
 	}
-	limit := int64(100)
-	if input.Limit != nil {
-		limit = *input.Limit
+	return a.PreviewRowsWithColumns(ctx, input, columns)
+}
+
+// Compose bounded seek pages with verified identifiers and bound key values;
+// unsupported sorts retain ordered offset fallback instead of invalid cursors.
+func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.PreviewRowsInput, columns []engines.ColumnInfo) (*engines.QueryResult, error) {
+	input = engines.ScopePreview(input, a.previewScope)
+	start := time.Now()
+	schema, table := splitTableID(input.TableID)
+	limit, offset, err := engines.PreviewBounds(input)
+	if err != nil {
+		return nil, err
+	}
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, limit, engines.MaxPreviewResultBytes)
+	key := engines.PreviewPrimaryKey(engines.KindPostgres, columns)
+	seek, err := engines.UsePreviewCursor(input, key, offset)
+	if err != nil {
+		return nil, err
 	}
 	q := `"` + strings.ReplaceAll(schema, `"`, `""`) + `"."` + strings.ReplaceAll(table, `"`, `""`) + `"`
 	sql := `SELECT * FROM ` + q
@@ -654,25 +703,48 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 				clauses[i] = engines.QuoteIdentifier(engines.KindPostgres, col) + op + fmt.Sprint(len(params)+1)
 				params = append(params, "%"+input.Search+"%")
 			}
-			sql += ` WHERE ` + strings.Join(clauses, ` OR `)
+			sql += ` WHERE (` + strings.Join(clauses, ` OR `) + `)`
 		} else {
 			sql += ` WHERE 1 = 0`
 		}
 	}
 
-	if input.SortColumn != "" {
+	if seek && input.Cursor != "" {
+		value, err := engines.DecodePreviewCursor(input, *key)
+		if err != nil {
+			return nil, err
+		}
+		params = append(params, value)
+		op := ">"
+		if input.SortDirection == "desc" {
+			op = "<"
+		}
+		clause := engines.QuoteIdentifier(engines.KindPostgres, key.Name) + " " + op + fmt.Sprintf(" $%d", len(params))
+		if input.Search != "" {
+			sql += " AND " + clause
+		} else {
+			sql += " WHERE " + clause
+		}
+	}
+	orderColumn := input.SortColumn
+	if orderColumn == "" && key != nil {
+		orderColumn = key.Name
+	}
+	if orderColumn != "" {
 		dir := "ASC"
 		if input.SortDirection == "desc" {
 			dir = "DESC"
 		}
-		sql += ` ORDER BY ` + engines.QuoteIdentifier(engines.KindPostgres, input.SortColumn) + ` ` + dir
+		sql += ` ORDER BY ` + engines.QuoteIdentifier(engines.KindPostgres, orderColumn) + ` ` + dir
+	}
+	params = append(params, limit+1)
+	sql += fmt.Sprintf(` LIMIT $%d`, len(params))
+	if !seek {
+		params = append(params, offset)
+		sql += fmt.Sprintf(` OFFSET $%d`, len(params))
 	}
 
-	params = append(params, limit, offset)
-	sql += fmt.Sprintf(` LIMIT $%d OFFSET $%d`, len(params)-1, len(params))
-
-	start := time.Now()
-	res, err := a.collect(ctx, sql, params, 0)
+	res, err := a.collect(ctx, sql, params, limit, budget)
 	if err != nil {
 		return nil, err
 	}
@@ -683,28 +755,27 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 	for i := range cols {
 		cols[i].Nullable = &tru
 	}
-	return &engines.QueryResult{
-		Columns:    cols,
-		Rows:       rowsToMaps(res),
-		RowCount:   int64(len(res.rows)),
+	result := budget.Apply(&engines.QueryResult{
+		Columns: cols, Rows: rowsToMaps(res), RowCount: int64(len(res.rows)),
 		DurationMs: durationMs,
-		Truncated:  int64(len(res.rows)) >= limit,
-	}, nil
+	})
+	return engines.FinishPreview(result, input, key, seek), nil
 }
 
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	start := time.Now()
-	res, err := a.collect(ctx, input.Query, input.Params, engines.MaxGuiRows)
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, engines.MaxGuiRows, engines.MaxGUIResultBytes)
+	res, err := a.collect(ctx, input.Query, input.Params, engines.MaxGuiRows, budget)
 	if err != nil {
 		return nil, err
 	}
-	return &engines.QueryResult{
-		Columns:    queryColumns(res.fields),
-		Rows:       rowsToMaps(res),
-		RowCount:   int64(len(res.rows)),
+	return budget.Apply(&engines.QueryResult{
+		Columns: queryColumns(res.fields), Rows: rowsToMaps(res), RowCount: int64(len(res.rows)),
 		DurationMs: float64(time.Since(start).Microseconds()) / 1000,
-		Truncated:  int64(len(res.rows)) >= engines.MaxGuiRows,
-	}, nil
+	}), nil
 }
 
 // RunQueryBounded is the MCP-only read: fetch at most maxRows+1 rows, then

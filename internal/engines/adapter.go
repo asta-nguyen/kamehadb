@@ -3,6 +3,7 @@ package engines
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 )
 
@@ -20,6 +21,18 @@ type SQLAdapter interface {
 	PreviewRows(ctx context.Context, input PreviewRowsInput) (*QueryResult, error)
 	RunQuery(ctx context.Context, input RunQueryInput) (*QueryResult, error)
 	Close() error
+}
+
+// MetadataPreviewer reuses authoritative service-cached columns for seek
+// planning; direct adapter callers still use the mandatory PreviewRows method.
+type MetadataPreviewer interface {
+	PreviewRowsWithColumns(ctx context.Context, input PreviewRowsInput, columns []ColumnInfo) (*QueryResult, error)
+}
+
+// QueryExporter streams a read-only original query without GUI row/payload
+// limits. Engines without it retain bounded current-result frontend exports.
+type QueryExporter interface {
+	ExportQueryCSV(ctx context.Context, input RunQueryInput, writer io.Writer) (*QueryExportStats, error)
 }
 
 // Optional capabilities (TS `?` members):

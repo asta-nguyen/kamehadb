@@ -1,5 +1,14 @@
 # Agent DevKit Index
 
+## Changes
+
+- [Runtime footprint and large-table browsing](changes/2026-10-13-footprint-and-large-tables/tasks.md) — all-engine performance revision approved; partial checkpoint authorized, 8/12 tasks recorded done, implementation still open. [Interim sorting/RAM benchmark](changes/2026-10-13-footprint-and-large-tables/benchmark.md).
+
+## Research
+
+- [DBX, DBeaver, and TablePlus large-data patterns](research/2026-10-13-db-browser-large-data-patterns.md)
+- [Footprint measurements and DBX comparison](research/2026-10-13-footprint-and-dbx-comparison.md)
+
 ## Designs
 
 - [MCP Call History](specs/2026-10-08-mcp-call-history-design.md)

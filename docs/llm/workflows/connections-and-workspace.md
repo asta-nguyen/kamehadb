@@ -1,6 +1,25 @@
 # Connections and Workspace
 
-Verification: [x] The profile, health/reload, persisted workspace, and search flows below were checked against current source. Direct feature tests were searched as recorded in each feature.
+Verification: [~] Confirmed content gap: the sidecar descriptions and pre-change preview-lifetime requirement below are historical baselines, not current behavior. SQL workspace ownership is implemented, but shared Mongo/Redis ownership and the requirement/narrative refresh remain unfinished; this checkpoint does not mark the page current.
+
+## Requirements
+
+### WSP-preview-lifetime
+
+The system SHALL remove a table's cached preview variants when its view unmounts.
+
+#### Scenario: switching away from a table
+
+- GIVEN cached pages for one mounted table
+- WHEN its preview hook unmounts
+- THEN its page, filter, and sort variants are removed without removing another table's metadata or previews
+
+Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-schema.test.tsx`
+
+## Sources
+
+- `apps/desktop/src/hooks/use-schema.ts`
+- `apps/desktop/src/hooks/use-schema.test.tsx`
 
 ## Connection profiles
 

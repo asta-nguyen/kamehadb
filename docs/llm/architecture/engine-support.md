@@ -1,6 +1,26 @@
 # Database Support and Adapter Boundaries
 
-Verification: [x] Supported kinds and sidecar adapter routing were checked against the shared kind definitions, adapter factories, route mounts, and repository overview.
+Verification: [~] Confirmed content gap: the legacy engine count, sidecar paths and pre-change DuckDB requirement below are historical baselines, not current behavior. The verified requirement replacement and current-runtime narrative refresh remain unfinished; this checkpoint does not mark the page current.
+
+## Requirements
+
+### ENG-duckdb-runtime
+
+The system SHALL execute DuckDB using the native library embedded in the desktop executable.
+
+#### Scenario: opening DuckDB
+
+- GIVEN a DuckDB file path
+- WHEN the adapter opens it
+- THEN the in-process go-duckdb driver executes its SQL and metadata requests
+
+Evidence: `main.go`, `internal/engines/duckdb/duckdb.go`, `internal/engines/duckdb/duckdb_test.go`
+
+## Sources
+
+- `main.go`
+- `internal/engines/duckdb/duckdb.go`
+- `internal/engines/duckdb/duckdb_test.go`
 
 ## Supported engines and paths
 
@@ -59,6 +79,9 @@ The recorded FFF test-file search for engine router identifiers found no direct 
 
 ### Sources
 
+- main.go
+- internal/engines/duckdb/duckdb.go
+- internal/engines/duckdb/duckdb_test.go
 - README.md
 - packages/shared/src/index.ts
 - packages/shared/src/schemas.ts

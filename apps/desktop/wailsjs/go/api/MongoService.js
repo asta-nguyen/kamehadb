@@ -54,6 +54,10 @@ export function RunMongoCommand(arg1, arg2, arg3) {
   return window['go']['api']['MongoService']['RunMongoCommand'](arg1, arg2, arg3);
 }
 
+export function RunMongoCommandWithRequest(arg1, arg2) {
+  return window['go']['api']['MongoService']['RunMongoCommandWithRequest'](arg1, arg2);
+}
+
 export function Shutdown() {
   return window['go']['api']['MongoService']['Shutdown']();
 }

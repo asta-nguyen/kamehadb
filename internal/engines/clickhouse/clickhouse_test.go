@@ -108,3 +108,19 @@ func TestPreviewRowsFailsClosedWhenColumnProbeFails(t *testing.T) {
 		t.Fatalf("row query must not run without the search filter: %s", d.lastQuery)
 	}
 }
+
+func TestLiveClickHouse(t *testing.T) {
+	cp := engines.ConnProfile{
+		Kind:     engines.KindClickHouse,
+		Host:     "localhost",
+		Port:     8123,
+		Username: "default",
+		Password: "default",
+		Database: "kamehadb",
+	}
+	res, err := TestClickHouseConnection(context.Background(), cp)
+	if err != nil {
+		t.Skipf("Skipping ClickHouse test: %v", err)
+	}
+	t.Logf("Success: %v, ServerVersion: %s", res.Success, res.ServerVersion)
+}

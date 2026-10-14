@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 )
+
+const registryLockPoll = 2 * time.Millisecond
 
 // ConnProfile is the flat connect contract factories consume — the adapter
 // config objects the TS factory builds per kind, unified into one struct.
@@ -63,8 +66,26 @@ func NewRegistry(loader ProfileLoader) *Registry {
 // their dedicated-route errors; missing password for password-required
 // kinds fails early; unknown kinds cache an UnsupportedAdapter.
 func (r *Registry) Get(ctx context.Context, connectionID string) (SQLAdapter, error) {
-	r.mu.Lock()
+	// A cancelled GUI lookup must not wait behind another constructor.
+	// Polling the existing mutex avoids orphan lookup worker goroutines.
+	if !r.mu.TryLock() {
+		ticker := time.NewTicker(registryLockPoll)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-ticker.C:
+			}
+			if r.mu.TryLock() {
+				break
+			}
+		}
+	}
 	defer r.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if cached, ok := r.cache[connectionID]; ok {
 		return cached, nil
 	}
@@ -92,6 +113,10 @@ func (r *Registry) Get(ctx context.Context, connectionID string) (SQLAdapter, er
 		if err != nil {
 			return nil, err
 		}
+	}
+	if err := ctx.Err(); err != nil {
+		_ = adapter.Close()
+		return nil, err
 	}
 	r.cache[connectionID] = adapter
 	return adapter, nil

@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?: number) {
   return useQuery({
     queryKey: QUERY_KEYS.REDIS_KEYS(connectionId!, pattern, cursor),
-    queryFn: () => api.scanRedisKeys(connectionId!, { pattern, count: 100, cursor }),
+    queryFn: ({ signal }) => api.scanRedisKeys(connectionId!, { pattern, count: 100, cursor }, signal),
     enabled: !!connectionId,
     staleTime: 10000,
     retry: 1,
@@ -16,7 +16,7 @@ export function useRedisKeys(connectionId: string | null, pattern = '*', cursor?
 export function useRedisKeyDetails(connectionId: string | null, key: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.REDIS_KEY(connectionId!, key!),
-    queryFn: () => api.getRedisKey(connectionId!, key!),
+    queryFn: ({ signal }) => api.getRedisKey(connectionId!, key!, signal),
     enabled: !!connectionId && !!key,
     staleTime: 10000,
   });

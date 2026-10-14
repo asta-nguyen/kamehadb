@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/sqlsafety"
@@ -23,11 +24,25 @@ type SqlService struct {
 	cache    *ttlCache
 
 	queriesMu sync.Mutex
-	queries   map[string]context.CancelFunc
+	queries   map[string]string
+	requests  *requestJobs
+
+	exportsMu        sync.Mutex
+	exportsWG        sync.WaitGroup
+	exports          map[string]context.CancelFunc
+	cancelledExports map[string]time.Time
+	exportRoot       context.Context
+	exportCancel     context.CancelFunc
+	exportsClosed    bool
 }
 
 func NewSqlService(reg *engines.Registry, cache *ttlCache) *SqlService {
-	return &SqlService{registry: reg, cache: cache, queries: map[string]context.CancelFunc{}}
+	root, cancel := context.WithCancel(context.Background())
+	return &SqlService{
+		registry: reg, cache: cache, queries: map[string]string{}, requests: newRequestJobs(),
+		exports: map[string]context.CancelFunc{}, cancelledExports: map[string]time.Time{},
+		exportRoot: root, exportCancel: cancel,
+	}
 }
 
 // clearConnectionCache is the clearConnectionCache hook called by
@@ -95,15 +110,24 @@ func (s *SqlService) ListTables(connectionID, schema string) ([]engines.TableInf
 }
 
 func (s *SqlService) GetTableColumns(connectionID, tableID string) ([]engines.ColumnInfo, error) {
+	return s.getTableColumns(context.Background(), connectionID, tableID)
+}
+
+// Reuse the metadata cache while keeping a preview's cancellation alive
+// during an uncached column read; hits do not introduce another native job.
+func (s *SqlService) getTableColumns(ctx context.Context, connectionID, tableID string) ([]engines.ColumnInfo, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	key := "sql:" + connectionID + ":columns:" + tableID
 	if cached := s.cache.get(key, schemaCacheTime); cached != nil {
 		return cached.([]engines.ColumnInfo), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.registry.Get(ctx, connectionID)
 	if err != nil {
 		return nil, err
 	}
-	cols, err := adapter.GetTableColumns(context.Background(), tableID)
+	cols, err := adapter.GetTableColumns(ctx, tableID)
 	if err != nil {
 		return nil, err
 	}
@@ -167,17 +191,26 @@ func (s *SqlService) SearchSchema(connectionID, query, schema string, limit int)
 }
 
 func (s *SqlService) PreviewRows(connectionID string, input engines.PreviewRowsInput) (*engines.QueryResult, error) {
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	// ORDER BY identifiers cannot be parameterized — accept only names the
-	// table metadata actually reports (isAllowedSortColumn port).
-	if input.SortColumn != "" {
-		columns, err := adapter.GetTableColumns(context.Background(), input.TableID)
+	defer s.requests.finish(job)
+	adapter, err := s.registry.Get(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	planner, plansWithMetadata := adapter.(engines.MetadataPreviewer)
+	var columns []engines.ColumnInfo
+	if input.SortColumn != "" || plansWithMetadata {
+		// Both sort validation and seek planning use the existing TTL cache,
+		// avoiding duplicate information_schema reads for each page.
+		columns, err = s.getTableColumns(job.ctx, connectionID, input.TableID)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if input.SortColumn != "" {
 		allowed := false
 		for _, col := range columns {
 			if col.Name == input.SortColumn {
@@ -189,40 +222,58 @@ func (s *SqlService) PreviewRows(connectionID string, input engines.PreviewRowsI
 			return nil, errors.New("Sort column is not part of the selected table")
 		}
 	}
-	return adapter.PreviewRows(context.Background(), input)
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	if plansWithMetadata {
+		return planner.PreviewRowsWithColumns(job.ctx, input, columns)
+	}
+	return adapter.PreviewRows(job.ctx, input)
 }
 
-// RunQuery registers a cancelable context under the connection so
-// CancelQuery can abort an in-flight statement — the fetch-abort it
-// replaces.
+// Each query owns an ID before lookup. The connection slot is legacy-only;
+// its completion guard cannot erase a newer request's cancellation target.
 func (s *SqlService) RunQuery(connectionID string, input engines.RunQueryInput) (*engines.QueryResult, error) {
-	if safe, reason := sqlsafety.Check(input.Query); !safe {
-		return nil, errors.New(reason)
-	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	qctx, cancel := context.WithCancel(context.Background())
+	defer s.requests.finish(job)
+	if safe, reason := sqlsafety.Check(input.Query); !safe {
+		return nil, errors.New(reason)
+	}
+	adapter, err := s.registry.Get(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.queriesMu.Lock()
-	s.queries[connectionID] = cancel
+	s.queries[connectionID] = job.id
 	s.queriesMu.Unlock()
 	defer func() {
 		s.queriesMu.Lock()
-		delete(s.queries, connectionID)
+		if s.queries[connectionID] == job.id {
+			delete(s.queries, connectionID)
+		}
 		s.queriesMu.Unlock()
-		cancel()
 	}()
-	return adapter.RunQuery(qctx, input)
+	return adapter.RunQuery(job.ctx, input)
 }
 
 // CancelQuery aborts the running query for a connection, if any.
 func (s *SqlService) CancelQuery(connectionID string) {
 	s.queriesMu.Lock()
 	defer s.queriesMu.Unlock()
-	if cancel, ok := s.queries[connectionID]; ok {
-		cancel()
+	if id, ok := s.queries[connectionID]; ok {
+		_, _ = s.requests.cancel(id)
 	}
+}
+
+// All managed GUI services share this owner; exports use CancelExport.
+func (s *SqlService) CancelRequest(id string) (bool, error) {
+	return s.requests.cancel(id)
 }
 
 func emptyTableStats(tableID string) *engines.TableStats {

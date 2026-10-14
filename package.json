@@ -10,6 +10,7 @@
     "dev:landing": "npm --prefix landing run dev",
     "dev:all": "concurrently \"npm --prefix landing run dev\" \"pnpm dev\"",
     "build": "wails build -tags webkit2_41",
+    "build:duckdb-driver": "node scripts/build-duckdb-driver.mjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",

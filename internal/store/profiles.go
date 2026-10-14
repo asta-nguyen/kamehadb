@@ -52,7 +52,8 @@ func (s *Store) ListProfiles() ([]Profile, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []Profile
+	// Wails must serialize an empty list as [] rather than null for the welcome UI.
+	out := make([]Profile, 0)
 	for rows.Next() {
 		p, err := scanProfile(rows)
 		if err != nil {

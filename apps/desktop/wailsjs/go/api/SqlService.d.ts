@@ -3,7 +3,13 @@
 import { engines } from '../models';
 import { api } from '../models';
 
+export function CancelExport(arg1: string): Promise<boolean>;
+
 export function CancelQuery(arg1: string): Promise<void>;
+
+export function CancelRequest(arg1: string): Promise<boolean>;
+
+export function ExportQueryCSV(arg1: string, arg2: api.QueryExportInput): Promise<api.QueryExportResult>;
 
 export function GetActiveConnections(arg1: string): Promise<Array<engines.ConnectionInfo>>;
 

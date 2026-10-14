@@ -3,6 +3,7 @@ import { Copy, Eye, Trash2, Ellipsis } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DataTable, type ColumnDef } from '@/components/data-table';
+import { MiddleTruncate } from '@/components/middle-truncate';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -182,14 +183,14 @@ export function DocumentTableView({
           return (
             <span
               onDoubleClick={() => handleCellDoubleClick(row?._id, col, value)}
-              className="flex-1 min-w-0 truncate cursor-pointer"
+              className="flex-1 min-w-0 flex items-center overflow-hidden cursor-pointer"
             >
               {value === null ? (
                 <span className="text-muted-foreground italic">{displayText}</span>
               ) : isObject ? (
-                <span className="text-primary">{displayText}</span>
+                <MiddleTruncate text={displayText} className="text-primary font-mono" />
               ) : (
-                <span>{displayText}</span>
+                <MiddleTruncate text={displayText} />
               )}
             </span>
           );
@@ -218,7 +219,7 @@ export function DocumentTableView({
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
                 <Ellipsis className="size-3.5" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuContent side="left" align="start" sideOffset={4} className="w-40">
                 <DropdownMenuItem onClick={() => setSelectedRow(doc)}>
                   <Eye className="size-3.5 mr-2" />
                   View details

@@ -2,150 +2,141 @@ package duckdb
 
 import (
 	"context"
-	"database/sql"
+	"encoding/json"
+	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
-	_ "github.com/marcboeker/go-duckdb/v2"
-
+	"github.com/asta-nguyen/kamehadb/internal/duckdriver"
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 )
 
-func testDB(t *testing.T) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "test.duckdb")
-	db, err := sql.Open("duckdb", path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	for _, q := range []string{
-		"CREATE TABLE users (id INTEGER PRIMARY KEY, name VARCHAR, active BOOLEAN DEFAULT true)",
-		"INSERT INTO users VALUES (1, 'alice', true), (2, 'bob', false), (3, 'carol', true)",
-		"CREATE TABLE orders (id INTEGER, user_id INTEGER, total DECIMAL(10,2))",
-		"INSERT INTO orders VALUES (1, 1, 9.99), (2, 1, 19.99)",
-	} {
-		if _, err := db.Exec(q); err != nil {
-			t.Fatalf("%s: %v", q, err)
-		}
-	}
-	return path
-}
+const (
+	testDriverEnv     = "KAMEHADB_TEST_DUCKDB_DRIVER"
+	testDriverTimeout = 10 * time.Second
+	testQueryCancel   = 50 * time.Millisecond
+)
 
-func TestAdapterEndToEnd(t *testing.T) {
-	path := testDB(t)
-	a, err := New(path)
+func TestConstructionAndBackgroundHealthNeverStartOrInstall(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("KAMEHADB_DATA_DIR", filepath.Join(root, "data"))
+	t.Setenv(duckdriver.LocalDriverEnv, filepath.Join(root, "missing-driver"))
+	file := filepath.Join(root, "missing.duckdb")
+	a, err := New(file)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer a.Close()
-	ctx := context.Background()
-
-	res, err := a.TestConnection(ctx)
-	if err != nil || !res.Success {
-		t.Fatalf("testConnection: %+v %v", res, err)
+	res, err := a.BackgroundHealth(context.Background())
+	if err != nil || res.Success || !strings.Contains(res.Message, "explicitly test") {
+		t.Fatal(res, err)
 	}
-	if res.ServerVersion == "" {
-		t.Fatal("empty server version")
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		t.Fatal("background health created a DB", err)
 	}
-
-	dbs, err := a.ListDatabases(ctx)
-	if err != nil || len(dbs) != 1 {
-		t.Fatalf("listDatabases: %+v %v", dbs, err)
+	if _, err := os.Stat(filepath.Join(root, "data")); !os.IsNotExist(err) {
+		t.Fatal("background health created a driver cache", err)
 	}
-
-	schemas, err := a.ListSchemas(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	foundMain := false
-	for _, s := range schemas {
-		if s.Name == "main" {
-			foundMain = true
-		}
-	}
-	if !foundMain {
-		t.Fatalf("main schema missing: %+v", schemas)
-	}
-
-	main := "main"
-	tables, err := a.ListTables(ctx, &main)
-	if err != nil || len(tables) != 2 {
-		t.Fatalf("listTables: %+v %v", tables, err)
-	}
-
-	cols, err := a.GetTableColumns(ctx, "main.users")
-	if err != nil || len(cols) != 3 {
-		t.Fatalf("columns: %+v %v", cols, err)
-	}
-	if !cols[0].PrimaryKey {
-		t.Fatalf("expected pk on id: %+v", cols)
-	}
-
-	idx, err := a.GetTableIndexes(ctx, "main.users")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkFound := false
-	for _, i := range idx {
-		if i.Primary {
-			pkFound = true
-		}
-	}
-	if !pkFound {
-		t.Fatalf("no pk index: %+v", idx)
-	}
-
-	prev, err := a.PreviewRows(ctx, engines.PreviewRowsInput{
-		TableID: "main.users", SortColumn: "id", SortDirection: "asc",
-	})
-	if err != nil || prev.RowCount != 3 {
-		t.Fatalf("preview: %+v %v", prev, err)
-	}
-	if prev.Rows[0]["name"] != "alice" {
-		t.Fatalf("row order wrong: %+v", prev.Rows[0])
-	}
-
-	searched, err := a.PreviewRows(ctx, engines.PreviewRowsInput{
-		TableID: "main.users", Search: "bob",
-	})
-	if err != nil || searched.RowCount != 1 {
-		t.Fatalf("search preview: %+v %v", searched, err)
-	}
-
-	qr, err := a.RunQuery(ctx, engines.RunQueryInput{Query: "SELECT COUNT(*) AS n FROM orders"})
-	if err != nil || qr.RowCount != 1 {
-		t.Fatalf("runQuery: %+v %v", qr, err)
-	}
-
-	stats, err := a.GetTableStats(ctx, "main.users")
-	if err != nil || stats.RowEstimate != 3 {
-		t.Fatalf("stats: %+v %v", stats, err)
-	}
-
-	comps, err := a.GetCompletions(ctx, &main)
-	if err != nil || len(comps) != 2 {
-		t.Fatalf("completions: %+v %v", comps, err)
+	if _, err := New(""); err == nil {
+		t.Fatal("empty file path accepted")
 	}
 }
 
-func TestTestDuckDBConnection(t *testing.T) {
-	path := testDB(t)
-	res, err := TestDuckDBConnection(context.Background(), path)
-	if err != nil || !res.Success {
-		t.Fatalf("%+v %v", res, err)
+// Opt-in native worker test, never a production-profile fixture. The normal
+// native adapter tests remain in embedded; this separately verifies real RPC.
+func TestManagedNativeDuckDB(t *testing.T) {
+	path := os.Getenv(testDriverEnv)
+	if path == "" {
+		t.Skip("set " + testDriverEnv + " to an explicitly built native helper")
 	}
-	res, err = TestDuckDBConnection(context.Background(), "")
+	root := t.TempDir()
+	t.Setenv("KAMEHADB_DATA_DIR", filepath.Join(root, "data"))
+	t.Setenv(duckdriver.LocalDriverEnv, path)
+	file := filepath.Join(root, "private.duckdb")
+	a, err := New(file)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Empty path creates an in-memory db — still succeeds; failure path is a
-	// directory that cannot be created.
-	res, err = TestDuckDBConnection(context.Background(), filepath.Join(t.TempDir(), "missing-dir", "x.duckdb"))
+	defer a.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), testDriverTimeout)
+	defer cancel()
+	res, err := a.TestConnection(ctx)
+	if err != nil || !res.Success || res.ServerVersion == "" {
+		t.Fatal(res, err)
+	}
+	for _, sql := range []string{
+		"CREATE TABLE users(id BIGINT PRIMARY KEY, name VARCHAR)",
+		"INSERT INTO users VALUES (1,'alice'),(2,'bob'),(9007199254740993,'日本語')",
+	} {
+		if _, err := a.RunQuery(ctx, engines.RunQueryInput{Query: sql}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	main := "main"
+	tables, err := a.ListTables(ctx, &main)
+	if err != nil || len(tables) != 1 {
+		t.Fatal(tables, err)
+	}
+	columns, err := a.GetTableColumns(ctx, "main.users")
+	if err != nil || len(columns) != 2 || !columns[0].PrimaryKey {
+		t.Fatal(columns, err)
+	}
+	indexes, err := a.GetTableIndexes(ctx, "main.users")
+	if err != nil || len(indexes) == 0 {
+		t.Fatal(indexes, err)
+	}
+	completions, err := a.GetCompletions(ctx, &main)
+	if err != nil || len(completions) != 1 {
+		t.Fatal(completions, err)
+	}
+	stats, err := a.GetTableStats(ctx, "main.users")
+	if err != nil || stats.RowEstimate != 3 {
+		t.Fatal(stats, err)
+	}
+	limit := int64(2)
+	page, err := a.PreviewRows(ctx, engines.PreviewRowsInput{TableID: "main.users", Limit: &limit, SortColumn: "id"})
+	if err != nil || page.RowCount != 2 || page.HasMore == nil || !*page.HasMore {
+		t.Fatal(page, err)
+	}
+	query, err := a.RunQuery(ctx, engines.RunQueryInput{Query: "SELECT * FROM users ORDER BY id"})
+	if err != nil || query.Rows[2]["id"] != "9007199254740993" {
+		t.Fatal(query, err)
+	}
+	settings, err := a.RunQuery(ctx, engines.RunQueryInput{Query: "SELECT current_setting('threads') AS threads,current_setting('memory_limit') AS memory,current_setting('temp_directory') AS spill"})
+	if err != nil || settings.Rows[0]["threads"] != json.Number("2") || !strings.Contains(settings.Rows[0]["memory"].(string), "64.0 MiB") || settings.Rows[0]["spill"] != a.spillDir {
+		t.Fatal(settings, err)
+	}
+	short, stop := context.WithTimeout(ctx, testQueryCancel)
+	_, err = a.RunQuery(short, engines.RunQueryInput{Query: "SELECT SUM(i) FROM range(10000000000) t(i)"})
+	stop()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("real native interruption: %v", err)
+	}
+	if _, err := a.RunQuery(ctx, engines.RunQueryInput{Query: "SELECT 7"}); err != nil {
+		t.Fatalf("reuse after native cancellation: %v", err)
+	}
+	if health, err := a.BackgroundHealth(ctx); err != nil || !health.Success {
+		t.Fatal(health, err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	spills, _ := filepath.Glob(filepath.Join(root, "data", "drivers", "duckdb", "spill", "session-*"))
+	if len(spills) != 0 {
+		t.Fatalf("spill directories leaked: %v", spills)
+	}
+	if _, err := os.Stat(file); err != nil {
+		t.Fatalf("cleanup removed database: %v", err)
+	}
+	reopened, err := New(file)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Success {
-		t.Fatal("expected failure for uncreatable path")
+	defer reopened.Close()
+	if result, err := reopened.TestConnection(ctx); err != nil || !result.Success {
+		t.Fatalf("child/file lock leaked: %v %v", result, err)
 	}
 }

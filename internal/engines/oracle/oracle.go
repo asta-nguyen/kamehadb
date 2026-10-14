@@ -17,9 +17,12 @@ import (
 )
 
 const (
-	defaultHost     = "localhost"
-	defaultService  = "XE"
-	testConnTimeout = 5 * time.Second
+	defaultHost        = "localhost"
+	defaultService     = "XE"
+	testConnTimeout    = 5 * time.Second
+	previewSourceAlias = "kameha_preview"
+	// TM9 emits exact decimal integers; explicit NLS prevents locale-dependent keys.
+	previewNumberFormat = "'TM9', 'NLS_NUMERIC_CHARACTERS=''.,'''"
 )
 
 func dsn(cp engines.ConnProfile) string {
@@ -47,8 +50,9 @@ func dsn(cp engines.ConnProfile) string {
 // Adapter keeps the profile because metadata queries default the owner to
 // the connecting username, like the TS closure over `connection`.
 type Adapter struct {
-	db       *sql.DB
-	username string
+	db           *sql.DB
+	username     string
+	previewScope string
 }
 
 func New(cp engines.ConnProfile) (*Adapter, error) {
@@ -57,7 +61,7 @@ func New(cp engines.ConnProfile) (*Adapter, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(5)
-	return &Adapter{db: db, username: cp.Username}, nil
+	return &Adapter{db: db, username: cp.Username, previewScope: engines.NewPreviewScope(engines.KindOracle)}, nil
 }
 
 func init() {
@@ -101,7 +105,7 @@ func normalizeValue(v any) any {
 // rowsToMaps scans an active sql.Rows cursor into map rows, capping at maxRows (0 for unlimited).
 // Pre-allocates and reuses the scan pointer buffer across iterations to prevent millions of
 // small heap allocations when reading large result sets. (How / Why / What)
-func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[string]any, bool, error) {
+func rowsToMaps(rows *sql.Rows, maxRows int64, budget *engines.ResultBudget) ([]engines.QueryColumn, []map[string]any, bool, error) {
 	names, err := rows.Columns()
 	if err != nil {
 		return nil, nil, false, err
@@ -115,28 +119,7 @@ func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[str
 		}
 		qcols[i] = engines.QueryColumn{Name: name, Type: typ}
 	}
-	out := make([]map[string]any, 0, 64)
-	vals := make([]any, len(names))
-	ptrs := make([]any, len(names))
-	for i := range vals {
-		ptrs[i] = &vals[i]
-	}
-	truncated := false
-	for rows.Next() {
-		if maxRows > 0 && int64(len(out)) >= maxRows {
-			truncated = true
-			break
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, false, err
-		}
-		m := make(map[string]any, len(names))
-		for i, name := range names {
-			m[name] = normalizeValue(vals[i])
-		}
-		out = append(out, m)
-	}
-	return qcols, out, truncated, rows.Err()
+	return engines.CollectSQLRows(rows, qcols, maxRows, normalizeValue, budget)
 }
 
 func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionResult, error) {
@@ -207,7 +190,10 @@ func (a *Adapter) ListTables(ctx context.Context, schema *string) ([]engines.Tab
 func (a *Adapter) GetTableColumns(ctx context.Context, tableID string) ([]engines.ColumnInfo, error) {
 	owner, table := splitTableID(a.username, tableID)
 	rows, err := a.db.QueryContext(ctx,
-		`SELECT column_name AS name, data_type AS type, nullable, data_default AS default_val
+		`SELECT column_name AS name,
+		 CASE WHEN data_type = 'NUMBER' AND data_precision BETWEEN 1 AND 38 AND data_scale = 0
+		 THEN 'NUMBER(' || TO_CHAR(data_precision) || ',0)' ELSE data_type END AS type,
+		 nullable, data_default AS default_val
 		 FROM all_tab_cols WHERE owner = :owner AND table_name = :tbl ORDER BY column_id`,
 		sql.Named("owner", owner), sql.Named("tbl", table))
 	if err != nil {
@@ -340,108 +326,149 @@ func (a *Adapter) GetCompletions(ctx context.Context, schema *string) ([]engines
 	return out, rows.Err()
 }
 
+// Direct callers read metadata once; service callers supply its cached copy.
 func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInput) (*engines.QueryResult, error) {
-	owner, table := splitTableID(a.username, input.TableID)
-	offset := int64(0)
-	if input.Offset != nil {
-		offset = *input.Offset
+	columns, err := a.GetTableColumns(ctx, input.TableID)
+	if err != nil {
+		return nil, err
 	}
-	limit := int64(100)
-	if input.Limit != nil {
-		limit = *input.Limit
-	}
-	var sb strings.Builder
-	sb.WriteString("SELECT * FROM ")
-	sb.WriteString(esc(owner))
-	sb.WriteString(".")
-	sb.WriteString(esc(table))
+	return a.PreviewRowsWithColumns(ctx, input, columns)
+}
 
-	if input.Search != "" {
-		colRows, err := a.db.QueryContext(ctx,
-			`SELECT column_name FROM all_tab_cols WHERE owner = :owner AND table_name = :tbl ORDER BY column_id`,
-			sql.Named("owner", owner), sql.Named("tbl", table))
-		if err != nil {
-			return nil, err
-		}
-		var searchCols []string
-		for colRows.Next() {
-			var c string
-			if err := colRows.Scan(&c); err != nil {
-				colRows.Close()
-				return nil, err
+// Declared integral NUMBER keys are projected/bound as exact decimal text.
+// Unknown scale, nullable/composite identity, and arbitrary orders stay offset.
+func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.PreviewRowsInput, columns []engines.ColumnInfo) (*engines.QueryResult, error) {
+	input = engines.ScopePreview(input, a.previewScope)
+	start := time.Now()
+	owner, table := splitTableID(a.username, input.TableID)
+	limit, offset, err := engines.PreviewBounds(input)
+	if err != nil {
+		return nil, err
+	}
+	key := engines.PreviewPrimaryKey(engines.KindOracle, columns)
+	seek, err := engines.UsePreviewCursor(input, key, offset)
+	if err != nil {
+		return nil, err
+	}
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, limit, engines.MaxPreviewResultBytes)
+	var sb strings.Builder
+	var params []any
+	projection := "*"
+	integralKey := key != nil && strings.HasPrefix(strings.ToUpper(key.Type), "NUMBER(")
+	if integralKey {
+		parts := make([]string, len(columns))
+		for i, col := range columns {
+			parts[i] = esc(col.Name)
+			if col.Name == key.Name {
+				parts[i] = "TO_CHAR(" + parts[i] + ", " + previewNumberFormat + ") AS " + esc(col.Name)
 			}
-			if input.SearchColumn != "" && c != input.SearchColumn {
+		}
+		projection = strings.Join(parts, ", ")
+	}
+	sb.WriteString("SELECT " + projection + " FROM " + esc(owner) + "." + esc(table) + " " + previewSourceAlias)
+	if input.Search != "" {
+		var clauses []string
+		for _, col := range columns {
+			if input.SearchColumn != "" && col.Name != input.SearchColumn {
 				continue
 			}
-			searchCols = append(searchCols, c)
-		}
-		colRows.Close()
-		if len(searchCols) > 0 {
-			clauses := make([]string, len(searchCols))
-			for i, col := range searchCols {
-				if input.MatchCase {
-					clauses[i] = "INSTR(" + esc(col) + ", :search) > 0"
-				} else {
-					clauses[i] = "LOWER(" + esc(col) + ") LIKE LOWER(:search)"
-				}
+			if input.MatchCase {
+				clauses = append(clauses, "INSTR("+esc(col.Name)+", :search) > 0")
+			} else {
+				clauses = append(clauses, "LOWER("+esc(col.Name)+") LIKE LOWER(:search)")
 			}
-			sb.WriteString(" WHERE ")
-			sb.WriteString(strings.Join(clauses, " OR "))
+		}
+		if len(clauses) > 0 {
+			sb.WriteString(" WHERE (" + strings.Join(clauses, " OR ") + ")")
+			search := "%" + input.Search + "%"
+			if input.MatchCase {
+				search = input.Search
+			}
+			params = append(params, sql.Named("search", search))
 		} else {
 			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
-
-	if input.SortColumn != "" {
-		sb.WriteString(" ORDER BY ")
-		sb.WriteString(esc(input.SortColumn))
+	if seek && input.Cursor != "" {
+		value, err := engines.DecodePreviewCursor(input, *key)
+		if err != nil {
+			return nil, err
+		}
+		if input.Search != "" {
+			sb.WriteString(" AND ")
+		} else {
+			sb.WriteString(" WHERE ")
+		}
+		sb.WriteString(esc(key.Name))
+		if input.SortDirection == "desc" {
+			sb.WriteString(" < ")
+		} else {
+			sb.WriteString(" > ")
+		}
+		if integralKey {
+			// The cursor parser admits signed decimal digits only, so no locale
+			// separators or floating-point format model are involved.
+			sb.WriteString("TO_NUMBER(:anchor)")
+			value = fmt.Sprint(value)
+		} else {
+			sb.WriteString(":anchor")
+		}
+		params = append(params, sql.Named("anchor", value))
+	}
+	order := input.SortColumn
+	if order == "" && key != nil {
+		order = key.Name
+	}
+	if order != "" {
+		// The source qualifier prevents a decimal-text projection alias from
+		// changing numeric ORDER BY into lexicographic ordering.
+		sb.WriteString(" ORDER BY " + previewSourceAlias + "." + esc(order))
 		if input.SortDirection == "desc" {
 			sb.WriteString(" DESC")
 		} else {
 			sb.WriteString(" ASC")
 		}
 	}
-
-	// Oracle pagination via ROWNUM wrapper.
-	q := fmt.Sprintf("SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (%s) a WHERE ROWNUM <= %d) WHERE rnum > %d",
-		sb.String(), offset+limit, offset)
-
-	start := time.Now()
-	var rows *sql.Rows
-	var err error
-	if input.Search != "" {
-		searchParam := "%" + input.Search + "%"
-		if input.MatchCase {
-			searchParam = input.Search
-		}
-		rows, err = a.db.QueryContext(ctx, q, sql.Named("search", searchParam))
-	} else {
-		rows, err = a.db.QueryContext(ctx, q)
+	// ROWNUM preserves older Oracle compatibility; seek does not walk an offset.
+	q := "SELECT * FROM (" + sb.String() + ") WHERE ROWNUM <= :page_end"
+	pageEnd := limit + 1
+	if !seek {
+		pageEnd += offset
+		q = "SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (" + sb.String() + ") a WHERE ROWNUM <= :page_end) WHERE rnum > :page_offset"
+		params = append(params, sql.Named("page_offset", offset))
 	}
+	params = append(params, sql.Named("page_end", pageEnd))
+	rows, err := a.db.QueryContext(ctx, q, params...)
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, _, err := rowsToMaps(rows, 0)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, limit, budget)
 	rows.Close()
 	if err != nil {
 		return nil, err
 	}
-	return &engines.QueryResult{
-		Columns:    qcols,
-		Rows:       mapRows,
-		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
-		Truncated:  int64(len(mapRows)) >= limit,
-	}, nil
+	result := budget.Apply(&engines.QueryResult{
+		Columns: qcols, Rows: mapRows, RowCount: int64(len(mapRows)),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
+		Truncated:  truncated,
+	})
+	return engines.FinishPreview(result, input, key, seek), nil
 }
 
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	start := time.Now()
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, engines.MaxGuiRows, engines.MaxGUIResultBytes)
 	rows, err := a.db.QueryContext(ctx, input.Query, input.Params...)
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows, budget)
 	rows.Close()
 	if err != nil {
 		return nil, err
@@ -449,13 +476,11 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 	if mapRows == nil {
 		mapRows = []map[string]any{}
 	}
-	return &engines.QueryResult{
-		Columns:    qcols,
-		Rows:       mapRows,
-		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
+	return budget.Apply(&engines.QueryResult{
+		Columns: qcols, Rows: mapRows, RowCount: int64(len(mapRows)),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		Truncated:  truncated,
-	}, nil
+	}), nil
 }
 
 func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.TableStats, error) {

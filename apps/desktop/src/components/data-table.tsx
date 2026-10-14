@@ -1,3 +1,4 @@
+import { MiddleTruncate } from '@/components/middle-truncate';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useColumnResize } from '@/hooks/use-column-resize';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -146,9 +147,14 @@ export function DataTable<T>({
 
   const virtualItems = isVirtualized ? rowVirtualizer.getVirtualItems() : null;
   const totalSize = isVirtualized ? rowVirtualizer.getTotalSize() : 0;
-  const paddingTop = virtualItems && virtualItems.length > 0 ? virtualItems[0].start : 0;
+  // Subtract scrollMargin from virtualItems[0].start to get relative offset within the table,
+  // preventing a large empty band between header and first row when table has an offset in scroll parent. (How / Why / What)
+  const scrollMargin = rowVirtualizer.options.scrollMargin ?? 0;
+  const paddingTop = virtualItems && virtualItems.length > 0 ? Math.max(0, virtualItems[0].start - scrollMargin) : 0;
   const paddingBottom =
-    virtualItems && virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0;
+    virtualItems && virtualItems.length > 0
+      ? Math.max(0, totalSize - (virtualItems[virtualItems.length - 1].end - scrollMargin))
+      : 0;
 
   const defaultHeaderClass = 'bg-muted px-3 py-1 font-semibold text-foreground text-xs';
 
@@ -190,7 +196,7 @@ export function DataTable<T>({
             <TableCell
               key={col.id}
               className={cn(
-                'px-2 py-1 overflow-hidden truncate min-w-0',
+                'px-2 py-1 flex items-center overflow-hidden min-w-0',
                 typeof value === 'object' && value !== null && 'overflow-visible whitespace-normal',
                 col.cellClassName,
               )}
@@ -209,13 +215,13 @@ export function DataTable<T>({
     );
   };
 
-  // Outer div clips children to rounded corners via overflow-hidden.
-  // Inner div handles horizontal scroll independently of the clip boundary.
+  // Outer div fills parent flex area with rounded corners.
+  // Inner div is the scrollport so position: sticky pins headers at top: 0 reliably. (How / Why / What)
   return (
-    <div className="w-full rounded-md overflow-hidden">
+    <div className="w-full flex-1 min-h-0 flex flex-col rounded-md overflow-hidden">
       <div
         ref={innerRef}
-        className="overflow-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30"
+        className="flex-1 min-h-0 overflow-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30"
       >
         <Table className={cn('w-full text-xs', className)}>
           {rows.length > 0 ? (
@@ -325,8 +331,9 @@ export function DataTable<T>({
 function defaultCellRender(value: unknown): ReactNode {
   if (value === null) return <span className="truncate text-muted-foreground italic">null</span>;
   if (value === undefined) return <span className="truncate text-muted-foreground">-</span>;
-  if (typeof value === 'object') return <span className="truncate text-primary">{JSON.stringify(value)}</span>;
-  return <span className="truncate">{String(value)}</span>;
+  if (typeof value === 'object')
+    return <MiddleTruncate text={JSON.stringify(value)} className="text-primary font-mono" />;
+  return <MiddleTruncate text={String(value)} />;
 }
 
 // Resize handle extracted into its own component so it can hold the hover/drag

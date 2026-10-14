@@ -157,6 +157,27 @@ export function buildRowUpdateQuery(input: {
   return `UPDATE ${quoteQualifiedTable(input.tableId)} SET ${setClause} WHERE ${whereClause}`;
 }
 
+// Build a safe DELETE query parameterized by primary key columns (or all columns if no PK) to delete a single row. (How / Why / What)
+export function buildRowDeleteQuery(input: {
+  readonly tableId: string;
+  readonly row: Record<string, unknown>;
+  readonly pkColumns: readonly string[];
+  readonly allColumnNames: readonly string[];
+}): string {
+  const whereColumns = input.pkColumns.length > 0 ? input.pkColumns : input.allColumnNames;
+  const whereClause = whereColumns
+    .map((columnName) => {
+      const value = input.row[columnName];
+      if (value === null || value === undefined) {
+        return `${quoteSqlIdentifier(columnName)} IS NULL`;
+      }
+      return `${quoteSqlIdentifier(columnName)} = ${escapeSqlValue(value)}`;
+    })
+    .join(' AND ');
+
+  return `DELETE FROM ${quoteQualifiedTable(input.tableId)} WHERE ${whereClause}`;
+}
+
 function normalizeIdentifierPart(part: string): string {
   if (
     (part.startsWith('"') && part.endsWith('"')) ||

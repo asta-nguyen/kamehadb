@@ -204,4 +204,3 @@ func TestSearchColumnFilterAndTruncation(t *testing.T) {
 		t.Fatalf("MatchCase=true wrong case should yield 0 rows: %+v %v", res, err)
 	}
 }
-

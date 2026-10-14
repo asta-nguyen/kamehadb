@@ -11,6 +11,11 @@ export type QueryResult = {
   rowCount: number;
   durationMs: number;
   truncated: boolean;
+  payloadBytes?: number;
+  limitReason?: 'rows' | 'bytes';
+  hasMore?: boolean;
+  nextCursor?: string;
+  paginationMode?: 'keyset' | 'offset';
 };
 
 // Database metadata types
@@ -75,6 +80,7 @@ export type SchemaSearchInput = {
 };
 
 export type PreviewRowsInput = {
+  requestId?: string;
   tableId: string;
   schema?: string;
   offset?: number;
@@ -85,11 +91,26 @@ export type PreviewRowsInput = {
   searchColumn?: string;
   matchCase?: boolean;
   filters?: { column: string; operator: string; value: string }[];
+  cursor?: string;
+  paginationMode?: 'auto' | 'offset';
 };
 
 export type RunQueryInput = {
+  requestId?: string;
   query: string;
   params?: unknown[];
+};
+
+export type QueryExportInput = Omit<RunQueryInput, 'requestId'> & {
+  id: string;
+  path: string;
+};
+
+export type QueryExportResult = {
+  rows: number;
+  bytes: number;
+  path: string;
+  cancelled: boolean;
 };
 
 export type TestConnectionResult = {
@@ -198,6 +219,7 @@ export type RedisValue = {
 };
 
 export type ScanKeysInput = {
+  requestId?: string;
   pattern?: string;
   count?: number;
   cursor?: number;
@@ -258,6 +280,7 @@ export type DocumentResult = {
 };
 
 export type FindDocumentsInput = {
+  requestId?: string;
   collection: string;
   database?: string;
   filter?: Record<string, unknown>;
@@ -269,12 +292,26 @@ export type FindDocumentsInput = {
 };
 
 export type AggregateInput = {
+  requestId?: string;
   collection: string;
   database?: string;
   pipeline: Record<string, unknown>[];
   limit?: number;
   skip?: number;
 };
+
+export type MongoCommandRequest = {
+  database?: string;
+  command: Record<string, unknown>;
+  requestId?: string;
+};
+
+export type RedisCommandRequest = {
+  command: string;
+  requestId?: string;
+};
+
+export type RedisKeyRequest = GetKeyInput & { requestId?: string };
 
 export interface MongoAdapter {
   testConnection(): Promise<TestConnectionResult>;

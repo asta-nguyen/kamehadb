@@ -30,6 +30,8 @@ export function ResizeMongoShell(arg1: string, arg2: number, arg3: number): Prom
 
 export function RunMongoCommand(arg1: string, arg2: string, arg3: Record<string, any>): Promise<any>;
 
+export function RunMongoCommandWithRequest(arg1: string, arg2: mongo.MongoCommandRequest): Promise<any>;
+
 export function Shutdown(): Promise<void>;
 
 export function StartMongoShell(arg1: string, arg2: number, arg3: number): Promise<Record<string, string>>;

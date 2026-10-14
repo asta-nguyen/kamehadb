@@ -23,6 +23,7 @@ type MongoService struct {
 	mu       sync.Mutex
 	adapters map[string]*mongo.Adapter
 	cache    *ttlCache
+	requests *requestJobs
 }
 
 func NewMongoService(st *store.Store, term *terminal.Manager, cache *ttlCache) *MongoService {
@@ -33,12 +34,22 @@ func NewMongoService(st *store.Store, term *terminal.Manager, cache *ttlCache) *
 		dataDir:  dataDir,
 		adapters: map[string]*mongo.Adapter{},
 		cache:    cache,
+		requests: newRequestJobs(),
 	}
 }
 
 // getAdapter mirrors getNonSqlAdapter(MONGODB): cached adapter built from
 // the profile's connection string; wrong-kind profiles are rejected.
 func (s *MongoService) getAdapter(connectionID string) (*mongo.Adapter, error) {
+	return s.getAdapterContext(context.Background(), connectionID)
+}
+
+// An invalidated request must not publish a newly constructed stale-profile
+// client. Check again under the cache lock before transferring ownership.
+func (s *MongoService) getAdapterContext(ctx context.Context, connectionID string) (*mongo.Adapter, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	if a, ok := s.adapters[connectionID]; ok {
 		s.mu.Unlock()
@@ -69,6 +80,16 @@ func (s *MongoService) getAdapter(connectionID string) (*mongo.Adapter, error) {
 		return nil, err
 	}
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		_ = a.Close(context.Background())
+		return nil, err
+	}
+	if cached := s.adapters[connectionID]; cached != nil {
+		s.mu.Unlock()
+		_ = a.Close(context.Background())
+		return cached, nil
+	}
 	s.adapters[connectionID] = a
 	s.mu.Unlock()
 	return a, nil
@@ -140,20 +161,36 @@ func (s *MongoService) ListMongoCollections(connectionID, database string) ([]mo
 
 // FindMongoDocuments — POST /mongo/:id/find.
 func (s *MongoService) FindMongoDocuments(connectionID string, input mongo.FindDocumentsInput) (*mongo.DocumentResult, error) {
-	a, err := s.getAdapter(connectionID)
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	return a.FindDocuments(context.Background(), input)
+	defer s.requests.finish(job)
+	a, err := s.getAdapterContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	return a.FindDocuments(job.ctx, input)
 }
 
 // AggregateMongoDocuments — POST /mongo/:id/aggregate.
 func (s *MongoService) AggregateMongoDocuments(connectionID string, input mongo.AggregateInput) (*mongo.DocumentResult, error) {
-	a, err := s.getAdapter(connectionID)
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	return a.Aggregate(context.Background(), input)
+	defer s.requests.finish(job)
+	a, err := s.getAdapterContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	return a.Aggregate(job.ctx, input)
 }
 
 // MongoDeleteInput mirrors the delete route body.
@@ -223,11 +260,29 @@ func (s *MongoService) GetMongoCollectionStats(connectionID, database, collectio
 
 // RunMongoCommand — POST /mongo/:id/command.
 func (s *MongoService) RunMongoCommand(connectionID, database string, command map[string]any) (any, error) {
-	a, err := s.getAdapter(connectionID)
+	return s.RunMongoCommandWithRequest(connectionID, mongo.MongoCommandRequest{Database: database, Command: command})
+}
+
+// Preserve the legacy arguments while allowing new UI callers to cancel only
+// their command. Cancellation is not rollback and no command is replayed.
+func (s *MongoService) RunMongoCommandWithRequest(connectionID string, input mongo.MongoCommandRequest) (any, error) {
+	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
 	}
-	return a.RunCommand(context.Background(), database, command)
+	defer s.requests.finish(job)
+	a, err := s.getAdapterContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	result, err := a.RunCommand(job.ctx, input.Database, input.Command)
+	if job.ctx.Err() != nil {
+		return nil, fmt.Errorf("Mongo command cancelled; it may already have executed; do not replay automatically: %w", job.ctx.Err())
+	}
+	return result, err
 }
 
 // GetMongoCompletions — GET /mongo/:id/autocomplete. Collection names plus

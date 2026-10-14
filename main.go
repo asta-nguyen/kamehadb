@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"os"
 	"runtime/debug"
 
 	"github.com/wailsapp/wails/v2"
@@ -27,7 +28,15 @@ import (
 //go:embed all:apps/desktop/dist
 var assets embed.FS
 
+func init() {
+	// Disable GTK native overlay scrollbars on Linux before any GTK window initialization.
+	// This forces WebKitGTK to use DOM-level CSS scrollbars so popups, menus, and toasts
+	// with elevated z-indexes cleanly render on top without being obscured. (How / Why / What)
+	_ = os.Setenv("GTK_OVERLAY_SCROLLING", "0")
+}
+
 func main() {
+	_ = os.Setenv("GTK_OVERLAY_SCROLLING", "0")
 	// Restrict Go heap target to 128MB and run GC at 50% growth to quickly
 	// return unused memory pages back to the OS via MADV_DONTNEED. (How / Why / What)
 	debug.SetMemoryLimit(128 * 1024 * 1024)
@@ -72,6 +81,8 @@ func main() {
 		},
 		OnStartup: func(ctx context.Context) {
 			app.startup(ctx)
+			services.StartExports(ctx)
+			services.StartRequests(ctx)
 			services.Health.Start(ctx)
 			services.Watcher.ResumeAll()
 			if mcpRuntime != nil {
@@ -79,6 +90,7 @@ func main() {
 			}
 		},
 		OnShutdown: func(ctx context.Context) {
+			services.CloseRequests()
 			if mcpRuntime != nil {
 				mcpRuntime.Close()
 			}
@@ -86,6 +98,7 @@ func main() {
 			services.Mongo.Shutdown()
 			services.Redis.Shutdown()
 			services.Health.Stop()
+			services.CloseExports()
 			app.shutdown(ctx)
 		},
 		Bind: append([]interface{}{app}, services.Bound()...),

@@ -17,11 +17,16 @@ type QueryColumn struct {
 }
 
 type QueryResult struct {
-	Columns    []QueryColumn    `json:"columns"`
-	Rows       []map[string]any `json:"rows"`
-	RowCount   int64            `json:"rowCount"`
-	DurationMs float64          `json:"durationMs"`
-	Truncated  bool             `json:"truncated"`
+	Columns        []QueryColumn    `json:"columns"`
+	Rows           []map[string]any `json:"rows"`
+	RowCount       int64            `json:"rowCount"`
+	DurationMs     float64          `json:"durationMs"`
+	Truncated      bool             `json:"truncated"`
+	PayloadBytes   int64            `json:"payloadBytes,omitempty"`
+	LimitReason    string           `json:"limitReason,omitempty"`
+	HasMore        *bool            `json:"hasMore,omitempty"`
+	NextCursor     string           `json:"nextCursor,omitempty"`
+	PaginationMode string           `json:"paginationMode,omitempty"`
 }
 
 type DatabaseInfo struct {
@@ -92,21 +97,27 @@ type PreviewFilter struct {
 }
 
 type PreviewRowsInput struct {
-	TableID       string          `json:"tableId"`
-	Schema        string          `json:"schema,omitempty"`
-	Offset        *int64          `json:"offset,omitempty"`
-	Limit         *int64          `json:"limit,omitempty"`
-	SortColumn    string          `json:"sortColumn,omitempty"`
-	SortDirection string          `json:"sortDirection,omitempty"`
-	Search        string          `json:"search,omitempty"`
-	SearchColumn  string          `json:"searchColumn,omitempty"`
-	MatchCase     bool            `json:"matchCase,omitempty"`
-	Filters       []PreviewFilter `json:"filters,omitempty"`
+	// Set by the cached native adapter, never decoded from Wails or RPC input.
+	previewScope   string          `json:"-"`
+	TableID        string          `json:"tableId"`
+	Schema         string          `json:"schema,omitempty"`
+	Offset         *int64          `json:"offset,omitempty"`
+	Limit          *int64          `json:"limit,omitempty"`
+	SortColumn     string          `json:"sortColumn,omitempty"`
+	SortDirection  string          `json:"sortDirection,omitempty"`
+	Search         string          `json:"search,omitempty"`
+	SearchColumn   string          `json:"searchColumn,omitempty"`
+	MatchCase      bool            `json:"matchCase,omitempty"`
+	Filters        []PreviewFilter `json:"filters,omitempty"`
+	Cursor         string          `json:"cursor,omitempty"`
+	PaginationMode string          `json:"paginationMode,omitempty"`
+	RequestID      *string         `json:"requestId,omitempty"`
 }
 
 type RunQueryInput struct {
-	Query  string `json:"query"`
-	Params []any  `json:"params,omitempty"`
+	Query     string  `json:"query"`
+	Params    []any   `json:"params,omitempty"`
+	RequestID *string `json:"requestId,omitempty"`
 }
 
 type TestConnectionResult struct {

@@ -17,8 +17,20 @@ import (
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 )
 
+const sqlitePageCacheKiB = 8 * 1024
+const sqliteMmapBytes = 0
+
 type Adapter struct {
-	db *sql.DB
+	db           *sql.DB
+	path         string
+	previewScope string
+}
+
+// Bound each connection's native cache and spill sort/join work to disk so
+// a large database file does not require proportionally large app RAM.
+func configureMemory(db *sql.DB) error {
+	_, err := db.Exec(fmt.Sprintf("PRAGMA mmap_size = %d; PRAGMA cache_size = -%d; PRAGMA temp_store = FILE", sqliteMmapBytes, sqlitePageCacheKiB))
+	return err
 }
 
 func New(cp engines.ConnProfile) (*Adapter, error) {
@@ -31,15 +43,12 @@ func New(cp engines.ConnProfile) (*Adapter, error) {
 	}
 	db.SetMaxOpenConns(1)
 
-	// Tune SQLite connection with high-performance PRAGMAs: (How / Why / What)
-	// - mmap_size: Memory-map up to 256MB to bypass read() syscalls during scans.
-	// - cache_size: Increase page cache to 64MB (default is 2MB) to prevent thrashing.
-	// - temp_store: Keep temporary sort and join b-trees in RAM instead of disk.
-	_, _ = db.Exec("PRAGMA mmap_size = 268435456")
-	_, _ = db.Exec("PRAGMA cache_size = -64000")
-	_, _ = db.Exec("PRAGMA temp_store = MEMORY")
+	if err := configureMemory(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 
-	return &Adapter{db: db}, nil
+	return &Adapter{db: db, path: cp.FilePath, previewScope: engines.NewPreviewScope(engines.KindSQLite)}, nil
 }
 
 func init() {
@@ -61,11 +70,12 @@ func NewMCP(filePath string) (*Adapter, error) {
 	}
 	db.SetMaxOpenConns(1)
 
-	_, _ = db.Exec("PRAGMA mmap_size = 268435456")
-	_, _ = db.Exec("PRAGMA cache_size = -64000")
-	_, _ = db.Exec("PRAGMA temp_store = MEMORY")
+	if err := configureMemory(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 
-	return &Adapter{db: db}, nil
+	return &Adapter{db: db, path: filePath, previewScope: engines.NewPreviewScope(engines.KindSQLite)}, nil
 }
 
 func esc(id string) string { return engines.QuoteIdentifier(engines.KindSQLite, id) }
@@ -114,37 +124,13 @@ func isNumericString(s string) bool {
 	return true
 }
 
-// rowsToMaps scans an active sql.Rows cursor into map rows, capping at maxRows (0 for unlimited).
-// Pre-allocates and reuses the scan pointer buffer across iterations to prevent millions of
-// small heap allocations when reading large result sets. (How / Why / What)
-func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[string]any, bool, error) {
+// Read declared types before scanning so empty and capped pages retain their
+// metadata, while the shared collector bounds complete normalized rows.
+func rowsToMaps(rows *sql.Rows, maxRows int64, budget *engines.ResultBudget) ([]engines.QueryColumn, []map[string]any, bool, error) {
 	names, err := rows.Columns()
 	if err != nil {
 		return nil, nil, false, err
 	}
-	out := make([]map[string]any, 0, 64)
-	vals := make([]any, len(names))
-	ptrs := make([]any, len(names))
-	for i := range vals {
-		ptrs[i] = &vals[i]
-	}
-	truncated := false
-	for rows.Next() {
-		if maxRows > 0 && int64(len(out)) >= maxRows {
-			truncated = true
-			break
-		}
-		if err := rows.Scan(ptrs...); err != nil {
-			return nil, nil, false, err
-		}
-		m := make(map[string]any, len(names))
-		for i, name := range names {
-			m[name] = normalizeValue(vals[i])
-		}
-		out = append(out, m)
-	}
-	// TS derives column types from the first row's JS values; Report the
-	// declared SQLite types instead (always available, row-independent).
 	types, _ := rows.ColumnTypes()
 	qcols := make([]engines.QueryColumn, len(names))
 	for i, name := range names {
@@ -154,7 +140,7 @@ func rowsToMaps(rows *sql.Rows, maxRows int64) ([]engines.QueryColumn, []map[str
 		}
 		qcols[i] = engines.QueryColumn{Name: name, Type: strings.ToLower(typ)}
 	}
-	return qcols, out, truncated, rows.Err()
+	return engines.CollectSQLRows(rows, qcols, maxRows, normalizeValue, budget)
 }
 
 func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionResult, error) {
@@ -308,6 +294,28 @@ func (a *Adapter) tableColumns(ctx context.Context, table string) ([]engines.Col
 		return nil, err
 	}
 
+	// Rowid-alias INTEGER PRIMARY KEY is non-null despite PRAGMA notnull=0.
+	// Composite keys and inline DESC have a PK index instead of a rowid alias.
+	pkCount := 0
+	for _, column := range out {
+		if column.PrimaryKey {
+			pkCount++
+		}
+	}
+	if pkCount == 1 {
+		for i := range out {
+			if out[i].PrimaryKey && out[i].Nullable && strings.EqualFold(out[i].Type, "INTEGER") {
+				var pkIndexes int
+				if err := a.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM pragma_index_list(?) WHERE origin = 'pk'", table).Scan(&pkIndexes); err != nil {
+					return nil, err
+				}
+				if pkIndexes == 0 {
+					out[i].Nullable = false
+				}
+			}
+		}
+	}
+
 	fkRows, err := a.db.QueryContext(ctx,
 		"SELECT \"table\", \"from\", \"to\" FROM pragma_foreign_key_list(?)", table)
 	if err != nil {
@@ -401,14 +409,33 @@ func (a *Adapter) GetTableIndexes(ctx context.Context, tableID string) ([]engine
 	return out, nil
 }
 
+// Direct calls resolve metadata here; the service passes its cached copy
+// through the optional method so paging does not repeat schema reads.
 func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInput) (*engines.QueryResult, error) {
-	offset := int64(0)
-	if input.Offset != nil {
-		offset = *input.Offset
+	columns, err := a.tableColumns(ctx, input.TableID)
+	if err != nil {
+		return nil, err
 	}
-	limit := int64(100)
-	if input.Limit != nil {
-		limit = *input.Limit
+	return a.PreviewRowsWithColumns(ctx, input, columns)
+}
+
+// Compose seek predicates with the existing search clause; every unsupported
+// key/order stays on explicit offset paging using the same bounded collector.
+func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.PreviewRowsInput, columns []engines.ColumnInfo) (*engines.QueryResult, error) {
+	input = engines.ScopePreview(input, a.previewScope)
+	start := time.Now()
+	limit, offset, err := engines.PreviewBounds(input)
+	if err != nil {
+		return nil, err
+	}
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, limit, engines.MaxPreviewResultBytes)
+	key := engines.PreviewPrimaryKey(engines.KindSQLite, columns)
+	seek, err := engines.UsePreviewCursor(input, key, offset)
+	if err != nil {
+		return nil, err
 	}
 	var sb strings.Builder
 	var params []any
@@ -416,12 +443,8 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 	sb.WriteString(esc(input.TableID))
 
 	if input.Search != "" {
-		cols, err := a.tableColumns(ctx, input.TableID)
-		if err != nil {
-			return nil, err
-		}
 		var targetCols []string
-		for _, col := range cols {
+		for _, col := range columns {
 			if input.SearchColumn != "" && col.Name != input.SearchColumn {
 				continue
 			}
@@ -440,42 +463,69 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 					params = append(params, "%"+input.Search+"%")
 				}
 			}
-			sb.WriteString(" WHERE ")
+			sb.WriteString(" WHERE (")
 			sb.WriteString(strings.Join(clauses, " OR "))
+			sb.WriteString(")")
 		} else {
 			sb.WriteString(" WHERE 1 = 0")
 		}
 	}
 
-	if input.SortColumn != "" {
+	if seek && input.Cursor != "" {
+		value, err := engines.DecodePreviewCursor(input, *key)
+		if err != nil {
+			return nil, err
+		}
+		if input.Search != "" {
+			sb.WriteString(" AND ")
+		} else {
+			sb.WriteString(" WHERE ")
+		}
+		sb.WriteString(esc(key.Name))
+		if input.SortDirection == "desc" {
+			sb.WriteString(" < ?")
+		} else {
+			sb.WriteString(" > ?")
+		}
+		params = append(params, value)
+	}
+	orderColumn := input.SortColumn
+	if orderColumn == "" && key != nil {
+		orderColumn = key.Name
+	}
+	if orderColumn != "" {
 		sb.WriteString(" ORDER BY ")
-		sb.WriteString(esc(input.SortColumn))
+		sb.WriteString(esc(orderColumn))
 		if input.SortDirection == "desc" {
 			sb.WriteString(" DESC")
 		} else {
 			sb.WriteString(" ASC")
 		}
 	}
-	sb.WriteString(" LIMIT ? OFFSET ?")
-	params = append(params, limit, offset)
+	sb.WriteString(" LIMIT ?")
+	params = append(params, limit+1)
+	if !seek {
+		sb.WriteString(" OFFSET ?")
+		params = append(params, offset)
+	}
 
-	start := time.Now()
 	rows, err := a.db.QueryContext(ctx, sb.String(), params...)
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, _, err := rowsToMaps(rows, 0)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, limit, budget)
 	rows.Close()
 	if err != nil {
 		return nil, err
 	}
-	return &engines.QueryResult{
+	result := budget.Apply(&engines.QueryResult{
 		Columns:    qcols,
 		Rows:       mapRows,
 		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
-		Truncated:  int64(len(mapRows)) >= limit,
-	}, nil
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
+		Truncated:  truncated,
+	})
+	return engines.FinishPreview(result, input, key, seek), nil
 }
 
 // returnsData mirrors better-sqlite3's stmt.returnsData check: statements
@@ -484,6 +534,10 @@ var returningStmt = regexp.MustCompile(`(?i)^\s*(SELECT|WITH|EXPLAIN|PRAGMA|VALU
 
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	start := time.Now()
+	parent := ctx
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	budget := engines.NewResultBudget(parent, cancel, engines.MaxGuiRows, engines.MaxGUIResultBytes)
 	if !returningStmt.MatchString(input.Query) {
 		res, err := a.db.ExecContext(ctx, input.Query, input.Params...)
 		if err != nil {
@@ -494,14 +548,14 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 			Columns:    []engines.QueryColumn{},
 			Rows:       []map[string]any{},
 			RowCount:   affected,
-			DurationMs: float64(time.Since(start).Milliseconds()),
+			DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		}, nil
 	}
 	rows, err := a.db.QueryContext(ctx, input.Query, input.Params...)
 	if err != nil {
 		return nil, err
 	}
-	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows)
+	qcols, mapRows, truncated, err := rowsToMaps(rows, engines.MaxGuiRows, budget)
 	rows.Close()
 	if err != nil {
 		return nil, err
@@ -509,13 +563,13 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 	if mapRows == nil {
 		mapRows = []map[string]any{}
 	}
-	return &engines.QueryResult{
+	return budget.Apply(&engines.QueryResult{
 		Columns:    qcols,
 		Rows:       mapRows,
 		RowCount:   int64(len(mapRows)),
-		DurationMs: float64(time.Since(start).Milliseconds()),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		Truncated:  truncated,
-	}, nil
+	}), nil
 }
 
 // RunQueryBounded is the MCP read: ordinal rows (array mode), stops after
@@ -577,7 +631,7 @@ func (a *Adapter) RunQueryBounded(ctx context.Context, input engines.BoundedQuer
 	return &engines.BoundedQueryResult{
 		Columns:    qcols,
 		Rows:       out,
-		DurationMs: float64(time.Since(start).Milliseconds()),
+		DurationMs: float64(time.Since(start).Microseconds()) / 1000.0,
 		Truncated:  truncated,
 	}, nil
 }

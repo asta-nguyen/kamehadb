@@ -4,6 +4,8 @@ import { redis } from '../models';
 
 export function GetRedisKey(arg1: string, arg2: string): Promise<redis.RedisValue>;
 
+export function GetRedisKeyWithRequest(arg1: string, arg2: redis.RedisKeyRequest): Promise<redis.RedisValue>;
+
 export function GetRedisStats(arg1: string): Promise<redis.RedisStats>;
 
 export function GetRedisTTL(arg1: string, arg2: string): Promise<Record<string, number>>;
@@ -11,6 +13,8 @@ export function GetRedisTTL(arg1: string, arg2: string): Promise<Record<string, 
 export function Invalidate(arg1: string): Promise<void>;
 
 export function RunRedisCommand(arg1: string, arg2: string): Promise<redis.CommandResult>;
+
+export function RunRedisCommandWithRequest(arg1: string, arg2: redis.RedisCommandRequest): Promise<redis.CommandResult>;
 
 export function ScanRedisKeys(arg1: string, arg2: redis.ScanKeysInput): Promise<redis.KeyPage>;
 

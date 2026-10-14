@@ -8,10 +8,10 @@ import { clearAppLogs, formatLogTimestamp, readAppLogs, type AppLogEntry } from 
 import { navigateTo } from '@/store';
 import { cn } from 'cnfast';
 
-type SourceFilter = 'all' | 'frontend' | 'app' | 'tauri' | 'sidecar';
+type SourceFilter = 'all' | 'frontend' | 'app';
 type LevelFilter = 'all' | 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
 
-const SOURCE_OPTIONS: readonly SourceFilter[] = ['all', 'frontend', 'app', 'tauri', 'sidecar'];
+const SOURCE_OPTIONS: readonly SourceFilter[] = ['all', 'frontend', 'app'];
 const LEVEL_OPTIONS: readonly LevelFilter[] = ['all', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'];
 
 function matchesSearch(entry: AppLogEntry, query: string): boolean {

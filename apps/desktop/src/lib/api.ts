@@ -1,3 +1,4 @@
+import { runGUIRequest } from './gui-request';
 import { EventsOn } from '../../wailsjs/runtime/runtime';
 import {
   CheckAllHealth,
@@ -14,6 +15,9 @@ import {
 } from '../../wailsjs/go/api/ConnectionsService';
 import {
   CancelQuery,
+  CancelRequest,
+  CancelExport,
+  ExportQueryCSV,
   GetActiveConnections,
   GetCompletions,
   GetDatabaseSizes,
@@ -39,7 +43,8 @@ import {
   StartSchemaNotifyWatcher,
   StopSchemaNotifyWatcher,
 } from '../../wailsjs/go/api/SchemaService';
-import type { engines, store } from '../../wailsjs/go/models';
+import type { engines, mongo, redis, store, api as bindingModels } from '../../wailsjs/go/models';
+import { PickSaveFile } from '../../wailsjs/go/main/App';
 import {
   AttachMongoShell,
   DeleteMongoDocument,
@@ -51,17 +56,17 @@ import {
   ListMongoDatabases,
   PingMongoShell,
   ResizeMongoShell,
-  RunMongoCommand,
+  RunMongoCommandWithRequest,
   StartMongoShell,
   StopMongoShell,
   UpdateMongoDocument,
   WriteMongoShell,
 } from '../../wailsjs/go/api/MongoService';
 import {
-  GetRedisKey,
+  GetRedisKeyWithRequest,
   GetRedisStats,
   GetRedisTTL,
-  RunRedisCommand,
+  RunRedisCommandWithRequest,
   ScanRedisKeys,
 } from '../../wailsjs/go/api/RedisService';
 import {
@@ -180,13 +185,38 @@ export const api = {
   getQueryHistory: (connectionId: string, limit: number, favoritesOnly: boolean) =>
     GetQueryHistory(connectionId, limit, favoritesOnly) as Promise<import('@kamehadb/shared').QueryHistoryEntry[]>,
 
-  saveQueryHistory: (connectionId: string, input: import('@kamehadb/shared').SaveQueryHistoryInput) =>
-    SaveQueryHistory(connectionId, input as never) as Promise<import('@kamehadb/shared').QueryHistoryEntry>,
+  // Keep sub-millisecond query timings in the UI, but send integer milliseconds
+  // to the existing Go int64 history binding and SQLite storage field.
+  saveQueryHistory: (
+    connectionId: string,
+    input: import('@kamehadb/shared').SaveQueryHistoryInput,
+  ): Promise<import('@kamehadb/shared').QueryHistoryEntry> =>
+    SaveQueryHistory(connectionId, {
+      ...input,
+      durationMs: input.durationMs === undefined ? undefined : Math.round(input.durationMs),
+    } as never) as Promise<import('@kamehadb/shared').QueryHistoryEntry>,
 
   updateQueryHistory: (id: string, input: import('@kamehadb/shared').UpdateQueryHistoryInput) =>
     UpdateQueryHistory(id, input as never),
 
   deleteQueryHistory: (id: string) => DeleteQueryHistory(id),
+
+  // Choose a native destination before any SQL. The optional readiness guard
+  // lets an unmounted view stop after the dialog without launching a job.
+  exportQueryCSV: async (
+    connectionId: string,
+    input: import('@kamehadb/shared').RunQueryInput,
+    id: string,
+    onReady?: () => boolean,
+  ): Promise<import('@kamehadb/shared').QueryExportResult | null> => {
+    const path = await PickSaveFile('query.csv', 'Export full query as CSV', [
+      { displayName: 'CSV files', pattern: '*.csv' },
+    ]);
+    if (!path || onReady?.() === false) return null;
+    return ExportQueryCSV(connectionId, { ...input, id, path } as bindingModels.QueryExportInput);
+  },
+
+  cancelExport: (id: string): Promise<boolean> => CancelExport(id),
 
   // SQL browse + query (bound SqlService — replaces /sql/* routes)
   listSqlSchemas: (connectionId: string) =>
@@ -206,15 +236,36 @@ export const api = {
       tables: import('@kamehadb/shared').TableCompletions[];
     }>,
 
-  previewRows: (connectionId: string, input: import('@kamehadb/shared').PreviewRowsInput) =>
-    PreviewRows(connectionId, input as engines.PreviewRowsInput) as Promise<import('@kamehadb/shared').QueryResult>,
+  previewRows: (
+    connectionId: string,
+    input: import('@kamehadb/shared').PreviewRowsInput,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').QueryResult> =>
+    runGUIRequest(
+      (requestId) =>
+        PreviewRows(connectionId, { ...input, requestId } as engines.PreviewRowsInput) as Promise<
+          import('@kamehadb/shared').QueryResult
+        >,
+      signal,
+      input.requestId,
+    ),
 
-  runQuery: (connectionId: string, query: string, params?: unknown[]) =>
-    RunQuery(connectionId, { query, params } as engines.RunQueryInput) as Promise<
-      import('@kamehadb/shared').QueryResult
-    >,
+  runQuery: (
+    connectionId: string,
+    query: string,
+    params?: unknown[],
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').QueryResult> =>
+    runGUIRequest(
+      (requestId) =>
+        RunQuery(connectionId, { query, params, requestId } as engines.RunQueryInput) as Promise<
+          import('@kamehadb/shared').QueryResult
+        >,
+      signal,
+    ),
 
   cancelQuery: (connectionId: string) => CancelQuery(connectionId),
+  cancelRequest: (requestId: string): Promise<boolean> => CancelRequest(requestId),
 
   searchSchema: (connectionId: string, query: string, schema?: string, limit?: number) =>
     SearchSchema(connectionId, query, schema ?? '', limit ?? -1) as Promise<
@@ -271,19 +322,27 @@ export const api = {
   listMongoCollections: (connectionId: string, database?: string) =>
     ListMongoCollections(connectionId, database ?? '') as Promise<import('@kamehadb/shared').CollectionInfo[]>,
 
-  findMongoDocuments: (connectionId: string, input: import('@kamehadb/shared').FindDocumentsInput) =>
-    FindMongoDocuments(connectionId, input as never) as Promise<import('@kamehadb/shared').DocumentResult>,
+  findMongoDocuments: (
+    connectionId: string,
+    input: import('@kamehadb/shared').FindDocumentsInput,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').DocumentResult> =>
+    runGUIRequest(
+      (requestId) => FindMongoDocuments(connectionId, { ...input, requestId } as mongo.FindDocumentsInput),
+      signal,
+      input.requestId,
+    ),
 
   aggregateMongoDocuments: (
     connectionId: string,
-    input: {
-      collection: string;
-      database?: string;
-      pipeline: Record<string, unknown>[];
-      skip?: number;
-      limit?: number;
-    },
-  ) => AggregateMongoDocuments(connectionId, input as never) as Promise<import('@kamehadb/shared').DocumentResult>,
+    input: import('@kamehadb/shared').AggregateInput,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').DocumentResult> =>
+    runGUIRequest(
+      (requestId) => AggregateMongoDocuments(connectionId, { ...input, requestId } as mongo.AggregateInput),
+      signal,
+      input.requestId,
+    ),
 
   deleteMongoDocument: (
     connectionId: string,
@@ -309,16 +368,39 @@ export const api = {
   getRedisStats: (connectionId: string) =>
     GetRedisStats(connectionId) as Promise<import('@kamehadb/shared').RedisStats>,
 
-  scanRedisKeys: (connectionId: string, input: { pattern?: string; count?: number; cursor?: number }) =>
-    ScanRedisKeys(connectionId, input as never) as Promise<import('@kamehadb/shared').KeyPage>,
+  scanRedisKeys: (
+    connectionId: string,
+    input: import('@kamehadb/shared').ScanKeysInput,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').KeyPage> =>
+    runGUIRequest(
+      (requestId) =>
+        ScanRedisKeys(connectionId, { ...input, requestId } as redis.ScanKeysInput) as Promise<
+          import('@kamehadb/shared').KeyPage
+        >,
+      signal,
+      input.requestId,
+    ),
 
-  getRedisKey: (connectionId: string, key: string) =>
-    GetRedisKey(connectionId, key) as Promise<import('@kamehadb/shared').RedisValue>,
+  getRedisKey: (
+    connectionId: string,
+    key: string,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').RedisValue> =>
+    runGUIRequest(
+      (requestId) =>
+        GetRedisKeyWithRequest(connectionId, { key, requestId }) as Promise<import('@kamehadb/shared').RedisValue>,
+      signal,
+    ),
 
   getRedisTTL: (connectionId: string, key: string) => GetRedisTTL(connectionId, key) as Promise<{ ttl: number }>,
 
-  runRedisCommand: (connectionId: string, command: string) =>
-    RunRedisCommand(connectionId, command) as Promise<import('@kamehadb/shared').RedisCommandResult>,
+  runRedisCommand: (
+    connectionId: string,
+    command: string,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').RedisCommandResult> =>
+    runGUIRequest((requestId) => RunRedisCommandWithRequest(connectionId, { command, requestId }), signal),
 
   // MongoDB shell — PTY sessions on the Go side; output streams over the
   // `terminal:<sessionId>` Wails event instead of SSE.
@@ -348,8 +430,13 @@ export const api = {
     }>,
 
   // MongoDB command
-  runMongoCommand: (connectionId: string, database: string, command: Record<string, unknown>) =>
-    RunMongoCommand(connectionId, database, command) as Promise<unknown>,
+  runMongoCommand: (
+    connectionId: string,
+    database: string,
+    command: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<unknown> =>
+    runGUIRequest((requestId) => RunMongoCommandWithRequest(connectionId, { database, command, requestId }), signal),
 
   // Read-only MCP settings
   getMcpSettings: () => GetMCPSettings() as Promise<import('@kamehadb/shared').McpSettingsResponse>,
