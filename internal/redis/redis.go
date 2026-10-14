@@ -42,11 +42,16 @@ func newClient(cfg Config, dialTimeout time.Duration, noRetry bool) *goredis.Cli
 		maxRetries = -1 // fail fast, like retryStrategy: () => null
 	}
 	return goredis.NewClient(&goredis.Options{
-		Addr:                  fmt.Sprintf("%s:%d", host, port),
-		Password:              cfg.Password,
-		DB:                    cfg.Database,
-		DialTimeout:           dialTimeout,
-		MaxRetries:            maxRetries,
+		Addr:        fmt.Sprintf("%s:%d", host, port),
+		Password:    cfg.Password,
+		DB:          cfg.Database,
+		DialTimeout: dialTimeout,
+		MaxRetries:  maxRetries,
+		// go-redis v9 negotiates RESP3 by default, which turns HGETALL, CONFIG GET
+		// and XINFO replies into map[interface{}]interface{}: JSON cannot encode
+		// that, so raw command results would never reach the UI. RESP2 keeps the
+		// flat-array replies the previous ioredis-based sidecar produced.
+		Protocol:              2,
 		ContextTimeoutEnabled: true,
 	})
 }
@@ -232,14 +237,22 @@ func (a *Adapter) GetTTL(ctx context.Context, key string) (int64, error) {
 
 var keyspaceLine = regexp.MustCompile(`^db(\d+):keys=(\d+),expires=(\d+),avg_ttl=(\d+)`)
 
+// parseInfoSection returns the "key:value" lines under one "# Section" header of
+// INFO output. RE2 has no lookahead, so the block is found by scanning lines: a
+// "# " line starts a new section and only the requested one is collected. An
+// exact header match keeps "Stats" from also reading "Commandstats".
 func parseInfoSection(info, section string) map[string]string {
-	re := regexp.MustCompile(`# ` + section + `([\s\S]*?)(?=# |$)`)
-	m := re.FindStringSubmatch(info)
-	if len(m) < 2 {
-		return map[string]string{}
-	}
 	out := map[string]string{}
-	for _, line := range strings.Split(m[1], "\n") {
+	inSection := false
+	for _, line := range strings.Split(info, "\n") {
+		line = strings.TrimSpace(line)
+		if name, isHeader := strings.CutPrefix(line, "# "); isHeader {
+			inSection = name == section
+			continue
+		}
+		if !inSection {
+			continue
+		}
 		key, val, found := strings.Cut(line, ":")
 		if found && key != "" {
 			out[strings.TrimSpace(key)] = strings.TrimSpace(val)

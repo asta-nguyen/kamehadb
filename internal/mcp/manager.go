@@ -54,9 +54,82 @@ type Connection struct {
 
 type entry struct {
 	kind     string
+	inflight int // guarded by AdapterManager.mu
+
+	// createMu serializes adapter creation so concurrent first calls share one
+	// adapter. Invalidate never takes it, so closing an entry never waits on a
+	// slow connect. mu guards sql, mongo and closed and is only held briefly.
+	createMu sync.Mutex
+	mu       sync.Mutex
 	sql      SqlRead
 	mongo    MongoRead
-	inflight int
+	closed   bool
+}
+
+// current returns the cached adapters, or closed when the entry was retired.
+func (e *entry) current() (sqlAdapter SqlRead, mongoAdapter MongoRead, closed bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.sql, e.mongo, e.closed
+}
+
+// errConnectionUpdated is returned to a call that raced with Invalidate; a retry
+// builds a fresh adapter from the current profile and credential.
+func errConnectionUpdated() error {
+	return newToolError(ErrBusy, "This connection was updated during the call; retry shortly")
+}
+
+// connection returns the entry's adapter, creating it on first use. If the entry
+// is retired (Invalidate, CloseAll) while the adapter is being created, the new
+// adapter is closed here instead of being stored on an entry nobody will close.
+func (e *entry) connection(profile *store.Profile, credential *store.MCPCredentialBundle) (*Connection, error) {
+	e.createMu.Lock()
+	defer e.createMu.Unlock()
+
+	sqlAdapter, mongoAdapter, closed := e.current()
+	if closed {
+		return nil, errConnectionUpdated()
+	}
+	if e.kind == "mongo" {
+		if mongoAdapter == nil {
+			adapter, err := createMongoAdapter(profile, credential)
+			if err != nil {
+				return nil, err
+			}
+			if adapter == nil {
+				return nil, newToolError(ErrProfileNotEnabled, "MongoDB connection is not configured")
+			}
+			e.mu.Lock()
+			if e.closed {
+				e.mu.Unlock()
+				closeMongoAdapter(adapter)
+				return nil, errConnectionUpdated()
+			}
+			e.mongo = adapter
+			e.mu.Unlock()
+			mongoAdapter = adapter
+		}
+		return &Connection{Kind: "mongo", Mongo: mongoAdapter, Profile: profile}, nil
+	}
+	if sqlAdapter == nil {
+		adapter, err := newSQLAdapter(profile, credential)
+		if err != nil {
+			return nil, err
+		}
+		if adapter == nil {
+			return nil, newToolError(ErrProfileNotEnabled, "This engine is not supported for MCP")
+		}
+		e.mu.Lock()
+		if e.closed {
+			e.mu.Unlock()
+			closeSQLAdapter(adapter)
+			return nil, errConnectionUpdated()
+		}
+		e.sql = adapter
+		e.mu.Unlock()
+		sqlAdapter = adapter
+	}
+	return &Connection{Kind: "sql", SQL: sqlAdapter, Profile: profile}, nil
 }
 
 // assertDatabaseScope keeps tool arguments inside the database authorized for
@@ -234,6 +307,9 @@ func (m *mongoScoped) AggregateBounded(ctx context.Context, in mongoadapter.Boun
 }
 
 func (m *mongoScoped) Close(ctx context.Context) error { return m.adapter.Close(ctx) }
+
+// newSQLAdapter is a variable only so tests can slow or observe adapter creation.
+var newSQLAdapter = createSqlAdapter
 
 // createSqlAdapter builds a dedicated MCP-owned adapter with managed
 // credentials — never the shared UI adapter cache (adapters/factory.ts).
@@ -419,31 +495,11 @@ func (m *AdapterManager) WithConnection(ctx context.Context, connectionID string
 		m.mu.Unlock()
 	}()
 
-	if e.kind == "mongo" {
-		if e.mongo == nil {
-			adapter, err := createMongoAdapter(profile, credential)
-			if err != nil {
-				return nil, err
-			}
-			if adapter == nil {
-				return nil, newToolError(ErrProfileNotEnabled, "MongoDB connection is not configured")
-			}
-			e.mongo = adapter
-		}
-		return fn(&Connection{Kind: "mongo", Mongo: e.mongo, Profile: profile})
+	conn, err := e.connection(profile, credential)
+	if err != nil {
+		return nil, err
 	}
-
-	if e.sql == nil {
-		adapter, err := createSqlAdapter(profile, credential)
-		if err != nil {
-			return nil, err
-		}
-		if adapter == nil {
-			return nil, newToolError(ErrProfileNotEnabled, "This engine is not supported for MCP")
-		}
-		e.sql = adapter
-	}
-	return fn(&Connection{Kind: "sql", SQL: e.sql, Profile: profile})
+	return fn(conn)
 }
 
 // Invalidate drops and closes the cached adapter so a disabled/edited/deleted
@@ -459,17 +515,33 @@ func (m *AdapterManager) Invalidate(connectionID string) {
 	closeEntry(e)
 }
 
+// closeEntry retires the entry for good: after it returns no call can create or
+// reuse an adapter on it. It only takes the brief state lock, so it never waits
+// on an adapter that is still connecting; that creator closes its own adapter.
 func closeEntry(e *entry) {
-	ctx := context.Background()
-	if e.sql != nil {
-		if err := e.sql.Close(); err != nil {
-			logs.Debug("mcp", "adapter close failed: "+err.Error())
-		}
+	e.mu.Lock()
+	e.closed = true
+	sqlAdapter, mongoAdapter := e.sql, e.mongo
+	e.sql, e.mongo = nil, nil
+	e.mu.Unlock()
+
+	if sqlAdapter != nil {
+		closeSQLAdapter(sqlAdapter)
 	}
-	if e.mongo != nil {
-		if err := e.mongo.Close(ctx); err != nil {
-			logs.Debug("mcp", "adapter close failed: "+err.Error())
-		}
+	if mongoAdapter != nil {
+		closeMongoAdapter(mongoAdapter)
+	}
+}
+
+func closeSQLAdapter(adapter SqlRead) {
+	if err := adapter.Close(); err != nil {
+		logs.Debug("mcp", "adapter close failed: "+err.Error())
+	}
+}
+
+func closeMongoAdapter(adapter MongoRead) {
+	if err := adapter.Close(context.Background()); err != nil {
+		logs.Debug("mcp", "adapter close failed: "+err.Error())
 	}
 }
 

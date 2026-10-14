@@ -9,9 +9,13 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/internal/logs"
+	"github.com/zalando/go-keyring"
 )
 
 // Byte-compatible port of apps/sidecar/src/db/mcp-credential-vault.ts:
@@ -22,6 +26,8 @@ const (
 	mcpKeyBytes      = 32
 	mcpNonceBytes    = 12
 	mcpFormatVersion = "v1"
+	// Keychain service name; the account is the metadata DB path.
+	mcpKeyringService = "kamehadb-mcp-vault"
 )
 
 var (
@@ -51,43 +57,81 @@ func (b MCPCredentialBundle) valid() bool {
 	return false
 }
 
-// Keep the key outside SQLite so a copy of the database alone does not
-// expose credentials (same layout as the sidecar: <dbPath>.mcp.key, 0600).
+// OS keychain hooks; tests swap them so unit tests never touch the real
+// keychain.
+var (
+	keyringGet = keyring.Get
+	keyringSet = keyring.Set
+)
+
+// mcpKeyMu serialises key lookup/creation: the keychain has no O_EXCL, so two
+// concurrent first-saves could otherwise each create a different key.
+var mcpKeyMu sync.Mutex
+
+// Resolve the vault key without storing it beside SQLite, so a copy of the
+// database directory alone does not expose credentials. The OS keychain is
+// preferred; a legacy <dbPath>.mcp.key (0600) is moved into it on first read
+// and is also the fallback when no keychain is available (e.g. headless Linux).
 func readMCPKey(dbPath string, allowCreate bool) ([]byte, error) {
+	mcpKeyMu.Lock()
+	defer mcpKeyMu.Unlock()
+
+	// Absolute path so a relative data dir does not change the keychain account.
+	account, err := filepath.Abs(dbPath)
+	if err != nil {
+		account = dbPath
+	}
+	enc, kerr := keyringGet(mcpKeyringService, account)
+	if kerr == nil {
+		key, err := base64.StdEncoding.DecodeString(enc)
+		if err != nil || len(key) != mcpKeyBytes {
+			return nil, errMCPKeyInvalid
+		}
+		return key, nil
+	}
+	// Only ErrNotFound proves the keychain works and holds no key. Any other
+	// error (locked, no dbus) means "unknown": never write to it, or a key that
+	// already protects stored ciphertexts could be overwritten.
+	keychainOK := errors.Is(kerr, keyring.ErrNotFound)
+	save := func(key []byte) bool {
+		return keychainOK && keyringSet(mcpKeyringService, account, base64.StdEncoding.EncodeToString(key)) == nil
+	}
+
 	keyPath := dbPath + ".mcp.key"
 	key, err := os.ReadFile(keyPath)
+	if err == nil {
+		if len(key) != mcpKeyBytes {
+			return nil, errMCPKeyInvalid
+		}
+		// Migrate: remove the file only after the keychain accepted the key.
+		if save(key) {
+			os.Remove(keyPath)
+		}
+		return key, nil
+	}
+	if !errors.Is(err, fs.ErrNotExist) || !allowCreate {
+		return nil, errMCPKeyUnavailable
+	}
+	newKey := make([]byte, mcpKeyBytes)
+	if _, err := rand.Read(newKey); err != nil {
+		return nil, errMCPKeyCreate
+	}
+	if save(newKey) {
+		return newKey, nil
+	}
+	logs.Warn("store", "OS keychain unavailable; MCP credential key kept in "+keyPath)
+	f, err := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		if !errors.Is(err, fs.ErrNotExist) || !allowCreate {
-			return nil, errMCPKeyUnavailable
-		}
-		newKey := make([]byte, mcpKeyBytes)
-		if _, err := rand.Read(newKey); err != nil {
-			return nil, errMCPKeyCreate
-		}
-		// O_EXCL mirrors the 'wx' flag: a loser of a create race re-reads.
-		f, werr := os.OpenFile(keyPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if werr != nil {
-			if !errors.Is(werr, fs.ErrExist) {
-				return nil, errMCPKeyCreate
-			}
-		} else {
-			if _, werr := f.Write(newKey); werr != nil {
-				f.Close()
-				return nil, errMCPKeyCreate
-			}
-			if werr := f.Close(); werr != nil {
-				return nil, errMCPKeyCreate
-			}
-		}
-		key, err = os.ReadFile(keyPath)
-		if err != nil {
-			return nil, errMCPKeyUnavailable
-		}
+		return nil, errMCPKeyCreate
 	}
-	if len(key) != mcpKeyBytes {
-		return nil, errMCPKeyInvalid
+	if _, err := f.Write(newKey); err != nil {
+		f.Close()
+		return nil, errMCPKeyCreate
 	}
-	return key, nil
+	if err := f.Close(); err != nil {
+		return nil, errMCPKeyCreate
+	}
+	return newKey, nil
 }
 
 func mcpAAD(profileID, accountRef string) []byte {

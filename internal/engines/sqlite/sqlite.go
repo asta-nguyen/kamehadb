@@ -493,14 +493,9 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	if orderColumn == "" && key != nil {
 		orderColumn = key.Name
 	}
-	if orderColumn != "" {
-		sb.WriteString(" ORDER BY ")
-		sb.WriteString(esc(orderColumn))
-		if input.SortDirection == "desc" {
-			sb.WriteString(" DESC")
-		} else {
-			sb.WriteString(" ASC")
-		}
+	// The key follows the sort column so OFFSET pages stay exact when values tie.
+	if orderBy := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, esc); orderBy != "" {
+		sb.WriteString(" ORDER BY " + orderBy)
 	}
 	sb.WriteString(" LIMIT ?")
 	params = append(params, limit+1)

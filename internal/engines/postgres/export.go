@@ -15,8 +15,7 @@ import (
 const exportRollbackTimeout = 5 * time.Second
 
 // PostgreSQL enforces read-only execution in addition to keyword screening.
-// Simple-protocol raw text preserves numeric/JSON precision without Go maps;
-// the original SQL (including intentional LIMIT) is never rewritten or replayed.
+// The original SQL (including intentional LIMIT) is never rewritten or replayed.
 func (a *Adapter) ExportQueryCSV(ctx context.Context, input engines.RunQueryInput, output io.Writer) (*engines.QueryExportStats, error) {
 	if safe, reason := sqlsafety.Check(input.Query); !safe {
 		return nil, errors.New(reason)
@@ -24,6 +23,13 @@ func (a *Adapter) ExportQueryCSV(ctx context.Context, input engines.RunQueryInpu
 	if strings.TrimSpace(input.Query) == "" {
 		return nil, errors.New("A read-only query is required for export")
 	}
+	return a.exportReadOnly(ctx, input, output)
+}
+
+// exportReadOnly streams the query through a database-enforced read-only
+// transaction. Check is only a heuristic, so this layer is what actually stops
+// a write. Kept separate so tests can prove the database boundary on its own.
+func (a *Adapter) exportReadOnly(ctx context.Context, input engines.RunQueryInput, output io.Writer) (*engines.QueryExportStats, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	tx, err := a.pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
@@ -35,7 +41,11 @@ func (a *Adapter) ExportQueryCSV(ctx context.Context, input engines.RunQueryInpu
 		defer cancel()
 		_ = tx.Rollback(cleanup)
 	}()
-	args := append([]any{pgx.QueryExecModeSimpleProtocol}, input.Params...)
+	// The extended protocol rejects a multi-statement string, so a payload like
+	// "SELECT 1; COMMIT; DELETE ..." cannot end the READ ONLY transaction and
+	// then write; the simple protocol accepted it. Exec mode still returns
+	// text-format results, so RawValues keeps numeric/JSON precision without Go maps.
+	args := append([]any{pgx.QueryExecModeExec}, input.Params...)
 	rows, err := tx.Query(ctx, input.Query, args...)
 	if err != nil {
 		return nil, err

@@ -271,6 +271,11 @@ func (s *MongoService) RunMongoCommandWithRequest(connectionID string, input mon
 		return nil, err
 	}
 	defer s.requests.finish(job)
+	// An unparsable command is rejected before connecting, so nothing can run.
+	command, err := input.Document()
+	if err != nil {
+		return nil, err
+	}
 	a, err := s.getAdapterContext(job.ctx, connectionID)
 	if err != nil {
 		return nil, err
@@ -278,7 +283,7 @@ func (s *MongoService) RunMongoCommandWithRequest(connectionID string, input mon
 	if err := job.ctx.Err(); err != nil {
 		return nil, err
 	}
-	result, err := a.RunCommand(job.ctx, input.Database, input.Command)
+	result, err := a.RunCommand(job.ctx, input.Database, command)
 	if job.ctx.Err() != nil {
 		return nil, fmt.Errorf("Mongo command cancelled; it may already have executed; do not replay automatically: %w", job.ctx.Err())
 	}

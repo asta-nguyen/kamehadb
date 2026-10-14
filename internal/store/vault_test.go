@@ -1,11 +1,14 @@
 package store
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zalando/go-keyring"
 )
 
 // Fixture produced by Node's crypto implementing the sidecar's exact
@@ -150,5 +153,90 @@ func TestRoundTripAndKeyLifecycle(t *testing.T) {
 	}
 	if (MCPCredentialBundle{Kind: "sqlite", Username: "u", Password: "p"}).valid() {
 		t.Error("sqlite is not an MCP kind")
+	}
+}
+
+// Existing tests exercise the file fallback, so the keychain is "unavailable"
+// by default; keychain tests install withMemoryKeyring.
+func TestMain(m *testing.M) {
+	keyringGet = func(string, string) (string, error) { return "", keyring.ErrNotFound }
+	keyringSet = func(string, string, string) error { return errors.New("no keychain") }
+	os.Exit(m.Run())
+}
+
+func withMemoryKeyring(t *testing.T) map[string]string {
+	t.Helper()
+	mem := map[string]string{}
+	keyringGet = func(_, acct string) (string, error) {
+		if v, ok := mem[acct]; ok {
+			return v, nil
+		}
+		return "", keyring.ErrNotFound
+	}
+	keyringSet = func(_, acct, v string) error { mem[acct] = v; return nil }
+	t.Cleanup(func() {
+		keyringGet = func(string, string) (string, error) { return "", keyring.ErrNotFound }
+		keyringSet = func(string, string, string) error { return errors.New("no keychain") }
+	})
+	return mem
+}
+
+func TestKeyCreatedInKeychainNotFile(t *testing.T) {
+	mem := withMemoryKeyring(t)
+	dbPath := filepath.Join(t.TempDir(), "meta.db")
+
+	key, err := readMCPKey(dbPath, true)
+	if err != nil || len(key) != mcpKeyBytes {
+		t.Fatalf("create: %v len=%d", err, len(key))
+	}
+	if _, ok := mem[dbPath]; !ok {
+		t.Error("key not stored in keychain")
+	}
+	if _, err := os.Stat(dbPath + ".mcp.key"); err == nil {
+		t.Error("key file written despite keychain being available")
+	}
+	again, err := readMCPKey(dbPath, false)
+	if err != nil || !bytes.Equal(again, key) {
+		t.Errorf("second read differs: %v", err)
+	}
+}
+
+func TestLegacyKeyFileMigratesToKeychain(t *testing.T) {
+	mem := withMemoryKeyring(t)
+	dbPath := filepath.Join(t.TempDir(), "meta.db")
+	writeFixtureKey(t, dbPath)
+
+	// Fixture ciphertext must still decrypt after the key moves.
+	if _, err := decryptMCPCredential(dbPath, fixtureProfileID, fixtureAccount, fixtureStored); err != nil {
+		t.Fatalf("decrypt after migrate: %v", err)
+	}
+	if _, ok := mem[dbPath]; !ok {
+		t.Error("key not moved into keychain")
+	}
+	if _, err := os.Stat(dbPath + ".mcp.key"); err == nil {
+		t.Error("legacy key file not removed after migration")
+	}
+}
+
+// A keychain error other than "not found" (locked, no dbus) must never be
+// written to: it could already hold the key protecting stored ciphertexts.
+func TestKeychainErrorDoesNotOverwrite(t *testing.T) {
+	sets := 0
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+	keyringSet = func(string, string, string) error { sets++; return nil }
+	t.Cleanup(func() {
+		keyringGet = func(string, string) (string, error) { return "", keyring.ErrNotFound }
+		keyringSet = func(string, string, string) error { return errors.New("no keychain") }
+	})
+	dbPath := filepath.Join(t.TempDir(), "meta.db")
+
+	if _, err := readMCPKey(dbPath, true); err != nil {
+		t.Fatal(err)
+	}
+	if sets != 0 {
+		t.Errorf("keychain written %d times despite lookup error", sets)
+	}
+	if _, err := os.Stat(dbPath + ".mcp.key"); err != nil {
+		t.Error("expected file fallback key")
 	}
 }

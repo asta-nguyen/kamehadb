@@ -6,6 +6,7 @@ package mysql
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"regexp"
@@ -55,13 +56,12 @@ func dsn(cp engines.ConnProfile) string {
 	return cfg.FormatDSN()
 }
 
-// Adapter is the database/sql-backed SqlAdapter for MySQL and MariaDB.
-// timeoutMs mirrors McpAdapterTimeoutOptions (MCP adapters only).
+// Adapter is the database/sql-backed SqlAdapter for MySQL and MariaDB. MCP
+// adapters get their statement deadline from the connection itself (openDB).
 type Adapter struct {
 	db           *sql.DB
 	database     string
 	isMariaDB    bool
-	timeoutMs    int64
 	previewScope string
 }
 
@@ -80,12 +80,12 @@ func NewWithTimeout(cp engines.ConnProfile, timeoutMs int64) (*Adapter, error) {
 	if !cp.HasPassword && cp.Password == "" {
 		return nil, errors.New("Password is required")
 	}
-	db, err := sql.Open("mysql", dsn(cp))
+	db, err := openDB(cp, timeoutMs)
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(5)
-	return &Adapter{db: db, database: cp.Database, isMariaDB: cp.Kind == engines.KindMariaDB, timeoutMs: timeoutMs, previewScope: engines.NewPreviewScope(cp.Kind)}, nil
+	return &Adapter{db: db, database: cp.Database, isMariaDB: cp.Kind == engines.KindMariaDB, previewScope: engines.NewPreviewScope(cp.Kind)}, nil
 }
 
 func init() {
@@ -97,40 +97,70 @@ func init() {
 	}
 }
 
-// applyMcpTimeout sets the per-session statement deadline before an MCP call:
-// max_execution_time (ms) on MySQL, max_statement_time (s) on MariaDB.
-func (a *Adapter) applyMcpTimeout(ctx context.Context, conn *sql.Conn) error {
-	if a.timeoutMs <= 0 {
-		return nil
+// sessionTimeoutStatement returns the SET that applies the MCP per-statement
+// deadline: max_execution_time (ms) on MySQL, max_statement_time (seconds,
+// rounded up to at least 1) on MariaDB. Empty when no deadline is configured.
+func sessionTimeoutStatement(isMariaDB bool, timeoutMs int64) string {
+	if timeoutMs <= 0 {
+		return ""
 	}
-	v := a.timeoutMs
-	variable := "max_execution_time"
-	if a.isMariaDB {
-		variable = "max_statement_time"
-		v = (a.timeoutMs + 999) / 1000
-		if v < 1 {
-			v = 1
+	if isMariaDB {
+		seconds := (timeoutMs + 999) / 1000
+		if seconds < 1 {
+			seconds = 1
 		}
+		return fmt.Sprintf("SET SESSION max_statement_time = %d", seconds)
 	}
-	if _, err := conn.ExecContext(ctx, fmt.Sprintf("SET SESSION %s = %d", variable, v)); err != nil {
-		return errors.New("MySQL or MariaDB rejected the native query timeout setting")
-	}
-	return nil
+	return fmt.Sprintf("SET SESSION max_execution_time = %d", timeoutMs)
 }
 
-func (a *Adapter) queryRows(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
-	if a.timeoutMs <= 0 {
-		return a.db.QueryContext(ctx, query, args...)
-	}
-	conn, err := a.db.Conn(ctx)
+// sessionInitConnector runs one SET statement on every new physical connection.
+// The deadline is a session variable, so setting it at connect time replaces a
+// per-call dedicated connection: that pattern had to close the connection while
+// the caller still held its open rows, which blocks until the rows are closed.
+type sessionInitConnector struct {
+	driver.Connector
+	statement string
+}
+
+func (c sessionInitConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	conn, err := c.Connector.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
-	if err := a.applyMcpTimeout(ctx, conn); err != nil {
+	// A server that rejects the variable must fail loudly; running without the
+	// deadline would silently drop the MCP read limit.
+	execer, ok := conn.(driver.ExecerContext)
+	if ok {
+		_, err = execer.ExecContext(ctx, c.statement, nil)
+	}
+	if !ok || err != nil {
+		conn.Close()
+		return nil, errors.New("MySQL or MariaDB rejected the native query timeout setting")
+	}
+	return conn, nil
+}
+
+// openDB opens the pool for a profile. With a deadline configured (MCP only) it
+// goes through the connector so every connection starts with the deadline set.
+func openDB(cp engines.ConnProfile, timeoutMs int64) (*sql.DB, error) {
+	statement := sessionTimeoutStatement(cp.Kind == engines.KindMariaDB, timeoutMs)
+	if statement == "" {
+		return sql.Open("mysql", dsn(cp))
+	}
+	cfg, err := mysqldrv.ParseDSN(dsn(cp))
+	if err != nil {
 		return nil, err
 	}
-	return conn.QueryContext(ctx, query, args...)
+	connector, err := mysqldrv.NewConnector(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return sql.OpenDB(sessionInitConnector{Connector: connector, statement: statement}), nil
+}
+
+func (a *Adapter) queryRows(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return a.db.QueryContext(ctx, query, args...)
 }
 
 // rowsToMaps scans an active sql.Rows cursor into map rows, capping at maxRows (0 for unlimited).
@@ -464,13 +494,9 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	if order == "" && key != nil {
 		order = key.Name
 	}
-	if order != "" {
-		sb.WriteString(" ORDER BY " + a.esc(order))
-		if input.SortDirection == "desc" {
-			sb.WriteString(" DESC")
-		} else {
-			sb.WriteString(" ASC")
-		}
+	// The key follows the sort column so OFFSET pages stay exact when values tie.
+	if orderBy := engines.PreviewOrderBy(columns, order, input.SortDirection, a.esc); orderBy != "" {
+		sb.WriteString(" ORDER BY " + orderBy)
 	}
 	sb.WriteString(" LIMIT ?")
 	params = append(params, limit+1)

@@ -392,14 +392,11 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	if order == "" && key != nil {
 		order = key.Name
 	}
-	if order != "" {
-		// Qualify the physical column, not its projected decimal-text alias.
-		sb.WriteString(" ORDER BY " + previewSourceAlias + "." + esc(order))
-		if input.SortDirection == "desc" {
-			sb.WriteString(" DESC")
-		} else {
-			sb.WriteString(" ASC")
-		}
+	// Qualify the physical column, not its projected decimal-text alias. The key
+	// follows the sort column so OFFSET pages stay exact when values tie.
+	quote := func(name string) string { return previewSourceAlias + "." + esc(name) }
+	if orderBy := engines.PreviewOrderBy(columns, order, input.SortDirection, quote); orderBy != "" {
+		sb.WriteString(" ORDER BY " + orderBy)
 	}
 	sb.WriteString(" LIMIT ?")
 	params = append(params, limit+1)

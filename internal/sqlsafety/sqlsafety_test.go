@@ -52,23 +52,75 @@ func TestIsQuerySafe(t *testing.T) {
 	}
 }
 
+// Each payload hides a second statement behind text that one lexical rule
+// treats as noise while another dialect (or an earlier token) does not. The
+// old regex chain stripped comments before strings, so the first four passed.
+func TestCheckRejectsLexicalBypass(t *testing.T) {
+	payloads := []string{
+		"SELECT '--'; COMMIT; DELETE FROM t",
+		"SELECT '/*'; DROP TABLE t; SELECT '*/'",
+		"SELECT 1 AS a$b$; DROP TABLE t; SELECT 2 AS c$b$",
+		`SELECT '\''; DROP TABLE t; SELECT 'a'`,
+		`SELECT E'\''; DROP TABLE t; SELECT E'\''`,
+		"SELECT 1 # '\n; DROP TABLE t; SELECT '",
+		"SELECT 1--1; DROP TABLE t",
+		"SELECT 1 /*! ; DROP TABLE t */",
+		"SELECT 1 /*!50000 INTO OUTFILE '/tmp/x' */",
+		"SELECT [a'b]; DROP TABLE t; SELECT [c'd]",
+		"SELECT `a'b`; DROP TABLE t; SELECT `c'd`",
+	}
+	for _, q := range payloads {
+		if ok, _ := Check(q); ok {
+			t.Errorf("hidden statement accepted: %q", q)
+		}
+	}
+}
+
+// Tightening the lexer must not reject ordinary read-only queries.
+func TestCheckStillAllowsQuotedAndCommentedText(t *testing.T) {
+	queries := []string{
+		"SELECT 'it''s' FROM t",
+		`SELECT 'C:\temp\' AS p FROM t`,
+		`SELECT E'it\'s' FROM t`,
+		"SELECT arr[1] FROM t",
+		"SELECT `col` FROM t",
+		"SELECT [col] FROM t",
+		"SELECT /*+ INDEX(t i) */ * FROM t",
+		"SELECT 1 -- trailing comment",
+		"SELECT * FROM t WHERE a = 'x -- not a comment'",
+		"SELECT $1, $2 FROM t",
+		"SELECT 5 # 3",
+	}
+	for _, q := range queries {
+		if ok, reason := Check(q); !ok {
+			t.Errorf("expected safe: %q (reason: %s)", q, reason)
+		}
+	}
+}
+
 func TestStripDollarQuoted(t *testing.T) {
+	ansi := lexModes[0]
 	// Dollar-quoted destructive keywords are noise — the query is a bare SELECT.
 	if ok, _ := Check("SELECT $body$INSERT INTO t$body$"); !ok {
 		t.Error("dollar-quoted INSERT should be stripped")
 	}
-	got := stripSqlNoise("a $$x$$ b")
+	got := stripSqlNoise("a $$x$$ b", ansi)
 	if got != "a   b" {
 		t.Errorf("dollar strip: %q", got)
 	}
-	got = stripSqlNoise("a $tag$x y$tag$ b")
+	got = stripSqlNoise("a $tag$x y$tag$ b", ansi)
 	if got != "a   b" {
 		t.Errorf("tagged strip: %q", got)
 	}
 	// Unclosed dollar-quote is left alone.
-	got = stripSqlNoise("a $tag$never closed")
+	got = stripSqlNoise("a $tag$never closed", ansi)
 	if got != "a $tag$never closed" {
 		t.Errorf("unclosed: %q", got)
+	}
+	// A "$" inside an identifier never opens a quote.
+	got = stripSqlNoise("a$b$ x a$b$", ansi)
+	if got != "a$b$ x a$b$" {
+		t.Errorf("identifier dollar: %q", got)
 	}
 }
 

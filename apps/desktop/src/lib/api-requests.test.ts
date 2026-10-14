@@ -43,18 +43,61 @@ describe('managed GUI API requests', () => {
     expect(QUERY_KEYS.PREVIEW('connection', input)).toEqual(key);
   });
 
-  it('passes structured Mongo arguments without rewriting commands or pipelines', async () => {
+  it('passes Mongo arguments without rewriting them and sends order-sensitive parts as JSON text', async () => {
     const find = { collection: 'items', filter: { active: true } };
     const aggregate = { collection: 'items', pipeline: [{ $limit: 7 }], skip: 2, limit: 3 };
     const command = { insert: 'items', documents: [{ value: 1 }] };
     await api.findMongoDocuments('connection', find);
     await api.aggregateMongoDocuments('connection', aggregate);
     await api.runMongoCommand('connection', 'db', command);
+    // No sort means no sortJson, so a plain find is sent exactly as before.
     expect(FindMongoDocuments).toHaveBeenCalledWith('connection', { ...find, requestId: expect.any(String) });
-    expect(AggregateMongoDocuments).toHaveBeenCalledWith('connection', { ...aggregate, requestId: expect.any(String) });
+    expect(AggregateMongoDocuments).toHaveBeenCalledWith('connection', {
+      collection: 'items',
+      skip: 2,
+      limit: 3,
+      pipelineJson: '[{"$limit":7}]',
+      requestId: expect.any(String),
+    });
     expect(RunMongoCommandWithRequest).toHaveBeenCalledExactlyOnceWith('connection', {
       database: 'db',
-      command,
+      commandJson: '{"insert":"items","documents":[{"value":1}]}',
+      requestId: expect.any(String),
+    });
+  });
+
+  // A Go map would reorder these keys; the JSON text must keep them as written.
+  it('keeps the key order of compound sorts, pipeline stages and commands', async () => {
+    await api.findMongoDocuments('connection', { collection: 'items', sort: { score: -1, name: 1, age: 1 } });
+    await api.aggregateMongoDocuments('connection', {
+      collection: 'items',
+      pipeline: [{ $sort: { score: -1, name: 1 } }, { $match: { tags: { $in: [] } } }],
+    });
+    await api.runMongoCommand('connection', 'db', {
+      createIndexes: 'items',
+      indexes: [{ key: { b: -1, a: 1 }, name: 'b_a' }],
+    });
+    expect(FindMongoDocuments).toHaveBeenLastCalledWith('connection', {
+      collection: 'items',
+      sortJson: '{"score":-1,"name":1,"age":1}',
+      requestId: expect.any(String),
+    });
+    expect(AggregateMongoDocuments).toHaveBeenLastCalledWith('connection', {
+      collection: 'items',
+      pipelineJson: '[{"$sort":{"score":-1,"name":1}},{"$match":{"tags":{"$in":[]}}}]',
+      requestId: expect.any(String),
+    });
+    expect(RunMongoCommandWithRequest).toHaveBeenLastCalledWith('connection', {
+      database: 'db',
+      commandJson: '{"createIndexes":"items","indexes":[{"key":{"b":-1,"a":1},"name":"b_a"}]}',
+      requestId: expect.any(String),
+    });
+  });
+
+  it('omits sortJson for an empty sort', async () => {
+    await api.findMongoDocuments('connection', { collection: 'items', sort: {} });
+    expect(FindMongoDocuments).toHaveBeenLastCalledWith('connection', {
+      collection: 'items',
       requestId: expect.any(String),
     });
   });

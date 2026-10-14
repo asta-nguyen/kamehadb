@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/microsoft/go-mssqldb"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
@@ -117,7 +118,7 @@ func verifyPostgresAccount(ctx context.Context, profile *store.Profile, credenti
 func revokePostgresGrants(ctx context.Context, conn *pgx.Conn, database, username string) error {
 	dbIdent := engines.QuoteIdentifier(engines.KindPostgres, database)
 	role := engines.QuoteIdentifier(engines.KindPostgres, username)
-	if _, err := conn.Query(ctx, fmt.Sprintf(`REVOKE CONNECT ON DATABASE %s FROM %s`, dbIdent, role)); err != nil {
+	if _, err := conn.Exec(ctx, fmt.Sprintf(`REVOKE CONNECT ON DATABASE %s FROM %s`, dbIdent, role)); err != nil {
 		return err
 	}
 	rows, err := conn.Query(ctx,
@@ -143,7 +144,7 @@ func revokePostgresGrants(ctx context.Context, conn *pgx.Conn, database, usernam
 			fmt.Sprintf(`REVOKE SELECT ON ALL TABLES IN SCHEMA %s FROM %s`, schema, role),
 			fmt.Sprintf(`ALTER DEFAULT PRIVILEGES IN SCHEMA %s REVOKE SELECT ON TABLES FROM %s`, schema, role),
 		} {
-			if _, err := conn.Query(ctx, stmt); err != nil {
+			if _, err := conn.Exec(ctx, stmt); err != nil {
 				return err
 			}
 		}
@@ -168,7 +169,7 @@ func provisionPostgres(ctx context.Context, profile *store.Profile, adminPasswor
 			var exists bool
 			if qerr := conn.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = $1)`, credential.Username).Scan(&exists); qerr == nil && exists {
 				if rerr := revokePostgresGrants(ctx, conn, cp.Database, credential.Username); rerr == nil {
-					if _, derr := conn.Query(ctx, `DROP ROLE `+engines.QuoteIdentifier(engines.KindPostgres, credential.Username)); derr == nil {
+					if _, derr := conn.Exec(ctx, `DROP ROLE `+engines.QuoteIdentifier(engines.KindPostgres, credential.Username)); derr == nil {
 						goto done
 					}
 				}
@@ -192,10 +193,10 @@ func provisionPostgres(ctx context.Context, profile *store.Profile, adminPasswor
 	created = true
 	role := engines.QuoteIdentifier(engines.KindPostgres, credential.Username)
 	passwordLit := "'" + strings.ReplaceAll(credential.Password, "'", "''") + "'"
-	if _, err := conn.Query(ctx, fmt.Sprintf(`CREATE ROLE %s LOGIN PASSWORD %s`, role, passwordLit)); err != nil {
+	if _, err := conn.Exec(ctx, fmt.Sprintf(`CREATE ROLE %s LOGIN PASSWORD %s`, role, passwordLit)); err != nil {
 		return fail()
 	}
-	if _, err := conn.Query(ctx, fmt.Sprintf(`GRANT CONNECT ON DATABASE %s TO %s`,
+	if _, err := conn.Exec(ctx, fmt.Sprintf(`GRANT CONNECT ON DATABASE %s TO %s`,
 		engines.QuoteIdentifier(engines.KindPostgres, cp.Database), role)); err != nil {
 		return fail()
 	}
@@ -222,7 +223,7 @@ func provisionPostgres(ctx context.Context, profile *store.Profile, adminPasswor
 			fmt.Sprintf(`GRANT SELECT ON ALL TABLES IN SCHEMA %s TO %s`, schema, role),
 			fmt.Sprintf(`ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT SELECT ON TABLES TO %s`, schema, role),
 		} {
-			if _, err := conn.Query(ctx, stmt); err != nil {
+			if _, err := conn.Exec(ctx, stmt); err != nil {
 				return fail()
 			}
 		}
@@ -253,7 +254,7 @@ func revokePostgres(ctx context.Context, profile *store.Profile, adminPassword, 
 	if err := revokePostgresGrants(ctx, conn, cp.Database, username); err != nil {
 		return pgRevokeError(err)
 	}
-	if _, err := conn.Query(ctx, `DROP ROLE `+engines.QuoteIdentifier(engines.KindPostgres, username)); err != nil {
+	if _, err := conn.Exec(ctx, `DROP ROLE `+engines.QuoteIdentifier(engines.KindPostgres, username)); err != nil {
 		return pgRevokeError(err)
 	}
 	return nil
@@ -669,8 +670,7 @@ func verifyMongoAccount(ctx context.Context, profile *store.Profile, credential 
 			} `bson:"authenticatedUserRoles"`
 		} `bson:"authInfo"`
 	}
-	if err := client.Database(database).RunCommand(ctx,
-		map[string]any{"connectionStatus": 1, "showPrivileges": true}).Decode(&status); err != nil {
+	if err := client.Database(database).RunCommand(ctx, mongoConnectionStatusCommand()).Decode(&status); err != nil {
 		return opError("Generated MongoDB account could not be verified")
 	}
 	roles := status.AuthInfo.AuthenticatedUserRoles
@@ -681,6 +681,21 @@ func verifyMongoAccount(ctx context.Context, profile *store.Profile, credential 
 		return opError("Generated MongoDB account could not be verified")
 	}
 	return nil
+}
+
+// MongoDB takes the first field of a command document as the command name. A Go
+// map marshals its keys in random order, so multi-field commands are built as
+// ordered bson.D documents instead.
+func mongoConnectionStatusCommand() bson.D {
+	return bson.D{{Key: "connectionStatus", Value: 1}, {Key: "showPrivileges", Value: true}}
+}
+
+func mongoCreateUserCommand(username, password, database string) bson.D {
+	return bson.D{
+		{Key: "createUser", Value: username},
+		{Key: "pwd", Value: password},
+		{Key: "roles", Value: bson.A{bson.D{{Key: "role", Value: "read"}, {Key: "db", Value: database}}}},
+	}
 }
 
 func provisionMongo(ctx context.Context, profile *store.Profile, accountRef string, credential *store.MCPCredentialBundle, beforeFirstWrite func() error) error {
@@ -731,11 +746,7 @@ func provisionMongo(ctx context.Context, profile *store.Profile, accountRef stri
 		return err
 	}
 	created = true
-	if err := client.Database(database).RunCommand(ctx, map[string]any{
-		"createUser": username,
-		"pwd":        generated.password,
-		"roles":      []map[string]any{{"role": "read", "db": database}},
-	}).Err(); err != nil {
+	if err := client.Database(database).RunCommand(ctx, mongoCreateUserCommand(username, generated.password, database)).Err(); err != nil {
 		return fail()
 	}
 	if err := verifyMongoAccount(ctx, profile, credential); err != nil {

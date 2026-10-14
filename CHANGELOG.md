@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- **MCP credential vault key** — store the AES-256-GCM key in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) instead of a `.mcp.key` file beside the database. An existing key file is moved into the keychain on first use; where no keychain is available the owner-only key file remains as a fallback and a warning is logged.
 - **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with a single Wails/Go binary. All backend routes are now in-process Go services and the frontend communicates through generated Wails bindings, eliminating sidecar IPC.
 - **Desktop bundle size** — the local macOS ARM64 Wails app bundle is about 80% smaller than the previously installed app.
 - **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
@@ -50,6 +51,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Query tab connection visibility** — display target database name and color badge in the query editor toolbar and tab bar to avoid running queries against the wrong database.
 - **Table virtualization offset** — pass `scrollMargin` to `useVirtualizer` in `DataTable` and compute dynamic index column width to prevent offset calculation bugs and cell text clipping on deep offsets.
 - **Defensive record field collection** — guard `collectRecordFields` and `useFieldVisibility` against undefined records to prevent runtime navigation crashes.
+- **Read-only query screening bypass** — scan SQL once, left to right, under PostgreSQL, MySQL/MariaDB/ClickHouse and SQL Server/SQLite lexing rules instead of stripping comments and strings with a regex chain. A second statement hidden behind a quote or comment marker (for example `SELECT '--'; COMMIT; DELETE ...`) is now rejected for AI auto-run, MCP and full CSV export. PostgreSQL CSV export also uses the extended protocol, so the database itself refuses multi-statement text inside its read-only transaction.
+- **Redis stats** — parse `INFO` output by section header; the previous lookahead regex panicked, so Redis statistics could never load.
+- **MySQL/MariaDB over MCP** — apply the per-query timeout when each connection opens instead of holding a dedicated connection around the open result, which made every MCP query on MySQL/MariaDB hang until it timed out.
+- **PostgreSQL managed MCP accounts** — run account setup and removal statements with `Exec` so each result is closed. Provisioning no longer fails with `conn busy` and leaves an unremovable login role behind.
+- **Stable pages when sorting by a repeated value** — append the table's primary key to the sort order for offset paging on PostgreSQL, SQLite, MySQL/MariaDB, DuckDB, SQL Server and Oracle. Rows that share a sort value no longer repeat or disappear between pages (a 3,000-row PostgreSQL check returned a row twice before the fix). Composite keys now order by every key column. ClickHouse is unchanged because its sorting key does not identify a row.
+- **Managed MongoDB MCP accounts** — send `createUser` and `connectionStatus` with the command name as the first field. A random key order made account creation fail intermittently, and the cleanup then reported a partial account that needed manual recovery.
+- **MCP connection reuse** — concurrent first calls to one connection share a single adapter instead of each opening one, and a connection whose credential or profile changed mid-call is closed instead of leaking an open pool. The call is refused with `BUSY` so a retry uses the new settings.
+- **Redis raw commands** — use RESP2 so replies such as `HGETALL`, `CONFIG GET` and `XINFO` can be returned to the UI; go-redis' default RESP3 maps could not be serialized.
+- **MongoDB key order in sorts, pipelines and commands** — send aggregation pipelines, Find sorts and raw commands to the backend as JSON text and parse them in order. They were decoded into Go maps, which lost the key order: a compound `$sort` reached the server in a random order (a three-key sort came out as typed only about 75% of the time), a Find sort was silently re-sorted alphabetically, and a command could lose its name-first position or the key order of a compound index. Empty arrays such as `{"$in": []}` stay empty arrays. The previous object fields remain accepted for older callers.
 
 ### Removed
 

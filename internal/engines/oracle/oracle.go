@@ -422,15 +422,12 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	if order == "" && key != nil {
 		order = key.Name
 	}
-	if order != "" {
-		// The source qualifier prevents a decimal-text projection alias from
-		// changing numeric ORDER BY into lexicographic ordering.
-		sb.WriteString(" ORDER BY " + previewSourceAlias + "." + esc(order))
-		if input.SortDirection == "desc" {
-			sb.WriteString(" DESC")
-		} else {
-			sb.WriteString(" ASC")
-		}
+	// The source qualifier prevents a decimal-text projection alias from
+	// changing numeric ORDER BY into lexicographic ordering. The key follows the
+	// sort column so OFFSET pages stay exact when values tie.
+	quote := func(name string) string { return previewSourceAlias + "." + esc(name) }
+	if orderBy := engines.PreviewOrderBy(columns, order, input.SortDirection, quote); orderBy != "" {
+		sb.WriteString(" ORDER BY " + orderBy)
 	}
 	// ROWNUM preserves older Oracle compatibility; seek does not walk an offset.
 	q := "SELECT * FROM (" + sb.String() + ") WHERE ROWNUM <= :page_end"

@@ -411,13 +411,10 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	if order == "" && key != nil {
 		order = key.Name
 	}
-	if order != "" {
-		sb.WriteString(" ORDER BY " + esc(order))
-		if input.SortDirection == "desc" {
-			sb.WriteString(" DESC")
-		} else {
-			sb.WriteString(" ASC")
-		}
+	// The key follows the sort column so OFFSET pages stay exact when values tie.
+	// OFFSET/FETCH requires an ORDER BY, so a keyless unsorted table orders by 1.
+	if orderBy := engines.PreviewOrderBy(columns, order, input.SortDirection, esc); orderBy != "" {
+		sb.WriteString(" ORDER BY " + orderBy)
 	} else {
 		sb.WriteString(" ORDER BY 1")
 	}

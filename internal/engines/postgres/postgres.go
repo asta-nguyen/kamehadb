@@ -730,12 +730,10 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	if orderColumn == "" && key != nil {
 		orderColumn = key.Name
 	}
-	if orderColumn != "" {
-		dir := "ASC"
-		if input.SortDirection == "desc" {
-			dir = "DESC"
-		}
-		sql += ` ORDER BY ` + engines.QuoteIdentifier(engines.KindPostgres, orderColumn) + ` ` + dir
+	// The key follows the sort column so OFFSET pages stay exact when values tie.
+	quote := func(name string) string { return engines.QuoteIdentifier(engines.KindPostgres, name) }
+	if orderBy := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, quote); orderBy != "" {
+		sql += ` ORDER BY ` + orderBy
 	}
 	params = append(params, limit+1)
 	sql += fmt.Sprintf(` LIMIT $%d`, len(params))

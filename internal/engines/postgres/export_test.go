@@ -116,3 +116,47 @@ func (w *interruptedExportWriter) Write([]byte) (int, error) {
 	}
 	return 0, w.err
 }
+
+// The keyword screen is only a heuristic, so the database layer must refuse a
+// hidden second statement on its own. With the simple protocol the payload's
+// COMMIT ended the READ ONLY transaction and the DELETE then ran read-write.
+// The fixture is a regular table dropped on exit: PostgreSQL permits writes to
+// temp tables even in READ ONLY transactions, which would hide the CTE case.
+func TestPostgresExportRefusesWritesWithoutKeywordScreen(t *testing.T) {
+	dsn := os.Getenv("KAMEHADB_TEST_POSTGRES")
+	if dsn == "" {
+		t.Skip("set KAMEHADB_TEST_POSTGRES for private fixture")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), previewTestTimeout)
+	defer cancel()
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err := pool.Exec(ctx, `CREATE TABLE kdb_export_guard AS SELECT n FROM generate_series(1,5) n`); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		cleanup, stop := context.WithTimeout(context.Background(), exportTestCleanupTimeout)
+		defer stop()
+		_, _ = pool.Exec(cleanup, `DROP TABLE IF EXISTS kdb_export_guard`)
+	}()
+	a := &Adapter{pool: pool}
+	for _, query := range []string{
+		`SELECT 1; COMMIT; DELETE FROM kdb_export_guard`,
+		`WITH gone AS (DELETE FROM kdb_export_guard RETURNING *) SELECT * FROM gone`,
+	} {
+		if _, err := a.exportReadOnly(ctx, engines.RunQueryInput{Query: query}, io.Discard); err == nil {
+			t.Errorf("write accepted by database layer: %q", query)
+		}
+		var left int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM kdb_export_guard`).Scan(&left); err != nil || left != 5 {
+			t.Fatalf("rows were deleted by %q: left=%d err=%v", query, left, err)
+		}
+	}
+}

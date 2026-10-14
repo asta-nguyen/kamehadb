@@ -225,10 +225,13 @@ type FindDocumentsInput struct {
 	Filter     map[string]any   `json:"filter,omitempty"`
 	Projection map[string]any   `json:"projection,omitempty"`
 	Sort       map[string]int32 `json:"sort,omitempty"`
-	Skip       int64            `json:"skip,omitempty"`
-	Limit      int64            `json:"limit,omitempty"`
-	Search     string           `json:"search,omitempty"`
-	RequestID  *string          `json:"requestId,omitempty"`
+	// SortJSON is the sort document as JSON text. It wins over Sort because a Go
+	// map cannot keep the key order a compound sort depends on.
+	SortJSON  string  `json:"sortJson,omitempty"`
+	Skip      int64   `json:"skip,omitempty"`
+	Limit     int64   `json:"limit,omitempty"`
+	Search    string  `json:"search,omitempty"`
+	RequestID *string `json:"requestId,omitempty"`
 }
 
 type DocumentResult struct {
@@ -252,6 +255,20 @@ func sortDoc(sortMap map[string]int32) bson.D {
 		doc = append(doc, bson.E{Key: k, Value: sortMap[k]})
 	}
 	return doc
+}
+
+// sortSpec returns the sort document to send. The legacy Sort map has already
+// lost the user's key order, so its keys are sorted: deterministic, but not the
+// priority the user typed. SortJSON keeps the typed order.
+func (in FindDocumentsInput) sortSpec() (bson.D, error) {
+	if in.SortJSON != "" {
+		spec, err := ParseOrderedDocument(in.SortJSON)
+		if err != nil {
+			return nil, fmt.Errorf("invalid sortJson: %w", err)
+		}
+		return spec, nil
+	}
+	return sortDoc(in.Sort), nil
 }
 
 func (a *Adapter) FindDocuments(ctx context.Context, in FindDocumentsInput) (*DocumentResult, error) {
@@ -310,8 +327,12 @@ func (a *Adapter) FindDocuments(ctx context.Context, in FindDocumentsInput) (*Do
 	if in.Projection != nil {
 		opts.SetProjection(in.Projection)
 	}
-	if sd := sortDoc(in.Sort); sd != nil {
-		opts.SetSort(sd)
+	sortSpec, err := in.sortSpec()
+	if err != nil {
+		return nil, err
+	}
+	if len(sortSpec) > 0 {
+		opts.SetSort(sortSpec)
 	}
 	cursor, err := coll.Find(ctx, queryFilter, opts)
 	if err != nil {
@@ -345,7 +366,9 @@ func (a *Adapter) FindDocuments(ctx context.Context, in FindDocumentsInput) (*Do
 	}, nil
 }
 
-func (a *Adapter) RunCommand(ctx context.Context, database string, command map[string]any) (any, error) {
+// RunCommand sends command as-is. MongoDB reads the first field as the command
+// name, so callers pass a bson.D (see MongoCommandRequest.Document).
+func (a *Adapter) RunCommand(ctx context.Context, database string, command any) (any, error) {
 	db := a.db(database)
 	if db == nil {
 		return nil, errors.New("No database selected")
@@ -385,16 +408,106 @@ func (a *Adapter) DeleteDocument(ctx context.Context, database, collection strin
 type AggregateInput struct {
 	Collection string           `json:"collection"`
 	Database   string           `json:"database,omitempty"`
-	Pipeline   []map[string]any `json:"pipeline"`
-	Limit      int64            `json:"limit,omitempty"`
-	Skip       int64            `json:"skip,omitempty"`
-	RequestID  *string          `json:"requestId,omitempty"`
+	Pipeline   []map[string]any `json:"pipeline,omitempty"`
+	// PipelineJSON is the pipeline as JSON text. It wins over Pipeline because a
+	// Go map cannot keep the key order a compound $sort depends on.
+	PipelineJSON string  `json:"pipelineJson,omitempty"`
+	Limit        int64   `json:"limit,omitempty"`
+	Skip         int64   `json:"skip,omitempty"`
+	RequestID    *string `json:"requestId,omitempty"`
 }
 
 type MongoCommandRequest struct {
-	Database  string         `json:"database,omitempty"`
-	Command   map[string]any `json:"command"`
-	RequestID *string        `json:"requestId,omitempty"`
+	Database string         `json:"database,omitempty"`
+	Command  map[string]any `json:"command,omitempty"`
+	// CommandJSON is the command as JSON text. It wins over Command because a Go
+	// map cannot keep the command name first or a compound index key in order.
+	CommandJSON string  `json:"commandJson,omitempty"`
+	RequestID   *string `json:"requestId,omitempty"`
+}
+
+// Document returns the command to send: ordered when CommandJSON is set, else the
+// legacy map unchanged.
+func (r MongoCommandRequest) Document() (any, error) {
+	if r.CommandJSON == "" {
+		return r.Command, nil
+	}
+	command, err := ParseOrderedDocument(r.CommandJSON)
+	if err != nil {
+		return nil, fmt.Errorf("invalid commandJson: %w", err)
+	}
+	return command, nil
+}
+
+// aggregateCountCap bounds the total-count pipeline: counting stops one past
+// 10,000 so a huge collection reports "10,000+" instead of a full scan.
+const aggregateCountCap = 10001
+
+// stages returns the pipeline to run. The legacy Pipeline maps have already lost
+// the key order inside each stage, so those keys are sorted: deterministic, but
+// not the order the user typed. PipelineJSON keeps it.
+func (in AggregateInput) stages() ([]bson.D, error) {
+	if in.PipelineJSON != "" {
+		stages, err := ParseOrderedPipeline(in.PipelineJSON)
+		if err != nil {
+			return nil, fmt.Errorf("invalid pipelineJson: %w", err)
+		}
+		return stages, nil
+	}
+	stages := make([]bson.D, len(in.Pipeline))
+	for i, stage := range in.Pipeline {
+		keys := make([]string, 0, len(stage))
+		for key := range stage {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		doc := make(bson.D, len(keys))
+		for j, key := range keys {
+			doc[j] = bson.E{Key: key, Value: stage[key]}
+		}
+		stages[i] = doc
+	}
+	return stages, nil
+}
+
+// stageHas reports whether a stage uses the given operator, for example "$limit".
+func stageHas(stage bson.D, operator string) bool {
+	for _, field := range stage {
+		if field.Key == operator {
+			return true
+		}
+	}
+	return false
+}
+
+// buildAggregatePipelines derives the two pipelines one GUI aggregation runs: the
+// page pipeline (the stages plus the requested skip and a one-extra-row limit so
+// hasMore can be known, unless the user already set a $limit) and the count
+// pipeline (the stages without their own $skip/$limit, then a capped $count).
+func buildAggregatePipelines(stages []bson.D, skip, limit int64) (page, count []bson.D) {
+	page = append([]bson.D{}, stages...)
+	if skip > 0 {
+		page = append(page, bson.D{{Key: "$skip", Value: skip}})
+	}
+	hasLimit := false
+	for _, stage := range page {
+		if stageHas(stage, "$limit") {
+			hasLimit = true
+		}
+	}
+	if !hasLimit {
+		page = append(page, bson.D{{Key: "$limit", Value: limit + 1}})
+	}
+
+	count = []bson.D{}
+	for _, stage := range stages {
+		if stageHas(stage, "$limit") || stageHas(stage, "$skip") {
+			continue
+		}
+		count = append(count, stage)
+	}
+	count = append(count, bson.D{{Key: "$count", Value: "total"}}, bson.D{{Key: "$limit", Value: aggregateCountCap}})
+	return page, count
 }
 
 func (a *Adapter) Aggregate(ctx context.Context, in AggregateInput) (*DocumentResult, error) {
@@ -405,9 +518,9 @@ func (a *Adapter) Aggregate(ctx context.Context, in AggregateInput) (*DocumentRe
 	}
 	coll := db.Collection(in.Collection)
 
-	pipeline := in.Pipeline
-	if pipeline == nil {
-		pipeline = []map[string]any{}
+	stages, err := in.stages()
+	if err != nil {
+		return nil, err
 	}
 	limit := in.Limit
 	if limit <= 0 {
@@ -417,32 +530,7 @@ func (a *Adapter) Aggregate(ctx context.Context, in AggregateInput) (*DocumentRe
 		limit = maxLimit
 	}
 
-	final := append([]map[string]any{}, pipeline...)
-	if in.Skip > 0 {
-		final = append(final, map[string]any{"$skip": in.Skip})
-	}
-	hasLimit := false
-	for _, st := range final {
-		if _, ok := st["$limit"]; ok {
-			hasLimit = true
-		}
-	}
-	if !hasLimit {
-		final = append(final, map[string]any{"$limit": limit + 1})
-	}
-
-	// Total count via $count pipeline minus existing $limit/$skip.
-	countPipe := []any{}
-	for _, st := range pipeline {
-		if _, ok := st["$limit"]; ok {
-			continue
-		}
-		if _, ok := st["$skip"]; ok {
-			continue
-		}
-		countPipe = append(countPipe, st)
-	}
-	countPipe = append(countPipe, bson.M{"$count": "total"}, bson.M{"$limit": 10001})
+	final, countPipe := buildAggregatePipelines(stages, in.Skip, limit)
 	countCursor, err := coll.Aggregate(ctx, countPipe)
 	if err != nil {
 		return nil, err

@@ -322,27 +322,41 @@ export const api = {
   listMongoCollections: (connectionId: string, database?: string) =>
     ListMongoCollections(connectionId, database ?? '') as Promise<import('@kamehadb/shared').CollectionInfo[]>,
 
+  // Mongo sorts, pipelines and commands are sent as JSON text, not objects: the Go
+  // side would decode objects into maps and lose the key order that a compound
+  // sort, a compound index key, or a command name depends on. JSON.stringify keeps
+  // insertion order, except that JavaScript lists integer-like keys ("2") first.
   findMongoDocuments: (
     connectionId: string,
     input: import('@kamehadb/shared').FindDocumentsInput,
     signal?: AbortSignal,
-  ): Promise<import('@kamehadb/shared').DocumentResult> =>
-    runGUIRequest(
-      (requestId) => FindMongoDocuments(connectionId, { ...input, requestId } as mongo.FindDocumentsInput),
+  ): Promise<import('@kamehadb/shared').DocumentResult> => {
+    const { sort, ...rest } = input;
+    const body = { ...rest, ...(sort && Object.keys(sort).length > 0 ? { sortJson: JSON.stringify(sort) } : {}) };
+    return runGUIRequest(
+      (requestId) => FindMongoDocuments(connectionId, { ...body, requestId } as mongo.FindDocumentsInput),
       signal,
       input.requestId,
-    ),
+    );
+  },
 
   aggregateMongoDocuments: (
     connectionId: string,
     input: import('@kamehadb/shared').AggregateInput,
     signal?: AbortSignal,
-  ): Promise<import('@kamehadb/shared').DocumentResult> =>
-    runGUIRequest(
-      (requestId) => AggregateMongoDocuments(connectionId, { ...input, requestId } as mongo.AggregateInput),
+  ): Promise<import('@kamehadb/shared').DocumentResult> => {
+    const { pipeline, ...rest } = input;
+    return runGUIRequest(
+      (requestId) =>
+        AggregateMongoDocuments(connectionId, {
+          ...rest,
+          pipelineJson: JSON.stringify(pipeline),
+          requestId,
+        } as mongo.AggregateInput),
       signal,
       input.requestId,
-    ),
+    );
+  },
 
   deleteMongoDocument: (
     connectionId: string,
@@ -436,7 +450,11 @@ export const api = {
     command: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<unknown> =>
-    runGUIRequest((requestId) => RunMongoCommandWithRequest(connectionId, { database, command, requestId }), signal),
+    runGUIRequest(
+      (requestId) =>
+        RunMongoCommandWithRequest(connectionId, { database, commandJson: JSON.stringify(command), requestId }),
+      signal,
+    ),
 
   // Read-only MCP settings
   getMcpSettings: () => GetMCPSettings() as Promise<import('@kamehadb/shared').McpSettingsResponse>,

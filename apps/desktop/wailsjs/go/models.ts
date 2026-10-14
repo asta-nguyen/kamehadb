@@ -929,7 +929,8 @@ export namespace mongo {
   export class AggregateInput {
     collection: string;
     database?: string;
-    pipeline: any[];
+    pipeline?: any[];
+    pipelineJson?: string;
     limit?: number;
     skip?: number;
     requestId?: string;
@@ -943,6 +944,7 @@ export namespace mongo {
       this.collection = source['collection'];
       this.database = source['database'];
       this.pipeline = source['pipeline'];
+      this.pipelineJson = source['pipelineJson'];
       this.limit = source['limit'];
       this.skip = source['skip'];
       this.requestId = source['requestId'];
@@ -1032,7 +1034,8 @@ export namespace mongo {
   }
   export class MongoCommandRequest {
     database?: string;
-    command: Record<string, any>;
+    command?: Record<string, any>;
+    commandJson?: string;
     requestId?: string;
 
     static createFrom(source: any = {}) {
@@ -1043,6 +1046,7 @@ export namespace mongo {
       if ('string' === typeof source) source = JSON.parse(source);
       this.database = source['database'];
       this.command = source['command'];
+      this.commandJson = source['commandJson'];
       this.requestId = source['requestId'];
     }
   }
@@ -1052,6 +1056,7 @@ export namespace mongo {
     filter?: Record<string, any>;
     projection?: Record<string, any>;
     sort?: Record<string, number>;
+    sortJson?: string;
     skip?: number;
     limit?: number;
     search?: string;
@@ -1068,6 +1073,7 @@ export namespace mongo {
       this.filter = source['filter'];
       this.projection = source['projection'];
       this.sort = source['sort'];
+      this.sortJson = source['sortJson'];
       this.skip = source['skip'];
       this.limit = source['limit'];
       this.search = source['search'];
