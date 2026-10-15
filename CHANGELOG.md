@@ -17,7 +17,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Compact table workspace** — remove the duplicate table title strip (the tab already names the table), move the match-case toggle inside the search field, and drop the Sort-by dropdown; clicking a column header sorts and a hover glyph marks sortable columns. The footer keeps the row count and query duration together on one line with an icon-led pager.
 - **Table and tab affordances** — the row `⋮` menu in the table view and query editor uses the smaller icon size; a tab's connection dot only shows when that connection is not healthy, and the tab close button appears on hover or focus.
 - **Denser sidebar** — connection rows, group headers, schema rows and table rows each lose four pixels of height, the connection list keeps a single 6 px gap, and the API settings entry uses the small button size.
-- **Scrollbars follow the pointer** — the table grid and the sidebar keep their bar transparent until the pointer is inside that pane; WebKitGTK fades an overlay bar in on any pointer movement over the window, which left the table's bar painted alongside the sidebar's.
 - **Navigation labels** — the sidebar entry keeps a single "API Settings" label with an active state (the page's back arrow returns to the workspace) and the page header drops the profile and version badges; the schema tree keeps a single search box that now matches table names as well as schema names and opens the schemas that match, so the per-schema `Filter tables` box is gone and the tree rows sit one level tighter.
 - **Micro type tier** — badges, keyboard hints and footnotes move from 10 px to an 11 px tier recorded in `DESIGN-SYSTEM.md`.
 
@@ -43,6 +42,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- **Flickering pane scrollbars** — WebKitGTK draws native overlay scrollbars, reveals them on any pointer motion over the web view, and ignores the app's scrollbar CSS, so hovering the sidebar also painted the table's bar and the two appeared and vanished together. The table grid and the sidebar now stay unscrollable until the pointer is inside that pane, which is the only way to make the engine claim a bar for the pane in use; overlay bars take no layout space, so toggling one never shifts content. The per-pane `scrollbar-color` override, which WebKitGTK never honoured, is removed.
+- **Centered table empty state** — render the `DataTable` "No data" placeholder as a block centered on both axes in the table area. The previous empty-state cell was a flex row, so its content-width child sat pinned to the left edge instead of centered.
 - **Empty workspace startup** — return an empty connection array instead of `null` so fresh installs and deleting the last profile do not crash the welcome screen.
 - **Query history durations** — round fractional execution times only when saving history to match the Go integer-millisecond binding, preserving precise timings in query results.
 - **Closed-table result retention** — evict all cached preview pages for an unmounted table and collect unobserved SQL mutation results without discarding active or pending executions.

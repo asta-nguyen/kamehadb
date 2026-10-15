@@ -203,27 +203,37 @@
     background: var(--muted-foreground);
   }
 
-  /* WebKitGTK ignores the ::-webkit-scrollbar rules but honours the standard
-     scrollbar properties, so these are what actually draw the thin, themed bar
-     on Linux while keeping the same intent for Chromium/Safari. The thumb uses
-     muted-foreground, not border: border is white-at-10% in dark mode, which
-     leaves only the native hairline edge visible. (How / Why / What) */
+  /* Standard-property baseline for engines that honour it. Engines that take the
+     ::-webkit-scrollbar rules above ignore it, and WebKitGTK draws native scrollbars
+     and honours neither. The thumb uses muted-foreground, not border: border is
+     white-at-10% in dark mode, which leaves only the native hairline edge visible. (How / Why) */
   html {
     scrollbar-width: thin;
     scrollbar-color: var(--muted-foreground) transparent;
   }
 
-  /* WebKitGTK fades an overlay bar in on any pointer movement over the view, so
-     hovering the sidebar also lit up the neighbouring table's bar. These panes keep
-     a transparent bar until the pointer is actually inside them. (How / Why) */
+  /* WebKitGTK reveals an overlay scrollbar for every scrollable pane on any pointer
+     motion over the view, so hovering one pane lit up its neighbour's bar and the two
+     flickered together. Leaving a pane unscrollable until the pointer is inside it
+     means only the hovered pane can show a bar, and it stays put while the pointer
+     moves within that pane. Overlay bars take no layout space, so toggling one never
+     shifts the content. (How / Why / What) */
   [data-slot='data-table-scrollport'],
   [data-slot='sidebar-scroll'] {
-    scrollbar-color: transparent transparent;
+    overflow: hidden;
   }
 
-  [data-slot='data-table-scrollport']:hover,
+  /* The table's pinned header is a sibling of the scrollport and forwards wheel
+     events to it, so the whole table area has to own the hover state; keying this off
+     the scrollport alone would leave a wheel over the header hitting an unscrollable
+     box. (How / Why) */
+  [data-slot='data-table']:hover [data-slot='data-table-scrollport'] {
+    overflow: auto;
+  }
+
   [data-slot='sidebar-scroll']:hover {
-    scrollbar-color: var(--muted-foreground) transparent;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   /* Popups, menus, tooltips, and no-scrollbar containers must never instantiate

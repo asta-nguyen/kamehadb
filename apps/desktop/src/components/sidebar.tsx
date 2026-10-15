@@ -346,7 +346,9 @@ export function Sidebar() {
       className="flex h-full bg-muted/30 border-border border-r shrink-0"
       style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
     >
-      <div data-slot="sidebar-scroll" className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">
+      {/* Overflow is owned by index.css: unscrollable until hovered so WebKitGTK only
+          reveals this pane's overlay scrollbar, not the table's. (Why) */}
+      <div data-slot="sidebar-scroll" className="flex flex-1 flex-col h-full min-w-0">
         <div className="flex h-8 items-center justify-between px-3 border-b border-border shrink-0">
           <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />

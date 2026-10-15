@@ -308,62 +308,41 @@ export function DataTable<T>({
         ref={innerRef}
         data-slot="data-table-scrollport"
         onScroll={(e) => syncHeaderScroll(e.currentTarget)}
-        className="flex-1 min-h-0 overflow-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30"
+        // Overflow is owned by index.css: the pane is unscrollable until hovered so
+        // WebKitGTK only reveals the active pane's overlay scrollbar. (Why)
+        className="flex-1 min-h-0 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30"
       >
-        <Table className={cn('w-full text-xs', className)}>
-          {rows.length > 0 ? (
-            <>
-              {!stickyHeader && headerRow}
-              <TableBody className={cn(bodyClassName)}>
-                {rows.length === 0 ? (
-                  emptyMessage ? (
-                    <TableRow style={{ gridTemplateColumns: '1fr' }} className="bg-background">
-                      <TableCell className="py-8 text-muted-foreground">{emptyMessage}</TableCell>
-                    </TableRow>
-                  ) : (
-                    <TableRow style={{ gridTemplateColumns: '1fr' }} className="bg-background">
-                      <TableCell className="py-16 text-muted-foreground">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <Table2 className="size-8 opacity-40" />
-                          <p className="text-sm">No data</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                ) : isVirtualized && virtualItems ? (
-                  <>
-                    {paddingTop > 0 && <div style={{ height: `${paddingTop}px`, border: 0 }} aria-hidden />}
-                    {virtualItems.map((virtualRow) => {
-                      const row = rows[virtualRow.index];
-                      if (!row) return null;
-                      return renderRow(row, virtualRow.index, rowVirtualizer.measureElement);
-                    })}
-                    {paddingBottom > 0 && <div style={{ height: `${paddingBottom}px`, border: 0 }} aria-hidden />}
-                  </>
-                ) : (
-                  rows.map((row, rowIndex) => renderRow(row, rowIndex))
-                )}
-              </TableBody>
-            </>
-          ) : emptyMessage ? (
+        {rows.length === 0 ? (
+          // A grid row pins its single cell's content to the left edge, which left the
+          // placeholder off-center; fill the table area and center it on both axes instead. (Why)
+          <div className={cn('flex h-full items-center justify-center py-16 text-muted-foreground', className)}>
+            {emptyMessage ?? (
+              <div className="flex flex-col items-center justify-center gap-2">
+                <Table2 className="size-8 opacity-40" />
+                <p className="text-sm">No data</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Table className={cn('w-full text-xs', className)}>
+            {!stickyHeader && headerRow}
             <TableBody className={cn(bodyClassName)}>
-              <TableRow style={{ gridTemplateColumns: '1fr' }} className="bg-background">
-                <TableCell className="py-8 text-muted-foreground">{emptyMessage}</TableCell>
-              </TableRow>
+              {isVirtualized && virtualItems ? (
+                <>
+                  {paddingTop > 0 && <div style={{ height: `${paddingTop}px`, border: 0 }} aria-hidden />}
+                  {virtualItems.map((virtualRow) => {
+                    const row = rows[virtualRow.index];
+                    if (!row) return null;
+                    return renderRow(row, virtualRow.index, rowVirtualizer.measureElement);
+                  })}
+                  {paddingBottom > 0 && <div style={{ height: `${paddingBottom}px`, border: 0 }} aria-hidden />}
+                </>
+              ) : (
+                rows.map((row, rowIndex) => renderRow(row, rowIndex))
+              )}
             </TableBody>
-          ) : (
-            <TableBody className={cn(bodyClassName)}>
-              <TableRow style={{ gridTemplateColumns: '1fr' }} className="bg-background">
-                <TableCell className="py-16 text-muted-foreground">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <Table2 className="size-8 opacity-40" />
-                    <p className="text-sm">No data</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          )}
-        </Table>
+          </Table>
+        )}
       </div>
     </div>
   );
