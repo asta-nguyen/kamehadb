@@ -20,7 +20,7 @@ import {
   setTheme,
 } from '@/store';
 import { useStore } from '@tanstack/react-store';
-import { Monitor, Moon, Search, Sun, TriangleAlert, Keyboard } from 'lucide-react';
+import { Monitor, Moon, ScrollText, Search, Sun, Keyboard } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { isSqlKind } from '@/lib/constants';
 import { toast } from '@/lib/toast';
@@ -40,10 +40,10 @@ function ThemeToggle() {
   );
 
   return (
-    <div className="relative grid grid-cols-[repeat(3,1.75rem)] items-center gap-0.5 rounded-md bg-muted/40 p-0.5 shadow-sm">
+    <div className="relative grid grid-cols-[repeat(3,1.5rem)] items-center gap-0.5 rounded-md bg-muted/40 p-0.5 shadow-sm">
       <div
-        className="pointer-events-none absolute left-0.5 top-0.5 h-7 w-7 rounded bg-background shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] transition-transform duration-200 ease-out will-change-transform"
-        style={{ transform: `translateX(${activeIndex * 1.875}rem)` }}
+        className="pointer-events-none absolute left-0.5 top-0.5 size-6 rounded bg-background transition-transform duration-200 ease-out will-change-transform"
+        style={{ transform: `translateX(${activeIndex * 1.625}rem)` }}
       />
       {THEME_OPTIONS.map(({ value, label, Icon }) => (
         <Button
@@ -52,7 +52,7 @@ function ThemeToggle() {
           variant="ghost"
           size="sm"
           onClick={() => setTheme(value)}
-          className={`relative z-10 flex size-7 items-center justify-center rounded transition-colors duration-150 ${
+          className={`relative z-10 flex size-6 items-center justify-center rounded transition-colors duration-150 ${
             theme === value ? 'text-foreground' : 'text-muted-foreground/60 hover:text-foreground'
           }`}
           title={label}
@@ -114,7 +114,7 @@ function Header({
         <Button variant="outline" size="sm" onClick={onSearchOpen} className="gap-1.5 text-xs text-muted-foreground/60">
           <Search className="size-3.5" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50 sm:inline-flex">
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[11px] font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>K
           </kbd>
         </Button>
@@ -126,12 +126,17 @@ function Header({
           title="Keyboard shortcuts"
         >
           <Keyboard className="size-3.5" />
-          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50 sm:inline-flex">
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[11px] font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>/
           </kbd>
         </Button>
-        <Button variant="outline" size="sm" onClick={() => navigateTo('logs')} className="gap-1.5 text-xs">
-          <TriangleAlert className="size-3.5" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigateTo('logs')}
+          className="gap-1.5 text-xs text-muted-foreground/60"
+        >
+          <ScrollText className="size-3.5" />
           <span className="hidden sm:inline">Logs</span>
         </Button>
         <ThemeToggle />

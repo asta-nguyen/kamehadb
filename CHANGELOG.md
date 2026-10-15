@@ -14,6 +14,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Desktop bundle size** — the local macOS ARM64 Wails app bundle is about 80% smaller than the previously installed app.
 - **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
 - **Release packaging** — ship `.dmg`, `.deb`, Fedora 40+ `.rpm`, and `.AppImage` packages, plus a Windows NSIS installer and a WiX `.msi` for stable tags. The AppImage uses the GTK bundling plugin and requires the host WebKit2GTK 4.1 runtime; it does not bundle the WebKit subprocess runtime.
+- **Compact table workspace** — remove the duplicate table title strip (the tab already names the table), move the search and column filter into the result card as its header, and drop the Sort-by dropdown; clicking a column header sorts and a hover glyph marks sortable columns. The footer keeps the row count and query duration together on one line with an icon-led pager.
+- **Row actions and tab affordances on hover** — the row `⋮` menu in the table view and query editor appears when the row is hovered and its column header is blank; a tab's connection dot only shows when that connection is not healthy, and the tab close button appears on hover or focus.
+- **Navigation labels** — the sidebar entry keeps a single "API Settings" label with an active state (the page's back arrow returns to the workspace) and the page header drops the profile and version badges; the schema tree's per-schema filter becomes a muted sub-control whose outer search box is labelled for the schemas it matches, with tighter indentation.
+- **Micro type tier** — badges, keyboard hints and footnotes move from 10 px to an 11 px tier recorded in `DESIGN-SYSTEM.md`.
 
 ### Added
 
@@ -72,6 +76,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **MongoDB document list** — give list mode a scroll container and keep the pagination footer in place; long results and the footer were clipped before, with no way to scroll.
 - **Table scroll smoothness** — run the Linux webview with GPU acceleration and zero-copy DMA-BUF frame transport (Wails defaults Linux to software rendering, wails#2977) and drop the sticky table header's backdrop blur; result pages up to 200 rows also render in one pass, so scrolling no longer re-renders the table on every frame.
 - **Export menu wording** — "Displayed rows as CSV" is now "Export as CSV", the whole-table export sits below a separator and reads "Export whole table as CSV", and "Copy JSON" reads "Copy as JSON".
+- **Welcome screen tiles** — remove the hardcoded emerald and red glow shadows; connected and disconnected tiles now use the success and destructive tokens with flat borders.
 
 ### Removed
 

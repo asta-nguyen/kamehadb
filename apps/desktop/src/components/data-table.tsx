@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useColumnResize } from '@/hooks/use-column-resize';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from 'cnfast';
-import { ArrowDown, ArrowUp, Table2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 export type SortDirection = 'asc' | 'desc';
@@ -140,7 +140,7 @@ export function DataTable<T>({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: getScrollParent,
-    estimateSize: () => 29,
+    estimateSize: () => 28,
     overscan: 10,
     scrollMargin: innerRef.current ? innerRef.current.offsetTop : 0,
     enabled: isVirtualized,
@@ -157,7 +157,7 @@ export function DataTable<T>({
       ? Math.max(0, totalSize - (virtualItems[virtualItems.length - 1].end - scrollMargin))
       : 0;
 
-  const defaultHeaderClass = 'bg-muted px-3 py-1 font-semibold text-foreground text-xs';
+  const defaultHeaderClass = 'bg-muted px-2 py-1 font-semibold text-foreground text-xs';
 
   const renderRow = (row: T, rowIndex: number, measureRef?: (el: HTMLElement | null) => void) => {
     const key = rowKey(row, rowIndex);
@@ -169,19 +169,19 @@ export function DataTable<T>({
         data-index={rowIndex}
         style={{ gridTemplateColumns }}
         className={cn(
-          'border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors',
+          'group border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors',
           onRowClick && 'cursor-pointer',
           extraClass,
         )}
         onClick={onRowClick ? (e) => onRowClick(row, rowIndex, e) : undefined}
       >
         {prefix && (
-          <TableCell className={cn('sticky left-0 z-20 px-2 py-1 flex items-center bg-inherit', prefixCellClassName)}>
+          <TableCell className={cn('sticky left-0 z-20 px-2 py-0.5 flex items-center bg-inherit', prefixCellClassName)}>
             {prefix(row, rowIndex)}
           </TableCell>
         )}
         {showIndex && (
-          <TableCell className="px-2 py-1 flex items-center justify-end text-muted-foreground tabular-nums select-none truncate">
+          <TableCell className="px-2 py-0.5 flex items-center justify-end text-muted-foreground tabular-nums select-none truncate">
             {indexOffset + rowIndex + 1}
           </TableCell>
         )}
@@ -194,21 +194,22 @@ export function DataTable<T>({
                 ? JSON.stringify(value)
                 : String(value);
           return (
+            // Tooltips only help when the value is long enough to be cut off; short values are visible in place. (Why)
             <TableCell
               key={col.id}
               className={cn(
-                'px-2 py-1 flex items-center overflow-hidden min-w-0',
+                'px-2 py-0.5 flex items-center overflow-hidden min-w-0',
                 typeof value === 'object' && value !== null && 'overflow-visible whitespace-normal',
                 col.cellClassName,
               )}
-              title={title}
+              title={title.length > 20 ? title : undefined}
             >
               {col.render ? col.render(value, row, rowIndex) : defaultCellRender(value)}
             </TableCell>
           );
         })}
         {suffix && (
-          <TableCell className={cn('px-2 py-1 flex items-center justify-center bg-inherit', suffixCellClassName)}>
+          <TableCell className={cn('px-2 py-0.5 flex items-center justify-center bg-inherit', suffixCellClassName)}>
             {suffix(row, rowIndex)}
           </TableCell>
         )}
@@ -255,7 +256,7 @@ export function DataTable<T>({
               className={cn(
                 defaultHeaderClass,
                 'relative min-w-0',
-                clickable && 'cursor-pointer select-none hover:bg-muted/80',
+                clickable && 'group/head cursor-pointer select-none hover:bg-muted/80',
                 isSorted && 'text-foreground',
                 col.headerClassName,
               )}
@@ -270,6 +271,10 @@ export function DataTable<T>({
                   ) : (
                     <ArrowDown className="shrink-0 size-3" />
                   ))}
+                {/* Sorting now lives on the headers, so a hover glyph keeps it discoverable. (Why) */}
+                {clickable && !isSorted && (
+                  <ArrowUpDown className="shrink-0 size-3 opacity-0 transition-opacity group-hover/head:opacity-50" />
+                )}
               </div>
               {useResize && <ResizeHandle index={i} header={col.header} onColResize={onColResize} />}
             </TableHead>

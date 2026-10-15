@@ -37,7 +37,7 @@ export function ConnectionTooltip({
           <DbIcon kind={conn.kind} className="size-4 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-foreground text-xs truncate leading-tight">{conn.name}</p>
-            <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">{conn.kind}</p>
+            <p className="text-[11px] text-muted-foreground font-mono uppercase tracking-wider">{conn.kind}</p>
           </div>
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/60 text-[11px] font-medium shrink-0">
             <span className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
@@ -75,7 +75,7 @@ export function ConnectionTooltip({
             </div>
           )}
           {conn.updatedAt && (
-            <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/40 text-[10px] text-muted-foreground/70">
+            <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/40 text-[11px] text-muted-foreground/70">
               <span>Updated</span>
               <span>
                 {new Date(conn.updatedAt).toLocaleDateString(undefined, {

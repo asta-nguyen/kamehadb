@@ -141,7 +141,7 @@ export function WorkspaceTabBar() {
                     reorderTabs(from, index);
                   }
                 }}
-                className={`flex h-full shrink-0 cursor-pointer items-center gap-1.5 border-r border-border px-3 text-xs transition-colors ${
+                className={`group/tab flex h-full shrink-0 cursor-pointer items-center gap-1.5 border-r border-border px-3 text-xs transition-colors ${
                   tab.id === activeTabId ? 'border-b-2 border-b-primary bg-background' : 'hover:bg-muted/50'
                 } ${dragOverIndex === index ? 'border-l-2 border-l-primary' : ''}`}
                 onClick={() =>
@@ -162,11 +162,14 @@ export function WorkspaceTabBar() {
                   }
                 }}
               >
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
+                {/* The dot is a warning light: it only needs to show when the tab's connection is not healthy. (Why) */}
+                {status && status !== 'connected' && (
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
+                )}
                 {tabIcon(tab.type)}
                 <span className="max-w-30 truncate">{tab.title}</span>
                 {connection && (tab.type === 'query' || tab.type === 'mongo-query' || tab.type === 'redis-query') && (
-                  <span className="text-[10px] text-muted-foreground/70 truncate max-w-24 font-normal">
+                  <span className="text-[11px] text-muted-foreground/70 truncate max-w-24 font-normal">
                     ({connection.name})
                   </span>
                 )}
@@ -175,7 +178,7 @@ export function WorkspaceTabBar() {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="ml-1 rounded-sm hover:bg-muted"
+                  className="ml-1 rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover/tab:opacity-100 focus-visible:opacity-100"
                   onClick={(event) => {
                     event.stopPropagation();
                     closeTab(tab.id);

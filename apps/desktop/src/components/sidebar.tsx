@@ -25,7 +25,7 @@ import {
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
 import { ALL_KINDS, safeErrorMessage } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
-import { ChevronDown, ChevronRight, Pin, Settings2, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pin, Settings2 } from 'lucide-react';
 import type { ConnectionStatus } from './sidebar.helpers';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -347,7 +347,7 @@ export function Sidebar() {
       style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
     >
       <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+        <div className="flex h-8 items-center justify-between px-3 border-b border-border shrink-0">
           <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />
         </div>
@@ -370,11 +370,11 @@ export function Sidebar() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigateTo(view === 'api-settings' ? 'workspace' : 'api-settings')}
+            onClick={() => navigateTo('api-settings')}
             className={`w-full ${view === 'api-settings' ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50 text-muted-foreground'}`}
           >
-            {view === 'api-settings' ? <Sparkles className="size-3.5" /> : <Settings2 className="size-3.5" />}
-            <span>{view === 'api-settings' ? 'Back to Workspace' : 'API Settings'}</span>
+            <Settings2 className="size-3.5" />
+            <span>API Settings</span>
           </Button>
         </div>
       </div>

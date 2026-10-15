@@ -12,7 +12,7 @@ function DiffFieldPills({ changes }: { readonly changes: readonly SchemaValueCha
   return (
     <div className="flex flex-wrap gap-1.5">
       {changes.map((change) => (
-        <Badge key={change.field} variant="secondary" className="gap-1 text-[10px]">
+        <Badge key={change.field} variant="secondary" className="gap-1 text-[11px]">
           <span className="font-medium">{change.field}</span>
           <span className="text-muted-foreground">{formatValue(change.from)}</span>
           <span>→</span>
@@ -105,7 +105,7 @@ export function SchemaDiffTableCard({ tableDiff }: { readonly tableDiff: SchemaT
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="text-xs font-medium text-muted-foreground">Columns</div>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-[11px]">
                 {tableDiff.columnDiffs.length}
               </Badge>
             </div>
@@ -123,7 +123,7 @@ export function SchemaDiffTableCard({ tableDiff }: { readonly tableDiff: SchemaT
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="text-xs font-medium text-muted-foreground">Indexes</div>
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-[11px]">
                 {tableDiff.indexDiffs.length}
               </Badge>
             </div>

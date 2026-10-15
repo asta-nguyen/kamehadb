@@ -60,11 +60,11 @@ function LogEntry({ entry, index }: { entry: AppLogEntry; index: number }) {
       )}
     >
       <div className="flex items-start gap-2">
-        <span className="shrink-0 text-[10px] text-muted-foreground/50 tabular-nums pt-0.5">
+        <span className="shrink-0 text-[11px] text-muted-foreground/50 tabular-nums pt-0.5">
           {formatLogTimestamp(entry.timestampMs)}
         </span>
-        <span className="shrink-0 text-[10px] uppercase text-muted-foreground/60 pt-0.5 w-16">{entry.source}</span>
-        <span className={cn('shrink-0 text-[10px] uppercase font-bold pt-0.5 w-12', style.text)}>{entry.level}</span>
+        <span className="shrink-0 text-[11px] uppercase text-muted-foreground/60 pt-0.5 w-16">{entry.source}</span>
+        <span className={cn('shrink-0 text-[11px] uppercase font-bold pt-0.5 w-12', style.text)}>{entry.level}</span>
         <div className="min-w-0 flex-1">
           <div
             className={cn('break-words', hasDetails && 'cursor-pointer select-text')}
@@ -79,7 +79,7 @@ function LogEntry({ entry, index }: { entry: AppLogEntry; index: number }) {
               />
             )}
             <span className="text-foreground/90">{entry.message}</span>
-            {entry.scope && <span className="ml-1.5 text-[10px] text-muted-foreground/40">[{entry.scope}]</span>}
+            {entry.scope && <span className="ml-1.5 text-[11px] text-muted-foreground/40">[{entry.scope}]</span>}
           </div>
           {expanded && (
             <div className="mt-1 space-y-1">
@@ -93,7 +93,7 @@ function LogEntry({ entry, index }: { entry: AppLogEntry; index: number }) {
                   {entry.stack}
                 </pre>
               )}
-              {entry.url && <div className="text-[10px] text-muted-foreground/40 truncate">{entry.url}</div>}
+              {entry.url && <div className="text-[11px] text-muted-foreground/40 truncate">{entry.url}</div>}
             </div>
           )}
         </div>
@@ -179,7 +179,7 @@ export function LogsPage() {
           <div className="flex items-center gap-2">
             <ScrollText className="size-4 text-muted-foreground" />
             <h1 className="text-sm font-semibold tracking-tight">Logs</h1>
-            <span className="text-[10px] text-muted-foreground/50">auto 2s</span>
+            <span className="text-[11px] text-muted-foreground/50">auto 2s</span>
           </div>
           <div className="ml-auto flex items-center gap-1">
             <Button
@@ -231,7 +231,7 @@ export function LogsPage() {
                 size="sm"
                 onClick={() => setSourceFilter(opt)}
                 className={cn(
-                  'rounded px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
+                  'rounded px-2 py-0.5 text-[11px] font-medium uppercase transition-colors',
                   sourceFilter === opt
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -249,7 +249,7 @@ export function LogsPage() {
                 size="sm"
                 onClick={() => setLevelFilter(opt)}
                 className={cn(
-                  'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase transition-colors',
+                  'rounded px-1.5 py-0.5 text-[11px] font-medium uppercase transition-colors',
                   levelFilter === opt
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
@@ -259,7 +259,7 @@ export function LogsPage() {
               </Button>
             ))}
           </div>
-          <span className="text-[10px] text-muted-foreground ml-auto tabular-nums w-20 text-right shrink-0">
+          <span className="text-[11px] text-muted-foreground ml-auto tabular-nums w-20 text-right shrink-0">
             {filteredEntries.length} entries
           </span>
         </div>
@@ -296,7 +296,7 @@ export function LogsPage() {
 
       {logDir && (
         <div
-          className="shrink-0 border-t border-border px-4 py-1 text-[10px] text-muted-foreground/40 truncate"
+          className="shrink-0 border-t border-border px-4 py-1 text-[11px] text-muted-foreground/40 truncate"
           title={logDir}
         >
           {logDir}

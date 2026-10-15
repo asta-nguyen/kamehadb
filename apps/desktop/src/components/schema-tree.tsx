@@ -52,18 +52,16 @@ function SchemaItem({
         )}
       </Button>
       {expanded && (
-        <div className="pl-2 ml-3 mt-0.5 border-border/60 border-l">
-          <div className="px-2 py-1">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
-              <Input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter..."
-                className="pl-6 pr-2 h-6 text-xs"
-              />
-            </div>
+        <div className="pl-2 ml-1.5 mt-0.5 border-border/60 border-l">
+          <div className="px-1.5 py-0.5">
+            {/* The per-schema filter is a sub-control of the schema row, so it drops the border and the icon. (Why) */}
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter tables"
+              className="h-6 border-transparent bg-transparent pl-1.5 text-xs text-muted-foreground placeholder:text-muted-foreground/50"
+            />
           </div>
           <div className="space-y-0.5">
             {isLoading ? (
@@ -151,7 +149,7 @@ function TableItem({
         </ContextMenuContent>
       </ContextMenu>
       {expanded && (
-        <div className="pl-2 ml-4 mt-0.5 space-y-0">
+        <div className="pl-2 ml-2 mt-0.5 space-y-0">
           {isLoading ? (
             <div className="flex justify-center py-1.5">
               <Spinner size="sm" className="text-muted-foreground/50 size-2.5" />
@@ -170,7 +168,7 @@ function TableItem({
                 {col.isVector && (
                   <Badge
                     variant="secondary"
-                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-[10px] bg-muted/30 border-muted shrink-0"
+                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-[11px] bg-muted/30 border-muted shrink-0"
                   >
                     vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
                   </Badge>
@@ -244,7 +242,7 @@ export function SchemaTree({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search schemas & tables..."
+          placeholder="Search schemas..."
           className="pl-6 pr-2 h-7 text-xs"
         />
       </div>

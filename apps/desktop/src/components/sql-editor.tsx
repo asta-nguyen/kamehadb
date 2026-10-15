@@ -641,16 +641,20 @@ function QueryResultTable({
           showIndex
           stickyHeader
           onRowClick={editability.canEditCells ? undefined : (row) => onSelectRow(row)}
-          suffixHeader="Actions"
+          suffixHeader=""
           suffixWidth="64px"
           suffix={(row) => (
-            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            >
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
                     <Button
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon-xs"
                       onClick={(e) => e.stopPropagation()}
                       aria-label="Row actions"
                     />
@@ -717,19 +721,20 @@ function QueryResultTable({
               <SelectItem value="0">No limit</SelectItem>
             </SelectContent>
           </Select>
-          <NativeCSVExportButton connectionId={connectionId} query={executedSql} />
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="sm" title="Export displayed rows" />}>
               <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => void downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigator.clipboard.writeText(exportToJSON(result))}>
                 Copy as JSON
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+              {/* Downloads of the displayed rows sit above the separator; the native full-query export sits below. (Why) */}
+              <DropdownMenuSeparator />
+              <NativeCSVExportButton connectionId={connectionId} query={executedSql} asMenuItem />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1077,7 +1082,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
             Run
           </Button>
         )}
-        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[10px] font-mono text-muted-foreground/50">
+        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[11px] font-mono text-muted-foreground/50">
           {runQuery.isPending || isExecutingBatch ? 'Esc' : 'Ctrl+Enter'}
         </kbd>
         {targetConn && (

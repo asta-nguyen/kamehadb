@@ -264,12 +264,6 @@ function ApiSettingsHeader({ draft }: { draft: AISettings }) {
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-semibold tracking-tight">API Settings</h1>
-            <Badge variant="outline" className="bg-background/70 text-xs">
-              Local user profile
-            </Badge>
-            <Badge variant="secondary" className="text-xs font-mono">
-              {__APP_VERSION__}
-            </Badge>
           </div>
           <p className="max-w-3xl text-sm text-muted-foreground">
             Configure AI providers and the local read-only MCP server for this desktop user.
@@ -333,7 +327,7 @@ function ProviderSidebar({
                     {meta.label}
                   </span>
                   {isActive ? (
-                    <Badge variant="default" className="h-5 px-1.5 text-[10px]">
+                    <Badge variant="default" className="h-5 px-1.5 text-[11px]">
                       Active
                     </Badge>
                   ) : null}

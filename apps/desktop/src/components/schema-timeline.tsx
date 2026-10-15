@@ -120,7 +120,7 @@ function ChangeBadge({ type }: { type: SchemaChangeDescriptor['type'] }) {
   const label = type.replace(/_/g, ' ');
   const variant = type.includes('added') ? 'default' : type.includes('removed') ? 'destructive' : 'secondary';
   return (
-    <Badge variant={variant} className="shrink-0 whitespace-nowrap text-[10px] px-1.5 py-0 h-4">
+    <Badge variant={variant} className="shrink-0 whitespace-nowrap text-[11px] px-1.5 py-0 h-4">
       {label}
     </Badge>
   );
@@ -131,7 +131,7 @@ function SourceBadge({ source }: { source?: SchemaSnapshotSource }) {
   const label = source === 'auto-cadence' ? 'auto' : 'notify';
   const variant = source === 'auto-cadence' ? 'secondary' : 'outline';
   return (
-    <Badge variant={variant} className="text-[10px] h-4 px-1.5">
+    <Badge variant={variant} className="text-[11px] h-4 px-1.5">
       {label}
     </Badge>
   );
@@ -274,7 +274,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
               </SelectContent>
             </Select>
             {watcherStatus?.lastCaptureAt && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground">
                 Last: {new Date(watcherStatus.lastCaptureAt).toLocaleTimeString()}
               </span>
             )}
@@ -292,14 +292,14 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
                 {watcherStatus?.notifyRunning ? 'pg_notify: On' : 'pg_notify: Off'}
               </Button>
               {watcherStatus?.notifyRunning && (
-                <span className="text-[10px] text-muted-foreground">Listening for schema changes</span>
+                <span className="text-[11px] text-muted-foreground">Listening for schema changes</span>
               )}
             </div>
           )}
           {isPostgres && !watcherStatus?.notifyRunning && (
-            <details className="text-[10px] text-muted-foreground">
+            <details className="text-[11px] text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground">Setup trigger SQL</summary>
-              <pre className="mt-1 p-2 bg-muted rounded text-[10px] overflow-x-auto">{`CREATE OR REPLACE FUNCTION notify_schema_change()
+              <pre className="mt-1 p-2 bg-muted rounded text-[11px] overflow-x-auto">{`CREATE OR REPLACE FUNCTION notify_schema_change()
 RETURNS event_trigger AS $$
 BEGIN
   PERFORM pg_notify('kamehadb_schema_change', '');
@@ -344,12 +344,12 @@ EXECUTE FUNCTION notify_schema_change();`}</pre>
                     <History className="size-3" />
                     {new Date(entry.capturedAt).toLocaleString()}
                     {isLatest && (
-                      <Badge variant="default" className="text-[10px] h-4 px-1.5">
+                      <Badge variant="default" className="text-[11px] h-4 px-1.5">
                         latest
                       </Badge>
                     )}
                     {isFirst && entry.changes.length === 0 && (
-                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                      <Badge variant="outline" className="text-[11px] h-4 px-1.5">
                         initial
                       </Badge>
                     )}
