@@ -346,7 +346,7 @@ export function Sidebar() {
       className="flex h-full bg-muted/30 border-border border-r shrink-0"
       style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
     >
-      <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
           <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />

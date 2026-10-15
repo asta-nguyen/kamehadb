@@ -12,7 +12,7 @@ export type QueryResult = {
   durationMs: number;
   truncated: boolean;
   payloadBytes?: number;
-  limitReason?: 'rows' | 'bytes';
+  limitReason?: string;
   hasMore?: boolean;
   nextCursor?: string;
   paginationMode?: 'keyset' | 'offset';
@@ -274,8 +274,11 @@ export type CollectionInfo = {
 
 export type DocumentResult = {
   documents: Record<string, unknown>[];
-  totalCount: number;
+  totalCount?: number;
+  countMode?: string;
   hasMore: boolean;
+  payloadBytes?: number;
+  limitReason?: string;
   durationMs: number;
 };
 

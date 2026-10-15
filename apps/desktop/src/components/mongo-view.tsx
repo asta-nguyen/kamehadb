@@ -17,6 +17,7 @@ import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { PAGE_LIMIT } from '@/lib/constants';
+import { saveTextAs } from '@/lib/export';
 import { toastError, toastSuccess } from '@/lib/toast';
 
 function parseJsonSafe(text: string): Record<string, unknown> | null {
@@ -193,13 +194,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
   const handleExportJSON = useCallback(() => {
     if (!data?.documents.length) return;
     const json = JSON.stringify(data.documents, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${collection}-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    void saveTextAs(json, `${collection}-${Date.now()}.json`, 'JSON files', '*.json', data.documents.length);
   }, [data, collection]);
 
   // Copy the same pretty-printed JSON the export produces, straight to clipboard.
@@ -228,13 +223,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     };
     const rows = docs.map((doc) => headers.map((h) => escape(doc[h])).join(','));
     const csv = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${collection}-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    void saveTextAs(csv, `${collection}-${Date.now()}.csv`, 'CSV files', '*.csv', docs.length);
   }, [data, collection]);
 
   const handleDeleteDocument = useCallback(
@@ -342,7 +331,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             viewMode={state.viewMode}
             page={state.page}
             pageSize={PAGE_LIMIT}
-            totalCount={data?.totalCount ?? 0}
+            totalCount={data?.totalCount}
             hasMore={data?.hasMore ?? false}
             durationMs={data?.durationMs ?? 0}
             isFetching={isFetching}
@@ -380,7 +369,7 @@ interface DocumentsPanelProps {
   viewMode: 'list' | 'table';
   page: number;
   pageSize: number;
-  totalCount: number;
+  totalCount?: number;
   hasMore: boolean;
   durationMs: number;
   isFetching: boolean;
@@ -534,7 +523,7 @@ function DocumentsPanel({
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4 flex flex-col flex-1 min-h-0">
       <div className="text-xs text-muted-foreground mb-2 flex items-center justify-between">
         <span>
           {documents.length} document{documents.length !== 1 ? 's' : ''} returned
@@ -547,7 +536,7 @@ function DocumentsPanel({
           </span>
         )}
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-2 min-h-0 flex-1 overflow-y-auto">
         {documents.map((doc, index) => (
           <DocumentCard
             key={doc._id ? String(doc._id) : index}

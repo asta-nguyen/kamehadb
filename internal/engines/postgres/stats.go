@@ -24,6 +24,7 @@ func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.
 	JOIN pg_class t ON t.oid = ix.indrelid
 	JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
 	JOIN pg_namespace n ON n.oid = t.relnamespace
+	JOIN pg_am am ON am.oid = i.relam
 	WHERE n.nspname = $1 AND t.relname = $2
 	ORDER BY i.relname, a.attnum`
 	res, err := a.collect(ctx, sql, []any{schema, table}, 0)
@@ -60,9 +61,7 @@ func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.T
 		s.n_live_tup as row_estimate,
 		pg_total_relation_size(t.oid) as total_bytes,
 		COALESCE(pg_indexes_size(t.oid), 0) as indexes_bytes,
-		COALESCE(pg_relation_size(t.oid) - pg_table_size(t.oid), 0) as toast_bytes,
-		(pg_total_relation_size(t.oid) - pg_table_size(t.oid)) as bloat_bytes,
-		100.0 * (pg_total_relation_size(t.oid) - pg_table_size(t.oid)) / NULLIF(pg_total_relation_size(t.oid), 0) as bloat_percent,
+		COALESCE(GREATEST(pg_total_relation_size(t.oid) - pg_indexes_size(t.oid) - pg_table_size(t.oid), 0), 0) as toast_bytes,
 		s.last_vacuum,
 		s.last_autovacuum,
 		s.last_analyze,
@@ -70,7 +69,8 @@ func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.T
 		s.vacuum_count,
 		s.autovacuum_count,
 		COALESCE(s.n_live_tup, 0) as n_live_tup,
-		COALESCE(s.n_dead_tup, 0) as n_dead_tup
+		COALESCE(s.n_dead_tup, 0) as n_dead_tup,
+		pg_table_size(t.oid) as table_bytes
 	FROM pg_stat_user_tables s
 	JOIN pg_class t ON t.oid = s.relid
 	JOIN pg_namespace n ON n.oid = t.relnamespace
@@ -94,16 +94,21 @@ func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.T
 	stats.TotalBytes = toInt64(r[3])
 	stats.IndexesBytes = toInt64(r[4])
 	stats.ToastBytes = toInt64(r[5])
-	stats.BloatBytes = toInt64(r[6])
-	stats.BloatPercent = floatv(r, 7)
-	stats.LastVacuum = strP(r, 8)
-	stats.LastAutovacuum = strP(r, 9)
-	stats.LastAnalyze = strP(r, 10)
-	stats.LastAutoanalyze = strP(r, 11)
-	stats.VacuumCount = toInt64(r[12])
-	stats.AutovacuumCount = toInt64(r[13])
-	stats.NLiveTup = toInt64(r[14])
-	stats.NDeadTup = toInt64(r[15])
+	stats.LastVacuum = strP(r, 6)
+	stats.LastAutovacuum = strP(r, 7)
+	stats.LastAnalyze = strP(r, 8)
+	stats.LastAutoanalyze = strP(r, 9)
+	stats.VacuumCount = toInt64(r[10])
+	stats.AutovacuumCount = toInt64(r[11])
+	stats.NLiveTup = toInt64(r[12])
+	stats.NDeadTup = toInt64(r[13])
+	// PostgreSQL has no cheap exact bloat measure (pgstattuple scans the table),
+	// so estimate the dead tuples' share of the heap from autovacuum's counters.
+	if tuples := stats.NLiveTup + stats.NDeadTup; tuples > 0 && stats.NDeadTup > 0 {
+		deadShare := float64(stats.NDeadTup) / float64(tuples)
+		stats.BloatPercent = 100 * deadShare
+		stats.BloatBytes = int64(float64(toInt64(r[14])) * deadShare)
+	}
 	return stats, nil
 }
 

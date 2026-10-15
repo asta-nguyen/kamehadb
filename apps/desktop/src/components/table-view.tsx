@@ -42,6 +42,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -607,12 +608,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               </Select>
             </div>
             <span>{result.rows.length > 0 ? `Rows ${offset + 1}–${offset + result.rows.length}` : 'No rows'}</span>
-            <Badge
-              variant="secondary"
-              title="Primary-key paging follows its index. Other sorts use offset paging and may scan or sort many rows."
-            >
-              {result.paginationMode === 'keyset' ? 'Primary-key paging' : 'Offset paging'}
-            </Badge>
             <span className="ml-auto">{formatDuration(result.durationMs)}</span>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -666,7 +661,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                 </Button>
               </div>
             </div>
-            <NativeCSVExportButton connectionId={connectionId} tableId={tableId} />
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon-sm" className="h-7 w-7" title="Export displayed rows" />}
@@ -685,11 +679,13 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                     }
                   }}
                 >
-                  Copy JSON
+                  Copy as JSON
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Displayed rows as CSV</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <NativeCSVExportButton connectionId={connectionId} tableId={tableId} asMenuItem />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

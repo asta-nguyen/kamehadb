@@ -1016,8 +1016,11 @@ export namespace mongo {
   }
   export class DocumentResult {
     documents: any[];
-    totalCount: number;
+    totalCount?: number;
+    countMode?: string;
     hasMore: boolean;
+    payloadBytes?: number;
+    limitReason?: string;
     durationMs: number;
 
     static createFrom(source: any = {}) {
@@ -1028,26 +1031,11 @@ export namespace mongo {
       if ('string' === typeof source) source = JSON.parse(source);
       this.documents = source['documents'];
       this.totalCount = source['totalCount'];
+      this.countMode = source['countMode'];
       this.hasMore = source['hasMore'];
+      this.payloadBytes = source['payloadBytes'];
+      this.limitReason = source['limitReason'];
       this.durationMs = source['durationMs'];
-    }
-  }
-  export class MongoCommandRequest {
-    database?: string;
-    command?: Record<string, any>;
-    commandJson?: string;
-    requestId?: string;
-
-    static createFrom(source: any = {}) {
-      return new MongoCommandRequest(source);
-    }
-
-    constructor(source: any = {}) {
-      if ('string' === typeof source) source = JSON.parse(source);
-      this.database = source['database'];
-      this.command = source['command'];
-      this.commandJson = source['commandJson'];
-      this.requestId = source['requestId'];
     }
   }
   export class FindDocumentsInput {
@@ -1077,6 +1065,25 @@ export namespace mongo {
       this.skip = source['skip'];
       this.limit = source['limit'];
       this.search = source['search'];
+      this.requestId = source['requestId'];
+    }
+  }
+
+  export class MongoCommandRequest {
+    database?: string;
+    command?: Record<string, any>;
+    commandJson?: string;
+    requestId?: string;
+
+    static createFrom(source: any = {}) {
+      return new MongoCommandRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.database = source['database'];
+      this.command = source['command'];
+      this.commandJson = source['commandJson'];
       this.requestId = source['requestId'];
     }
   }
@@ -1149,6 +1156,34 @@ export namespace redis {
       return a;
     }
   }
+  export class RedisCommandRequest {
+    command: string;
+    requestId?: string;
+
+    static createFrom(source: any = {}) {
+      return new RedisCommandRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.command = source['command'];
+      this.requestId = source['requestId'];
+    }
+  }
+  export class RedisKeyRequest {
+    key: string;
+    requestId?: string;
+
+    static createFrom(source: any = {}) {
+      return new RedisKeyRequest(source);
+    }
+
+    constructor(source: any = {}) {
+      if ('string' === typeof source) source = JSON.parse(source);
+      this.key = source['key'];
+      this.requestId = source['requestId'];
+    }
+  }
   export class RedisStats {
     version: string;
     connectedClients: number;
@@ -1201,34 +1236,6 @@ export namespace redis {
       this.type = source['type'];
       this.ttl = source['ttl'];
       this.value = source['value'];
-    }
-  }
-  export class RedisCommandRequest {
-    command: string;
-    requestId?: string;
-
-    static createFrom(source: any = {}) {
-      return new RedisCommandRequest(source);
-    }
-
-    constructor(source: any = {}) {
-      if ('string' === typeof source) source = JSON.parse(source);
-      this.command = source['command'];
-      this.requestId = source['requestId'];
-    }
-  }
-  export class RedisKeyRequest {
-    key: string;
-    requestId?: string;
-
-    static createFrom(source: any = {}) {
-      return new RedisKeyRequest(source);
-    }
-
-    constructor(source: any = {}) {
-      if ('string' === typeof source) source = JSON.parse(source);
-      this.key = source['key'];
-      this.requestId = source['requestId'];
     }
   }
   export class ScanKeysInput {

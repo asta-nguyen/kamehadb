@@ -256,7 +256,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
           </DialogHeader>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 px-1 pr-4 -mr-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        <div className="flex-1 overflow-y-auto min-h-0 px-1 pr-4 -mr-4">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
             {/* Name Field */}
             <div className="space-y-1.5">

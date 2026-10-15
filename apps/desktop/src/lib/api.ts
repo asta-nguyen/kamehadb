@@ -44,7 +44,7 @@ import {
   StopSchemaNotifyWatcher,
 } from '../../wailsjs/go/api/SchemaService';
 import type { engines, mongo, redis, store, api as bindingModels } from '../../wailsjs/go/models';
-import { PickSaveFile } from '../../wailsjs/go/main/App';
+import { PickSaveFile, SaveTextFile } from '../../wailsjs/go/main/App';
 import {
   AttachMongoShell,
   DeleteMongoDocument,
@@ -217,6 +217,15 @@ export const api = {
   },
 
   cancelExport: (id: string): Promise<boolean> => CancelExport(id),
+
+  // Frontend-built exports (displayed rows, Mongo documents) have no blob
+  // download on WebKitGTK: the backend picks the destination and writes the text.
+  saveTextFile: (
+    defaultFilename: string,
+    title: string,
+    content: string,
+    filter: { displayName: string; pattern: string },
+  ): Promise<string> => SaveTextFile(defaultFilename, title, content, [filter]),
 
   // SQL browse + query (bound SqlService — replaces /sql/* routes)
   listSqlSchemas: (connectionId: string) =>

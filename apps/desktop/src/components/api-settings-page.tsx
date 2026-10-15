@@ -587,7 +587,7 @@ export function ApiSettingsPage() {
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col bg-background overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-border/80">
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-background overflow-y-auto">
       <ApiSettingsHeader draft={state.draft} />
 
       {isLoading ? (

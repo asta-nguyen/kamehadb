@@ -203,6 +203,16 @@
     background: var(--muted-foreground);
   }
 
+  /* WebKitGTK ignores the ::-webkit-scrollbar rules but honours the standard
+     scrollbar properties, so these are what actually draw the thin, themed bar
+     on Linux while keeping the same intent for Chromium/Safari. The thumb uses
+     muted-foreground, not border: border is white-at-10% in dark mode, which
+     leaves only the native hairline edge visible. (How / Why / What) */
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+
   /* Popups, menus, tooltips, and no-scrollbar containers must never instantiate
      WebKitGTK native overlay scrollbar widgets that render above web content. (How / Why / What) */
   [data-slot='dropdown-menu-content'],

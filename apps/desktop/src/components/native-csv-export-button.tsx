@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { KIND, isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
 import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Spinner } from '@/components/ui/spinner';
 import { useConnections } from '@/hooks/use-connections';
 import { api } from '@/lib/api';
 import { nativeTableExportQuery } from '@/lib/native-export';
 import { toastError, toastInfo, toastSuccess } from '@/lib/toast';
 
-type NativeCSVExportProps = { connectionId: string } & (
+type NativeCSVExportProps = { connectionId: string; asMenuItem?: boolean } & (
   | { query: string; tableId?: never }
   | { tableId: string; query?: never }
 );
@@ -35,7 +36,7 @@ export function NativeCSVExportButton(props: NativeCSVExportProps): ReactElement
 
   if (kind !== KIND.POSTGRES && kind !== KIND.SQLITE) return null;
   const query = props.query ?? nativeTableExportQuery(props.tableId, kind);
-  const label = props.query === undefined ? 'Whole table CSV' : 'Full query CSV';
+  const label = props.query === undefined ? 'Export whole table as CSV' : 'Export full query as CSV';
   const title =
     props.query === undefined
       ? 'Export the whole table, without preview filters or row limits'
@@ -77,17 +78,37 @@ export function NativeCSVExportButton(props: NativeCSVExportProps): ReactElement
       });
   };
 
+  const labelText = phase === 'idle' ? label : phase === 'selecting' ? 'Choose destination…' : 'Exporting…';
+  const unavailable = phase !== 'idle' || !query.trim() || !isQuerySafe(query).safe;
+
+  // Menu mode renders a dropdown item; keeping the menu open (onSelect
+  // preventDefault) leaves Cancel reachable while the export job runs.
+  if (props.asMenuItem) {
+    return (
+      <>
+        <DropdownMenuItem
+          title={title}
+          disabled={unavailable}
+          onSelect={(event) => event.preventDefault()}
+          onClick={() => void start()}
+        >
+          {phase !== 'idle' && <Spinner size="sm" />}
+          {labelText}
+        </DropdownMenuItem>
+        {phase === 'exporting' && (
+          <DropdownMenuItem onSelect={(event) => event.preventDefault()} onClick={cancel}>
+            Cancel export
+          </DropdownMenuItem>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="flex items-center gap-1" role="status">
-      <Button
-        variant="ghost"
-        size="sm"
-        title={title}
-        disabled={phase !== 'idle' || !query.trim() || !isQuerySafe(query).safe}
-        onClick={() => void start()}
-      >
+      <Button variant="ghost" size="sm" title={title} disabled={unavailable} onClick={() => void start()}>
         {phase !== 'idle' && <Spinner size="sm" />}
-        {phase === 'idle' ? label : phase === 'selecting' ? 'Choose destination…' : 'Exporting…'}
+        {labelText}
       </Button>
       {phase === 'exporting' && (
         <Button variant="ghost" size="sm" onClick={cancel}>

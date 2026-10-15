@@ -1,5 +1,7 @@
 import type { QueryResult } from '@kamehadb/shared';
-import { quoteSqlIdentifier } from '@kamehadb/shared';
+import { quoteSqlIdentifier, safeErrorMessage } from '@kamehadb/shared';
+import { api } from '@/lib/api';
+import { toastError, toastInfo, toastSuccess } from '@/lib/toast';
 
 export type ExportFormat = 'csv' | 'json' | 'sql';
 
@@ -53,29 +55,41 @@ function exportToSQL(result: QueryResult, tableName = 'exported_data'): string {
   return [`-- Export from ${tableName}`, `-- ${result.rows.length} rows`, '', ...statements].join('\n');
 }
 
-function downloadFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+// WebKitGTK has no download handling, so exports are written by the backend
+// after the native save dialog — blob downloads are silently ignored there.
+export async function saveTextAs(
+  content: string,
+  filename: string,
+  filterName: string,
+  pattern: string,
+  rowCount: number,
+): Promise<void> {
+  try {
+    const path = await api.saveTextFile(filename, `Export ${rowCount.toLocaleString()} rows`, content, {
+      displayName: filterName,
+      pattern,
+    });
+    if (!path) {
+      toastInfo('Export cancelled');
+      return;
+    }
+    toastSuccess(`Exported ${rowCount.toLocaleString()} rows to ${path}`);
+  } catch (error) {
+    toastError(safeErrorMessage(error, 'Export failed'));
+  }
 }
 
-export function downloadResult(result: QueryResult, format: ExportFormat) {
+export async function downloadResult(result: QueryResult, format: ExportFormat): Promise<void> {
   const timestamp = new Date().toISOString().split('T')[0];
   const extensions: Record<ExportFormat, string> = {
     csv: 'csv',
     json: 'json',
     sql: 'sql',
   };
-  const mimeTypes: Record<ExportFormat, string> = {
-    csv: 'text/csv',
-    json: 'application/json',
-    sql: 'application/sql',
+  const filterNames: Record<ExportFormat, string> = {
+    csv: 'CSV files',
+    json: 'JSON files',
+    sql: 'SQL files',
   };
 
   const exporters: Record<ExportFormat, () => string> = {
@@ -84,8 +98,11 @@ export function downloadResult(result: QueryResult, format: ExportFormat) {
     sql: () => exportToSQL(result),
   };
 
-  const content = exporters[format]();
-  const filename = `export_${timestamp}.${extensions[format]}`;
-
-  downloadFile(content, filename, mimeTypes[format]);
+  await saveTextAs(
+    exporters[format](),
+    `export_${timestamp}.${extensions[format]}`,
+    filterNames[format],
+    `*.${extensions[format]}`,
+    result.rows.length,
+  );
 }

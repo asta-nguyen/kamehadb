@@ -41,33 +41,25 @@ func TestBuildAggregatePipelines(t *testing.T) {
 		{"empty pipeline", `[]`, 0, []string{"$limit"}, []string{"$count", "$limit"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			final, count := buildAggregatePipelines(mustStages(t, test.pipeline), test.skip, pageLimit)
+			final := buildAggregatePipelines(mustStages(t, test.pipeline), test.skip, pageLimit)
 			if !equalKeys(stageNames(final), test.final) {
 				t.Errorf("page pipeline %v, want %v", stageNames(final), test.final)
-			}
-			if !equalKeys(stageNames(count), test.count) {
-				t.Errorf("count pipeline %v, want %v", stageNames(count), test.count)
 			}
 		})
 	}
 
 	// Values the builder appends.
-	final, count := buildAggregatePipelines(mustStages(t, `[{"$match":{}}]`), 7, pageLimit)
+	final := buildAggregatePipelines(mustStages(t, `[{"$match":{}}]`), 7, pageLimit)
 	if final[1][0].Value != int64(7) || final[2][0].Value != pageLimit+1 {
 		t.Errorf("appended $skip/$limit: %v", final[1:])
-	}
-	if count[len(count)-2][0].Value != "total" || count[len(count)-1][0].Value != aggregateCountCap {
-		t.Errorf("count stages: %v", count[len(count)-2:])
 	}
 }
 
 // Stage content must reach the server in the order it was written.
 func TestBuildAggregatePipelinesKeepsStageContentOrder(t *testing.T) {
-	final, count := buildAggregatePipelines(mustStages(t, `[{"$sort":{"b":-1,"a":1}}]`), 0, 10)
-	for name, pipeline := range map[string][]bson.D{"page": final, "count": count} {
-		sortSpec, ok := pipeline[0][0].Value.(bson.D)
-		if !ok || !equalKeys(keysOf(sortSpec), []string{"b", "a"}) {
-			t.Errorf("%s pipeline reordered $sort: %#v", name, pipeline[0])
-		}
+	final := buildAggregatePipelines(mustStages(t, `[{"$sort":{"b":-1,"a":1}}]`), 0, 10)
+	sortSpec, ok := final[0][0].Value.(bson.D)
+	if !ok || !equalKeys(keysOf(sortSpec), []string{"b", "a"}) {
+		t.Errorf("page pipeline reordered $sort: %#v", final[0])
 	}
 }

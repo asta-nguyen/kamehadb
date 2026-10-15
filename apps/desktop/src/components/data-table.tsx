@@ -4,7 +4,7 @@ import { useColumnResize } from '@/hooks/use-column-resize';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from 'cnfast';
 import { ArrowDown, ArrowUp, Table2 } from 'lucide-react';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -133,9 +133,10 @@ export function DataTable<T>({
     return innerRef.current;
   }, [scrollElement]);
 
-  // Window body rows when exceeding 40 rows to avoid allocating thousands of DOM nodes.
+  // Window body rows when exceeding 200 rows to avoid allocating thousands of DOM nodes.
+  // Below that the whole page renders once, so scrolling costs no React work per frame.
   // scrollMargin accounts for elements positioned above the table inside the same scroll parent. (How / Why / What)
-  const isVirtualized = rows.length > 40;
+  const isVirtualized = rows.length > 200;
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: getScrollParent,
@@ -215,64 +216,99 @@ export function DataTable<T>({
     );
   };
 
-  // Outer div fills parent flex area with rounded corners.
-  // Inner div is the scrollport so position: sticky pins headers at top: 0 reliably. (How / Why / What)
+  // Keep the pinned header aligned with the body's horizontal scroll; the header lives
+  // outside the scrollport so the vertical scrollbar spans only the body rows. (How / Why / What)
+  const headerRef = useRef<HTMLDivElement>(null);
+  const syncHeaderScroll = (scroller: HTMLDivElement) => {
+    // Only write when it changed: a no-op write on every vertical scroll event is wasted
+    // style work in the web process, which the overlay bar's fade is composited with. (Why)
+    const header = headerRef.current;
+    if (header && header.scrollLeft !== scroller.scrollLeft) header.scrollLeft = scroller.scrollLeft;
+  };
+
+  // Classic (non-overlay) scrollbars eat width from the body scrollport; pad the header
+  // by the same amount so its columns stay aligned with the rows. Overlay bars add none. (How / Why)
+  useEffect(() => {
+    const scroller = innerRef.current;
+    const header = headerRef.current;
+    if (scroller && header) {
+      header.style.paddingRight = `${scroller.offsetWidth - scroller.clientWidth}px`;
+    }
+  }, [gridTemplateColumns, rows.length]);
+
+  const headerRow = (
+    <TableHeader className="bg-muted">
+      <TableRow style={{ gridTemplateColumns }}>
+        {prefix && (
+          <TableHead className={cn(defaultHeaderClass, prefixHeaderClassName, 'sticky left-0 z-30 min-w-0 bg-muted')}>
+            {prefixHeader ?? ''}
+          </TableHead>
+        )}
+        {showIndex && <TableHead className={cn(defaultHeaderClass, 'text-right pr-2')}>#</TableHead>}
+        {columns.map((col, i) => {
+          const isSorted = sortColumn === col.id;
+          const clickable = !!col.sortable && !!onSortChange;
+          return (
+            <TableHead
+              key={col.id}
+              onClick={clickable ? () => onSortChange!(col.id) : undefined}
+              className={cn(
+                defaultHeaderClass,
+                'relative min-w-0',
+                clickable && 'cursor-pointer select-none hover:bg-muted/80',
+                isSorted && 'text-foreground',
+                col.headerClassName,
+              )}
+            >
+              <div className="flex items-center pr-2 gap-1 overflow-hidden min-w-0">
+                <span className="truncate" title={typeof col.header === 'string' ? col.header : undefined}>
+                  {col.header}
+                </span>
+                {isSorted &&
+                  (sortDirection === 'asc' ? (
+                    <ArrowUp className="shrink-0 size-3" />
+                  ) : (
+                    <ArrowDown className="shrink-0 size-3" />
+                  ))}
+              </div>
+              {useResize && <ResizeHandle index={i} header={col.header} onColResize={onColResize} />}
+            </TableHead>
+          );
+        })}
+        {suffix && (
+          <TableHead className={cn(defaultHeaderClass, suffixHeaderClassName, 'min-w-0 text-center')}>
+            {suffixHeader ?? ''}
+          </TableHead>
+        )}
+      </TableRow>
+    </TableHeader>
+  );
+
+  // Outer div fills parent flex area with rounded corners. The scrollport holds only the
+  // body rows, so the bar hangs on the body instead of spanning the pinned header. (How / Why / What)
   return (
-    <div className="w-full flex-1 min-h-0 flex flex-col rounded-md overflow-hidden">
+    <div data-slot="data-table" className="w-full flex-1 min-h-0 flex flex-col rounded-md overflow-hidden">
+      {stickyHeader && rows.length > 0 && (
+        <div
+          ref={headerRef}
+          className="shrink-0 overflow-hidden bg-muted"
+          // The header sits outside the scrollport, so a wheel over it would hit a dead
+          // strip; forward both axes to the body to keep scrolling as before. (How / Why)
+          onWheel={(e) => innerRef.current?.scrollBy(e.deltaX, e.deltaY)}
+        >
+          <Table className={cn('w-full text-xs', className)}>{headerRow}</Table>
+        </div>
+      )}
       <div
         ref={innerRef}
+        data-slot="data-table-scrollport"
+        onScroll={(e) => syncHeaderScroll(e.currentTarget)}
         className="flex-1 min-h-0 overflow-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/60 [&::-webkit-scrollbar-track]:bg-muted/30"
       >
         <Table className={cn('w-full text-xs', className)}>
           {rows.length > 0 ? (
             <>
-              <TableHeader className={cn(stickyHeader && 'sticky top-0 z-10 bg-muted/50 backdrop-blur')}>
-                <TableRow style={{ gridTemplateColumns }} className={cn(!stickyHeader && 'bg-muted')}>
-                  {prefix && (
-                    <TableHead
-                      className={cn(defaultHeaderClass, prefixHeaderClassName, 'sticky left-0 z-30 min-w-0 bg-muted')}
-                    >
-                      {prefixHeader ?? ''}
-                    </TableHead>
-                  )}
-                  {showIndex && <TableHead className={cn(defaultHeaderClass, 'text-right pr-2')}>#</TableHead>}
-                  {columns.map((col, i) => {
-                    const isSorted = sortColumn === col.id;
-                    const clickable = !!col.sortable && !!onSortChange;
-                    return (
-                      <TableHead
-                        key={col.id}
-                        onClick={clickable ? () => onSortChange!(col.id) : undefined}
-                        className={cn(
-                          defaultHeaderClass,
-                          'relative min-w-0',
-                          clickable && 'cursor-pointer select-none hover:bg-muted/80',
-                          isSorted && 'text-foreground',
-                          col.headerClassName,
-                        )}
-                      >
-                        <div className="flex items-center pr-2 gap-1 overflow-hidden min-w-0">
-                          <span className="truncate" title={typeof col.header === 'string' ? col.header : undefined}>
-                            {col.header}
-                          </span>
-                          {isSorted &&
-                            (sortDirection === 'asc' ? (
-                              <ArrowUp className="shrink-0 size-3" />
-                            ) : (
-                              <ArrowDown className="shrink-0 size-3" />
-                            ))}
-                        </div>
-                        {useResize && <ResizeHandle index={i} header={col.header} onColResize={onColResize} />}
-                      </TableHead>
-                    );
-                  })}
-                  {suffix && (
-                    <TableHead className={cn(defaultHeaderClass, suffixHeaderClassName, 'min-w-0 text-center')}>
-                      {suffixHeader ?? ''}
-                    </TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
+              {!stickyHeader && headerRow}
               <TableBody className={cn(bodyClassName)}>
                 {rows.length === 0 ? (
                   emptyMessage ? (

@@ -9,3 +9,7 @@ export function PickOpenFile(arg1, arg2) {
 export function PickSaveFile(arg1, arg2, arg3) {
   return window['go']['main']['App']['PickSaveFile'](arg1, arg2, arg3);
 }
+
+export function SaveTextFile(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveTextFile'](arg1, arg2, arg3, arg4);
+}

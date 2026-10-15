@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -65,4 +66,18 @@ func (a *App) PickOpenFile(title string, filters []FileFilter) (string, error) {
 		opts.Filters = append(opts.Filters, wailsRuntime.FileFilter{DisplayName: f.DisplayName, Pattern: f.Pattern})
 	}
 	return wailsRuntime.OpenFileDialog(a.ctx, opts)
+}
+
+// SaveTextFile writes frontend-built export content to a destination chosen in
+// the native save dialog, returning the path or "" when the user cancels.
+// WebKitGTK has no download handling, so blob downloads silently do nothing.
+func (a *App) SaveTextFile(defaultFilename, title, content string, filters []FileFilter) (string, error) {
+	path, err := a.PickSaveFile(defaultFilename, title, filters)
+	if err != nil || path == "" {
+		return "", err
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
 }

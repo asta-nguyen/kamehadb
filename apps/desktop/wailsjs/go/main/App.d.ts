@@ -5,3 +5,5 @@ import { main } from '../models';
 export function PickOpenFile(arg1: string, arg2: Array<main.FileFilter>): Promise<string>;
 
 export function PickSaveFile(arg1: string, arg2: string, arg3: Array<main.FileFilter>): Promise<string>;
+
+export function SaveTextFile(arg1: string, arg2: string, arg3: string, arg4: Array<main.FileFilter>): Promise<string>;

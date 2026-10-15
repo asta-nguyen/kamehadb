@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"embed"
-	"os"
 	"runtime/debug"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/asta-nguyen/kamehadb/internal/api"
@@ -28,15 +28,7 @@ import (
 //go:embed all:apps/desktop/dist
 var assets embed.FS
 
-func init() {
-	// Disable GTK native overlay scrollbars on Linux before any GTK window initialization.
-	// This forces WebKitGTK to use DOM-level CSS scrollbars so popups, menus, and toasts
-	// with elevated z-indexes cleanly render on top without being obscured. (How / Why / What)
-	_ = os.Setenv("GTK_OVERLAY_SCROLLING", "0")
-}
-
 func main() {
-	_ = os.Setenv("GTK_OVERLAY_SCROLLING", "0")
 	// Restrict Go heap target to 128MB and run GC at 50% growth to quickly
 	// return unused memory pages back to the OS via MADV_DONTNEED. (How / Why / What)
 	debug.SetMemoryLimit(128 * 1024 * 1024)
@@ -76,6 +68,12 @@ func main() {
 		Title:  "KamehaDB",
 		Width:  1440,
 		Height: 900,
+		Linux: &linux.Options{
+			// Wails leaves Linux webviews on software rendering because of
+			// wails#2977; CPU rasterization is what makes scrolling feel
+			// sluggish, so opt back into the accelerated path.
+			WebviewGpuPolicy: linux.WebviewGpuPolicyAlways,
+		},
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

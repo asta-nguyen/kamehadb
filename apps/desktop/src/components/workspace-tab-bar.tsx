@@ -98,7 +98,7 @@ export function WorkspaceTabBar() {
   return (
     <div className="flex h-8 shrink-0 items-center border-b border-border bg-muted/20">
       <div
-        className="flex h-full flex-1 items-center overflow-x-auto min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex h-full flex-1 items-center overflow-x-auto min-w-0"
         onDragEnd={() => {
           dragIndexRef.current = null;
           setDragOverIndex(null);

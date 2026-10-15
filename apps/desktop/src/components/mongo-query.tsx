@@ -210,7 +210,9 @@ function AggregationResult({
   page: number;
   onPageChange: (page: number) => void;
 }) {
-  const totalPages = Math.max(1, Math.ceil(result.totalCount / PAGE_LIMIT));
+  // Without a server-reported total the page count is unknowable; the footer
+  // then shows only the current page and navigation stays Prev/Next.
+  const totalPages = result.totalCount != null ? Math.max(1, Math.ceil(result.totalCount / PAGE_LIMIT)) : null;
   const columns = Array.from(new Set(result.documents.flatMap((doc) => Object.keys(doc))));
   const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(
     () =>
@@ -266,7 +268,11 @@ function AggregationResult({
         </div>
       )}
       <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-        <span>{result.totalCount} documents</span>
+        <span>
+          {result.totalCount != null
+            ? `${result.totalCount} documents`
+            : `${page * PAGE_LIMIT + result.documents.length}${result.hasMore ? '+' : ''} documents`}
+        </span>
         {result.hasMore && (
           <Badge variant="outline" className="text-xs">
             Truncated
@@ -276,25 +282,29 @@ function AggregationResult({
       <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
         <div className="text-xs text-muted-foreground">
           {result.documents.length > 0
-            ? `${page * PAGE_LIMIT + 1}–${page * PAGE_LIMIT + result.documents.length} of ${result.totalCount}`
+            ? `${page * PAGE_LIMIT + 1}–${page * PAGE_LIMIT + result.documents.length}${result.totalCount != null ? ` of ${result.totalCount}` : ''}`
             : '0 results'}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span>Page</span>
-            <Input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={page + 1}
-              onChange={(e) => {
-                const p = parseInt(e.target.value, 10);
-                if (!isNaN(p) && p >= 1) onPageChange(p - 1);
-              }}
-              className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span>of {totalPages}</span>
-          </div>
+          {totalPages != null ? (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>Page</span>
+              <Input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={page + 1}
+                onChange={(e) => {
+                  const p = parseInt(e.target.value, 10);
+                  if (!isNaN(p) && p >= 1 && p <= totalPages) onPageChange(p - 1);
+                }}
+                className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span>of {totalPages}</span>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">Page {page + 1}</span>
+          )}
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
@@ -549,7 +559,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
                 result={{
                   columns: deriveColumns(state.result.documents),
                   rows: state.result.documents,
-                  rowCount: state.result.totalCount,
+                  rowCount: state.result.totalCount ?? state.result.documents.length,
                   durationMs: state.result.durationMs,
                   truncated: state.result.hasMore,
                 }}

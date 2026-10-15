@@ -142,10 +142,13 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
       const startX = e.clientX;
       const startW = head.getBoundingClientRect().width;
       const table = row.closest('[data-slot="table"]') as HTMLElement | null;
-      const allRows = table ? Array.from(table.querySelectorAll<HTMLElement>('[data-slot="table-row"]')) : [row];
-      // The DataTable wraps the table in a div with overflow-x-auto, which is the
-      // primary scroll container for horizontal column resize scrolling.
-      const scrollContainer = table?.parentElement as HTMLElement | null;
+      // The header sits in its own table above the scrollport, so collect rows from the
+      // whole table component and auto-scroll the body scrollport, not the header. (How / Why)
+      const root = table?.closest('[data-slot="data-table"]') ?? table;
+      const allRows = root ? Array.from(root.querySelectorAll<HTMLElement>('[data-slot="table-row"]')) : [row];
+      const scrollContainer =
+        (root?.querySelector('[data-slot="data-table-scrollport"]') as HTMLElement | null) ??
+        (table?.parentElement as HTMLElement | null);
 
       dragRef.current = { idx: index, startX, startW, allRows, moved: false, finalW: startW };
       // Snapshot widths so onMove can rebuild the full template

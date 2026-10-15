@@ -4,6 +4,7 @@ package mongo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -235,10 +236,13 @@ type FindDocumentsInput struct {
 }
 
 type DocumentResult struct {
-	Documents  []map[string]any `json:"documents"`
-	TotalCount int64            `json:"totalCount"`
-	HasMore    bool             `json:"hasMore"`
-	DurationMs int64            `json:"durationMs"`
+	Documents    []map[string]any `json:"documents"`
+	TotalCount   *int64           `json:"totalCount,omitempty"`
+	CountMode    string           `json:"countMode,omitempty"`
+	HasMore      bool             `json:"hasMore"`
+	PayloadBytes int64            `json:"payloadBytes,omitempty"`
+	LimitReason  string           `json:"limitReason,omitempty"`
+	DurationMs   int64            `json:"durationMs"`
 }
 
 func sortDoc(sortMap map[string]int32) bson.D {
@@ -319,10 +323,6 @@ func (a *Adapter) FindDocuments(ctx context.Context, in FindDocumentsInput) (*Do
 		limit = maxLimit
 	}
 
-	total, err := coll.CountDocuments(ctx, queryFilter)
-	if err != nil {
-		return nil, err
-	}
 	opts := options.Find().SetSkip(in.Skip).SetLimit(limit + 1)
 	if in.Projection != nil {
 		opts.SetProjection(in.Projection)
@@ -342,27 +342,45 @@ func (a *Adapter) FindDocuments(ctx context.Context, in FindDocumentsInput) (*Do
 
 	documents := []map[string]any{}
 	hasMore := false
+	var payloadBytes int64 = 2
+	limitReason := ""
 	i := int64(0)
 	for cursor.Next(ctx) {
 		var doc bson.M
 		if err := cursor.Decode(&doc); err != nil {
 			return nil, err
 		}
-		if i < limit {
-			documents = append(documents, serializeDocument(doc))
-		} else {
-			hasMore = true
+		serialized := serializeDocument(doc)
+		encoded, err := json.Marshal(serialized)
+		if err != nil {
+			return nil, fmt.Errorf("document is not JSON-serializable: %w", err)
 		}
+		if payloadBytes+int64(len(encoded))+1 > engines.MaxPreviewResultBytes {
+			if len(documents) == 0 {
+				return nil, fmt.Errorf("first MongoDB document exceeds the %d-byte browse limit; project fewer fields or use a smaller collection", engines.MaxPreviewResultBytes)
+			}
+			hasMore = true
+			limitReason = engines.LimitReasonBytes
+			break
+		}
+		if i >= limit {
+			hasMore = true
+			break
+		}
+		documents = append(documents, serialized)
+		payloadBytes += int64(len(encoded)) + 1
 		i++
 	}
 	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
 	return &DocumentResult{
-		Documents:  documents,
-		TotalCount: total,
-		HasMore:    hasMore,
-		DurationMs: time.Since(start).Milliseconds(),
+		Documents:    documents,
+		HasMore:      hasMore,
+		PayloadBytes: payloadBytes,
+		LimitReason:  limitReason,
+		CountMode:    "unknown",
+		DurationMs:   time.Since(start).Milliseconds(),
 	}, nil
 }
 
@@ -484,8 +502,8 @@ func stageHas(stage bson.D, operator string) bool {
 // page pipeline (the stages plus the requested skip and a one-extra-row limit so
 // hasMore can be known, unless the user already set a $limit) and the count
 // pipeline (the stages without their own $skip/$limit, then a capped $count).
-func buildAggregatePipelines(stages []bson.D, skip, limit int64) (page, count []bson.D) {
-	page = append([]bson.D{}, stages...)
+func buildAggregatePipelines(stages []bson.D, skip, limit int64) []bson.D {
+	page := append([]bson.D{}, stages...)
 	if skip > 0 {
 		page = append(page, bson.D{{Key: "$skip", Value: skip}})
 	}
@@ -498,16 +516,7 @@ func buildAggregatePipelines(stages []bson.D, skip, limit int64) (page, count []
 	if !hasLimit {
 		page = append(page, bson.D{{Key: "$limit", Value: limit + 1}})
 	}
-
-	count = []bson.D{}
-	for _, stage := range stages {
-		if stageHas(stage, "$limit") || stageHas(stage, "$skip") {
-			continue
-		}
-		count = append(count, stage)
-	}
-	count = append(count, bson.D{{Key: "$count", Value: "total"}}, bson.D{{Key: "$limit", Value: aggregateCountCap}})
-	return page, count
+	return page
 }
 
 func (a *Adapter) Aggregate(ctx context.Context, in AggregateInput) (*DocumentResult, error) {
@@ -530,50 +539,52 @@ func (a *Adapter) Aggregate(ctx context.Context, in AggregateInput) (*DocumentRe
 		limit = maxLimit
 	}
 
-	final, countPipe := buildAggregatePipelines(stages, in.Skip, limit)
-	countCursor, err := coll.Aggregate(ctx, countPipe)
-	if err != nil {
-		return nil, err
-	}
-	var countDocs []bson.M
-	if err := countCursor.All(ctx, &countDocs); err != nil {
-		return nil, err
-	}
-	var total int64
-	if len(countDocs) > 0 {
-		if v, ok := countDocs[0]["total"].(int32); ok {
-			total = int64(v)
-		} else if v, ok := countDocs[0]["total"].(int64); ok {
-			total = v
-		}
-	}
-
-	cursor, err := coll.Aggregate(ctx, final)
+	cursor, err := coll.Aggregate(ctx, buildAggregatePipelines(stages, in.Skip, limit))
 	if err != nil {
 		return nil, err
 	}
 	defer cursor.Close(ctx)
 	documents := []map[string]any{}
 	hasMore := false
+	var payloadBytes int64 = 2
+	limitReason := ""
+	i := int64(0)
 	for cursor.Next(ctx) {
 		var doc bson.M
 		if err := cursor.Decode(&doc); err != nil {
 			return nil, err
 		}
-		if int64(len(documents)) < limit {
-			documents = append(documents, serializeDocument(doc))
-		} else {
-			hasMore = true
+		serialized := serializeDocument(doc)
+		encoded, err := json.Marshal(serialized)
+		if err != nil {
+			return nil, fmt.Errorf("document is not JSON-serializable: %w", err)
 		}
+		if payloadBytes+int64(len(encoded))+1 > engines.MaxPreviewResultBytes {
+			if len(documents) == 0 {
+				return nil, fmt.Errorf("first MongoDB document exceeds the %d-byte browse limit; project fewer fields or use a smaller collection", engines.MaxPreviewResultBytes)
+			}
+			hasMore = true
+			limitReason = engines.LimitReasonBytes
+			break
+		}
+		if i >= limit {
+			hasMore = true
+			break
+		}
+		documents = append(documents, serialized)
+		payloadBytes += int64(len(encoded)) + 1
+		i++
 	}
 	if err := cursor.Err(); err != nil {
 		return nil, err
 	}
 	return &DocumentResult{
-		Documents:  documents,
-		TotalCount: total,
-		HasMore:    hasMore,
-		DurationMs: time.Since(start).Milliseconds(),
+		Documents:    documents,
+		HasMore:      hasMore,
+		PayloadBytes: payloadBytes,
+		LimitReason:  limitReason,
+		CountMode:    "unknown",
+		DurationMs:   time.Since(start).Milliseconds(),
 	}, nil
 }
 
