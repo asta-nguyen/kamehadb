@@ -391,6 +391,76 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      <div className="flex items-center gap-2 mb-2 shrink-0">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={state.searchText}
+              onChange={(e) => {
+                dispatch({ type: 'setSearchText', value: e.target.value });
+                debouncedSearchFn(e.target.value);
+              }}
+              placeholder={state.searchColumn ? `Search in ${state.searchColumn}...` : 'Search all fields...'}
+              className={cn('h-7 pl-7 text-xs md:text-xs rounded-lg border-input', state.searchText ? 'pr-13' : 'pr-8')}
+            />
+            {/* Match case is a mode badge inside the field: quiet when off, tinted when on. (Why) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => dispatch({ type: 'setMatchCase', value: !state.matchCase })}
+              className={cn(
+                'absolute right-1 top-1/2 -translate-y-1/2 h-5 w-6 rounded-md border font-mono text-[11px] transition-colors',
+                state.matchCase
+                  ? 'border-primary/50 bg-primary/15 text-primary font-medium'
+                  : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+              title={state.matchCase ? 'Match case: ON (Case-sensitive)' : 'Match case: OFF (Case-insensitive)'}
+            >
+              Aa
+            </Button>
+            {state.searchText && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  dispatch({ type: 'setSearchText', value: '' });
+                  dispatch({ type: 'setQuerySearch', value: '' });
+                }}
+                className="absolute right-8 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground hover:text-foreground"
+                title="Clear search"
+              >
+                <X className="size-3" />
+              </Button>
+            )}
+          </div>
+          {/* Explicitly pass the friendly label as children to SelectValue so Base UI's
+              unmounted dropdown doesn't leak the raw __ALL__ sentinel value to the button. (How / Why / What) */}
+          <Select
+            value={state.searchColumn || '__ALL__'}
+            onValueChange={(v) => dispatch({ type: 'setSearchColumn', value: v === '__ALL__' ? '' : (v ?? '') })}
+          >
+            <SelectTrigger
+              size="sm"
+              className="h-7 min-w-[7.5rem] max-w-[12rem] text-xs gap-1.5 px-2 shrink-0 rounded-lg border-input"
+              title="Filter by column"
+            >
+              <Filter className="size-3 text-muted-foreground shrink-0" />
+              <SelectValue placeholder="All fields">{state.searchColumn || 'All fields'}</SelectValue>
+            </SelectTrigger>
+            <SelectContent side="bottom" align="start" alignItemWithTrigger={false} className="max-h-64 min-w-[9rem]">
+              <SelectItem value="__ALL__" className="text-xs py-1">
+                All fields
+              </SelectItem>
+              {displayColumns.map((col) => (
+                <SelectItem key={col.name} value={col.name} className="text-xs py-1">
+                  {col.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <ResultLimitNotice result={result} />
       {isView && (
         <div className="mb-2 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 rounded-md">
@@ -403,81 +473,11 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
         </div>
       )}
       <div className="min-h-0 flex-1 flex flex-col border border-border rounded-md overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2 shrink-0">
-          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                value={state.searchText}
-                onChange={(e) => {
-                  dispatch({ type: 'setSearchText', value: e.target.value });
-                  debouncedSearchFn(e.target.value);
-                }}
-                placeholder={state.searchColumn ? `Search in ${state.searchColumn}...` : 'Search all fields...'}
-                className="h-7 pl-7 pr-7 text-xs md:text-xs rounded-lg border-input"
-              />
-              {state.searchText && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    dispatch({ type: 'setSearchText', value: '' });
-                    dispatch({ type: 'setQuerySearch', value: '' });
-                  }}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground hover:text-foreground"
-                  title="Clear search"
-                >
-                  <X className="size-3" />
-                </Button>
-              )}
-            </div>
-            {/* Match-case toggle matches the input height (28px), border-input color, and rounded-lg radius. (Why) */}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => dispatch({ type: 'setMatchCase', value: !state.matchCase })}
-              className={cn(
-                'size-7 shrink-0 rounded-lg border font-mono text-xs transition-colors',
-                state.matchCase
-                  ? 'border-primary/50 bg-primary/15 text-primary font-medium'
-                  : 'border-input bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
-              )}
-              title={state.matchCase ? 'Match case: ON (Case-sensitive)' : 'Match case: OFF (Case-insensitive)'}
-            >
-              Aa
-            </Button>
-            {/* Explicitly pass the friendly label as children to SelectValue so Base UI's
-                unmounted dropdown doesn't leak the raw __ALL__ sentinel value to the button. (How / Why / What) */}
-            <Select
-              value={state.searchColumn || '__ALL__'}
-              onValueChange={(v) => dispatch({ type: 'setSearchColumn', value: v === '__ALL__' ? '' : (v ?? '') })}
-            >
-              <SelectTrigger
-                size="sm"
-                className="h-7 min-w-[7.5rem] max-w-[12rem] text-xs gap-1.5 px-2 shrink-0 rounded-lg border-input"
-                title="Filter by column"
-              >
-                <Filter className="size-3 text-muted-foreground shrink-0" />
-                <SelectValue placeholder="All fields">{state.searchColumn || 'All fields'}</SelectValue>
-              </SelectTrigger>
-              <SelectContent side="bottom" align="start" alignItemWithTrigger={false} className="max-h-64 min-w-[9rem]">
-                <SelectItem value="__ALL__" className="text-xs py-1">
-                  All fields
-                </SelectItem>
-                {displayColumns.map((col) => (
-                  <SelectItem key={col.name} value={col.name} className="text-xs py-1">
-                    {col.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
         <DataTable
           rows={result.rows}
           columns={tableColumns}
           rowKey={(_, i) => String(i)}
-          suffixHeader=""
+          suffixHeader="Actions"
           suffixWidth="64px"
           showIndex
           indexOffset={offset}
@@ -486,11 +486,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           sortColumn={state.sortColumn}
           sortDirection={state.sortDirection}
           suffix={(row) => (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-            >
+            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={

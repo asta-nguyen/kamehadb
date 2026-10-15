@@ -53,15 +53,17 @@ function SchemaItem({
       </Button>
       {expanded && (
         <div className="pl-2 ml-1.5 mt-0.5 border-border/60 border-l">
-          <div className="px-1.5 py-0.5">
-            {/* The per-schema filter is a sub-control of the schema row, so it drops the border and the icon. (Why) */}
-            <Input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter tables"
-              className="h-6 border-transparent bg-transparent pl-1.5 text-xs text-muted-foreground placeholder:text-muted-foreground/50"
-            />
+          <div className="px-2 py-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filter tables"
+                className="pl-6 pr-2 h-6 text-xs"
+              />
+            </div>
           </div>
           <div className="space-y-0.5">
             {isLoading ? (

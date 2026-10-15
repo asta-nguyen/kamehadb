@@ -140,7 +140,7 @@ export function DataTable<T>({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: getScrollParent,
-    estimateSize: () => 28,
+    estimateSize: () => 33,
     overscan: 10,
     scrollMargin: innerRef.current ? innerRef.current.offsetTop : 0,
     enabled: isVirtualized,
@@ -157,7 +157,7 @@ export function DataTable<T>({
       ? Math.max(0, totalSize - (virtualItems[virtualItems.length - 1].end - scrollMargin))
       : 0;
 
-  const defaultHeaderClass = 'bg-muted px-2 py-1 font-semibold text-foreground text-xs';
+  const defaultHeaderClass = 'bg-muted px-3 py-1 font-semibold text-foreground text-xs';
 
   const renderRow = (row: T, rowIndex: number, measureRef?: (el: HTMLElement | null) => void) => {
     const key = rowKey(row, rowIndex);
@@ -169,19 +169,19 @@ export function DataTable<T>({
         data-index={rowIndex}
         style={{ gridTemplateColumns }}
         className={cn(
-          'group border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors',
+          'border-b border-border/40 last:border-b-0 bg-background even:bg-muted/10 hover:bg-muted/20 transition-colors',
           onRowClick && 'cursor-pointer',
           extraClass,
         )}
         onClick={onRowClick ? (e) => onRowClick(row, rowIndex, e) : undefined}
       >
         {prefix && (
-          <TableCell className={cn('sticky left-0 z-20 px-2 py-0.5 flex items-center bg-inherit', prefixCellClassName)}>
+          <TableCell className={cn('sticky left-0 z-20 px-2 py-1 flex items-center bg-inherit', prefixCellClassName)}>
             {prefix(row, rowIndex)}
           </TableCell>
         )}
         {showIndex && (
-          <TableCell className="px-2 py-0.5 flex items-center justify-end text-muted-foreground tabular-nums select-none truncate">
+          <TableCell className="px-2 py-1 flex items-center justify-end text-muted-foreground tabular-nums select-none truncate">
             {indexOffset + rowIndex + 1}
           </TableCell>
         )}
@@ -198,7 +198,7 @@ export function DataTable<T>({
             <TableCell
               key={col.id}
               className={cn(
-                'px-2 py-0.5 flex items-center overflow-hidden min-w-0',
+                'px-2 py-1 flex items-center overflow-hidden min-w-0',
                 typeof value === 'object' && value !== null && 'overflow-visible whitespace-normal',
                 col.cellClassName,
               )}
@@ -209,7 +209,7 @@ export function DataTable<T>({
           );
         })}
         {suffix && (
-          <TableCell className={cn('px-2 py-0.5 flex items-center justify-center bg-inherit', suffixCellClassName)}>
+          <TableCell className={cn('px-2 py-1 flex items-center justify-center bg-inherit', suffixCellClassName)}>
             {suffix(row, rowIndex)}
           </TableCell>
         )}

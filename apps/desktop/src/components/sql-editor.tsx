@@ -641,14 +641,10 @@ function QueryResultTable({
           showIndex
           stickyHeader
           onRowClick={editability.canEditCells ? undefined : (row) => onSelectRow(row)}
-          suffixHeader=""
+          suffixHeader="Actions"
           suffixWidth="64px"
           suffix={(row) => (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-            >
+            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
