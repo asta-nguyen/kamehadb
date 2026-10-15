@@ -213,6 +213,19 @@
     scrollbar-color: var(--muted-foreground) transparent;
   }
 
+  /* WebKitGTK fades an overlay bar in on any pointer movement over the view, so
+     hovering the sidebar also lit up the neighbouring table's bar. These panes keep
+     a transparent bar until the pointer is actually inside them. (How / Why) */
+  [data-slot='data-table-scrollport'],
+  [data-slot='sidebar-scroll'] {
+    scrollbar-color: transparent transparent;
+  }
+
+  [data-slot='data-table-scrollport']:hover,
+  [data-slot='sidebar-scroll']:hover {
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+
   /* Popups, menus, tooltips, and no-scrollbar containers must never instantiate
      WebKitGTK native overlay scrollbar widgets that render above web content. (How / Why / What) */
   [data-slot='dropdown-menu-content'],

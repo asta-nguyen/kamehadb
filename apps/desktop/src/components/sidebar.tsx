@@ -112,7 +112,7 @@ const ConnectionItem = memo(function ConnectionItem({
             handleRowActivate();
           }
         }}
-        className={`group w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm transition-all cursor-pointer ${
+        className={`group w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-all cursor-pointer ${
           isActive ? 'bg-muted/60 shadow-sm' : 'hover:bg-muted/50'
         }`}
       >
@@ -229,7 +229,7 @@ function ConnectionGroup({
   const isPinned = kind === '_pinned';
   return (
     <div className="space-y-0.5">
-      <div className={`flex items-center gap-2 px-2 py-1.5 rounded-md ${isPinned ? 'bg-muted/50' : 'bg-muted/30'}`}>
+      <div className={`flex items-center gap-2 px-2 py-1 rounded-md ${isPinned ? 'bg-muted/50' : 'bg-muted/30'}`}>
         {isPinned ? (
           <Pin className="size-3 text-muted-foreground/60" />
         ) : (
@@ -346,13 +346,13 @@ export function Sidebar() {
       className="flex h-full bg-muted/30 border-border border-r shrink-0"
       style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
     >
-      <div className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">
+      <div data-slot="sidebar-scroll" className="flex flex-1 flex-col h-full min-w-0 overflow-x-hidden overflow-y-auto">
         <div className="flex h-8 items-center justify-between px-3 border-b border-border shrink-0">
           <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />
         </div>
 
-        <div className="flex-1 p-2 space-y-2">
+        <div className="flex-1 p-1.5 space-y-1.5">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Spinner size="md" />
@@ -366,10 +366,10 @@ export function Sidebar() {
           )}
         </div>
 
-        <div className="p-1.5 border-border border-t shrink-0">
+        <div className="p-1 border-border border-t shrink-0">
           <Button
             variant="ghost"
-            size="sm"
+            size="xs"
             onClick={() => navigateTo('api-settings')}
             className={`w-full ${view === 'api-settings' ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50 text-muted-foreground'}`}
           >
