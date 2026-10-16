@@ -22,6 +22,7 @@ type ConnProfile struct {
 	// stored password is still a saved password.
 	HasPassword      bool
 	SSL              bool
+	SSLCACert        string
 	FilePath         string
 	ConnectionString string
 }

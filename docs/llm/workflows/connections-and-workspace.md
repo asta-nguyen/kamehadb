@@ -1,6 +1,6 @@
 # Connections and Workspace
 
-Verification: [~] Confirmed content gap: the sidecar descriptions and pre-change preview-lifetime requirement below are historical baselines, not current behavior. SQL workspace ownership is implemented, but shared Mongo/Redis ownership and the requirement/narrative refresh remain unfinished; this checkpoint does not mark the page current.
+Verification: [~] Confirmed content gap: the preview-lifetime requirement below is owned by the in-progress runtime-footprint change and is not refreshed here. The connection, reload, tab, and global-search narratives were checked against current Go/Wails source and desktop hooks, but this checkpoint does not mark the page current.
 
 ## Requirements
 
@@ -25,30 +25,30 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 
 ### Business rules
 
-- Profiles are created and edited in the desktop connection dialog, tested before save when the user requests it, then listed by the sidecar.
+- Profiles are created and edited in the desktop connection dialog, tested before save when the user requests it, then listed from the Go backend.
 - The dialog supports connection URLs and structured fields. URL parsing uses shared protocol aliases; engine-specific defaults come from shared constants.
-- The sidecar persists profiles in the metadata SQLite store. If a profile has an active managed MCP account, protected fields and deletion are rejected until that account is revoked.
+- The backend persists profiles in the metadata SQLite store. Secrets (profile password, connection string, and AI provider API key) are AES-256-GCM encrypted at rest; the returned profile list omits the password value. If a profile has an active managed MCP account, protected fields and deletion are rejected until that account is revoked.
 
 ### Flow
 
 1. The connection dialog validates the selected engine fields and calls create, update, or test mutations from use-connections.
-2. The desktop API client sends the request to the sidecar /connections routes.
-3. The sidecar validates the shared profile contract, performs the relevant adapter health check for test requests, and reads or writes the metadata store for profile CRUD.
+2. The desktop API client calls the bound `ConnectionsService` methods through `apps/desktop/src/lib/api.ts`.
+3. The backend validates the shared profile contract, performs the relevant adapter health check for test requests, and reads or writes the metadata store for profile CRUD.
 4. Successful desktop mutations invalidate the saved-connection query so the sidebar reloads the profile list.
 
 ### State changes
 
-- Profile fields are stored in the metadata SQLite database. The profile list returned to the desktop omits the password value.
+- Profile fields are stored in the metadata SQLite database; secret columns hold ciphertext and are decrypted on read. The profile list returned to the desktop omits the password value.
 - Creating, editing, or deleting a profile updates the local profile row and changes the connection list after query invalidation.
 
 ### Side effects
 
 - Test requests open a database-specific health check; CRUD updates metadata SQLite.
-- Profile edits and deletion also invalidate sidecar caches that depend on that profile.
+- Profile edits and deletion also invalidate caches that depend on that profile.
 
 ### Authorization & constraints
 
-- The sidecar API is authenticated by the desktop's local API client.
+- The backend is called through Wails bindings; there is no HTTP API or sidecar port.
 - Profile validation and defaults are shared from packages/shared.
 - While an MCP managed account exists, changing protected connection identity/credentials or deleting that profile is rejected. See [Read-only MCP server](../integrations/read-only-mcp.md).
 
@@ -57,10 +57,12 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 - Invalid profile data is rejected by schema validation.
 - Failed database tests return the adapter's connection failure to the dialog.
 - A profile protected by an MCP managed account cannot be edited or deleted until that account is revoked.
+- A missing or unreadable vault key fails decryption rather than returning plaintext.
 
 ### Tests
 
-apps/sidecar/src/routes/mcp-settings.test.ts covers profile edit/delete protection while an MCP account exists. The recorded FFF test-file search for connectionsRouter found no direct connection CRUD route test.
+- `internal/store/credentials_test.go` covers secret migration, keychain/file key resolution, fail-closed decryption, and POSIX permissions; `internal/store/vault_test.go` covers record/field binding.
+- Searches for a connection CRUD route test found no direct backend profile-CRUD test.
 
 ### Related
 
@@ -72,25 +74,24 @@ apps/sidecar/src/routes/mcp-settings.test.ts covers profile edit/delete protecti
 - apps/desktop/src/components/connection-dialog.tsx
 - apps/desktop/src/hooks/use-connections.ts
 - apps/desktop/src/lib/api.ts
-- apps/sidecar/src/routes/connections.ts
-- apps/sidecar/src/db/metadata-store.ts
+- internal/api/connections.go
+- internal/store/profiles.go
+- internal/store/vault.go
 - packages/shared/src/index.ts
-- packages/shared/src/schemas.ts
-- apps/sidecar/src/routes/mcp-settings.test.ts
 
 ## Connection health and reload
 
 ### Business rules
 
-- The sidebar receives periodic health results over the sidecar's /connections/health event stream and shows connection status and latency.
+- The sidebar receives periodic health results over the backend `connections:health` Wails event and shows connection status and latency.
 - Manual **Reload connection** performs a health request for one saved profile, then invalidates caches scoped to that connection. It refetches currently mounted connection views so updated objects appear without closing and reopening the tree.
-- This action tests the database profile. It is independent from the desktop's local sidecar resume check.
+- This action tests the database profile; it is separate from app startup restoring saved state.
 
 ### Flow
 
 1. The sidebar starts the health event subscription for saved profiles.
-2. The sidecar health route probes profiles on its configured interval with bounded concurrency and emits status results.
-3. The user can request a one-profile reload from the sidebar. useRefreshConnection requests /connections/:id/health.
+2. The backend health loop probes profiles on its interval with bounded concurrency and emits status results on `connections:health`.
+3. The user can request a one-profile reload from the sidebar. useRefreshConnection calls `checkConnectionHealth`.
 4. On a returned health result, the hook updates the connection status, invalidates that profile's query keys, refetches active views, and completes the loading toast with success or failure.
 
 ### State changes
@@ -100,23 +101,23 @@ apps/sidecar/src/routes/mcp-settings.test.ts covers profile edit/delete protecti
 
 ### Side effects
 
-- Health requests open or reuse adapter-backed database checks in the sidecar.
+- Health requests open or reuse adapter-backed database checks in the backend.
 - Successful reload invalidates profile-scoped query caches. A rejected request sets the visible state to disconnected, shows an error toast, and writes a frontend log with scope use-connections.refresh.
 
 ### Authorization & constraints
 
-- Event-stream and manual health requests use the authenticated local sidecar API.
-- A status event or successful loopback sidecar health check does not itself prove every remote database is reachable.
+- Health events and manual health requests go through the Wails bindings.
+- A status event or successful local health check does not itself prove every remote database is reachable.
 
 ### Error paths
 
 - A health result with success: false sets disconnected and displays the returned message, falling back to Connection failed.
-- If the reload HTTP request rejects, the hook shows a toast using the safe error message and logs Connection reload failed: <message>.
-- The frontend log identifies the rejected reload operation; by itself it does not identify whether the sidecar request, local network, or database caused the failure.
+- If the reload request rejects, the hook shows a toast using the safe error message and logs Connection reload failed: <message>.
+- The frontend log identifies the rejected reload operation; by itself it does not identify whether the backend call, local network, or database caused the failure.
 
 ### Tests
 
-The recorded FFF test-file search for useRefreshConnection, checkConnectionHealth, and connection health event terms returned no direct reload-hook test.
+Searches for useRefreshConnection, checkConnectionHealth, and connection health event terms found no direct reload-hook test.
 
 ### Related
 
@@ -128,14 +129,14 @@ The recorded FFF test-file search for useRefreshConnection, checkConnectionHealt
 - apps/desktop/src/hooks/use-connections.ts
 - apps/desktop/src/lib/api.ts
 - apps/desktop/src/lib/app-logs.ts
-- apps/sidecar/src/routes/connections.ts
+- internal/api/connections.go
 
 ## Workspace tabs, pins, and navigation
 
 ### Business rules
 
 - Workspace tabs are keyed by tab IDs. Opening an existing tab updates its stored fields and activates it; opening a new tab appends it and makes it active.
-- Tab records use a discriminated type for SQL, schema, stats, MongoDB, Redis, Qdrant, vector, TigerBeetle, terminal, and maintenance views.
+- Tab records use a discriminated type for SQL query, schema graph, schema timeline, schema diff, migration, database stats, MongoDB, Redis, Mongo shell, Postgres psql, and federated query views.
 - The desktop persists opened tabs, active tab, and pinned profiles in browser localStorage-backed app state.
 
 ### Flow
@@ -152,11 +153,11 @@ The recorded FFF test-file search for useRefreshConnection, checkConnectionHealt
 ### Side effects
 
 - Opening or selecting a tab changes the active workspace content.
-- Closing a Mongo shell tab also requests cleanup of its sidecar shell session.
+- Unmounting a Mongo shell tab stops its backend PTY session through the terminal-session hook.
 
 ### Authorization & constraints
 
-- Workspace tabs are local UI state. They do not grant database access; each view still calls the sidecar using the saved connection profile.
+- Workspace tabs are local UI state. They do not grant database access; each view still calls the backend using the saved connection profile.
 - A restored tab can be selected before its remote database is reachable; data loading then follows the view's query state.
 
 ### Error paths
@@ -165,7 +166,8 @@ The recorded FFF test-file search for useRefreshConnection, checkConnectionHealt
 
 ### Tests
 
-The recorded FFF test-file search for openTab, workspace tab persistence, and pin state in test/spec files returned no matching feature test.
+- `apps/desktop/src/store/workspace-tabs.test.ts` covers the open/close/reorder tab-state helpers.
+- Searches for workspace tab persistence and pin state found no separate persistence test.
 
 ### Related
 
@@ -174,10 +176,11 @@ The recorded FFF test-file search for openTab, workspace tab persistence, and pi
 
 ### Sources
 
-- apps/desktop/src/store/state.ts
 - apps/desktop/src/store/workspace-tabs.ts
+- apps/desktop/src/store/state.ts
 - apps/desktop/src/store/ui-preferences.ts
 - apps/desktop/src/components/workspace-content.tsx
+- apps/desktop/src/hooks/use-terminal-session.ts
 - apps/desktop/src/App.tsx
 
 ## Global search
@@ -191,7 +194,7 @@ The recorded FFF test-file search for openTab, workspace tab persistence, and pi
 
 1. Typing updates the command dialog query.
 2. A prior debounce timer and in-flight schema request are canceled before a new search is scheduled.
-3. The desktop requests /sql/:id/schema/search for each SQL profile in parallel.
+3. The desktop calls `searchSchema` for each SQL profile in parallel.
 4. Selecting a schema result opens the corresponding table view; selecting a connection or action changes workspace state or opens the related view.
 
 ### State changes
@@ -200,13 +203,13 @@ The recorded FFF test-file search for openTab, workspace tab persistence, and pi
 
 ### Side effects
 
-- Schema searches issue authenticated fetches to the local sidecar.
+- Schema searches issue bound backend calls.
 - Stale fetches are aborted. Network and abort errors are skipped without a user-facing error in this component.
 
 ### Authorization & constraints
 
 - Only profiles recognized by isSqlKind receive schema-search requests.
-- The server route may report NOT_SUPPORTED; the dialog records that profile as unsupported.
+- The backend may report the profile as unsupported; the dialog records that profile as unsupported.
 
 ### Error paths
 
@@ -215,7 +218,7 @@ The recorded FFF test-file search for openTab, workspace tab persistence, and pi
 
 ### Tests
 
-The recorded FFF test-file search for GlobalSearch in test/spec files returned no matching component test.
+Searches for GlobalSearch in test/spec files returned no matching component test.
 
 ### Related
 
@@ -226,4 +229,4 @@ The recorded FFF test-file search for GlobalSearch in test/spec files returned n
 - apps/desktop/src/components/global-search.tsx
 - apps/desktop/src/components/ui/command.tsx
 - apps/desktop/src/hooks/use-connections.ts
-- apps/sidecar/src/routes/sql-schema.ts
+- apps/desktop/src/lib/api.ts

@@ -11,9 +11,9 @@
 ## Features
 
 - **10 engines, one app** — SQL, document, and cache systems side by side: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis
-- **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine. No hosted proxy, no telemetry
+- **Local-first** — All metadata stored locally in a SQLite database; no hosted proxy, no telemetry. Remote AI providers receive your conversation and the relevant schema context directly from the app; local Ollama stays on-device
 - **Small and fast** — single Go binary with an embedded backend; no sidecar process, no Node runtime, fast builds
-- **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, and Redis commands. Streaming responses with stop/cancel
+- **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router, DeepSeek, Gemini) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, and Redis commands. Generated SQL is shown for review and never executed by the chat flow. Streaming responses with stop/cancel
 - **Read-only MCP server** — let Codex, Claude Code, Devin CLI, and OpenCode inspect schemas and run read-only SQL/Mongo queries against opt-in connections over a local `127.0.0.1` endpoint secured with a bearer token
 - **Schema timeline + diff + migration assistant** — capture on-demand snapshots, compare schemas side by side with per-table change cards (columns, indexes), and auto-generate DDL to migrate from one state to the next
 - **Global search (Ctrl+K)** — fuzzy search across connections, tables, columns, open tabs, and quick actions across every connected engine
@@ -46,12 +46,14 @@ Then open the desktop app, create a new connection pointing at `localhost`, and 
 
 Configure AI providers in the app settings (API Settings page):
 
-| Provider       | Default Model | Notes                                    |
-| -------------- | ------------- | ---------------------------------------- |
-| Ollama (local) | `llama3.2`    | Uses `http://localhost:11434` by default |
-| Ollama (cloud) | —             | Requires base URL and API key            |
-| OpenAI         | `gpt-4o`      | Requires API key                         |
-| 9Router        | Any model     | Requires base URL and API key            |
+| Provider       | Default Model   | Notes                                    |
+| -------------- | --------------- | ---------------------------------------- |
+| Ollama (local) | `llama3.2`      | Uses `http://localhost:11434` by default |
+| Ollama (cloud) | —               | Requires base URL and API key            |
+| OpenAI         | `gpt-4o`        | Requires API key                         |
+| 9Router        | Any model       | Requires base URL and API key            |
+| DeepSeek       | `deepseek-chat` | Requires API key                         |
+| Gemini         | —               | Requires API key                         |
 
 ### Read-only MCP setup
 
@@ -64,8 +66,8 @@ selected database.
    and grant read access on its selected database.
 2. Open **API Settings → MCP Server** and choose **Create read-only account**.
    KamehaDB grants only read access on that database and stores the generated
-   credential encrypted in its local SQLite metadata store, using an app-managed
-   key file. This works across macOS, Windows, and Linux. Existing accounts
+   credential encrypted in its local SQLite metadata store, with the vault key in
+   the OS keychain and an owner-only key file as a fallback. Existing accounts
    created by older Keychain-backed versions must be revoked and recreated.
    SQLite keeps its existing read-only file connection and does not need a
    database account.
@@ -193,11 +195,8 @@ wails build -platform windows/amd64      # Windows .exe
 - [x] Production safety mode — prevent accidental writes to production
 - [x] PostgreSQL backup & restore
 - [x] PostgreSQL embedded PSQL tool
-
-### In Progress
-
-- [ ] Schema change timeline — capture on-demand snapshots, see what changed, and auto-generate DDL to migrate between states
-- [ ] Migration assistant
+- [x] Schema change timeline — capture on-demand snapshots, see what changed, and auto-generate DDL to migrate between states
+- [x] Migration assistant
 
 ### Future Ideas
 

@@ -1,69 +1,44 @@
 ---
 name: using-devkit
-description: Use when starting work in a repository with agent-devkit installed, including features, bug fixes, reviews, documentation, estimates, or unfamiliar requests.
+description: Use when starting work in a repository with agent-devkit installed, or when a request does not clearly map to a workflow skill.
 ---
 
 # Using Devkit
 
-Choose the owning workflow skill and follow its full instructions.
-
-## Priority
-
-Read context before changing files: run `read-codebase-context`, or
-`setup-codebase` on a first visit.
+Choose the owning workflow skill and follow its instructions. Read context
+first: `read-codebase-context`, or `setup-codebase` on a first visit.
 
 ## Shared rules
 
-- New process artifacts under `docs/agent-devkit/` use
-  `YYYY-MM-DD-<issue-id>-<slug>` before any type suffix when the task or a
-  related artifact (including its filename) provides an issue ID. Otherwise
-  keep the existing form. Never infer an ID or rename an artifact.
-- A change with process files keeps them in one folder,
-  `docs/agent-devkit/changes/YYYY-MM-DD-<issue-id>-<slug>/`, under the same
-  naming rule. Keep the folder together; see the change lifecycle.
-- For internal document links, use standard relative Markdown links
-  (`[label](relative/path.md)`), resolved from the file containing the link.
-  No Obsidian vault or app is required.
-- When editing any document that contains legacy `[[...]]` links, convert
-  every resolvable link in that document to relative Markdown and verify it.
-  Resolve legacy targets using the owning workflow's existing target-root rule;
-  read the exact target before converting and do not guess among duplicates. If
-  `docs/llm/` contains legacy wikilinks during wiki work, migrate every
-  resolvable internal link across the wiki in the `document-wiki` pass. If the
-  task cannot include that full migration, route wiki work through
-  `document-wiki`; do not report it complete while links remain mixed. Report
-  missing or ambiguous targets instead of inventing them.
-- Process artifacts stay under `docs/agent-devkit/`: never put them in
-  `docs/llm/` or link to them from `docs/llm/`.
+- Name a new process artifact `YYYY-MM-DD-<issue-id>-<slug>` (before any type
+  suffix) only when the task or a related artifact, including its filename,
+  gives an issue ID; never infer one or rename an artifact.
+- Link internally with relative Markdown links; convert legacy `[[...]]` links
+  in any document you edit and report unresolvable targets.
+- Never put process artifacts in or link them from `docs/llm/`.
+- Commit/push only on explicit request, after a final `review-and-verify`
+  pass. One branch/PR per task; no locks or coordination tools. For conflicts in `docs/agent-devkit/INDEX.md` or `docs/llm/INDEX.md`,
+  preserve every task link and verify targets.
+- Working-tree changes are user-owned: "clean up" never authorizes `git reset
+--hard`, `git clean`, `git stash`, or deletes, even after a backup. Ask first.
 
-## Handoff and next step
+## Handoffs and stops
 
-- When a skill hands off to another skill, call it directly; the user never has
-  to retype a skill name. Stop only for an approval gate, a user question, an
-  action only the user can perform (such as a client restart), or a stalled
-  fix loop (see `implement-task`).
-- Each route has one approval: the chat design for Bounded work, or
-  `design.md` + `tasks.md` (+ `delta.md`) together for Architectural work. That
-  approval authorizes implementation through final review. Ask again only when
-  scope, observable behavior, an interface, a schema, or risk changes
-  materially; an instruction given before the approved files existed never
-  counts as approval.
-- Distinguish two kinds of handoff. A **route handoff** advances the work
-  (design → plan → implement → review). A **repair handoff** fixes an artifact
-  another skill needs (for example, `estimate-feature` calling `plan-feature`
-  for missing task detail); the repairing skill returns to its caller and
-  never starts a route handoff.
-- Respect the user's stopping point. When the request is limited ("estimate
-  only", "plan only", "do not implement yet"), stop at that point and end with
-  the `Next:` block; never call `implement-task` without a request to
-  implement.
-- The user-facing flow is **understand the task → implement → review and
-  finish**. Implementation includes checks and affected documentation;
-  delta merge, validation, archive, and relinking are internal work, not extra
-  approvals. Call `document-wiki`'s Task updates procedure automatically when
-  an existing wiki needs an in-scope update. Missing required task coverage or
-  stale content blocks completion. Without `docs/llm/`, skip wiki updates;
-  wiki setup remains a separate request.
+- Call the next skill directly. Stop only for approval, user question/action,
+  or a stalled fix loop. Route handoffs advance; repair handoffs return to caller.
+- Each route has one approval: Bounded chat design or Architectural
+  `design.md` + `tasks.md` (+ `delta.md`). It authorizes implementation through
+  review; ask again only for a material change to scope, behavior, interface,
+  schema, or risk. An instruction before the approved files existed is not
+  approval.
+- Stop where the user limited the request ("plan only"); never call
+  `implement-task` without a request to implement.
+- **Baseline:** before the first source edit, run existing relevant checks and
+  record failures. If none, note it; no baseline-only test/runner.
+  Implementation includes documentation: call
+  `document-wiki`'s `## Task updates` when an existing wiki needs an in-scope
+  update; stale or missing coverage blocks completion. Merge, archive, and
+  relinking need no extra approval.
 - Every turn that ends a skill, stops for the user, or hands off ends with:
 
   ```text
@@ -72,95 +47,56 @@ Read context before changing files: run `read-codebase-context`, or
   Done when: <observable result that completes the next step>
   ```
 
-  `review-and-verify` keeps its own result format, whose first three lines
-  carry the same information.
+  `review-and-verify` keeps its own result block; its first three lines match.
 
 ## Change lifecycle
 
-`Approval Gate` records approval, not completion, for a change's `tasks.md`.
-Each task's `Progress: todo | done` records progress; `implement-task` sets
-`done` with its `Result:` only after the task's `Verify` check passes.
-A change whose folder sits directly under `changes/` is open: revise its files
-in place, and apply material changes through `tasks.md`'s decision log and
-approval gate. `review-and-verify` moves the folder to
-`changes/archive/<same name>/` only after final review passes. `document-wiki`
-merges any verified `delta.md` during implementation, before final review;
-archive only moves and relinks the folder. That verified move marks the change
-complete. Change folders have no `Execution`
-field and are never renamed.
+`docs/agent-devkit/changes/<name>/` exists only with a process file
+(`design.md`, `tasks.md`, `delta.md`, `estimate.md`, `decisions.md`, or
+`handoff.md`); Architectural changes need `design.md` and `tasks.md`. On
+creation (Architectural: on joint approval), link it under `## Changes` in
+`docs/agent-devkit/INDEX.md`, adding the heading if missing.
 
-Legacy plans in `docs/agent-devkit/plans/` keep their `Execution` lifecycle:
-after all tasks pass final `review-and-verify`, that skill marks
-`Execution: complete` in the plan's `## Approval Gate`, or adds `## Completion`
-when the plan has no such section. Treat completed task results or an explicit
-spec completion statement as historical scope; inspect remaining tasks and
-final verification evidence before reusing the plan. Do not infer completion
-from `Status: approved` or from every task being `done`.
-
-For new work, classify with `brainstorm-feature`: a change gets a folder when it
-produces a change file. An Architectural change always has `design.md` and
-`tasks.md`; write `delta.md` only when a `docs/llm/` requirement needs `ADDED`,
-`MODIFIED`, or `REMOVED`. A domain with no wiki page gets no delta and is
-documented automatically within the task through `document-wiki` when the wiki
-exists. After a change is archived, start a new change.
-Keep archived changes, completed legacy plans, and legacy specs as history:
-correct factual errors when needed, but do not add requirements, tasks, or
-results to them. A delta only targets a page already in the `## Requirements`
-format; convert a legacy `## Business rules` page through `document-wiki`
-before the delta names its IDs. The task's explicitly identified affected
-page is its selection; standalone wiki work keeps its own selection gate.
-
-## Team Git workflow
-
-Use one branch/PR per task; worktrees are optional. Keep repository and user
-commit/push approval rules. When resolving conflicts in
-`docs/agent-devkit/INDEX.md` or `docs/llm/INDEX.md`, preserve every task link
-and verify all targets. Do not add locks or coordination tools.
+- **Open:** edit in place; `tasks.md`'s `## Approval Gate` records approval,
+  not completion. Material changes reopen it.
+- **Complete:** after final review passes, `review-and-verify` moves the folder to
+  `changes/archive/<same name>/` and relinks under `## Archived changes`.
+- **Cancelled:** needs the user's reason (ask if missing). Move the folder to
+  `changes/cancelled/<same name>/` via `review-and-verify`'s move-and-relink
+  step (links only), listing it under `## Cancelled changes` with the reason.
+  Not completion: never archive, mark tasks done, or discard code/Git changes.
+  No folder: create none; say so.
+- Archived and cancelled folders are history: add no requirements, tasks, or
+  results; follow-up starts a new change.
+- **Delta:** create only for an existing wiki requirement needing
+  `ADDED`/`MODIFIED`/`REMOVED`; not for a domain with no page, missing wiki,
+  or restored behavior. Target `## Requirements` pages; convert a legacy
+  `## Business rules` page with `document-wiki` first.
+- Older plans, specs, decision files, and `Required`/`Execution` gates are
+  legacy: see `references/legacy.md`.
 
 ## Task flows
 
-Classify the task, state the class so the user can override it, then follow
-its row. When in doubt, take the heavier row; hidden complexity found later
-moves the task up a row, never down.
+Classify the task, state the class (the user may override), then follow its
+row. When in doubt take the heavier row; hidden complexity moves up, never down.
 
-| Task                                                   | Flow                                                                                                | Owning skills                                                                  |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Spike or bug question ("can we…?", "is this a bug?")   | Investigate → report a recommendation or evidence; no production code                               | `brainstorm-feature` (Spike), `systematic-debugging` (bug question)            |
-| Clear, small change (all four conditions below)        | Context + impact check → code → check → review                                                      | `brainstorm-feature` → `implement-task` → `review-and-verify`                  |
-| Bounded feature (any other change to an existing flow) | Settle open behavior decisions → agree a short solution in chat → approve → code → check → review   | `brainstorm-feature` → `implement-task` → `review-and-verify`                  |
-| Bounded bug                                            | Reproduce → trace root cause → check fails → fix → check passes → review                            | `systematic-debugging` → `review-and-verify`                                   |
-| Architectural feature or bug                           | Clarify → write `design.md` + `tasks.md` → **one joint approval** → code → check each task → review | `brainstorm-feature` → `plan-feature` → `implement-task` → `review-and-verify` |
+| Task                                                   | Flow and owning skills                                                                                                                                      |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Spike or bug question ("can we…?", "is this a bug?")   | Investigate → report evidence; no production code: `brainstorm-feature` (Spike), `systematic-debugging` (bug question)                                      |
+| Clear, small change (conditions below)                 | Impact check → code → review: `brainstorm-feature` → `implement-task` → `review-and-verify`                                                                 |
+| Bounded feature (any other change to an existing flow) | Settle decisions → chat design → approve → code → review: `brainstorm-feature` → `implement-task` → `review-and-verify`                                     |
+| Bounded bug                                            | Reproduce → root cause → failing check → fix → passing check → review: `systematic-debugging` → `review-and-verify`                                         |
+| Architectural feature or bug                           | Clarify → `design.md` + `tasks.md` → **one joint approval** → code → review: `brainstorm-feature` → `plan-feature` → `implement-task` → `review-and-verify` |
 
-- A clear, small change must meet all four: the user stated the exact change
-  and an unambiguous result; the impact check keeps every caller, test,
-  config, and wiki page inside that scope; it touches no public API, schema,
-  dependency, CI, security boundary, or data-loss risk; and it is not a bug.
-  `brainstorm-feature` confirms them; if any fails, use the Bounded feature
-  row.
-- `design.md` explains the solution and behavior; `tasks.md` is the plan, with
-  the steps, verification, and progress. There is no separate plan file.
-- A bounded bug changes no shared interface, contract, or component boundary.
-  When a bug's class is unclear, start with `systematic-debugging`; it moves
-  architectural bugs to the Architectural row.
-- Implementation updates affected wiki behavior automatically when the wiki
-  exists. A passing review checks code and documentation, then archives the
-  change and verifies rewritten links. The user commits.
+- A clear, small change meets all four: the user named the exact change and file
+  or symbol with an unambiguous result; the impact check keeps every caller,
+  test, config, and wiki page in scope; it touches no public API, schema,
+  dependency, CI, security boundary, or data-loss risk; it is not a bug.
+  `brainstorm-feature` confirms; if any fails, use the Bounded feature row.
+- A bounded bug changes no shared interface, contract, or component boundary;
+  when its class is unclear, start with `systematic-debugging`, which moves
+  architectural bugs up.
 
-Other routes:
-
-| Need                                                      | Skill                                  |
-| --------------------------------------------------------- | -------------------------------------- |
-| First visit or missing repository conventions             | `setup-codebase`                       |
-| Set up or refresh OpenEZ when needed and approved         | `setup-openez`                         |
-| Understand affected code and callers                      | `read-codebase-context`                |
-| Revise an open change's `tasks.md` or an open legacy plan | `plan-feature`                         |
-| Revise an open Bounded change's `delta.md`                | `brainstorm-feature`                   |
-| Resume an approved design, tasks, or legacy plan          | `implement-task` → `review-and-verify` |
-| Per-task AI estimate, when requested                      | `estimate-feature`                     |
-| Pause or resume unfinished work                           | `context-handoff`                      |
-| Create or refresh the LLM wiki                            | `document-wiki`                        |
-| Whole-repository simplicity audit                         | `lean-audit`                           |
-
-This skill routes only and requires the full devkit skill set. In namespaced
-hosts use entries such as `agent-devkit:review-and-verify`; direct installs use
-the bare skill name.
+Other routes: `plan-feature` revises an open `tasks.md` or legacy plan (also for
+a material decision mid-implementation); `brainstorm-feature` revises
+an open Bounded `delta.md`; `implement-task` resumes an approved change.

@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -84,6 +85,15 @@ type Adapter struct {
 
 func New(cp engines.ConnProfile) (*Adapter, error) { return newAdapter(cp, 0) }
 
+// pgTLSConfig is the single verified TLS configuration for every PostgreSQL
+// client. rootCAs is nil in production (system roots); tests pass a pool to
+// exercise chain and host-name verification. ServerName is set explicitly
+// because callers replace pgx's parsed TLSConfig, which otherwise loses the
+// host pgx derived from the connection string. (How / Why)
+func pgTLSConfig(host string, rootCAs *x509.CertPool) *tls.Config {
+	return &tls.Config{ServerName: host, RootCAs: rootCAs}
+}
+
 // NewNotifyConn opens a dedicated pgx.Conn for the schema watcher's
 // LISTEN loop — like the sidecar's pg.Client, it lives outside the pool.
 func NewNotifyConn(ctx context.Context, cp engines.ConnProfile) (*pgx.Conn, error) {
@@ -106,7 +116,11 @@ func NewNotifyConn(ctx context.Context, cp engines.ConnProfile) (*pgx.Conn, erro
 	cfg.Password = cp.Password
 	cfg.ConnectTimeout = connectTimeout
 	if cp.SSL {
-		cfg.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+		// An explicit SSL profile must not silently downgrade to plaintext if
+		// certificate verification fails, so drop pgx's sslmode=prefer
+		// fallback. (Why)
+		cfg.TLSConfig = pgTLSConfig(host, nil)
+		cfg.Fallbacks = nil
 	}
 	return pgx.ConnectConfig(ctx, cfg)
 }
@@ -146,7 +160,9 @@ func newAdapter(cp engines.ConnProfile, timeoutMs int64) (*Adapter, error) {
 	cfg.ConnConfig.Password = cp.Password
 	cfg.ConnConfig.ConnectTimeout = connectTimeout
 	if cp.SSL {
-		cfg.ConnConfig.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+		// Verified TLS with no plaintext fallback for explicit SSL profiles. (Why)
+		cfg.ConnConfig.TLSConfig = pgTLSConfig(host, nil)
+		cfg.ConnConfig.Fallbacks = nil
 	}
 	cfg.MaxConns = maxConns
 	cfg.MaxConnIdleTime = idleTimeout
@@ -826,7 +842,8 @@ func TestPostgresConnection(ctx context.Context, cp engines.ConnProfile) (*engin
 	cfg.Password = cp.Password
 	cfg.ConnectTimeout = testConnectTimeout
 	if cp.SSL {
-		cfg.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+		cfg.TLSConfig = pgTLSConfig(cfg.Host, nil)
+		cfg.Fallbacks = nil
 	}
 	conn, err := pgx.ConnectConfig(ctx, cfg)
 	if err != nil {

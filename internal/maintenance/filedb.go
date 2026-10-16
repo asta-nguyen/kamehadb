@@ -5,7 +5,6 @@ package maintenance
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -71,6 +70,17 @@ func relatedSuffixes(kind string) []string {
 	return duckdbRelatedSuffixes
 }
 
+// renameFile is the promotion primitive. Tests swap it to inject a
+// mid-promotion failure without changing production behavior. (Why)
+var renameFile = os.Rename
+
+// stagedFile pairs a temporary file holding new content with the final target
+// it will be promoted onto.
+type stagedFile struct {
+	staged string
+	target string
+}
+
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
@@ -93,31 +103,107 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// copyRelatedFiles copies each existing sidecar file (src+suffix) next to the
-// target and returns the copied target paths.
-func copyRelatedFiles(sourcePath, targetPath string, suffixes []string) ([]string, error) {
-	var copied []string
+// stageCopy copies src into a temporary sibling of target and returns the
+// temporary path. The target stays untouched until promotion, so a copy
+// failure never truncates or deletes the existing file. (How / Why)
+func stageCopy(src, target string) (string, error) {
+	dir := filepath.Dir(target)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	f, err := os.CreateTemp(dir, filepath.Base(target)+".kamehadb-stage-*")
+	if err != nil {
+		return "", err
+	}
+	tmp := f.Name()
+	f.Close()
+	if err := copyFile(src, tmp); err != nil {
+		os.Remove(tmp)
+		return "", err
+	}
+	return tmp, nil
+}
+
+// stageFileSet stages the main file plus every existing sidecar next to the
+// target and returns the staged set and the final sidecar paths. Nothing at the
+// destination changes until the caller promotes the set. (What / Why)
+func stageFileSet(sourcePath, targetPath string, suffixes []string) ([]stagedFile, []string, error) {
+	mainStaged, err := stageCopy(sourcePath, targetPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	files := []stagedFile{{staged: mainStaged, target: targetPath}}
+	var related []string
 	for _, suffix := range suffixes {
 		src := sourcePath + suffix
 		if !fileExists(src) {
 			continue
 		}
 		dst := targetPath + suffix
-		if err := copyFile(src, dst); err != nil {
-			return nil, err
+		staged, err := stageCopy(src, dst)
+		if err != nil {
+			cleanupStaged(files)
+			return nil, nil, err
 		}
-		copied = append(copied, dst)
+		files = append(files, stagedFile{staged: staged, target: dst})
+		related = append(related, dst)
 	}
-	return copied, nil
+	return files, related, nil
 }
 
-// removeRelatedFiles is `rm(..., { force: true })` — a missing file is not an
-// error, but real failures (permissions) are.
-func removeRelatedFiles(targetPath string, suffixes []string) error {
-	for _, suffix := range suffixes {
-		if err := os.Remove(targetPath + suffix); err != nil && !errors.Is(err, os.ErrNotExist) {
+func cleanupStaged(files []stagedFile) {
+	for _, f := range files {
+		os.Remove(f.staged)
+	}
+}
+
+// replaceFileSet promotes every staged file onto its target, moving each
+// existing target aside first so a reported promotion error restores the
+// previous set. Sidecars cannot be swapped as one filesystem operation, so the
+// guarantee is rollback on a reported rename error, not recovery from power
+// loss mid-swap. removeAfter lists stale targets (sidecars the backup does not
+// carry) deleted only after a fully successful promotion. (What / How / Why)
+func replaceFileSet(files []stagedFile, removeAfter []string) error {
+	type backup struct{ target, saved string }
+	var backups []backup
+	restore := func() {
+		for _, b := range backups {
+			_ = renameFile(b.saved, b.target)
+		}
+	}
+
+	for _, f := range files {
+		if !fileExists(f.target) {
+			continue
+		}
+		saved := f.target + ".kamehadb-backup"
+		_ = os.Remove(saved)
+		if err := renameFile(f.target, saved); err != nil {
+			restore()
+			cleanupStaged(files)
 			return err
 		}
+		backups = append(backups, backup{target: f.target, saved: saved})
+	}
+
+	promoted := 0
+	for _, f := range files {
+		if err := renameFile(f.staged, f.target); err != nil {
+			for i := 0; i < promoted; i++ {
+				os.Remove(files[i].target)
+			}
+			restore()
+			cleanupStaged(files[promoted:])
+			return err
+		}
+		promoted++
+	}
+
+	for _, b := range backups {
+		os.Remove(b.saved)
+	}
+	for _, target := range removeAfter {
+		os.Remove(target)
 	}
 	return nil
 }
@@ -137,16 +223,20 @@ func escapeSQLiteLiteral(value string) string {
 
 // backupSQLiteDatabase uses VACUUM INTO to produce a consistent single-file
 // snapshot even when the source is in WAL mode, avoiding shipping log files.
+// The snapshot lands in a temporary sibling and is promoted only on success.
 func backupSQLiteDatabase(sourcePath, outputPath string) (*MaintenanceResult, error) {
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return nil, err
 	}
-	if err := os.Remove(outputPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+	// VACUUM INTO refuses to overwrite an existing file, so reserve then drop a
+	// unique name for the snapshot. (Why)
+	f, err := os.CreateTemp(filepath.Dir(outputPath), filepath.Base(outputPath)+".kamehadb-stage-*")
+	if err != nil {
 		return nil, err
 	}
-	if err := removeRelatedFiles(outputPath, sqliteRelatedSuffixes); err != nil {
-		return nil, err
-	}
+	staged := f.Name()
+	f.Close()
+	os.Remove(staged)
 
 	db, err := sql.Open("sqlite", "file:"+sourcePath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
@@ -154,7 +244,11 @@ func backupSQLiteDatabase(sourcePath, outputPath string) (*MaintenanceResult, er
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	if _, err := db.Exec(fmt.Sprintf("VACUUM INTO '%s'", escapeSQLiteLiteral(outputPath))); err != nil {
+	if _, err := db.Exec(fmt.Sprintf("VACUUM INTO '%s'", escapeSQLiteLiteral(staged))); err != nil {
+		os.Remove(staged)
+		return nil, err
+	}
+	if err := replaceFileSet([]stagedFile{{staged: staged, target: outputPath}}, nil); err != nil {
 		return nil, err
 	}
 	return &MaintenanceResult{Path: outputPath, RelatedPaths: []string{}}, nil
@@ -164,14 +258,14 @@ func backupByCopy(kind, filePath, outputPath string) (*MaintenanceResult, error)
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return nil, err
 	}
-	if err := copyFile(filePath, outputPath); err != nil {
-		return nil, err
-	}
-	copied, err := copyRelatedFiles(filePath, outputPath, relatedSuffixes(kind))
+	files, related, err := stageFileSet(filePath, outputPath, relatedSuffixes(kind))
 	if err != nil {
 		return nil, err
 	}
-	return &MaintenanceResult{Path: outputPath, RelatedPaths: copied}, nil
+	if err := replaceFileSet(files, nil); err != nil {
+		return nil, err
+	}
+	return &MaintenanceResult{Path: outputPath, RelatedPaths: related}, nil
 }
 
 // BackupFileDatabase mirrors backupFileDatabase.
@@ -205,20 +299,22 @@ func RestoreFileDatabase(kind, filePath, inputPath string) (*MaintenanceResult, 
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 		return nil, err
 	}
-	if err := copyFile(inputPath, filePath); err != nil {
-		return nil, err
-	}
 	suffixes := relatedSuffixes(kind)
-	copied, err := copyRelatedFiles(inputPath, filePath, suffixes)
+	files, related, err := stageFileSet(inputPath, filePath, suffixes)
 	if err != nil {
 		return nil, err
 	}
-	// No sidecar files came with the backup — drop stale leftovers so the
-	// restored DB doesn't replay an old WAL.
-	if len(copied) == 0 {
-		if err := removeRelatedFiles(filePath, suffixes); err != nil {
-			return nil, err
+	// Sidecars the backup does not include are stale leftovers; remove them
+	// only after a successful promotion so the restored DB cannot replay an
+	// old WAL. (Why)
+	var stale []string
+	for _, suffix := range suffixes {
+		if !fileExists(inputPath + suffix) {
+			stale = append(stale, filePath+suffix)
 		}
 	}
-	return &MaintenanceResult{Path: filePath, RelatedPaths: copied}, nil
+	if err := replaceFileSet(files, stale); err != nil {
+		return nil, err
+	}
+	return &MaintenanceResult{Path: filePath, RelatedPaths: related}, nil
 }

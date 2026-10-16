@@ -21,6 +21,10 @@ import (
 type Store struct {
 	db   *sql.DB
 	path string
+	// secretsEncrypted tracks the credential-storage migration marker: false
+	// means stored secrets are still plaintext and accessors pass them through
+	// unchanged. (Why)
+	secretsEncrypted bool
 }
 
 // DB exposes the raw handle for entity accessors in this package.
@@ -68,9 +72,11 @@ func Open(path string) (*Store, error) {
 		}
 		path = filepath.Join(dir, "kamehadb.db")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
+	restrictMetadataPerms(dir)
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
@@ -85,7 +91,30 @@ func Open(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
+	// The database file only exists after the first write, so tighten its mode
+	// after migration has created it. (Why)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(path, 0o600); err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
 	return s, nil
+}
+
+// restrictMetadataPerms tightens the metadata directory to owner-only on
+// POSIX so other local users cannot read the credentials stored inside it. It
+// is a no-op on Windows (ACLs) and never touches the working directory or a
+// filesystem root, which would be both surprising and unsafe. (What / Why)
+func restrictMetadataPerms(dir string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	clean := filepath.Clean(dir)
+	if clean == "." || clean == string(filepath.Separator) {
+		return
+	}
+	_ = os.Chmod(clean, 0o700)
 }
 
 func (s *Store) Close() error { return s.db.Close() }

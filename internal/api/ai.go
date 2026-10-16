@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/engines/postgres"
 	"github.com/asta-nguyen/kamehadb/internal/mongo"
-	"github.com/asta-nguyen/kamehadb/internal/sqlsafety"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 	"github.com/asta-nguyen/kamehadb/internal/terminal"
 )
@@ -214,8 +212,6 @@ type chatEvent struct {
 	Message string `json:"message,omitempty"`
 }
 
-var sqlFence = regexp.MustCompile("(?s)```sql\n?(.*?)```")
-
 func newRequestID() string {
 	b := make([]byte, 10)
 	_, _ = rand.Read(b)
@@ -370,9 +366,6 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 
 	systemPrompt := buildSystemPrompt(ddl, mongoSchema, connectionKind, vectorPrompt)
 	llmMessages := append([]ai.ChatMessage{{Role: "system", Content: systemPrompt}}, input.Messages...)
-	isSQL := connectionKind != "" && connectionKind != engines.KindMongoDB &&
-		connectionKind != engines.KindRedis && connectionKind != engines.KindTigerBeetle &&
-		connectionKind != engines.KindQdrant
 
 	requestID := newRequestID()
 	chatCtx, cancel := context.WithCancel(context.Background())
@@ -380,7 +373,7 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 	s.chats[requestID] = cancel
 	s.chatsMu.Unlock()
 
-	go s.runChat(chatCtx, requestID, input, llmMessages, providerName, config, isSQL, profile)
+	go s.runChat(chatCtx, requestID, input, llmMessages, providerName, config)
 	return requestID, nil
 }
 
@@ -400,83 +393,28 @@ func (s *AiService) emitChat(requestID string, ev chatEvent) {
 	}
 }
 
-func (s *AiService) runChat(ctx context.Context, requestID string, input ChatInput, llmMessages []ai.ChatMessage, providerName string, config store.AIProviderConfig, isSQL bool, profile *store.Profile) {
+func (s *AiService) runChat(ctx context.Context, requestID string, input ChatInput, llmMessages []ai.ChatMessage, providerName string, config store.AIProviderConfig) {
 	defer func() {
 		s.chatsMu.Lock()
 		delete(s.chats, requestID)
 		s.chatsMu.Unlock()
 	}()
 
-	// Step 1: collect the SQL generation silently.
-	var sqlGeneration strings.Builder
+	// Stream the provider response — including any fenced SQL — straight to the
+	// chat. The AI flow never runs provider-generated SQL or sends database
+	// result rows to the provider; the SQL editor is the explicit execution
+	// path, so the user reviews and chooses when to run the query. (Why)
+	var answer strings.Builder
 	err := ai.ChatStream(ctx, providerName, ai.ProviderConfig(config), llmMessages, func(d string) {
-		sqlGeneration.WriteString(d)
+		answer.WriteString(d)
+		s.emitChat(requestID, chatEvent{Type: "content", Delta: d})
 	})
 	if err != nil {
 		s.emitChat(requestID, chatEvent{Type: "error", Message: err.Error()})
 		return
 	}
-	generated := sqlGeneration.String()
-	finalAnswer := ""
 
-	// Step 2: execute fenced SQL against the connection, then ask for the
-	// final answer with real rows.
-	if isSQL && input.ConnectionID != "" && profile != nil {
-		queries := extractSQLQueries(generated)
-		if len(queries) > 0 {
-			adapter, err := s.reg.Get(ctx, input.ConnectionID)
-			if err == nil {
-				var allRows []map[string]any
-				var errMessage string
-				for _, q := range queries {
-					if safe, reason := sqlsafety.Check(q); !safe {
-						errMessage = reason
-						if errMessage == "" {
-							errMessage = "The generated query was not read-only"
-						}
-						continue
-					}
-					result, err := adapter.RunQuery(ctx, engines.RunQueryInput{Query: q})
-					if err != nil {
-						errMessage = err.Error()
-						continue
-					}
-					allRows = append(allRows, result.Rows...)
-				}
-				var resultBlock []byte
-				if len(allRows) > 0 {
-					n := len(allRows)
-					if n > 50 {
-						n = 50
-					}
-					resultBlock, _ = json.MarshalIndent(allRows[:n], "", "  ")
-				} else {
-					resultBlock, _ = json.Marshal(map[string]string{"error": errMessage})
-				}
-				answerMessages := append(append([]ai.ChatMessage{}, llmMessages...),
-					ai.ChatMessage{Role: "assistant", Content: generated},
-					ai.ChatMessage{Role: "user", Content: "The SQL query returned these results. Put the answer FIRST as a natural-language sentence, then put the SQL query in a ```sql``` code block at the bottom:\n\n" + string(resultBlock)})
-				var final strings.Builder
-				streamErr := ai.ChatStream(ctx, providerName, ai.ProviderConfig(config), answerMessages, func(d string) {
-					final.WriteString(d)
-					s.emitChat(requestID, chatEvent{Type: "content", Delta: d})
-				})
-				if streamErr != nil {
-					s.emitChat(requestID, chatEvent{Type: "error", Message: streamErr.Error()})
-					return
-				}
-				finalAnswer = final.String()
-			}
-		}
-	}
-
-	// No SQL queries found — stream the original response as one delta.
-	if finalAnswer == "" {
-		finalAnswer = generated
-		s.emitChat(requestID, chatEvent{Type: "content", Delta: generated})
-	}
-
-	if input.ConnectionID != "" && finalAnswer != "" {
+	if finalAnswer := answer.String(); input.ConnectionID != "" && finalAnswer != "" {
 		var db *string
 		if input.MongoDatabase != "" {
 			db = &input.MongoDatabase
@@ -484,16 +422,6 @@ func (s *AiService) runChat(ctx context.Context, requestID string, input ChatInp
 		_, _ = s.st.SaveChatMessage(input.ConnectionID, "assistant", finalAnswer, db)
 	}
 	s.emitChat(requestID, chatEvent{Type: "done"})
-}
-
-func extractSQLQueries(text string) []string {
-	var out []string
-	for _, m := range sqlFence.FindAllStringSubmatch(text, -1) {
-		if q := strings.TrimSpace(m[1]); q != "" {
-			out = append(out, q)
-		}
-	}
-	return out
 }
 
 // buildMongoSchemaContext ports the route helper: db-scoped collections with
@@ -661,7 +589,7 @@ Rules:
 		prompt += "\n\nCurrent connection: TigerBeetle (financial transaction database).\n- Do NOT use SQL, MongoDB, or Redis syntax.\n- TigerBeetle is a double-entry accounting database with accounts and transfers.\n- Use the TigerBeetle CLI syntax or Node.js client API in ```javascript``` blocks.\n- Key operations: create_accounts, lookup_accounts, create_transfers, lookup_transfers, get_account_transfers, get_account_balances.\n- Accounts have: id (u128), debits_posted, debits_pending, credits_posted, credits_pending, flags, ledger, code.\n- Transfers have: id (u128), debit_account_id, credit_account_id, amount, flags, ledger, code.\n- Prefer read-only operations: lookup_accounts, lookup_transfers, get_account_balances."
 	case "":
 	default:
-		prompt += fmt.Sprintf("\n\nCurrent connection: %s (SQL).\n- Use ```sql``` blocks only. Do NOT use ```javascript``` or ```js``` — this is a SQL database, not MongoDB.\n- The system will automatically run the SQL query and feed the results back to you for your final answer, so you don't need to guess row counts or values.\n- Write queries directly without extra back-and-forth.", connectionKind)
+		prompt += fmt.Sprintf("\n\nCurrent connection: %s (SQL).\n- Use ```sql``` blocks only. Do NOT use ```javascript``` or ```js``` — this is a SQL database, not MongoDB.\n- The user reviews and runs your SQL in the editor; the system never executes it for you and never sends the results back. Never guess actual row counts or values — you only have the schema.\n- Write queries directly without extra back-and-forth.", connectionKind)
 	}
 	if ddl != "" {
 		prompt += "\n\nThe current database schema is:\n\n" + ddl

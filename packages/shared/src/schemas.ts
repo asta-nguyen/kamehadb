@@ -163,6 +163,8 @@ export type ConnectionProfile = {
   database?: string;
   username?: string;
   ssl?: boolean;
+  /** Root CA certificate (PEM) used to verify an SSL server; empty means encrypt without verifying. */
+  sslCaCert?: string;
   filePath?: string;
   color?: string;
   connectionString?: string;
@@ -182,6 +184,7 @@ const BaseCreateSchema = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   ssl: z.boolean().optional(),
+  sslCaCert: z.string().optional(),
   filePath: z.string().optional(),
   color: z.string().optional(),
   connectionString: z.string().optional(),

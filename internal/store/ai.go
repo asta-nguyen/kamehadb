@@ -10,6 +10,9 @@ import (
 // defaultAIProvider mirrors DEFAULT_AI_PROVIDER in the old constants.ts.
 const defaultAIProvider = "openai"
 
+// Field name bound into the authenticated data of an encrypted provider key.
+const aiAPIKeyField = "api_key"
+
 // AIProviderConfig is one provider's persisted settings.
 type AIProviderConfig struct {
 	Enabled bool   `json:"enabled"`
@@ -171,11 +174,17 @@ func (s *Store) GetAISettings() (*AISettings, error) {
 		if _, ok := settings.Providers[provider]; !ok {
 			continue
 		}
+		apiKeyPlain := apiKey.String
+		if apiKeyPlain != "" {
+			if apiKeyPlain, err = s.decryptSecret(provider, aiAPIKeyField, apiKeyPlain); err != nil {
+				return nil, err
+			}
+		}
 		settings.Providers[provider] = AIProviderConfig{
 			Enabled: enabled == 1,
 			Model:   model,
 			BaseURL: baseURL.String,
-			APIKey:  apiKey.String,
+			APIKey:  apiKeyPlain,
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -205,9 +214,14 @@ func (s *Store) SaveAISettings(settings AISettings) error {
 		if cfg.Enabled {
 			enabled = 1
 		}
+		apiKey, err := s.encryptSecret(provider, aiAPIKeyField, cfg.APIKey)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
 		if _, err := tx.Exec(`INSERT OR REPLACE INTO ai_provider_configs
 			(provider, enabled, model, base_url, api_key) VALUES (?, ?, ?, ?, ?)`,
-			provider, enabled, cfg.Model, cfg.BaseURL, cfg.APIKey); err != nil {
+			provider, enabled, cfg.Model, cfg.BaseURL, apiKey); err != nil {
 			tx.Rollback()
 			return err
 		}

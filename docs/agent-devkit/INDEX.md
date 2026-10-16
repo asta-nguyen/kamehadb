@@ -3,6 +3,7 @@
 ## Changes
 
 - [Runtime footprint and large-table browsing](changes/2026-10-13-footprint-and-large-tables/tasks.md) — all-engine performance revision approved; partial checkpoint authorized, 8/12 tasks recorded done, implementation still open. [Interim sorting/RAM benchmark](changes/2026-10-13-footprint-and-large-tables/benchmark.md).
+- [Connection Root CA and TLS Mode](changes/2026-10-16-connection-root-ca/design.md) — optional Root CA on connection profiles for PostgreSQL, MySQL/MariaDB, and SQL Server; encrypt-without-verify default. Plan pending approval.
 
 ## Research
 
@@ -19,6 +20,7 @@
 
 ## Plans
 
+- [Connection Root CA and TLS Mode implementation plan](plans/2026-10-16-connection-root-ca-plan.md)
 - [KamehaDB Wails + Go rewrite implementation plan](plans/2026-10-12-wails-rewrite-plan.md)
 - [MCP Call History implementation plan](plans/2026-10-08-mcp-call-history-plan.md)
 - [Read-only Database MCP implementation plan](plans/2026-09-30-read-only-database-mcp-plan.md)

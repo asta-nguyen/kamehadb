@@ -38,7 +38,7 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	for _, col := range []string{"password", "color", "connection_string"} {
+	for _, col := range []string{"password", "color", "connection_string", "ssl_ca_cert"} {
 		if err := s.addColumn("connection_profiles", col, "TEXT"); err != nil {
 			return err
 		}
@@ -305,7 +305,141 @@ func (s *Store) migrate() error {
 	if err := s.seedDefaultAIProviders(); err != nil {
 		return err
 	}
-	return s.migrateLegacyAIConfig()
+	if err := s.migrateLegacyAIConfig(); err != nil {
+		return err
+	}
+	// Runs last: every table it encrypts must already exist, and it flips
+	// secretsEncrypted so accessors switch from plaintext passthrough to
+	// ciphertext. (Why)
+	return s.migrateCredentialStorage()
+}
+
+// Marker rows in the ai_settings key/value table record that stored secrets are
+// ciphertext. Absence of the marker — not a ciphertext prefix — is what selects
+// legacy plaintext handling, so a real secret that happens to begin with the
+// ciphertext prefix is never mistaken for one. (Why)
+const (
+	credentialMarkerKey     = "credentialStorageVersion"
+	credentialMarkerVersion = "1"
+)
+
+// secretColumn names one stored-secret location to encrypt during migration.
+type secretColumn struct {
+	table string
+	idCol string
+	field string
+}
+
+// secretColumnFor returns the current stored secret locations. Kept as a slice
+// so the migration and its tests share one list.
+func secretColumns() []secretColumn {
+	return []secretColumn{
+		{table: "connection_profiles", idCol: "id", field: "password"},
+		{table: "connection_profiles", idCol: "id", field: "connection_string"},
+		{table: "ai_provider_configs", idCol: "provider", field: "api_key"},
+	}
+}
+
+// migrateCredentialStorage encrypts every stored secret in one transaction and
+// then sets the marker. Any failure aborts before the commit, leaving the
+// original plaintext rows intact for recovery. (What / Why)
+func (s *Store) migrateCredentialStorage() error {
+	var marker string
+	err := s.db.QueryRow(`SELECT value FROM ai_settings WHERE key = ?`, credentialMarkerKey).Scan(&marker)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if marker == credentialMarkerVersion {
+		s.secretsEncrypted = true
+		return nil
+	}
+
+	// Collect the plaintext secrets and resolve the vault key before starting
+	// the transaction: the pool holds a single connection, and key resolution
+	// touches the OS keychain or key file rather than the database. (Why)
+	pending, err := s.collectSecrets(secretColumns())
+	if err != nil {
+		return err
+	}
+	var key []byte
+	if len(pending) > 0 {
+		if key, err = readMCPKey(s.path, true); err != nil {
+			return err
+		}
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	fail := func(err error) error {
+		tx.Rollback()
+		return err
+	}
+	for _, item := range pending {
+		ciphertext, err := sealWithKey(key, secretAAD(item.id, item.field), item.value)
+		if err != nil {
+			return fail(err)
+		}
+		// Verify before persisting so a bad key never lands ciphertext that the
+		// next open cannot read back. (Why)
+		if _, err := openWithKey(key, secretAAD(item.id, item.field), ciphertext); err != nil {
+			return fail(err)
+		}
+		query := fmt.Sprintf(`UPDATE %s SET %s = ? WHERE %s = ?`, item.table, item.field, item.idCol)
+		if _, err := tx.Exec(query, ciphertext, item.id); err != nil {
+			return fail(err)
+		}
+	}
+	if _, err := tx.Exec(`INSERT OR REPLACE INTO ai_settings (key, value) VALUES (?, ?)`,
+		credentialMarkerKey, credentialMarkerVersion); err != nil {
+		return fail(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.secretsEncrypted = true
+	return nil
+}
+
+// collectedSecret is a plaintext value and the row/column it came from.
+type collectedSecret struct {
+	table, idCol, field, id, value string
+}
+
+// collectSecrets reads every non-empty value from the given locations. Rows are
+// drained fully before any update runs so the single pooled connection is not
+// held open by an unread result set. (Why)
+func (s *Store) collectSecrets(columns []secretColumn) ([]collectedSecret, error) {
+	var out []collectedSecret
+	for _, col := range columns {
+		query := fmt.Sprintf(`SELECT %s, %s FROM %s`, col.idCol, col.field, col.table)
+		rows, err := s.db.Query(query)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id any
+			var value sql.NullString
+			if err := rows.Scan(&id, &value); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			if !value.Valid || value.String == "" {
+				continue
+			}
+			out = append(out, collectedSecret{
+				table: col.table, idCol: col.idCol, field: col.field,
+				id: fmt.Sprint(id), value: value.String,
+			})
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+	return out, nil
 }
 
 // tableSQL returns the CREATE DDL for a table, or "" when it does not exist.
@@ -422,7 +556,7 @@ func (s *Store) exportRemovedProfiles() (string, error) {
 	defer rows.Close()
 	var profiles []Profile
 	for rows.Next() {
-		p, err := scanProfile(rows)
+		p, err := s.scanProfile(rows)
 		if err != nil {
 			return "", err
 		}

@@ -73,6 +73,28 @@ func TestDecryptFailsClosed(t *testing.T) {
 	}
 }
 
+// Application secrets are bound to their record and field, so a ciphertext
+// moved to another row or column must fail rather than decrypt. (What / Why)
+func TestStoredSecretBindsRecordAndField(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "meta.db")
+	ciphertext, err := encryptStoredSecret(dbPath, "p1", "password", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := decryptStoredSecret(dbPath, "p1", "password", ciphertext); err != nil {
+		t.Fatalf("round-trip: %v", err)
+	}
+	if _, err := decryptStoredSecret(dbPath, "p1", "connection_string", ciphertext); !errors.Is(err, errSecretDecrypt) {
+		t.Errorf("moved field: expected errSecretDecrypt, got %v", err)
+	}
+	if _, err := decryptStoredSecret(dbPath, "p2", "password", ciphertext); !errors.Is(err, errSecretDecrypt) {
+		t.Errorf("moved record: expected errSecretDecrypt, got %v", err)
+	}
+	if _, err := decryptStoredSecret(dbPath, "p1", "password", "not-a-ciphertext"); !errors.Is(err, errSecretDecrypt) {
+		t.Errorf("garbage: expected errSecretDecrypt, got %v", err)
+	}
+}
+
 func TestRoundTripAndKeyLifecycle(t *testing.T) {
 	s := openTemp(t)
 	dbPath := s.Path()

@@ -1,6 +1,6 @@
 # AI Assistant
 
-Verification: [x] Provider settings, schema-aware chat, provider-generated SQL execution, and chat persistence were checked against current Go backend and desktop source.
+Verification: [x] Provider settings, schema-aware chat, provider-generated SQL display, and chat persistence were checked against current Go backend, desktop source, and tests.
 
 ## Requirements
 
@@ -30,15 +30,15 @@ Evidence: `internal/api/ai.go`, `internal/ai/schemactx.go`
 
 ### AI-chat-sql-execution
 
-The system SHALL execute provider-generated SQL only after the shared query-safety check approves it and include at most 50 result rows in the follow-up provider request.
+The system SHALL display provider-generated SQL for user review without executing it from the AI chat flow or sending database query results to the provider.
 
-#### Scenario: safe generated SQL is checked and summarized
+#### Scenario: generated SQL waits for explicit execution
 
 - GIVEN provider-based chat for a SQL connection returns a fenced SQL query
-- WHEN the shared safety check approves and the query runs
-- THEN the provider receives no more than 50 returned rows for its final answer
+- WHEN the assistant response is displayed
+- THEN the query is visible in chat, no database query runs from the AI chat flow, and no query result rows are sent to the provider
 
-Evidence: `internal/api/ai.go`, `internal/sqlsafety/sqlsafety.go`
+Evidence: `internal/api/ai.go`, `internal/api/ai_test.go`, `apps/desktop/src/components/sql-editor.tsx`
 
 ### AI-provider-settings
 
@@ -57,7 +57,7 @@ Evidence: `apps/desktop/src/components/api-settings-page.tsx`, `internal/api/ai.
 1. API Settings exposes Ollama local, Ollama cloud, OpenAI, 9router, DeepSeek, and Gemini; it loads provider configurations and saves changes through Wails bindings.
 2. `AiService.SaveAISettings` validates that the active provider is enabled and that its configuration passes provider validation, then persists settings in metadata SQLite.
 3. The chat panel starts a chat through `AiService.StartChat`, which validates the provider synchronously and streams the answer over `chat:<requestId>` events; the desktop renders `content` deltas, surfaces `error`, and finishes on `done`.
-4. For provider-based SQL chat, the service first collects the provider's SQL generation silently, runs each fenced query that passes the shared safety check, and sends up to 50 result rows in a follow-up request that streams the final answer.
+4. For provider-based SQL chat, the service streams the provider's response verbatim, so any fenced SQL is displayed in chat for the user to review and run in the editor; the AI flow never executes the generated SQL or sends query result rows to the provider.
 5. Chat history loads and clears through `GetChatHistory`/`ClearChatHistory`; `CancelChat` aborts an active stream.
 
 MongoDB chat uses Mongo schema context. Redis receives an engine-specific system prompt without schema context. SQL chat checks the schema cache first — table-scoped when a table is selected, connection-scoped otherwise. On a cache miss, a selected table triggers a table-scoped DDL lookup; if that returns no DDL, the service searches stored embeddings, then falls back to the full schema, which caches at connection scope.
@@ -72,27 +72,28 @@ MongoDB chat uses Mongo schema context. Redis receives an engine-specific system
 ## Side effects
 
 - The configured provider receives the prompt and schema context for each chat or embedding request. A remote provider endpoint receives these values when configured.
-- Provider-based SQL chat may read the selected database and send a bounded result sample to the provider in a follow-up request.
+- The AI chat flow does not read the selected database or send query results to the provider: provider-generated SQL is displayed for review and runs only when the user executes it in the editor.
 - The backend caches schema context in its TTL cache under the same key the chat reads: table-scoped entries for selected tables and connection-scoped entries for full-schema fallbacks.
 
 ## Authorization & constraints
 
-- Provider settings are stored in metadata SQLite; inspected sources do not establish OS Keychain encryption for this data.
+- Profile passwords, connection strings, and AI provider API keys are encrypted at rest in metadata SQLite using the AES-256-GCM app secret vault, whose key is kept in the OS keychain with an owner-only key-file fallback; the metadata directory and database are restricted to owner-only on POSIX.
 - Provider-specific credentials are validated where required; local Ollama can be configured without a hosted-provider key.
-- Provider-generated SQL is screened by the shared query-safety heuristic before execution; this is statement screening, not a database privilege boundary.
+- The AI chat flow surfaces provider-generated SQL for user review and does not execute it, so it is not itself a database privilege boundary.
 - The models proxy blocks literal loopback, private, link-local, and unspecified IP addresses, plus `localhost`, `.local`, `.internal`, and `metadata.google.internal`; it does not resolve DNS names before connecting.
 - Inference from request construction: user prompts and available schema descriptions are sent to the configured provider. Source does not establish provider-side retention or processing guarantees.
 
 ## Error paths
 
 - Invalid settings are rejected by `SaveAISettings` validation; chat start fails synchronously when the provider is missing, disabled, or misconfigured.
-- Missing credentials, provider network errors, streaming failures, unsafe generated SQL, and database errors surface as `error` events or in the follow-up answer context.
+- Missing credentials, provider network errors, and streaming failures surface as `error` events.
 - `CancelChat` aborts the active chat stream; the desktop keeps partial output and attaches the failure to the assistant message.
 - Embedding API failures fall back to the local embedding implementation.
 
 ## Tests
 
 - `internal/store/entities_test.go` (`TestChatMessages`, `TestAISettings`) covers chat-message and provider-settings persistence.
+- `internal/api/ai_test.go` (`TestRunChatDoesNotExecuteGeneratedSQL`) asserts a chat makes exactly one provider request and never acquires a database adapter, proving generated SQL is not executed.
 - Searches across `internal/api`, `internal/ai`, and `apps/desktop/src` test files found no chat-streaming or schema-context tests.
 
 ## Related
@@ -112,7 +113,7 @@ MongoDB chat uses Mongo schema context. Redis receives an engine-specific system
 - `internal/ai/schemactx.go`
 - `internal/ai/vecstore.go`
 - `internal/api/ai.go`
-- `internal/sqlsafety/sqlsafety.go`
+- `internal/api/ai_test.go`
 - `internal/store/ai.go`
 - `internal/store/chat.go`
 - `internal/store/entities_test.go`

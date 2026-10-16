@@ -1,5 +1,7 @@
 # Evidence matrix and page template
 
+Contents: evidence matrix, page template, requirement rules.
+
 Before documenting each selected feature, build and check this evidence
 matrix. Do not treat an unchecked row as a content gap: finish all feasible
 source, caller, and test checks first. If a row remains unverified because

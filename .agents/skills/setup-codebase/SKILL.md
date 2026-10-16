@@ -8,25 +8,19 @@ description: Use when a user asks to set up, initialize, or bootstrap a reposito
 Create context with repository-reading, not a static file template. Existing
 context belongs to the project: never overwrite or shorten it.
 
-Before step 1, determine whether `document-wiki` is calling this procedure
-inline. In inline mode, execute only the `docs/llm/` skeleton portion of step 3,
-read back the created wiki files, and return. Do not create or update
-`AGENTS.md`, `CLAUDE.md`, or `CONVENTIONS.md`, capture conventions, query
-OpenEZ, change `.gitignore`, or execute the remaining setup steps. In direct
-mode, run step 4's preflight before step 3 writes anything. This guard must run
-before any write.
+Pick the mode before step 1; this guard runs before any write.
 
-When called automatically for a code task by `using-devkit`, `brainstorm-feature`,
-or `plan-feature`, create only necessary missing repository context. Skip wiki
-skeleton creation unless the user explicitly requested wiki setup. An existing
-wiki remains available for Task updates. This task call is distinct from the
-wiki-only inline call above; direct user setup requests keep the full procedure.
+| Mode        | Caller                                                  | What to run                                                                                                                                                                                                                                   |
+| ----------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Inline wiki | `document-wiki`                                         | Only the `docs/llm/` skeleton part of step 3; read back the created wiki files and return. Do not create or update `AGENTS.md`, `CLAUDE.md`, or `CONVENTIONS.md`, capture conventions, query OpenEZ, change `.gitignore`, or run other steps. |
+| Code task   | `using-devkit`, `brainstorm-feature`, or `plan-feature` | Create only necessary missing repository context; skip the wiki skeleton unless wiki setup was requested. An existing wiki stays available for `document-wiki`'s `## Task updates`.                                                           |
+| Direct      | The user asks for setup                                 | The full procedure; run step 4's preflight before step 3 writes anything.                                                                                                                                                                     |
 
 1. Check the exact status of `AGENTS.md`, `CLAUDE.md`, `CONVENTIONS.md`,
    `docs/llm/`, and `.gitignore`. Read every existing context or conventions
    file before writing anything. If the repository has no application source
-   and an approved design exists under `docs/agent-devkit/specs/` or as
-   `design.md` in a `docs/agent-devkit/changes/` folder, read that design before
+   and an approved design exists as `design.md` in a `docs/agent-devkit/changes/`
+   folder (or a legacy spec under `docs/agent-devkit/specs/`), read it before
    writing context.
 2. If context is missing, inspect only enough evidence to ground it: `README*`,
    root/workspace manifests, task scripts, environment examples, CI/config,
@@ -110,20 +104,7 @@ prefixes` registry in `INDEX.md`, without restating the format. Do not
    `setup-openez` only when direct search cannot establish a needed semantic or
    cross-module relationship. Do not recommend it by repository size, or
    install or run `openez setup` silently.
-   Use this section:
-
-   ```md
-   ## Code intelligence
-
-   Locate concepts with OpenEZ `code_query`, approximate filenames with FFF
-   fuzzy file find, identifiers or literals with FFF grep (fallback: `rg`),
-   and regex with `rg`. Expand callers and callees with OpenEZ `code_context`
-   (1–2 hops); confirm string, route, config-key, and case variants with FFF
-   multi-pattern grep (fallback: `rg`). Use OpenEZ `code_outline` before
-   reading a large file. Search results are navigation; read current source as
-   evidence. Query OpenEZ directly with the repository path; if unavailable,
-   unindexed, or irrelevant, continue with FFF or `rg` and direct reads.
-   ```
+   Use the section in `setup-openez`'s `## Code intelligence block`.
 
 6. Keep local Obsidian and OpenEZ state out of Git. Create `.gitignore` when it
    is missing, or append only these missing lines without reordering,

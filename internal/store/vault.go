@@ -36,6 +36,17 @@ var (
 	errMCPKeyInvalid     = errors.New("Local MCP credential key is invalid")
 	errMCPDecrypt        = errors.New("Stored MCP credential could not be decrypted")
 	errMCPNotPrepared    = errors.New("Managed MCP account is not prepared")
+	errSecretDecrypt     = errors.New("Stored secret could not be decrypted")
+)
+
+// Application secrets (profile passwords, credential-bearing connection
+// strings, AI provider API keys) reuse the MCP vault key and AES-256-GCM but
+// carry their own version tag so the two ciphertext families never collide.
+// The authenticated data binds a ciphertext to its record and field, so a
+// value cannot be moved to another row or column and still decrypt.
+const (
+	secretFormatVersion = "s1"
+	secretAADDomain     = "kamehadb-secret"
 )
 
 // MCPCredentialBundle is the decrypted managed-account payload. SQL server
@@ -137,6 +148,109 @@ func readMCPKey(dbPath string, allowCreate bool) ([]byte, error) {
 func mcpAAD(profileID, accountRef string) []byte {
 	aad, _ := json.Marshal([]string{profileID, accountRef})
 	return aad
+}
+
+// secretAAD binds a stored secret to its record and field so a ciphertext
+// cannot be replayed from another row or column. (Why)
+func secretAAD(recordID, field string) []byte {
+	aad, _ := json.Marshal([]string{secretAADDomain, recordID, field})
+	return aad
+}
+
+// sealWithKey encrypts a UTF-8 secret with an already-resolved vault key.
+func sealWithKey(key, aad []byte, plaintext string) (string, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", errMCPKeyInvalid
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, mcpNonceBytes)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	sealed := gcm.Seal(nil, nonce, []byte(plaintext), aad)
+	tag := sealed[len(sealed)-gcm.Overhead():]
+	ciphertext := sealed[:len(sealed)-gcm.Overhead()]
+	return strings.Join([]string{
+		secretFormatVersion,
+		base64.RawURLEncoding.EncodeToString(nonce),
+		base64.RawURLEncoding.EncodeToString(tag),
+		base64.RawURLEncoding.EncodeToString(ciphertext),
+	}, "."), nil
+}
+
+// openWithKey authenticates before returning anything; a malformed value, wrong
+// key, or swapped record all collapse to errSecretDecrypt. (Why)
+func openWithKey(key, aad []byte, stored string) (string, error) {
+	parts := strings.Split(stored, ".")
+	if len(parts) != 4 || parts[0] != secretFormatVersion {
+		return "", errSecretDecrypt
+	}
+	nonce, err := decodeB64URL(parts[1])
+	if err != nil || len(nonce) != mcpNonceBytes {
+		return "", errSecretDecrypt
+	}
+	tag, err := decodeB64URL(parts[2])
+	if err != nil || len(tag) != 16 {
+		return "", errSecretDecrypt
+	}
+	ciphertext, err := decodeB64URL(parts[3])
+	if err != nil {
+		return "", errSecretDecrypt
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", errSecretDecrypt
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", errSecretDecrypt
+	}
+	plaintext, err := gcm.Open(nil, nonce, append(ciphertext, tag...), aad)
+	if err != nil {
+		return "", errSecretDecrypt
+	}
+	return string(plaintext), nil
+}
+
+func encryptStoredSecret(dbPath, recordID, field, plaintext string) (string, error) {
+	key, err := readMCPKey(dbPath, true)
+	if err != nil {
+		return "", err
+	}
+	return sealWithKey(key, secretAAD(recordID, field), plaintext)
+}
+
+func decryptStoredSecret(dbPath, recordID, field, stored string) (string, error) {
+	key, err := readMCPKey(dbPath, false)
+	if err != nil {
+		return "", err
+	}
+	return openWithKey(key, secretAAD(recordID, field), stored)
+}
+
+// encryptSecret encrypts a value only once credential storage is active.
+// During the one-time migration, writes stay plaintext until
+// migrateCredentialStorage converts and re-encrypts the whole table. (Why)
+func (s *Store) encryptSecret(recordID, field, plaintext string) (string, error) {
+	if !s.secretsEncrypted {
+		return plaintext, nil
+	}
+	return encryptStoredSecret(s.path, recordID, field, plaintext)
+}
+
+// decryptSecret reads a value according to the migration marker: before the
+// marker every value is plaintext, and after it every non-empty value must be
+// valid ciphertext. Once migration completes there is no plaintext fallback,
+// so a decrypt failure surfaces instead of returning the raw stored bytes.
+func (s *Store) decryptSecret(recordID, field, stored string) (string, error) {
+	if !s.secretsEncrypted {
+		return stored, nil
+	}
+	return decryptStoredSecret(s.path, recordID, field, stored)
 }
 
 func decodeB64URL(part string) ([]byte, error) {

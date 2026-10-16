@@ -71,13 +71,13 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     icon: MessageSquare,
     title: 'Contextual AI chat',
     description:
-      'Persistent history per connection, streamed responses, and a Run button to execute the SQL the assistant writes. Bring your own OpenAI, Ollama, or 9Router.',
+      'Persistent history per connection, streamed responses, and generated SQL shown for review so you run it yourself in the editor. Bring your own OpenAI, Ollama, 9Router, DeepSeek, or Gemini.',
   },
   {
     icon: Cable,
     title: 'Read-only MCP server',
     description:
-      'Point Codex, Claude Code, Devin CLI, or OpenCode at a loopback MCP endpoint. KamehaDB provisions a database-scoped read-only account and stores its credential in your OS Keychain.',
+      'Point Codex, Claude Code, Devin CLI, or OpenCode at a loopback MCP endpoint. KamehaDB provisions a database-scoped read-only account and stores its credential in an encrypted local vault (OS keychain, with an owner-only key file fallback).',
   },
   {
     icon: Workflow,
@@ -120,13 +120,13 @@ const whyKamehadb: {
     icon: Shield,
     title: 'Local-First & Private',
     description:
-      'Connections, credentials, query history, and chat logs stay on your machine. We have no servers — there is nowhere for your data to go.',
+      'Connections, credentials, query history, and chat logs stay on your machine, encrypted at rest. We have no servers. Remote AI is opt-in: the provider you choose receives only the conversation and schema context you send.',
   },
   {
     icon: Brain,
     title: 'Bring Your Own AI',
     description:
-      'OpenAI, Ollama (local + cloud), 9router — pick the model that fits your workflow, or skip AI entirely.',
+      'OpenAI, Ollama (local + cloud), 9router, DeepSeek, Gemini — pick the model that fits your workflow, or skip AI entirely.',
     providers: [
       {
         name: 'OpenAI',
@@ -143,6 +143,14 @@ const whyKamehadb: {
       {
         name: '9router',
         color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+      },
+      {
+        name: 'DeepSeek',
+        color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+      },
+      {
+        name: 'Gemini',
+        color: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
       },
     ],
   },
@@ -479,7 +487,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             transition={{ duration: 0.6, delay: 0.4 }}
           >
             KamehaDB is a cross-platform desktop GUI for SQL, document, and cache systems — built with AI in, not bolted
-            on. Runs entirely on your machine.
+            on. Runs locally on your machine, with remote AI providers optional.
           </motion.p>
           <motion.div
             className="flex items-center justify-center gap-2 mb-10"

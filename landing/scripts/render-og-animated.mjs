@@ -32,14 +32,12 @@ const ALL_ENGINES = [
   { name: 'MySQL', color: '#00758F' },
   { name: 'MongoDB', color: '#4DB33D' },
   { name: 'Redis', color: '#DC382D' },
-  { name: 'Qdrant', color: '#19CCA3' },
   { name: 'SQLite', color: '#fbbf24' },
   { name: 'SQL Server', color: '#00A4EF' },
   { name: 'Oracle', color: '#F80000' },
   { name: 'ClickHouse', color: '#FCC624' },
   { name: 'DuckDB', color: '#FFF000' },
   { name: 'MariaDB', color: '#C0765A' },
-  { name: 'TigerBeetle', color: '#f59e0b' },
 ];
 
 const MARQUEE_ENGINES = [...ALL_ENGINES, ...ALL_ENGINES, ...ALL_ENGINES];
@@ -135,16 +133,17 @@ function buildFrameHtml(t, ctx) {
         <span style="font-size:24px;font-weight:700;color:${AMBER_BRIGHT};letter-spacing:-0.5px">KamehaDB</span>
       </div>
       <div style="display:flex;flex-direction:row;align-items:center;gap:8px;margin-top:20px;flex-wrap:wrap">
-        <div style="display:flex;flex-direction:row;align-items:center;gap:6px;padding-left:12px;padding-right:12px;padding-top:5px;padding-bottom:5px;border-radius:100px;background-color:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.20)"><div style="width:6px;height:6px;border-radius:3px;background-color:${AMBER}"></div><span style="font-size:12px;font-weight:500;color:${AMBER_BRIGHT}">12+ engines &bull; SQL, document, cache, vector &amp; ledger</span></div>
+        <div style="display:flex;flex-direction:row;align-items:center;gap:6px;padding-left:12px;padding-right:12px;padding-top:5px;padding-bottom:5px;border-radius:100px;background-color:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.20)"><div style="width:6px;height:6px;border-radius:3px;background-color:${AMBER}"></div><span style="font-size:12px;font-weight:500;color:${AMBER_BRIGHT}">10 engines &bull; SQL, document &amp; cache</span></div>
         <div style="display:flex;flex-direction:row;align-items:center;gap:5px;padding-left:12px;padding-right:12px;padding-top:5px;padding-bottom:5px;border-radius:100px;background-color:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.30)"><span style="font-size:13px;color:#22c55e;font-weight:700">\u2713</span><span style="font-size:12px;font-weight:600;color:#4ade80">No sign in required</span></div>
       </div>
       <div style="font-size:40px;font-weight:800;color:${TEXT_PRIMARY};line-height:1.12;letter-spacing:-1.3px;margin-top:18px">Your databases,<br/>in one <span style="color:${AMBER}">local-first</span><br/>workspace</div>
-      <div style="font-size:15px;font-weight:400;color:${TEXT_SECONDARY};line-height:1.5;margin-top:14px">Cross-platform desktop GUI for SQL, document,<br/>cache, vector, and ledger systems &mdash; with AI and a<br/>managed, database-scoped read-only MCP server.</div>
+      <div style="font-size:15px;font-weight:400;color:${TEXT_SECONDARY};line-height:1.5;margin-top:14px">Cross-platform desktop GUI for SQL, document,<br/>and cache systems &mdash; with AI and a<br/>managed, database-scoped read-only MCP server.</div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-top:18px">
         <div style="display:flex;flex-direction:row;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:4px;background-color:rgba(245,158,11,0.15);border:1px solid ${AMBER};display:flex;align-items:center;justify-content:center"><div style="width:4px;height:4px;border-radius:2px;background-color:${AMBER}"></div></div><span style="font-size:13px;color:${TEXT_SECONDARY}">AI that knows your schema</span></div>
         <div style="display:flex;flex-direction:row;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:4px;background-color:rgba(245,158,11,0.15);border:1px solid ${AMBER};display:flex;align-items:center;justify-content:center"><div style="width:4px;height:4px;border-radius:2px;background-color:${AMBER}"></div></div><span style="font-size:13px;color:${TEXT_SECONDARY}">Schema timeline &amp; diff</span></div>
         <div style="display:flex;flex-direction:row;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:4px;background-color:rgba(245,158,11,0.15);border:1px solid ${AMBER};display:flex;align-items:center;justify-content:center"><div style="width:4px;height:4px;border-radius:2px;background-color:${AMBER}"></div></div><span style="font-size:13px;color:${TEXT_SECONDARY}">Managed read-only MCP accounts</span></div>
-        <div style="display:flex;flex-direction:row;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:4px;background-color:rgba(245,158,11,0.15);border:1px solid ${AMBER};display:flex;align-items:center;justify-content:center"><div style="width:4px;height:4px;border-radius:2px;background-color:${AMBER}"></div></div><span style="font-size:13px;color:${TEXT_SECONDARY}">12 engines in one workspace</span></div>
+        <div style="display:flex;flex-direction:row;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:4px;background-color:rgba(245,158,11,0.15);border:1px solid ${AMBER};display:flex;align-items:center;justify-content:center"><div style="width:4px;height:4px;border-radius:2px;background-color:${AMBER}"></div></div><span style="font-size:13px;color:${TEXT_SECONDARY}">10 engines in one workspace</span>
+</div>
       </div>
       <div style="display:flex;flex-direction:row;align-items:center;gap:10px;margin-top:22px">
         <div style="display:flex;flex-direction:row;align-items:center;gap:8px;padding-left:24px;padding-right:24px;padding-top:12px;padding-bottom:12px;border-radius:28px;background:linear-gradient(135deg, ${AMBER}, #f97316);font-size:16px;font-weight:700;color:${BG_DEEP};box-shadow:0 0 20px rgba(245,158,11,0.25)">Download for free \u2192</div>

@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: kameha
       POSTGRES_DB: kamehadb
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker-init/postgres:/docker-entrypoint-initdb.d
@@ -22,7 +22,7 @@ services:
       MYSQL_USER: kameha
       MYSQL_PASSWORD: kameha
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker-init/mysql:/docker-entrypoint-initdb.d
@@ -36,7 +36,7 @@ services:
       MARIADB_USER: kameha
       MARIADB_PASSWORD: kameha
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./docker-init/mariadb:/docker-entrypoint-initdb.d
@@ -45,7 +45,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
 
@@ -53,7 +53,7 @@ services:
     image: duckdb/duckdb:latest
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - duckdb_data:/data
 
@@ -61,7 +61,7 @@ services:
     image: mongo:7
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb_data:/data/db
 

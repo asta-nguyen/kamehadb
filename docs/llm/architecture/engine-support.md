@@ -1,6 +1,6 @@
 # Database Support and Adapter Boundaries
 
-Verification: [~] Confirmed content gap: the legacy engine count, sidecar paths and pre-change DuckDB requirement below are historical baselines, not current behavior. The verified requirement replacement and current-runtime narrative refresh remain unfinished; this checkpoint does not mark the page current.
+Verification: [~] Confirmed content gap: the DuckDB requirement below is owned by the in-progress runtime-footprint change and is not refreshed here. The supported-engine list and adapter boundaries were checked against current Go source, but this checkpoint does not mark the page current.
 
 ## Requirements
 
@@ -26,25 +26,23 @@ Evidence: `main.go`, `internal/engines/duckdb/duckdb.go`, `internal/engines/duck
 
 ### Business rules
 
-KamehaDB supports twelve database kinds. Eight use the shared SQL adapter route; four use dedicated sidecar routes.
+KamehaDB supports ten database kinds. Eight use the shared SQL adapter route; MongoDB and Redis use dedicated routes.
 
-| Path                    | Database kinds                                                             | Main implementation boundary               |
-| ----------------------- | -------------------------------------------------------------------------- | ------------------------------------------ |
-| SQL adapter path        | PostgreSQL, MySQL, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB | SQL routes and adapters                    |
-| Dedicated explorer path | MongoDB                                                                    | Mongo routes and Mongo adapter             |
-| Dedicated explorer path | Redis                                                                      | Redis routes and Redis adapter             |
-| Dedicated explorer path | Qdrant                                                                     | Qdrant routes and Qdrant client            |
-| Dedicated explorer path | TigerBeetle                                                                | TigerBeetle routes and TigerBeetle adapter |
+| Path                    | Database kinds                                                             | Main implementation boundary             |
+| ----------------------- | -------------------------------------------------------------------------- | ---------------------------------------- |
+| SQL adapter path        | PostgreSQL, MySQL, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB | `internal/engines` registry and adapters |
+| Dedicated explorer path | MongoDB                                                                    | Mongo service and adapter                |
+| Dedicated explorer path | Redis                                                                      | Redis service and adapter                |
 
 - PostgreSQL has the broadest set of database-specific tools: schema lifecycle, statistics, pgvector, psql, backup, and restore.
-- DuckDB is file-based. SQLite has a normal SQL adapter path plus a read-only vec0 vector workflow.
-- MongoDB, Redis, Qdrant, and TigerBeetle do not use the generic SQL query route.
+- DuckDB and SQLite are file-based. SQLite has a read-only vec0 vector workflow.
+- MongoDB and Redis do not use the generic SQL query route.
 
 ### Flow
 
-1. The shared package defines connection kinds, schemas, defaults, and adapter contracts.
-2. Connection routes validate the profile and choose either the SQL adapter factory or a dedicated engine path.
-3. Desktop hooks call the matching route family for the selected profile kind.
+1. `packages/shared` defines connection kinds, schemas, defaults, and adapter contracts.
+2. The backend resolves a profile through the `internal/engines` registry, which selects a SQL adapter factory or rejects kinds that use a dedicated route.
+3. Desktop hooks call the matching bound service for the selected profile kind.
 
 ### State changes
 
@@ -53,8 +51,8 @@ KamehaDB supports twelve database kinds. Eight use the shared SQL adapter route;
 
 ### Side effects
 
-- Adapter creation opens engine-specific database clients or file handles when a route needs them.
-- Sidecar shutdown closes managed adapters and process-backed sessions.
+- Adapter creation opens engine-specific database clients or file handles when a service needs them.
+- Shutdown closes cached adapters and process-backed sessions.
 
 ### Authorization & constraints
 
@@ -65,11 +63,11 @@ KamehaDB supports twelve database kinds. Eight use the shared SQL adapter route;
 ### Error paths
 
 - Unknown or invalid kinds fail shared profile validation or adapter selection.
-- Engine-specific connection failures are returned through the relevant profile test or route error.
+- Engine-specific connection failures are returned through the relevant profile test or service error.
 
 ### Tests
 
-The recorded FFF test-file search for engine router identifiers found no direct shared adapter-selection test. Engine-specific tests are listed on the individual feature pages where present.
+Searches for a shared adapter-selection test found no direct registry-selection test. Engine-specific tests are listed on the individual feature pages where present.
 
 ### Related
 
@@ -80,16 +78,11 @@ The recorded FFF test-file search for engine router identifiers found no direct 
 ### Sources
 
 - main.go
+- internal/engines/registry.go
+- internal/engines/kinds.go
 - internal/engines/duckdb/duckdb.go
 - internal/engines/duckdb/duckdb_test.go
 - README.md
 - packages/shared/src/index.ts
 - packages/shared/src/schemas.ts
 - packages/shared/src/types.ts
-- apps/sidecar/src/adapters/factory.ts
-- apps/sidecar/src/routes/connections.ts
-- apps/sidecar/src/routes/sql.ts
-- apps/sidecar/src/routes/mongo.ts
-- apps/sidecar/src/routes/redis.ts
-- apps/sidecar/src/routes/qdrant.ts
-- apps/sidecar/src/routes/tigerbeetle.ts

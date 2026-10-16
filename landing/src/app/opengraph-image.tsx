@@ -224,7 +224,7 @@ export default async function Image() {
         {/* Subtitle + GitHub stars */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 24, marginTop: 16 }}>
           <span style={{ fontSize: 13, fontWeight: 400, color: '#52525b', letterSpacing: 0.3 }}>
-            12 database engines — all in one local-first app
+            10 database engines — all in one local-first app
           </span>
           <span style={{ fontSize: 13, fontWeight: 500, color: '#71717a', letterSpacing: 0.3 }}>
             {'\u2b50'} {stars.toLocaleString()} stars on GitHub

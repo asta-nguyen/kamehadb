@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: '%s | KamehaDB',
     },
     description:
-      'A cross-platform desktop GUI for SQL, document, and cache systems. PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis in one local-first app, with AI built in and a read-only MCP server that provisions database-scoped accounts and stores their credentials in the OS Keychain.',
+      'A cross-platform desktop GUI for SQL, document, and cache systems. PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis in one local-first app, with AI built in and a read-only MCP server that provisions database-scoped accounts and stores their credentials in an encrypted local vault.',
     keywords: [
       'database management',
       'database client',
@@ -122,7 +122,7 @@ export default async function RootLayout({
                 price: '0',
                 priceCurrency: 'USD',
               },
-              softwareRequirements: 'Node.js 18+',
+              softwareRequirements: 'Windows 10+, macOS 11+, or a Linux desktop with WebKit2GTK 4.1',
               author: {
                 '@type': 'Organization',
                 name: 'KamehaDB',

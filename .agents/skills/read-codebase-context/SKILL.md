@@ -7,7 +7,9 @@ description: Use when preparing to change or plan code in an unfamiliar reposito
 
 Choose tools by purpose; current source and tests establish facts.
 
-When the active spec or plan has an `## Impact map`, first check whether it has
+## Refresh an impact map
+
+When the active change's `tasks.md` (or a legacy plan) has an `## Impact map`, first check that it has
 `Verified at: <full commit SHA>`. Verify that commit exists and is an ancestor
 of `HEAD` with `git cat-file -e <sha>^{commit}` and
 `git merge-base --is-ancestor <sha> HEAD`. If the SHA is missing, unavailable,
@@ -23,6 +25,8 @@ Re-trace changed and newly touched paths, then always run Confirm for every
 entry-point and implementation symbol in the map across the current repository
 using FFF multi-pattern grep or `rg`. Read current source for every file to
 edit and every newly found caller. The map guides navigation, not evidence.
+
+## Trace and record the impact
 
 1. Check `docs/llm/AGENTS.md` and `docs/llm/INDEX.md` independently. If both
    exist, read both and open the relevant linked page. If only `INDEX.md`
@@ -58,10 +62,9 @@ edit and every newly found caller. The map guides navigation, not evidence.
    positions from FFF/`rg` plus a direct read, or call OpenEZ
    `index_workspace` (`mode: "incremental"`) for the already-registered
    current workspace and re-query; `setup-openez` owns new registration.
-   `memory_recall` with 1–3 task keywords may locate decisions or
-   handoffs; use `maxTokens` if supported and read the file before relying on it.
-   After persisting a decision, optionally write only its title and file path to
-   memory; never make memory the sole record.
+   `memory_recall` (1–3 keywords, `maxTokens` if supported) may locate decisions
+   or handoffs; read the file before relying on it. Memory may hold a decision's
+   title and path, never the only record.
 5. Read any existing entry point, implementation, direct callers, and
    downstream callees until the source establishes persistence and external
    boundaries. Inspect state changes, storage/external adapters, jobs, events,
@@ -88,10 +91,10 @@ edit and every newly found caller. The map guides navigation, not evidence.
    Verified at: <output of `git rev-parse HEAD`, or "no commit exists">
    ```
 
-   When refreshing a map read from an active spec or plan, write the refreshed
-   map back to that same artifact and update `Verified at` to the current
-   baseline. If new evidence changes approved behavior or scope, return to its
-   approval gate instead of silently changing the artifact.
+   When refreshing a map from an active `tasks.md`, write it back to that file
+   with `Verified at` updated to the current baseline. If new evidence changes
+   approved behavior or scope, return to its approval gate instead of silently
+   changing it.
 
 6. Never fabricate a file impact list from index results or memory alone.
 

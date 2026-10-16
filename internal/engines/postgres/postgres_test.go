@@ -2,7 +2,12 @@ package postgres
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -11,6 +16,43 @@ import (
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 )
+
+// pgTLSConfig must verify the server chain and the configured host name, while
+// rejecting an unknown root and a name mismatch. A test-only root pool models
+// a private CA without requiring one. (What / Why)
+func TestPGTLSConfigVerifiesServer(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	addr := server.Listener.Addr().String()
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	trusted := x509.NewCertPool()
+	trusted.AddCert(server.Certificate())
+
+	dial := func(cfg *tls.Config) error {
+		conn, err := tls.Dial("tcp", addr, cfg)
+		if err != nil {
+			return err
+		}
+		return conn.Close()
+	}
+
+	if err := dial(pgTLSConfig(host, trusted)); err != nil {
+		t.Fatalf("trusted certificate + matching host should succeed: %v", err)
+	}
+	if err := dial(pgTLSConfig(host, x509.NewCertPool())); err == nil {
+		t.Fatal("unknown root should fail the handshake")
+	}
+	if err := dial(pgTLSConfig("mismatch.example", trusted)); err == nil {
+		t.Fatal("host-name mismatch should fail the handshake")
+	}
+}
 
 func TestValidation(t *testing.T) {
 	cases := []struct {
