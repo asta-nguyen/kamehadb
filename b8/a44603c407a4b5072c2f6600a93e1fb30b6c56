@@ -1,0 +1,154 @@
+internal/api/ai_test.go
+  s_eb1c2e99ef8386::t_5cdb2ce4fe19f1 3-99
+CHANGELOG.md
+  s_eb1c2e99ef8386::t_d19d868646087f 22-27
+internal/store/ai.go
+  s_eb1c2e99ef8386::t_3513af9e93af3f 13-15
+  s_eb1c2e99ef8386::t_38cbcb9e4647f5 217-221,224
+  s_eb1c2e99ef8386::t_a266c9bb3b03c2 180-182
+  s_eb1c2e99ef8386::t_b88e24224600ef 177-179,187
+docs/llm/operations/release-packaging.md
+  s_eb1c2e99ef8386::t_280064d48a351e 33
+  s_eb1c2e99ef8386::t_165bbb8ceea646 3
+  s_eb1c2e99ef8386::t_e788594f31e9b7 50-51,59,66-67,76-77
+landing/src/app/layout.tsx
+  s_eb1c2e99ef8386::t_877a1716b0f95a 125
+  s_eb1c2e99ef8386::t_26b542ad8c1bfa 18
+internal/store/migrate.go
+  s_eb1c2e99ef8386::t_6e77a43e607b67 41
+  s_eb1c2e99ef8386::t_92f621d9253415 559
+  s_eb1c2e99ef8386::t_49d07b3ad9cf93 308-442
+.github/scripts/resolve-release-tag.test.sh
+  s_eb1c2e99ef8386::t_9d1a6b63eaddf2 1-51
+docker-compose.yml
+  s_eb1c2e99ef8386::t_f15a717c0cf65c 11,25,39,48,56,64
+internal/engines/registry.go
+  s_eb1c2e99ef8386::t_b27849fa3717a9 25
+docs/llm/workflows/connections-and-workspace.md
+  s_eb1c2e99ef8386::t_a95a387655151d 3
+  s_eb1c2e99ef8386::t_b7cfc47b6ca193 28,30,35-36,41,47,51,60,64-65,77-79
+  s_eb1c2e99ef8386::t_98a2c13e3d3c30 86,88,93-94,104,109-110,115-116,120,132
+  s_eb1c2e99ef8386::t_a562b258aeff8a 139,156,160,169-170,180,183
+  s_eb1c2e99ef8386::t_b4835d9857f2bd 197,206,212,221,232
+landing/src/components/home-view.tsx
+  s_eb1c2e99ef8386::t_d5daddb5e665c4 490
+  s_eb1c2e99ef8386::t_db44506add037a 123,129,147-154
+  s_eb1c2e99ef8386::t_ed50365c723375 74,80
+internal/store/profiles.go
+  s_eb1c2e99ef8386::t_4e4936af631cda 41
+  s_eb1c2e99ef8386::t_113c7521eed035 156-158
+  s_eb1c2e99ef8386::t_f780fecc9ab5a2 273,277,281
+  s_eb1c2e99ef8386::t_d92d3eb135872e 21
+  s_eb1c2e99ef8386::t_fd0288ff823b12 239,268-270,282-283,287,299-300,304,316-324
+  s_eb1c2e99ef8386::t_16a528aa4a2651 179-180,182
+  s_eb1c2e99ef8386::t_c02b5fd2cac771 305,312
+  s_eb1c2e99ef8386::t_3d75758f96a516 169-177,189-197,206-207,221-223,227-238,250
+  s_eb1c2e99ef8386::t_86527fe4c5245d 48
+  s_eb1c2e99ef8386::t_c11084f5e610e3 243,248
+  s_eb1c2e99ef8386::t_e20abe30ac77ac 290,294,298
+  s_eb1c2e99ef8386::t_f3ec235468fb5b 50-54,66,77,96-99
+  s_eb1c2e99ef8386::t_d3ea7a117fe785 49
+internal/store/vault.go
+  s_eb1c2e99ef8386::t_ad7be2c35ce162 235-255
+  s_eb1c2e99ef8386::t_b1a090fbbf0d10 39-49
+  s_eb1c2e99ef8386::t_88834279c57a6c 153-234
+docs/llm/integrations/ai-assistant.md
+  s_eb1c2e99ef8386::t_b61e8df7671012 75,80,82
+  s_eb1c2e99ef8386::t_4a91742c49e5f0 60
+  s_eb1c2e99ef8386::t_822762f3dbcffe 3
+  s_eb1c2e99ef8386::t_e2eb0f6b5ceb38 116
+  s_eb1c2e99ef8386::t_420ca84102c340 89,96
+  s_eb1c2e99ef8386::t_582ca8113fff66 33,35,38-39,41
+landing/src/components/particle-footer.tsx
+  s_eb1c2e99ef8386::t_5af168e42c8a3c 54-55
+internal/store/store.go
+  s_eb1c2e99ef8386::t_788831235dc7b0 24-27
+  s_eb1c2e99ef8386::t_e85c3b2a1db1ee 75-76,79,94-101,105-117
+  s_cf4811d6444b15::t_2001f72002f983 118-119
+README.md
+  s_eb1c2e99ef8386::t_33ce6955a98c11 14,16
+  s_eb1c2e99ef8386::t_abbe4b25ef317f 55-56
+  s_eb1c2e99ef8386::t_7bf84c67971d78 198-199
+  s_eb1c2e99ef8386::t_472b752f3ecb60 69-70
+  s_6d152da426e770::t_bcb8c797afd739 49-54
+.github/workflows/release.yml
+  s_eb1c2e99ef8386::t_b6ad503a3bac6e 219-220
+  s_eb1c2e99ef8386::t_eccb8597be994f 15,20-21,25-29,32-34
+  s_eb1c2e99ef8386::t_732a8f5b7c8205 72
+internal/store/vault_test.go
+  s_eb1c2e99ef8386::t_69a3644341a1a7 76-97
+.github/scripts/resolve-release-tag.sh
+  s_eb1c2e99ef8386::t_6952a2a4b40823 1-40
+docs/llm/INDEX.md
+  s_eb1c2e99ef8386::t_a46bbb13a6b706 5-6
+docs/llm/operations/diagnostics-and-maintenance.md
+  s_eb1c2e99ef8386::t_9f7418a27c7d42 3,9-11,15-18,22,28,32-33,37-38,43,53-55,62,68-69,73-74,78-80,89,93,103-106,120-121,125,136,145,157-159,169,174,184,192,198,202,215-217
+internal/engines/postgres/postgres.go
+  s_eb1c2e99ef8386::t_471a11fc0049f9 163-165
+  s_eb1c2e99ef8386::t_947ad17febb486 845-846
+  s_eb1c2e99ef8386::t_c91dd4c39b5ef6 119-123
+  s_eb1c2e99ef8386::t_fa3b684de8c4a0 7
+  s_eb1c2e99ef8386::t_9b2d35e557c93e 88-96
+internal/store/credentials_test.go
+  s_eb1c2e99ef8386::t_9b01caef5ed735 1-325
+internal/maintenance/filedb.go
+  s_eb1c2e99ef8386::t_c22d3e358b91f6 226,231-234,237-239,247-251,261-262,265,268
+  s_eb1c2e99ef8386::t_72aa0adf747665 73-83,106-136,143-146,148-149,151,154-183,186-206
+  s_eb1c2e99ef8386::t_d659ad293d4723 303,307-313,316-319
+landing/scripts/render-og-animated.mjs
+  s_eb1c2e99ef8386::t_23e940963f63dc 136
+  s_eb1c2e99ef8386::t_c13c2908e77a13 145-146
+  s_eb1c2e99ef8386::t_c0e019e803db6c 140
+docs/agent-devkit/INDEX.md
+  s_eb1c2e99ef8386::t_1a309f47a215f1 6
+  s_eb1c2e99ef8386::t_244f61e8171bf1 23
+packages/shared/src/schemas.ts
+  s_eb1c2e99ef8386::t_d2266edd07c016 187
+  s_eb1c2e99ef8386::t_38426acacbecc1 166-167
+docs/llm/architecture/engine-support.md
+  s_eb1c2e99ef8386::t_27e20cb224766f 3
+  s_eb1c2e99ef8386::t_bcd24b692bff0c 29,31-35,38-39,43-45,54-55,66,70,81-82
+landing/src/app/opengraph-image.tsx
+  s_eb1c2e99ef8386::t_f7b593a7a7b29f 227
+internal/maintenance/filedb_test.go
+  s_eb1c2e99ef8386::t_3fd0605861ecc8 138-254
+internal/api/ai.go
+  s_eb1c2e99ef8386::t_9dc9b989b449ce 592
+  s_eb1c2e99ef8386::t_338e9fe0f21907 376
+  s_eb1c2e99ef8386::t_09c6c8c289d8d1 396,403-407,409-410,417
+internal/engines/postgres/postgres_test.go
+  s_eb1c2e99ef8386::t_034e6b0ac63415 5-6,8-10,20-55
+  s_cf4811d6444b15::t_3d0015a92b293c 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b8a44603c407a4b5072c2f6600a93e1fb30b6c56",
+  "prompts": {},
+  "sessions": {
+    "s_6d152da426e770": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ebc009769ffej8nH93H862w0MR",
+        "model": "deepseek-v4.1-flash"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_cf4811d6444b15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "346b53aa-01bc-482b-bedb-59bd6e2c3262",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_eb1c2e99ef8386": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ebd1d798affe07tBkqt3cEc7Li",
+        "model": "deepseek-v4.1-flash-free"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
