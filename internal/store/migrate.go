@@ -523,12 +523,13 @@ func (s *Store) rebuildProfiles(checkList string) error {
 			file_path TEXT,
 			color TEXT,
 			connection_string TEXT,
+			ssl_ca_cert TEXT,
 			created_at TEXT NOT NULL DEFAULT (datetime('now')),
 			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 		)`, checkList),
 		`INSERT INTO connection_profiles_new
 			SELECT id, name, kind, host, port, database, username, password, ssl, file_path,
-				color, connection_string, created_at, updated_at
+				color, connection_string, ssl_ca_cert, created_at, updated_at
 			FROM connection_profiles`,
 		`DROP TABLE connection_profiles`,
 		`ALTER TABLE connection_profiles_new RENAME TO connection_profiles`,
