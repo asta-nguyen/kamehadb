@@ -35,6 +35,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Native full CSV export** — stream read-only PostgreSQL/SQLite queries or whole tables directly to disk, preserving intentional query limits and keeping displayed-row exports available. Cancel or close the view without replacing an existing destination; changing connections cannot launch a stale export dialog.
 - **Column-specific table search & case-sensitive toggle** — add column filter dropdown (`All fields` or specific column) and `Aa` Match Case toggle to Table View search; uses native fast string operations (`instr` in SQLite, `contains` in DuckDB, `position` in ClickHouse, `INSTR` in Oracle, `BINARY LIKE` in MySQL) to accelerate queries on million-row tables by up to 3x–5x.
+- **Table view loading indicator** — sorts and page loads that stay pending past a short delay show a spinner with "Loading..." in the table footer, so a slow unindexed sort reads as work in progress instead of a frozen grid; fast queries never flash it.
 
 ### Performance
 

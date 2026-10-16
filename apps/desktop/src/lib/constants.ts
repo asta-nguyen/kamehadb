@@ -24,6 +24,9 @@ export const TOAST_AUTO_HIDE_MS = 5 * 1000;
 export const AUTO_TEST_DEBOUNCE_MS = 500;
 // Native-style overlay bars fade when idle; this is that idle delay. (Why)
 export const SCROLLBAR_AUTO_HIDE_MS = 2 * 1000;
+// Delay before the table view shows its refetch spinner, so fast sorts and
+// cached page loads do not flash a loading indicator. (Why)
+export const SLOW_FETCH_INDICATOR_DELAY_MS = 250;
 
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';
 import type { DbKind } from '@kamehadb/shared';

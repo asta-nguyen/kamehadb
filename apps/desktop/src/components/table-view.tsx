@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { downloadResult, exportToJSON } from '@/lib/export';
+import { SLOW_FETCH_INDICATOR_DELAY_MS } from '@/lib/constants';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -211,6 +212,17 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   const offset = state.navigation.position.offset;
   const page = state.navigation.pageIndex + 1;
   const pendingPage = isFetching || isPlaceholderData;
+  // Show the loading chip only when a fetch stays pending past a short delay,
+  // so fast indexed sorts and cached pages never flash it. (Why)
+  const [slowFetch, setSlowFetch] = useState(false);
+  useEffect(() => {
+    if (!pendingPage) {
+      setSlowFetch(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowFetch(true), SLOW_FETCH_INDICATOR_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [pendingPage]);
   // Prefer schema metadata because several adapters cannot infer columns from
   // an empty page; result metadata remains the fallback while schema loads.
   const displayColumns = columns && columns.length > 0 ? columns : (result?.columns ?? []);
@@ -559,6 +571,12 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
             </span>
             {/* The duration describes the rows on screen, so it sits next to the count, not the pager. (Why) */}
             <span className="text-muted-foreground/70">{formatDuration(result.durationMs)}</span>
+            {slowFetch && (
+              <span role="status" className="flex items-center gap-1 text-muted-foreground">
+                <Spinner size="sm" />
+                Loading...
+              </span>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>Page</span>
