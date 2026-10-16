@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ScrollIndicator } from '@/components/ui/scrollbar';
 import { useStore } from '@tanstack/react-store';
 import {
   Activity,
@@ -85,6 +86,7 @@ export function WorkspaceTabBar() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [tabToRename, setTabToRename] = useState<WorkspaceTab | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const stripRef = useRef<HTMLDivElement>(null);
 
   // Commit a non-empty trimmed title, then close the dialog without changing tab state.
   function handleRenameSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -97,206 +99,210 @@ export function WorkspaceTabBar() {
 
   return (
     <div className="flex h-8 shrink-0 items-center border-b border-border bg-muted/20">
-      <div
-        className="flex h-full flex-1 items-center overflow-x-auto min-w-0"
-        onDragEnd={() => {
-          dragIndexRef.current = null;
-          setDragOverIndex(null);
-        }}
-      >
-        {openedTabs.map((tab, index) => {
-          const status = 'connectionId' in tab ? connectionStatus[tab.connectionId] : undefined;
-          const connection =
-            'connectionId' in tab ? connections?.find((item) => item.id === tab.connectionId) : undefined;
-          const signalColor = getIndicatorColor(connection, status);
+      <div className="relative h-full flex-1 min-w-0">
+        <div
+          ref={stripRef}
+          className="no-scrollbar flex h-full items-center overflow-x-auto pb-1"
+          onDragEnd={() => {
+            dragIndexRef.current = null;
+            setDragOverIndex(null);
+          }}
+        >
+          {openedTabs.map((tab, index) => {
+            const status = 'connectionId' in tab ? connectionStatus[tab.connectionId] : undefined;
+            const connection =
+              'connectionId' in tab ? connections?.find((item) => item.id === tab.connectionId) : undefined;
+            const signalColor = getIndicatorColor(connection, status);
 
-          const isLastTab = index === openedTabs.length - 1;
-          const hasOtherTabs = openedTabs.length > 1;
-          const canDuplicate = ['query', 'redis-query', 'mongo-query', 'federated-query'].includes(tab.type);
+            const isLastTab = index === openedTabs.length - 1;
+            const hasOtherTabs = openedTabs.length > 1;
+            const canDuplicate = ['query', 'redis-query', 'mongo-query', 'federated-query'].includes(tab.type);
 
-          return (
-            <ContextMenu key={tab.id}>
-              <ContextMenuTrigger
-                role="button"
-                tabIndex={0}
-                title={connection ? `${tab.title} (${connection.name})` : tab.title}
-                draggable
-                onDragStart={(e) => {
-                  dragIndexRef.current = index;
-                  e.dataTransfer.effectAllowed = 'move';
-                  e.dataTransfer.setData('text/plain', String(index));
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (dragOverIndex !== index) setDragOverIndex(index);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const from = dragIndexRef.current;
-                  dragIndexRef.current = null;
-                  setDragOverIndex(null);
-                  if (typeof from === 'number' && from >= 0 && from !== index) {
-                    reorderTabs(from, index);
-                  }
-                }}
-                className={`group/tab flex h-full shrink-0 cursor-pointer items-center gap-1.5 border-r border-border px-3 text-xs transition-colors ${
-                  tab.id === activeTabId ? 'border-b-2 border-b-primary bg-background' : 'hover:bg-muted/50'
-                } ${dragOverIndex === index ? 'border-l-2 border-l-primary' : ''}`}
-                onClick={() =>
-                  appStore.setState((state) => ({
-                    ...state,
-                    activeTabId: tab.id,
-                    activeConnectionId: 'connectionId' in tab ? tab.connectionId : null,
-                  }))
-                }
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
+            return (
+              <ContextMenu key={tab.id}>
+                <ContextMenuTrigger
+                  role="button"
+                  tabIndex={0}
+                  title={connection ? `${tab.title} (${connection.name})` : tab.title}
+                  draggable
+                  onDragStart={(e) => {
+                    dragIndexRef.current = index;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', String(index));
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverIndex !== index) setDragOverIndex(index);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const from = dragIndexRef.current;
+                    dragIndexRef.current = null;
+                    setDragOverIndex(null);
+                    if (typeof from === 'number' && from >= 0 && from !== index) {
+                      reorderTabs(from, index);
+                    }
+                  }}
+                  className={`group/tab flex h-full shrink-0 cursor-pointer items-center gap-2 border-r border-border px-2 text-xs transition-colors ${
+                    tab.id === activeTabId ? 'border-b-2 border-b-primary bg-background' : 'hover:bg-muted/50'
+                  } ${dragOverIndex === index ? 'border-l-2 border-l-primary' : ''}`}
+                  onClick={() =>
                     appStore.setState((state) => ({
                       ...state,
                       activeTabId: tab.id,
                       activeConnectionId: 'connectionId' in tab ? tab.connectionId : null,
-                    }));
+                    }))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      appStore.setState((state) => ({
+                        ...state,
+                        activeTabId: tab.id,
+                        activeConnectionId: 'connectionId' in tab ? tab.connectionId : null,
+                      }));
+                    }
+                  }}
+                >
+                  {/* The dot is a warning light: it only needs to show when the tab's connection is not healthy. (Why) */}
+                  {status && status !== 'connected' && (
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
+                  )}
+                  {tabIcon(tab.type)}
+                  <span className="max-w-30 truncate">{tab.title}</span>
+                  {connection && (tab.type === 'query' || tab.type === 'mongo-query' || tab.type === 'redis-query') && (
+                    <span className="text-[11px] text-muted-foreground/70 truncate max-w-24 font-normal">
+                      ({connection.name})
+                    </span>
+                  )}
+                  {tab.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="size-5 rounded-sm hover:bg-muted"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      closeTab(tab.id);
+                    }}
+                    aria-label={`Close ${tab.title} tab`}
+                  >
+                    <X className="size-3" />
+                  </Button>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  {tab.type === 'query' && (
+                    <ContextMenuItem
+                      onClick={() => {
+                        setTabToRename(tab);
+                        setRenameValue(tab.title);
+                      }}
+                    >
+                      <Pencil className="size-4" />
+                      <span>Rename</span>
+                    </ContextMenuItem>
+                  )}
+                  <ContextMenuItem onClick={() => toggleTabPin(tab.id)}>
+                    {tab.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
+                    <span>{tab.pinned ? 'Unpin Tab' : 'Pin Tab'}</span>
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => closeTab(tab.id)}>
+                    <span>Close</span>
+                    <ContextMenuShortcut>Ctrl+W</ContextMenuShortcut>
+                  </ContextMenuItem>
+                  {hasOtherTabs && (
+                    <ContextMenuItem onClick={() => closeOtherTabs(tab.id)}>
+                      <span>Close Others</span>
+                    </ContextMenuItem>
+                  )}
+                  {hasOtherTabs && !isLastTab && (
+                    <ContextMenuItem onClick={() => closeTabsToRight(tab.id)}>
+                      <span>Close to the Right</span>
+                    </ContextMenuItem>
+                  )}
+                  <ContextMenuItem onClick={() => closeAllTabs()}>
+                    <span>Close All</span>
+                    <ContextMenuShortcut>Ctrl+Shift+W</ContextMenuShortcut>
+                  </ContextMenuItem>
+                  {canDuplicate && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => duplicateTab(tab.id)}>
+                        <Copy className="size-4" />
+                        <span>Duplicate Tab</span>
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
+            );
+          })}
+
+          <Dialog
+            open={tabToRename !== null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setTabToRename(null);
+                setRenameValue('');
+              }
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Rename Query Tab</DialogTitle>
+                <DialogDescription>Choose a name for this query tab.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleRenameSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rename-query-tab">Tab name</Label>
+                  <Input
+                    id="rename-query-tab"
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                  <Button type="submit" disabled={!renameValue.trim()}>
+                    Save
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {openedTabs.length > 0 && (
+            <ContextMenu>
+              <ContextMenuTrigger
+                className="flex-1 h-full min-w-2"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const from = dragIndexRef.current;
+                  dragIndexRef.current = null;
+                  setDragOverIndex(null);
+                  if (typeof from === 'number' && from >= 0 && from !== openedTabs.length - 1) {
+                    reorderTabs(from, openedTabs.length - 1);
                   }
                 }}
-              >
-                {/* The dot is a warning light: it only needs to show when the tab's connection is not healthy. (Why) */}
-                {status && status !== 'connected' && (
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
-                )}
-                {tabIcon(tab.type)}
-                <span className="max-w-30 truncate">{tab.title}</span>
-                {connection && (tab.type === 'query' || tab.type === 'mongo-query' || tab.type === 'redis-query') && (
-                  <span className="text-[11px] text-muted-foreground/70 truncate max-w-24 font-normal">
-                    ({connection.name})
-                  </span>
-                )}
-                {tab.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="ml-1 rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover/tab:opacity-100 focus-visible:opacity-100"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    closeTab(tab.id);
-                  }}
-                  aria-label={`Close ${tab.title} tab`}
-                >
-                  <X className="size-3" />
-                </Button>
-              </ContextMenuTrigger>
+              />
               <ContextMenuContent>
-                {tab.type === 'query' && (
-                  <ContextMenuItem
-                    onClick={() => {
-                      setTabToRename(tab);
-                      setRenameValue(tab.title);
-                    }}
-                  >
-                    <Pencil className="size-4" />
-                    <span>Rename</span>
-                  </ContextMenuItem>
-                )}
-                <ContextMenuItem onClick={() => toggleTabPin(tab.id)}>
-                  {tab.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
-                  <span>{tab.pinned ? 'Unpin Tab' : 'Pin Tab'}</span>
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem onClick={() => closeTab(tab.id)}>
-                  <span>Close</span>
-                  <ContextMenuShortcut>Ctrl+W</ContextMenuShortcut>
-                </ContextMenuItem>
-                {hasOtherTabs && (
-                  <ContextMenuItem onClick={() => closeOtherTabs(tab.id)}>
-                    <span>Close Others</span>
-                  </ContextMenuItem>
-                )}
-                {hasOtherTabs && !isLastTab && (
-                  <ContextMenuItem onClick={() => closeTabsToRight(tab.id)}>
-                    <span>Close to the Right</span>
-                  </ContextMenuItem>
-                )}
                 <ContextMenuItem onClick={() => closeAllTabs()}>
                   <span>Close All</span>
                   <ContextMenuShortcut>Ctrl+Shift+W</ContextMenuShortcut>
                 </ContextMenuItem>
-                {canDuplicate && (
-                  <>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onClick={() => duplicateTab(tab.id)}>
-                      <Copy className="size-4" />
-                      <span>Duplicate Tab</span>
-                    </ContextMenuItem>
-                  </>
-                )}
               </ContextMenuContent>
             </ContextMenu>
-          );
-        })}
-
-        <Dialog
-          open={tabToRename !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              setTabToRename(null);
-              setRenameValue('');
-            }
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Rename Query Tab</DialogTitle>
-              <DialogDescription>Choose a name for this query tab.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleRenameSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="rename-query-tab">Tab name</Label>
-                <Input
-                  id="rename-query-tab"
-                  value={renameValue}
-                  onChange={(event) => setRenameValue(event.target.value)}
-                  autoFocus
-                />
-              </div>
-              <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
-                <Button type="submit" disabled={!renameValue.trim()}>
-                  Save
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {openedTabs.length > 0 && (
-          <ContextMenu>
-            <ContextMenuTrigger
-              className="flex-1 h-full min-w-2"
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const from = dragIndexRef.current;
-                dragIndexRef.current = null;
-                setDragOverIndex(null);
-                if (typeof from === 'number' && from >= 0 && from !== openedTabs.length - 1) {
-                  reorderTabs(from, openedTabs.length - 1);
-                }
-              }}
-            />
-            <ContextMenuContent>
-              <ContextMenuItem onClick={() => closeAllTabs()}>
-                <span>Close All</span>
-                <ContextMenuShortcut>Ctrl+Shift+W</ContextMenuShortcut>
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-        )}
+          )}
+        </div>
+        <ScrollIndicator scrollerRef={stripRef} orientation="horizontal" />
       </div>
 
       <div className="flex h-full shrink-0 items-center border-l border-border/50 bg-muted/30">

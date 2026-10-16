@@ -189,7 +189,7 @@ function MongoQueryToolbar({
             Running
           </span>
         )}
-        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[11px] font-mono text-muted-foreground/50">
+        <kbd className="inline-flex h-7 items-center rounded border border-border/60 bg-muted/30 px-2 font-mono text-xs text-muted-foreground/50">
           {running ? 'Esc' : 'Ctrl+Enter'}
         </kbd>
       </div>

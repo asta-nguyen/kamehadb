@@ -164,7 +164,7 @@ function TableItem({
                 {col.isVector && (
                   <Badge
                     variant="secondary"
-                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-[11px] bg-muted/30 border-muted shrink-0"
+                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-xs bg-muted/30 border-muted shrink-0"
                   >
                     vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
                   </Badge>

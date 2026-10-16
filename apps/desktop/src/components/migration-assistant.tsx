@@ -110,7 +110,7 @@ export function MigrationAssistant({
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">From (before)</Label>
                 <Select value={fromId} onValueChange={(value) => value !== null && setFromId(value)}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="text-xs">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
@@ -125,7 +125,7 @@ export function MigrationAssistant({
               <div className="flex flex-col gap-1.5">
                 <Label className="text-xs text-muted-foreground">To (after)</Label>
                 <Select value={toId} onValueChange={(value) => value !== null && setToId(value)}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="text-xs">
                     <SelectValue placeholder="Select snapshot" />
                   </SelectTrigger>
                   <SelectContent>
@@ -141,7 +141,7 @@ export function MigrationAssistant({
             <Button
               variant="default"
               size="sm"
-              className="mt-3 h-8 text-xs gap-1"
+              className="mt-3 text-xs gap-1"
               onClick={handleGenerate}
               disabled={!fromId || !toId || fromId === toId || generating}
             >
@@ -160,7 +160,7 @@ export function MigrationAssistant({
                 Migration: {new Date(result.fromSnapshot).toLocaleString()} →{' '}
                 {new Date(result.toSnapshot).toLocaleString()} ({result.statements.length} statements)
               </span>
-              <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={handleCopy}>
+              <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={handleCopy}>
                 {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
                 {copied ? 'Copied' : 'Copy'}
               </Button>

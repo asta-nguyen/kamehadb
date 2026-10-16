@@ -160,8 +160,27 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
         if (!dragRef.current) return;
         dragRef.current.moved = true;
         const diff = me.clientX - dragRef.current.startX;
-        const w = Math.max(40, dragRef.current.startW + diff);
+        let w = Math.max(40, dragRef.current.startW + diff);
         dragRef.current.finalW = w;
+
+        // Cap the dragged width so the grid can never exceed the pane: the sum of all
+        // other columns' minimums (fixed or minmax floors) must leave room for it, or
+        // the table overflows and a horizontal scrollbar appears. (Why)
+        if (scrollContainer) {
+          const pxSum = (s?: string) =>
+            s ? [...s.matchAll(/(\d+(?:\.\d+)?)px/g)].reduce((n, m) => n + parseFloat(m[1]), 0) : 0;
+          const idx = dragRef.current.idx;
+          let minSum = pxSum(prefix) + pxSum(suffix);
+          widthsAtDragStartRef.current.forEach((cw, ci) => {
+            if (ci === idx || cw == null) return; // null cols are minmax(0,1fr) and can shrink to 0
+            minSum += cw;
+          });
+          const maxW = scrollContainer.clientWidth - minSum;
+          if (w > maxW) {
+            w = Math.max(40, maxW);
+            dragRef.current.finalW = w;
+          }
+        }
 
         // Rebuild the grid template from the widths snapshot, replacing only
         // the dragged column's width. This keeps previously-resized columns intact.

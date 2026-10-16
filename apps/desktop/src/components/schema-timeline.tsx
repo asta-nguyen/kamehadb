@@ -209,7 +209,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
   const entries = data?.entries ?? [];
 
   return (
-    <div className="p-4 h-full overflow-y-auto space-y-4">
+    <div className="p-4 h-full overflow-y-auto space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <History className="size-4" />
@@ -251,7 +251,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
             <Button
               variant={watcherStatus?.cadenceRunning ? 'default' : 'outline'}
               size="sm"
-              className="h-6 text-xs"
+              className="text-xs"
               onClick={handleToggleCadence}
               disabled={startingWatcher || stoppingWatcher}
             >
@@ -262,8 +262,9 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
               onValueChange={(val) => setSelectedInterval(Number(val))}
               disabled={watcherStatus?.cadenceRunning}
             >
-              <SelectTrigger className="h-6 w-32 text-xs">
-                <SelectValue />
+              <SelectTrigger className="w-32 text-xs">
+                {/* Base UI leaks the raw value until the popup mounts; resolve the label ourselves. (Why) */}
+                <SelectValue>{INTERVAL_PRESETS.find((preset) => preset.value === selectedInterval)?.label}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {INTERVAL_PRESETS.map((preset) => (
@@ -284,7 +285,7 @@ export function SchemaTimeline({ connectionId }: { connectionId: string }) {
               <Button
                 variant={watcherStatus?.notifyRunning ? 'default' : 'outline'}
                 size="sm"
-                className="h-6 text-xs"
+                className="text-xs"
                 onClick={handleToggleNotify}
                 disabled={startingNotify || stoppingNotify}
               >

@@ -9,13 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- **Balanced table tab padding** — the table view's tab strip and its Data, Columns, and Indexes panels sit inside one uniform 16px frame on all four sides (previously uneven horizontal/top/bottom insets, with the tab strip only 4px from the window tab bar).
 - **MCP credential vault key** — store the AES-256-GCM key in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) instead of a `.mcp.key` file beside the database. An existing key file is moved into the keychain on first use; where no keychain is available the owner-only key file remains as a fallback and a warning is logged.
 - **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with a single Wails/Go binary. All backend routes are now in-process Go services and the frontend communicates through generated Wails bindings, eliminating sidecar IPC.
 - **Desktop bundle size** — the local macOS ARM64 Wails app bundle is about 80% smaller than the previously installed app.
 - **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
 - **Release packaging** — ship `.dmg`, `.deb`, Fedora 40+ `.rpm`, and `.AppImage` packages, plus a Windows NSIS installer and a WiX `.msi` for stable tags. The AppImage uses the GTK bundling plugin and requires the host WebKit2GTK 4.1 runtime; it does not bundle the WebKit subprocess runtime.
 - **Compact table workspace** — remove the duplicate table title strip (the tab already names the table), move the match-case toggle inside the search field, and drop the Sort-by dropdown; clicking a column header sorts and a hover glyph marks sortable columns. The footer keeps the row count and query duration together on one line with an icon-led pager.
-- **Table and tab affordances** — the row `⋮` menu in the table view and query editor uses the smaller icon size; a tab's connection dot only shows when that connection is not healthy, and the tab close button appears on hover or focus.
+- **Table and tab affordances** — the row `⋮` menu in the table view and query editor uses the smaller icon size; a tab's connection dot only shows when that connection is not healthy, and the tab close button stays visible at a compact size.
 - **Denser sidebar** — connection rows, group headers, schema rows and table rows each lose four pixels of height, the connection list keeps a single 6 px gap, and the API settings entry uses the small button size.
 - **Navigation labels** — the sidebar entry keeps a single "API Settings" label with an active state (the page's back arrow returns to the workspace) and the page header drops the profile and version badges; the schema tree keeps a single search box that now matches table names as well as schema names and opens the schemas that match, so the per-schema `Filter tables` box is gone and the tree rows sit one level tighter.
 - **Micro type tier** — badges, keyboard hints and footnotes move from 10 px to an 11 px tier recorded in `DESIGN-SYSTEM.md`.
@@ -25,6 +26,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Atomic file-database backup/restore** — SQLite and DuckDB backup/restore stage new content in temporary siblings and promote it with rollback, so a failed backup or restore no longer deletes the existing output or database; stale sidecars are removed only after a successful restore.
 - **Release tag validation and least-privilege workflow** — release tags are validated by `.github/scripts/resolve-release-tag.sh` (shape and Git-ref checks) before any checkout or release mutation, the workflow token is read-only globally with write scoped to the release jobs, and build checkouts no longer persist credentials.
 - **Docker dev databases bind loopback** — the sample `docker-compose.yml` publishes every database port on `127.0.0.1` instead of all interfaces.
+- **Unified control sizing** — buttons, inputs, and selects across the app share one 28 px height and a single 6 px corner radius, and panels keep one spacing mechanism between blocks; the API settings and MCP sections, Database Analytics, and Schema Timeline were rebuilt on that scale, with helper text directly under the control it describes.
+- **AI provider tiles** — the settings page lists providers as compact tiles, each with the service's own logo (OpenAI, DeepSeek, Google, Ollama) instead of a generic icon, and the active provider is stated once in the tile's status line instead of a badge repeating it.
+- **App-owned context menus** — right-click menus are app-rendered across the workspace instead of the webview's native menu, and the Redis key list and key details share a single menu.
+- **Query-run shortcut chip** — the SQL, MongoDB, and Redis query toolbars consistently show the Ctrl+Enter run chip.
 
 ### Added
 
@@ -78,14 +83,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Table View export menu** — render whole-table CSV export as a proper dropdown item instead of a nested native button, keeping the menu open so Cancel stays reachable while the export runs.
 - **MongoDB page footers** — show the exact document count when the server reported one and "N+ documents" while more may follow; without a known total the page box becomes a plain current-page label and page jumps cannot exceed the known page count.
 - **Displayed-row exports** — save CSV/JSON/SQL through the native save dialog and a backend write in the table view, query editor, and MongoDB panels; the previous blob download was silently ignored by WebKitGTK, so the menu actions did nothing.
-- **Scrollbar styling on Linux** — style scrollbars with the standard `scrollbar-width`/`scrollbar-color` properties, which WebKitGTK does honour, instead of only `::-webkit-scrollbar`, which it ignores. The thumb uses the muted foreground because the previous border token is white-at-10% in the dark theme and left only the native hairline edge visible. The bars keep WebKitGTK's overlay behaviour and fade out once scrolling stops.
+- **Scrollbar styling on Linux** — style scrollbars with the standard `scrollbar-width`/`scrollbar-color` properties, which WebKitGTK does honour, instead of only `::-webkit-scrollbar`, which it ignores. The thumb uses the muted foreground because the previous border token is white-at-10% in the dark theme and left only the native hairline edge visible. Natively scrolled panes keep WebKitGTK's overlay behaviour and fade out once scrolling stops; the tab strip and sidebar draw their own static bar.
 - **Scrollbar over the table header** — move the pinned header row out of the table's scrollport, so its bar hangs on the body rows instead of spanning the header. Horizontal scrolling and column resizing stay in sync with the header.
-- **Sidebar scrollbar** — show the connection tree's scrollbar again instead of hiding it outright.
-- **Tab bar scrollbar** — show the tab strip's scrollbar again instead of hiding it, so tabs that overflow the strip have a visible affordance.
+- **Tab strip and sidebar scrollbars** — replace the native overlay bars with a small static 4 px custom bar: the tab strip keeps a horizontal bar in its own lane under the tabs, and the sidebar draws one over its right edge that fades out after two seconds idle like a native overlay; both can be dragged and clicked to jump.
 - **MongoDB document list** — give list mode a scroll container and keep the pagination footer in place; long results and the footer were clipped before, with no way to scroll.
 - **Table scroll smoothness** — run the Linux webview with GPU acceleration and zero-copy DMA-BUF frame transport (Wails defaults Linux to software rendering, wails#2977) and drop the sticky table header's backdrop blur; result pages up to 200 rows also render in one pass, so scrolling no longer re-renders the table on every frame.
 - **Export menu wording** — "Displayed rows as CSV" is now "Export as CSV", the whole-table export sits below a separator and reads "Export whole table as CSV", and "Copy JSON" reads "Copy as JSON".
 - **Welcome screen tiles** — remove the hardcoded emerald and red glow shadows; connected and disconnected tiles now use the success and destructive tokens with flat borders.
+- **Select fields showing raw values** — the schema timeline interval, SQL editor row limit, chart view, and PostgreSQL backup/restore dialog selects could render an option's raw value instead of its label; every select now renders the selected item's label.
 
 ### Removed
 

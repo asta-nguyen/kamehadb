@@ -404,13 +404,15 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               placeholder={state.searchColumn ? `Search in ${state.searchColumn}...` : 'Search all fields...'}
               className={cn('h-7 pl-7 text-xs md:text-xs rounded-lg border-input', state.searchText ? 'pr-13' : 'pr-8')}
             />
-            {/* Match case is a mode badge inside the field: quiet when off, tinted when on. (Why) */}
+            {/* Match case is a mode badge inside the field: quiet when off, tinted when on.
+                Positioned with top-1 instead of translate centering because the button's press
+                effect (active:translate-y-px) overrides -translate-y-1/2 and makes it jump on click. (Why) */}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => dispatch({ type: 'setMatchCase', value: !state.matchCase })}
               className={cn(
-                'absolute right-1 top-1/2 -translate-y-1/2 h-5 w-6 rounded-md border font-mono text-[11px] transition-colors',
+                'absolute right-1 top-1 h-5 w-6 rounded-md border font-mono text-xs transition-colors',
                 state.matchCase
                   ? 'border-primary/50 bg-primary/15 text-primary font-medium'
                   : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -427,7 +429,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   dispatch({ type: 'setSearchText', value: '' });
                   dispatch({ type: 'setQuerySearch', value: '' });
                 }}
-                className="absolute right-8 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground hover:text-foreground"
+                className="absolute right-8 top-1 h-5 w-5 text-muted-foreground hover:text-foreground"
                 title="Clear search"
               >
                 <X className="size-3" />
@@ -696,8 +698,8 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
-        <div className="px-4 pt-1 shrink-0">
+      <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0 gap-0">
+        <div className="px-2 pt-2 shrink-0">
           <TabsList>
             <TabsTrigger value="data" className="text-xs">
               Data
@@ -715,11 +717,11 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="data" className="flex-1 px-4 pb-3 pt-1 overflow-hidden min-h-0">
+        <TabsContent value="data" className="flex-1 p-2 overflow-hidden min-h-0">
           <DataGrid connectionId={connectionId} tableId={tableId} />
         </TabsContent>
 
-        <TabsContent value="columns" className="flex-1 p-4 pt-2 overflow-auto">
+        <TabsContent value="columns" className="flex-1 p-2 overflow-auto">
           <div className="border rounded-md">
             <Table className="text-xs">
               <TableHeader>
@@ -739,7 +741,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                       <div className="flex items-center gap-1.5">
                         <span>{col.type}</span>
                         {col.isVector && (
-                          <Badge variant="secondary" className="px-1 py-0 h-4 text-[11px]">
+                          <Badge variant="secondary" className="px-1 py-0 h-4 text-xs">
                             vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
                           </Badge>
                         )}
@@ -766,7 +768,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="indexes" className="flex-1 p-4 pt-2 overflow-auto">
+        <TabsContent value="indexes" className="flex-1 p-2 overflow-auto">
           <div className="border rounded-md">
             <Table className="text-xs">
               <TableHeader>

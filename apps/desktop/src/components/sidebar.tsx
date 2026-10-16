@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
@@ -14,7 +13,6 @@ import {
 import { toastError } from '@/lib/toast';
 import {
   appStore,
-  navigateTo,
   openPostgresPsqlTab,
   openRedisTab,
   setActiveConnection,
@@ -25,10 +23,11 @@ import {
 import type { ConnectionProfile, DbKind } from '@kamehadb/shared';
 import { ALL_KINDS, safeErrorMessage } from '@kamehadb/shared';
 import { useStore } from '@tanstack/react-store';
-import { ChevronDown, ChevronRight, Pin, Settings2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pin } from 'lucide-react';
 import type { ConnectionStatus } from './sidebar.helpers';
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollIndicator } from '@/components/ui/scrollbar';
 import { ConnectionDialog } from './connection-dialog';
 import { DbIcon } from './db-icon';
 import { PostgresBackupDialog } from './postgres-backup-dialog';
@@ -37,7 +36,6 @@ import { DeleteConfirmDialog } from './sidebar-delete-dialog';
 import { ConnectionDropdownMenu } from './sidebar-dropdown-menu';
 import { ConnectionStatusDot } from './sidebar-status-dot';
 import { ConnectionTooltip } from './sidebar-tooltip';
-import { SpinningRefresh } from './sidebar.helpers';
 import { MongoExplorer } from './mongo-explorer';
 import { SchemaTree } from './schema-tree';
 
@@ -112,7 +110,7 @@ const ConnectionItem = memo(function ConnectionItem({
             handleRowActivate();
           }
         }}
-        className={`group w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-all cursor-pointer ${
+        className={`group w-full flex items-center gap-1.5 px-1 py-1 rounded-lg text-left text-sm transition-all cursor-pointer ${
           isActive ? 'bg-muted/60 shadow-sm' : 'hover:bg-muted/50'
         }`}
       >
@@ -135,23 +133,6 @@ const ConnectionItem = memo(function ConnectionItem({
           <ConnectionTooltip conn={conn} status={status} latency={latency} anchor={anchor} />
         </Tooltip>
 
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            refreshConnection.mutate(conn.id);
-          }}
-          disabled={refreshConnection.isPending}
-          className="opacity-0 disabled:opacity-100 group-hover:opacity-100"
-          title="Reload connection"
-          aria-label="Reload connection"
-        >
-          <SpinningRefresh
-            spinning={refreshConnection.isPending}
-            className="text-muted-foreground/60 hover:text-foreground"
-          />
-        </Button>
         <ConnectionDropdownMenu
           conn={conn}
           refreshConnection={refreshConnection}
@@ -189,7 +170,7 @@ const ConnectionItem = memo(function ConnectionItem({
       />
 
       {expanded && conn.kind !== 'redis' && (
-        <div className="pl-2 ml-3 mt-1 border-border/60 border-l space-y-0.5">
+        <div className="pl-2 ml-3 mt-0.5 border-border/60 border-l space-y-0.5">
           {conn.kind === 'mongodb' ? (
             <MongoExplorer key={conn.id} connectionId={conn.id} />
           ) : (
@@ -229,7 +210,7 @@ function ConnectionGroup({
   const isPinned = kind === '_pinned';
   return (
     <div className="space-y-0.5">
-      <div className={`flex items-center gap-2 px-2 py-1 rounded-md ${isPinned ? 'bg-muted/50' : 'bg-muted/30'}`}>
+      <div className={`flex items-center gap-1.5 px-1 py-0.5 rounded-md ${isPinned ? 'bg-muted/50' : 'bg-muted/30'}`}>
         {isPinned ? (
           <Pin className="size-3 text-muted-foreground/60" />
         ) : (
@@ -250,13 +231,13 @@ function ConnectionGroup({
 export function Sidebar() {
   const { data: connections, isLoading } = useConnections();
   const activeConnectionId = useStore(appStore, (s) => s.activeConnectionId);
-  const view = useStore(appStore, (s) => s.view);
   const pinnedConnections = useStore(appStore, (s) => s.pinnedConnections);
 
   const [showCreate, setShowCreate] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const sidebarScrollRef = useRef<HTMLDivElement>(null);
 
   const groups = useMemo(() => {
     if (!connections) return [];
@@ -348,36 +329,29 @@ export function Sidebar() {
     >
       {/* Overflow is owned by index.css: unscrollable until hovered so WebKitGTK only
           reveals this pane's overlay scrollbar, not the table's. (Why) */}
-      <div data-slot="sidebar-scroll" className="flex flex-1 flex-col h-full min-w-0">
-        <div className="flex h-8 items-center justify-between px-3 border-b border-border shrink-0">
+      <div className="flex flex-1 flex-col h-full min-w-0">
+        {/* Scroll slot wraps only the list so the bar never spans header/footer. (Why) */}
+        <div className="flex h-8 items-center justify-between px-2 border-b border-border shrink-0">
           <span className="text-muted-foreground text-xs font-medium">Connections</span>
           <ConnectionDialog open={showCreate} onOpenChange={setShowCreate} />
         </div>
 
-        <div className="flex-1 p-1.5 space-y-1.5">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Spinner size="md" />
-            </div>
-          ) : connections?.length === 0 ? (
-            <p className="px-2 py-4 text-center text-xs">No connections yet</p>
-          ) : (
-            groups.map(([kind, conns]) => (
-              <ConnectionGroup key={kind} kind={kind} conns={conns} activeConnectionId={activeConnectionId} />
-            ))
-          )}
-        </div>
-
-        <div className="p-1 border-border border-t shrink-0">
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => navigateTo('api-settings')}
-            className={`w-full ${view === 'api-settings' ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50 text-muted-foreground'}`}
-          >
-            <Settings2 className="size-3.5" />
-            <span>API Settings</span>
-          </Button>
+        {/* Relative wrapper anchors the custom scroll indicator over the list. (Why) */}
+        <div className="relative flex-1 min-h-0">
+          <div ref={sidebarScrollRef} data-slot="sidebar-scroll" className="no-scrollbar h-full p-1 space-y-1">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Spinner size="md" />
+              </div>
+            ) : connections?.length === 0 ? (
+              <p className="px-2 py-4 text-center text-xs">No connections yet</p>
+            ) : (
+              groups.map(([kind, conns]) => (
+                <ConnectionGroup key={kind} kind={kind} conns={conns} activeConnectionId={activeConnectionId} />
+              ))
+            )}
+          </div>
+          <ScrollIndicator scrollerRef={sidebarScrollRef} orientation="vertical" autoHide />
         </div>
       </div>
 

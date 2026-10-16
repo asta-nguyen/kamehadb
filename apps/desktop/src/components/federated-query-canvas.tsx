@@ -157,7 +157,7 @@ export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceT
                 type="button"
                 variant={selected ? 'default' : 'outline'}
                 size="sm"
-                className="h-6 gap-1.5 shrink-0"
+                className="gap-1.5 shrink-0"
                 onClick={() => toggleConnection(conn.id)}
               >
                 <DbIcon kind={conn.kind} className="size-3" />

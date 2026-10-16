@@ -706,8 +706,8 @@ function QueryResultTable({
           </div>
           <div className="w-px h-4 bg-border mx-1" />
           <Select value={String(queryLimit)} onValueChange={(v) => onLimitChange(Number(v))}>
-            <SelectTrigger className="h-7 text-xs w-22 gap-1" title="Row limit">
-              <SelectValue />
+            <SelectTrigger className="h-7 text-xs w-26 gap-1" title="Row limit">
+              <SelectValue>{queryLimit === 0 ? 'No limit' : `${queryLimit} rows`}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="50">50 rows</SelectItem>
@@ -1078,11 +1078,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
             Run
           </Button>
         )}
-        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[11px] font-mono text-muted-foreground/50">
+        <kbd className="inline-flex h-7 items-center rounded border border-border/60 bg-muted/30 px-2 font-mono text-xs text-muted-foreground/50">
           {runQuery.isPending || isExecutingBatch ? 'Esc' : 'Ctrl+Enter'}
         </kbd>
         {targetConn && (
-          <Badge variant="outline" className="gap-1.5 px-2 py-0.5 text-xs font-normal">
+          <Badge variant="outline" className="h-7 gap-1.5 px-2 text-xs font-normal">
             <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: targetConn.color || '#3b82f6' }} />
             <span className="font-medium text-foreground">{targetConn.name}</span>
           </Badge>

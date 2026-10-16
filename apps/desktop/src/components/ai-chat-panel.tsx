@@ -252,10 +252,10 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
               autoFocus
             />
             <div className="mt-1 flex justify-end gap-1">
-              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={cancelEdit}>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={cancelEdit}>
                 Cancel
               </Button>
-              <Button variant="default" size="sm" className="h-6 text-xs" onClick={submitEdit} disabled={!draft.trim()}>
+              <Button variant="default" size="sm" className="text-xs" onClick={submitEdit} disabled={!draft.trim()}>
                 Send
               </Button>
             </div>
@@ -270,7 +270,7 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+              className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground"
               onClick={startEdit}
               disabled={disabled}
             >
@@ -280,7 +280,7 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+              className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => onResend(msg.id, getChatTextContent(msg))}
               disabled={disabled}
             >
@@ -634,7 +634,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 </span>
                 <span className="truncate text-sm font-medium">AI Assistant</span>
                 {aiSettings && (
-                  <Badge variant="outline" className="max-w-32 truncate text-[11px] font-normal text-muted-foreground">
+                  <Badge variant="outline" className="max-w-32 truncate text-xs font-normal text-muted-foreground">
                     {aiSettings.activeProvider}
                   </Badge>
                 )}

@@ -27,7 +27,6 @@ function TooltipContent({
   collisionAvoidance,
   sticky,
   children,
-  arrow = true,
   ...props
 }: TooltipPrimitive.Popup.Props &
   Pick<
@@ -42,9 +41,7 @@ function TooltipContent({
     | 'collisionPadding'
     | 'collisionAvoidance'
     | 'sticky'
-  > & {
-    arrow?: boolean;
-  }) {
+  >) {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
@@ -71,9 +68,6 @@ function TooltipContent({
           {...props}
         >
           {children}
-          {arrow && (
-            <TooltipPrimitive.Arrow className="z-[99999] size-2 rotate-45 border border-border/80 bg-popover shadow-2xs" />
-          )}
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>

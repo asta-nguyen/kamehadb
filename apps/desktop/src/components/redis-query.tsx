@@ -224,9 +224,9 @@ export function RedisQuery({ tab, connectionId }: RedisQueryProps) {
           {redisCommand.isPending ? <Spinner size="sm" className="size-3.5" /> : <Play className="size-3.5" />}
           Run
         </Button>
-        <span className="text-muted-foreground text-xs">
-          {redisCommand.isPending ? 'Running...' : 'Ctrl+Enter to run'}
-        </span>
+        <kbd className="inline-flex h-7 items-center rounded border border-border/60 bg-muted/30 px-2 font-mono text-xs text-muted-foreground/50">
+          {redisCommand.isPending ? 'Running...' : 'Ctrl+Enter'}
+        </kbd>
       </div>
 
       <div className="flex-1 min-h-0 border-b border-border">

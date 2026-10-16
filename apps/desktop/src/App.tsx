@@ -20,7 +20,7 @@ import {
   setTheme,
 } from '@/store';
 import { useStore } from '@tanstack/react-store';
-import { Monitor, Moon, ScrollText, Search, Sun, Keyboard } from 'lucide-react';
+import { Monitor, Moon, ScrollText, Search, Settings, Sun, Keyboard } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { isSqlKind } from '@/lib/constants';
 import { toast } from '@/lib/toast';
@@ -101,20 +101,18 @@ function Header({
   readonly onShortcutsOpen: () => void;
 }) {
   return (
-    <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-      <div className="flex items-center gap-3">
+    <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-2">
+      <div className="flex items-center gap-2">
         <img alt="kamehadb" className="h-5 w-5 rounded object-contain" src="/logo.png" />
-        <div className="flex items-baseline">
-          <span className="font-mono text-sm font-bold tracking-widest text-foreground/90">KAME</span>
-          <span className="font-mono text-sm font-black tracking-widest text-foreground">HA</span>
-          <span className="ml-0.5 font-mono text-sm font-bold tracking-widest text-primary">DB</span>
-        </div>
+        <span className="text-sm font-semibold tracking-tight text-foreground">
+          Kameha<span className="text-xs font-bold text-primary">DB</span>
+        </span>
       </div>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onSearchOpen} className="gap-1.5 text-xs text-muted-foreground/60">
           <Search className="size-3.5" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[11px] font-normal text-muted-foreground/50 sm:inline-flex">
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-xs font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>K
           </kbd>
         </Button>
@@ -126,18 +124,27 @@ function Header({
           title="Keyboard shortcuts"
         >
           <Keyboard className="size-3.5" />
-          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[11px] font-normal text-muted-foreground/50 sm:inline-flex">
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-xs font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>/
           </kbd>
         </Button>
         <Button
           variant="outline"
-          size="sm"
+          size="icon-sm"
           onClick={() => navigateTo('logs')}
-          className="gap-1.5 text-xs text-muted-foreground/60"
+          className="text-muted-foreground/60"
+          title="Logs"
         >
           <ScrollText className="size-3.5" />
-          <span className="hidden sm:inline">Logs</span>
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => navigateTo('api-settings')}
+          className="text-muted-foreground/60"
+          title="API settings"
+        >
+          <Settings className="size-3.5" />
         </Button>
         <ThemeToggle />
       </div>
@@ -186,6 +193,15 @@ function App() {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme]);
+
+  // Right-click is always our menu: suppress the webview's native menu so surfaces
+  // without a custom one stay consistent. Base UI menus open on their trigger
+  // before this window listener runs, so they are unaffected. (Why)
+  useEffect(() => {
+    const suppressNativeMenu = (event: MouseEvent) => event.preventDefault();
+    window.addEventListener('contextmenu', suppressNativeMenu);
+    return () => window.removeEventListener('contextmenu', suppressNativeMenu);
+  }, []);
 
   useEffect(() => {
     appendFrontendLog({

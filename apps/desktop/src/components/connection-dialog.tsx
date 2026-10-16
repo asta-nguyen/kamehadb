@@ -244,9 +244,8 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {!isEditing && (
-        <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
+        <DialogTrigger render={<Button size="icon" title="New connection" />}>
           <Plus className="size-3.5" />
-          New
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
