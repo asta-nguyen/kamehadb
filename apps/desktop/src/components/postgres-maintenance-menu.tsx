@@ -1,7 +1,6 @@
 import { Download, Terminal, Upload } from 'lucide-react';
 
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { isTauriRuntime } from '@/lib/tauri';
 
 type PostgresMaintenanceMenuProps = {
   readonly onOpenPsql: () => void;
@@ -10,10 +9,6 @@ type PostgresMaintenanceMenuProps = {
 };
 
 export function PostgresMaintenanceMenu({ onOpenPsql, onOpenBackup, onOpenRestore }: PostgresMaintenanceMenuProps) {
-  if (!isTauriRuntime()) {
-    return null;
-  }
-
   return (
     <>
       <DropdownMenuItem onClick={onOpenPsql}>

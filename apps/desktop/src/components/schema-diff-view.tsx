@@ -121,7 +121,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                 <div className="space-y-1.5">
                   <div className="text-xs text-muted-foreground">From</div>
                   <Select value={fromSnapshotId} onValueChange={handleFromChange}>
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="text-xs">
                       <SelectValue placeholder="Select snapshot" />
                     </SelectTrigger>
                     <SelectContent>
@@ -136,7 +136,7 @@ export function SchemaDiffView({ connectionId }: { readonly connectionId: string
                 <div className="space-y-1.5">
                   <div className="text-xs text-muted-foreground">To</div>
                   <Select value={toSnapshotId} onValueChange={handleToChange}>
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="text-xs">
                       <SelectValue placeholder="Select snapshot" />
                     </SelectTrigger>
                     <SelectContent>

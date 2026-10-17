@@ -1,11 +1,13 @@
 import type { ConnectionProfile } from '@kamehadb/shared';
+import { isSqlKind } from '@/lib/kinds';
 import { RefreshCw } from 'lucide-react';
 
 export type ConnectionStatus = 'connected' | 'slow' | 'reconnecting' | 'disconnected';
 
-// Use the connection color when healthy and the same status fallbacks everywhere, including while profiles load.
-export function getIndicatorColor(conn: ConnectionProfile | undefined, status: ConnectionStatus | undefined): string {
-  if (status === 'connected') return conn?.color || 'var(--success)';
+// Status indicator colors strictly reflect connectivity health so custom profile
+// accent colors don't mislead users into thinking connections are degraded or offline. (How / Why / What)
+export function getIndicatorColor(_conn: ConnectionProfile | undefined, status: ConnectionStatus | undefined): string {
+  if (status === 'connected') return 'var(--success)';
   if (status === 'slow') return 'var(--warning)';
   if (status === 'reconnecting') return 'var(--warning)';
   if (status === 'disconnected') return 'var(--destructive)';
@@ -20,7 +22,7 @@ export function getStatusLabel(status: ConnectionStatus, latency?: number) {
 }
 
 export function isSqlLike(kind: string) {
-  return kind !== 'mongodb' && kind !== 'redis' && kind !== 'qdrant' && kind !== 'tigerbeetle';
+  return isSqlKind(kind);
 }
 
 export function SpinningRefresh({ spinning, className = '' }: { spinning: boolean; className?: string }) {

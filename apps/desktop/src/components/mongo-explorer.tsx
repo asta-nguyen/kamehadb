@@ -125,7 +125,7 @@ function DatabaseNode({
       const newTab = {
         id: `mongo-${nanoid()}`,
         type: 'mongo' as const,
-        title: collection.name,
+        title: `${dbName}.${collection.name}`,
         connectionId,
         database: dbName,
         collection: collection.name,

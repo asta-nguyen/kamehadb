@@ -67,7 +67,10 @@ function TableCell({ className, colSpan, style, ref, ...props }: React.Component
     <div
       ref={ref}
       data-slot="table-cell"
-      className={cn('p-2 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-0.5', className)}
+      className={cn(
+        'p-2 align-middle flex items-center min-w-0 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-0.5',
+        className,
+      )}
       style={{ ...(colSpan && colSpan > 1 ? { gridColumn: `span ${colSpan}` } : {}), ...style }}
       {...props}
     />

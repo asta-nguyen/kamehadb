@@ -24,13 +24,6 @@ import clickhouse from 'thesvg/clickhouse';
 import duckdb from 'thesvg/duckdb';
 import mongodb from 'thesvg/mongodb';
 import redis from 'thesvg/redis';
-import qdrant from 'thesvg/qdrant';
-
-// TigerBeetle logo — inlined from public/images/tigerbeetle.svg
-// (no logo available in thesvg/simple-icons, so we use the project's own)
-// Uses currentColor so it adapts to light/dark card backgrounds
-const TIGERBEETLE_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 24" preserveAspectRatio="xMidYMid meet"><path d="M 8.01 22.84 L 9.411 13.246 C 10.01 9.166 13.51 6.143 17.633 6.142 L 15.744 18.608 C 15.102 21.536 11.728 23.475 8.01 22.84 Z" fill="currentColor"/><path d="M 20.637 6.466 L 0 6.466 C 0 2.928 3.135 0 6.792 0 L 27.429 0 C 27.429 3.538 24.294 6.466 20.637 6.466 Z" fill="currentColor"/></svg>';
 
 type FilterOption = 'all' | EngineType;
 const FILTER_OPTIONS: FilterOption[] = ['all', ...ENGINE_TYPE_FILTERS];
@@ -43,8 +36,6 @@ const TYPE_HEX: Record<EngineType, string> = {
   sql: '#3b82f6',
   document: '#10b981',
   cache: '#f43f5e',
-  vector: '#a855f7',
-  ledger: '#f59e0b',
 };
 
 // Map engine kind → logo module
@@ -99,8 +90,6 @@ const LOGOS: Record<string, { svg: string }> = {
   duckdb: { svg: sanitizeSvg(duckdb.svg) },
   mongodb: { svg: sanitizeSvg(mongodb.svg) },
   redis: { svg: sanitizeSvg(redis.svg) },
-  qdrant: { svg: sanitizeSvg(qdrant.svg) },
-  tigerbeetle: { svg: TIGERBEETLE_SVG },
 };
 
 function useCopySnippet() {

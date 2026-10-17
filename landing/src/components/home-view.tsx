@@ -33,7 +33,6 @@ import mongodb from 'thesvg/mongodb';
 import mysql from 'thesvg/mysql';
 import oracle from 'thesvg/oracle';
 import postgresql from 'thesvg/postgresql';
-import qdrant from 'thesvg/qdrant';
 import redis from 'thesvg/redis';
 import sqlite from 'thesvg/sqlite';
 import { EngineMatrix } from './engine-matrix';
@@ -52,15 +51,15 @@ type HomeViewProps = {
 const features: { icon: LucideIcon; title: string; description: string }[] = [
   {
     icon: Database,
-    title: 'One workspace, 12 engines',
+    title: 'One workspace, 10 engines',
     description:
-      'Relational, document, cache, vector, and ledger systems in a single desktop app. Browse schemas, collections, keyspaces, points, and accounts side by side.',
+      'Relational, document, and cache systems in a single desktop app. Browse schemas, collections, and keyspaces side by side.',
   },
   {
     icon: Sparkles,
     title: 'AI that knows your schema',
     description:
-      'Describe what you want in plain English. The assistant reads your real DDL, indexes, and constraints to generate SQL, MongoDB pipelines, Redis commands, and Qdrant searches.',
+      'Describe what you want in plain English. The assistant reads your real DDL, indexes, and constraints to generate SQL, MongoDB pipelines, and Redis commands.',
   },
   {
     icon: Search,
@@ -72,13 +71,13 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     icon: MessageSquare,
     title: 'Contextual AI chat',
     description:
-      'Persistent history per connection, streamed responses, and a Run button to execute the SQL the assistant writes. Bring your own OpenAI, Ollama, or 9Router.',
+      'Persistent history per connection, streamed responses, and generated SQL shown for review so you run it yourself in the editor. Bring your own OpenAI, Ollama, 9Router, DeepSeek, or Gemini.',
   },
   {
     icon: Cable,
     title: 'Read-only MCP server',
     description:
-      'Point Codex, Claude Code, Devin CLI, or OpenCode at a loopback MCP endpoint. KamehaDB provisions a database-scoped read-only account and stores its credential in your OS Keychain.',
+      'Point Codex, Claude Code, Devin CLI, or OpenCode at a loopback MCP endpoint. KamehaDB provisions a database-scoped read-only account and stores its credential in an encrypted local vault (OS keychain, with an owner-only key file fallback).',
   },
   {
     icon: Workflow,
@@ -102,7 +101,7 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     icon: Activity,
     title: 'Engine-native tooling',
     description:
-      'PostgreSQL stats, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers — purpose-built screens for each engine.',
+      'PostgreSQL stats, MongoDB explorer with chart view, Redis key browser — purpose-built screens for each engine.',
   },
 ];
 
@@ -121,13 +120,13 @@ const whyKamehadb: {
     icon: Shield,
     title: 'Local-First & Private',
     description:
-      'Connections, credentials, query history, and chat logs stay on your machine. We have no servers — there is nowhere for your data to go.',
+      'Connections, credentials, query history, and chat logs stay on your machine, encrypted at rest. We have no servers. Remote AI is opt-in: the provider you choose receives only the conversation and schema context you send.',
   },
   {
     icon: Brain,
     title: 'Bring Your Own AI',
     description:
-      'OpenAI, Ollama (local + cloud), 9router — pick the model that fits your workflow, or skip AI entirely.',
+      'OpenAI, Ollama (local + cloud), 9router, DeepSeek, Gemini — pick the model that fits your workflow, or skip AI entirely.',
     providers: [
       {
         name: 'OpenAI',
@@ -144,6 +143,14 @@ const whyKamehadb: {
       {
         name: '9router',
         color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+      },
+      {
+        name: 'DeepSeek',
+        color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+      },
+      {
+        name: 'Gemini',
+        color: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
       },
     ],
   },
@@ -166,8 +173,6 @@ const marqueeEngines: { label: string; svg: { svg: string } | string | null }[] 
   { label: 'DuckDB', svg: duckdb },
   { label: 'MongoDB', svg: mongodb },
   { label: 'Redis', svg: redis },
-  { label: 'Qdrant', svg: qdrant },
-  { label: 'TigerBeetle', svg: '/images/tigerbeetle.svg' },
 ];
 
 const engineByLabel = new Map(marqueeEngines.map((engine) => [engine.label, engine] as const));
@@ -451,7 +456,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
               transition={{ duration: 0.4 }}
             >
               <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-              12+ engines • SQL, document, cache, vector & ledger
+              10 engines • SQL, document & cache
             </motion.div>
             <motion.div
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-medium"
@@ -481,8 +486,8 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            KamehaDB is a cross-platform desktop GUI for SQL, document, cache, vector, and ledger systems — built with
-            AI in, not bolted on. Runs entirely on your machine.
+            KamehaDB is a cross-platform desktop GUI for SQL, document, and cache systems — built with AI in, not bolted
+            on. Runs locally on your machine, with remote AI providers optional.
           </motion.p>
           <motion.div
             className="flex items-center justify-center gap-2 mb-10"
@@ -566,7 +571,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               <span className="text-sm font-medium text-muted">
-                12+ engines — <span className="text-body">SQL, document, cache, vector &amp; ledger</span>
+                10 engines — <span className="text-body">SQL, document &amp; cache</span>
               </span>
             </motion.div>
 
@@ -657,7 +662,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
         <div className="max-w-6xl mx-auto">
           <SectionHeading
             title="Every engine, one workspace"
-            subtitle="12 databases — SQL, document, cache, vector, and ledger — with feature matrices and Docker snippets"
+            subtitle="10 databases — SQL, document, and cache — with feature matrices and Docker snippets"
           />
           <EngineMatrix />
         </div>
@@ -805,7 +810,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                   {
                     step: '2',
                     title: 'Add your connection',
-                    desc: 'PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, or TigerBeetle',
+                    desc: 'PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, or Redis',
                   },
                   { step: '3', title: 'Start exploring', desc: 'Browse schemas, run queries, and chat with AI' },
                 ].map((item, i) => (
@@ -905,7 +910,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                     viewport={{ once: true }}
                     transition={{ delay: 1.5 }}
                   >
-                    pnpm tauri build --target aarch64-apple-darwin
+                    wails build -platform darwin/universal
                   </motion.div>
 
                   <motion.div
@@ -925,7 +930,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                     viewport={{ once: true }}
                     transition={{ delay: 1.9 }}
                   >
-                    pnpm tauri build --target x86_64-pc-windows-msvc
+                    wails build -platform windows/amd64
                   </motion.div>
 
                   <motion.div
@@ -945,7 +950,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                     viewport={{ once: true }}
                     transition={{ delay: 2.1 }}
                   >
-                    pnpm tauri build --target x86_64-unknown-linux-gnu
+                    wails build -platform linux/amd64
                   </motion.div>
                 </div>
               </div>

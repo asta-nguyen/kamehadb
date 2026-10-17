@@ -120,33 +120,28 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
           );
         }, 15000);
 
-        // Open the SSE stream for PTY output.
-        const streamUrl = api.getShellStreamUrl(connectionId, sessionId);
-        const es = new EventSource(streamUrl);
-
-        es.onmessage = (event) => {
-          try {
-            const payload = JSON.parse(event.data);
-            if (payload.type === 'output') {
-              clearTimeout(outputTimeout);
-              term.write(payload.data);
-            } else if (payload.type === 'exit') {
-              clearTimeout(outputTimeout);
-              term.write(`\r\n\x1b[31m[mongosh exited (code: ${payload.code ?? '?'})]\x1b[0m\r\n`);
-              es.close();
-            }
-          } catch {
-            // Ignore malformed SSE data
+        // Subscribe to PTY output over the terminal event channel, then
+        // attach to flush anything buffered before we connected.
+        const unsubscribe = api.onTerminalOutput(sessionId, (payload) => {
+          if (payload.type === 'output') {
+            clearTimeout(outputTimeout);
+            term.write(payload.data ?? '');
+          } else if (payload.type === 'exit') {
+            clearTimeout(outputTimeout);
+            term.write(`\r\n\x1b[31m[mongosh exited (code: ${payload.code ?? '?'})]\x1b[0m\r\n`);
+            unsubscribe();
           }
-        };
+        });
+        const buffered = await api.attachMongoShell(sessionId).catch(() => '');
+        if (buffered) term.write(buffered);
 
-        // On cleanup (StrictMode unmount / dependency change): close SSE
+        // On cleanup (StrictMode unmount / dependency change): unsubscribe
         // and clear the no-output timer so re-mount starts fresh.
         abort.signal.addEventListener(
           'abort',
           () => {
             clearTimeout(outputTimeout);
-            es.close();
+            unsubscribe();
           },
           { once: true },
         );

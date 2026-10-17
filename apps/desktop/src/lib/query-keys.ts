@@ -44,25 +44,6 @@ export const QUERY_KEYS = {
     ['redis-keys', connectionId, pattern, cursor] as const,
   REDIS_KEY: (connectionId: string | null, key: string | null) => ['redis-key', connectionId, key] as const,
   REDIS_STATS: (connectionId: string | null) => ['redis-stats', connectionId] as const,
-  QDRANT_COLLECTIONS: (connectionId: string | null) => ['qdrant-collections', connectionId] as const,
-  QDRANT_POINTS: (
-    connectionId: string | null,
-    collection: string | null,
-    offset?: string | number | null,
-    filter?: Record<string, unknown>,
-    limit?: number,
-  ) => ['qdrant-points', connectionId, collection, offset ?? null, filter ?? null, limit] as const,
-  QDRANT_STATS: (connectionId: string | null, collection: string | null) =>
-    ['qdrant-stats', connectionId, collection] as const,
-  QDRANT_MAP: (connectionId: string | null, collection: string | null) =>
-    ['qdrant-map', connectionId, collection] as const,
-  POSTGRES_VECTOR_CAPABILITIES: (connectionId: string | null) =>
-    ['postgres-vector-capabilities', connectionId] as const,
-  POSTGRES_VECTOR_SAMPLE: (
-    connectionId: string | null,
-    input?: import('@kamehadb/shared').PostgresVectorSampleInput | null,
-  ) => ['postgres-vector-sample', connectionId, input] as const,
-  SQLITE_VEC_CAPABILITIES: (connectionId: string | null) => ['sqlite-vec-capabilities', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,
   TABLE_STATS: (connectionId: string | null, tableId?: string | null) =>
     tableId ? (['table-stats', connectionId, tableId] as const) : (['table-stats', connectionId] as const),
@@ -80,13 +61,6 @@ export const QUERY_KEYS = {
   MCP_ACCOUNTS: ['mcp-accounts'] as const,
   QUERY_HISTORY: (connectionId: string | null) => ['query-history', connectionId] as const,
   QUERY_HISTORY_FAVORITES: (connectionId: string | null) => ['query-history-favorites', connectionId] as const,
-  TB_ACCOUNTS: (connectionId: string | null, limit?: number) =>
-    ['tigerbeetle', connectionId, 'accounts', limit] as const,
-  TB_ACCOUNT: (connectionId: string | null, id: string | null) => ['tigerbeetle', connectionId, 'account', id] as const,
-  TB_TRANSFERS: (connectionId: string | null, accountId: string | null) =>
-    ['tigerbeetle', connectionId, 'transfers', accountId] as const,
-  TB_BALANCES: (connectionId: string | null, accountId: string | null) =>
-    ['tigerbeetle', connectionId, 'balances', accountId] as const,
 } as const;
 
 export type QueryKey = (typeof QUERY_KEYS)[keyof typeof QUERY_KEYS];

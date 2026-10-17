@@ -4,15 +4,18 @@ import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@ta
 import App from './App';
 import { ErrorBoundary } from './components/error-boundary';
 import { appendFrontendLog } from './lib/app-logs';
+import { DEFAULT_QUERY_GC_TIME_MS, DEFAULT_QUERY_STALE_TIME_MS } from './lib/constants';
+import { installPreviewCacheOwner } from './lib/preview-cache';
+import { appStore } from './store/state';
 import './index.css';
 
-interface QueryErrorMeta {
+type QueryErrorMeta = {
   readonly onError?: (error: Error, id?: string) => void;
-}
+};
 
-interface MutationErrorMeta {
+type MutationErrorMeta = {
   readonly onError?: (error: Error) => void;
-}
+};
 
 // Normalize unknown throw values so the global cache handlers never explode on
 // non-Error payloads while trying to report the original failure.
@@ -31,10 +34,36 @@ function toError(error: unknown): Error {
   return new Error(typeof error === 'string' ? error : 'Unknown error');
 }
 
+// Intentional user cancellations (Esc, cancel button, Go context cancel) should not be logged as errors. (How / Why / What)
+function isCancellationError(err: Error): boolean {
+  return (
+    err.name === 'AbortError' ||
+    /context canceled|canceling statement due to user request|query canceled|query was cancelled|operation canceled|abort/i.test(
+      err.message,
+    )
+  );
+}
+
 const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Free inactive query results after 60s instead of default 5m to keep the webview heap lean. (How / Why / What)
+      gcTime: DEFAULT_QUERY_GC_TIME_MS,
+      staleTime: DEFAULT_QUERY_STALE_TIME_MS,
+      retry: 1,
+    },
+  },
   queryCache: new QueryCache({
     onError: (error, query) => {
       const normalized = toError(error);
+      if (isCancellationError(normalized)) {
+        void appendFrontendLog({
+          level: 'info',
+          scope: 'tanstack-query',
+          message: `Query cancelled: ${normalized.message}`,
+        });
+        return;
+      }
       const onError = (query.meta as QueryErrorMeta | undefined)?.onError;
       if (typeof onError === 'function') {
         const queryId = typeof query.queryKey[1] === 'string' ? query.queryKey[1] : undefined;
@@ -52,6 +81,14 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({
     onError: (error, _variables, _onMutateResult, mutation) => {
       const normalized = toError(error);
+      if (isCancellationError(normalized)) {
+        void appendFrontendLog({
+          level: 'info',
+          scope: 'tanstack-mutation',
+          message: `Mutation cancelled: ${normalized.message}`,
+        });
+        return;
+      }
       const onError = (mutation.meta as MutationErrorMeta | undefined)?.onError;
       if (typeof onError === 'function') {
         onError(normalized);
@@ -66,6 +103,9 @@ const queryClient = new QueryClient({
     },
   }),
 });
+
+const disposePreviewCache = installPreviewCacheOwner(queryClient, appStore);
+if (import.meta.hot) import.meta.hot.dispose(disposePreviewCache);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

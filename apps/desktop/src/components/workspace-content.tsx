@@ -1,40 +1,42 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactElement } from 'react';
 import type { WorkspaceTab } from '@/lib/types';
-import { DatabaseStats } from '@/components/database-stats';
-import { MigrationAssistant } from '@/components/migration-assistant';
-import { MongoQuery } from '@/components/mongo-query';
-import { MongoShell } from '@/components/mongo-shell';
-import { MongoView } from '@/components/mongo-view';
-import { PostgresPsqlTab } from '@/components/postgres-psql-tab';
-import { PostgresVectorMap } from '@/components/postgres-vector-map';
-import { VectorQuery } from '@/components/vector-query';
-import { QdrantQuery } from '@/components/qdrant-query';
-import { QdrantView } from '@/components/qdrant-view';
-import { RedisQuery } from '@/components/redis-query';
-import { RedisView } from '@/components/redis-view';
-import { SchemaDiffView } from '@/components/schema-diff-view';
-import { SchemaGraph } from '@/components/schema-graph';
-import { SchemaTimeline } from '@/components/schema-timeline';
-import { SqlEditor } from '@/components/sql-editor';
-import { SqliteVecMap } from '@/components/sqlite-vec-map';
-import { TableStats } from '@/components/table-stats';
-import { TableView } from '@/components/table-view';
-import { TigerBeetleExplorer } from '@/components/tigerbeetle-explorer';
 
-const QdrantVectorMap = lazy(() =>
-  import('@/components/qdrant-vector-map').then((module) => ({ default: module.QdrantVectorMap })),
+// Defer panel libraries until their first tab opens; importing every panel at
+// startup otherwise evaluates charts, graph, editors and terminals while idle.
+const DatabaseStats = lazy(() => import('@/components/database-stats').then((m) => ({ default: m.DatabaseStats })));
+const MigrationAssistant = lazy(() =>
+  import('@/components/migration-assistant').then((m) => ({ default: m.MigrationAssistant })),
 );
-const QdrantStatsPanel = lazy(() =>
-  import('@/components/qdrant-stats').then((module) => ({ default: module.QdrantStatsPanel })),
+const MongoQuery = lazy(() => import('@/components/mongo-query').then((m) => ({ default: m.MongoQuery })));
+const MongoShell = lazy(() => import('@/components/mongo-shell').then((m) => ({ default: m.MongoShell })));
+const MongoView = lazy(() => import('@/components/mongo-view').then((m) => ({ default: m.MongoView })));
+const PostgresPsqlTab = lazy(() =>
+  import('@/components/postgres-psql-tab').then((m) => ({ default: m.PostgresPsqlTab })),
 );
-const TigerBeetleStatsPanel = lazy(() =>
-  import('@/components/tigerbeetle-stats').then((module) => ({ default: module.TigerBeetleStatsPanel })),
-);
+const RedisQuery = lazy(() => import('@/components/redis-query').then((m) => ({ default: m.RedisQuery })));
+const RedisView = lazy(() => import('@/components/redis-view').then((m) => ({ default: m.RedisView })));
+const SchemaDiffView = lazy(() => import('@/components/schema-diff-view').then((m) => ({ default: m.SchemaDiffView })));
+const SchemaGraph = lazy(() => import('@/components/schema-graph').then((m) => ({ default: m.SchemaGraph })));
+const SchemaTimeline = lazy(() => import('@/components/schema-timeline').then((m) => ({ default: m.SchemaTimeline })));
+const SqlEditor = lazy(() => import('@/components/sql-editor').then((m) => ({ default: m.SqlEditor })));
+const TableStats = lazy(() => import('@/components/table-stats').then((m) => ({ default: m.TableStats })));
+const TableView = lazy(() => import('@/components/table-view').then((m) => ({ default: m.TableView })));
+
 const FederatedQueryCanvas = lazy(() =>
   import('@/components/federated-query-canvas').then((module) => ({ default: module.FederatedQueryCanvas })),
 );
 
-export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceTab }) {
+export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceTab }): ReactElement {
+  return (
+    <Suspense
+      fallback={<div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading…</div>}
+    >
+      <WorkspacePanel activeTab={activeTab} />
+    </Suspense>
+  );
+}
+
+function WorkspacePanel({ activeTab }: { readonly activeTab: WorkspaceTab }): ReactElement {
   if (activeTab.type === 'query') {
     return <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
@@ -56,47 +58,11 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   if (activeTab.type === 'postgres-psql') {
     return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
   }
-  if (activeTab.type === 'postgres-vector-search') {
-    return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
-  }
-  if (activeTab.type === 'postgres-vector-map') {
-    return <PostgresVectorMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
-  }
-  if (activeTab.type === 'sqlite-vec-search') {
-    return <VectorQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
-  }
-  if (activeTab.type === 'sqlite-vec-map') {
-    return <SqliteVecMap key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
-  }
   if (activeTab.type === 'redis') {
     return <RedisView key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'redis-query') {
     return <RedisQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
-  }
-  if (activeTab.type === 'qdrant') {
-    return <QdrantView key={activeTab.id} connectionId={activeTab.connectionId} collection={activeTab.collection} />;
-  }
-  if (activeTab.type === 'qdrant-search') {
-    return <QdrantQuery key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
-  }
-  if (activeTab.type === 'qdrant-graph') {
-    return (
-      <Suspense
-        fallback={
-          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading map…</div>
-        }
-      >
-        <QdrantVectorMap tab={activeTab} connectionId={activeTab.connectionId} collection={activeTab.collection} />
-      </Suspense>
-    );
-  }
-  if (activeTab.type === 'qdrant-stats') {
-    return (
-      <Suspense>
-        <QdrantStatsPanel connectionId={activeTab.connectionId} collection={activeTab.collection} />
-      </Suspense>
-    );
   }
   if (activeTab.type === 'database-stats') {
     return <DatabaseStats key={activeTab.id} connectionId={activeTab.connectionId} />;
@@ -123,24 +89,8 @@ export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceT
   if (activeTab.type === 'stats') {
     return <DatabaseStats key={activeTab.id} connectionId={activeTab.connectionId} />;
   }
-  if (activeTab.type === 'tigerbeetle') {
-    return <TigerBeetleExplorer key={activeTab.id} connectionId={activeTab.connectionId} />;
-  }
-  if (activeTab.type === 'tigerbeetle-stats') {
-    return (
-      <Suspense>
-        <TigerBeetleStatsPanel connectionId={activeTab.connectionId} />
-      </Suspense>
-    );
-  }
   if (activeTab.type === 'federated-query') {
-    return (
-      <Suspense
-        fallback={<div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading…</div>}
-      >
-        <FederatedQueryCanvas key={activeTab.id} tab={activeTab} />
-      </Suspense>
-    );
+    return <FederatedQueryCanvas key={activeTab.id} tab={activeTab} />;
   }
   return (
     <div className="h-full flex items-center justify-center text-sm text-muted-foreground">

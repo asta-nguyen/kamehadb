@@ -5,16 +5,13 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import {
   CreateConnectionProfileSchema,
   EditConnectionProfileSchema,
-  KIND,
-  ALL_KINDS,
-  PROTOCOL_ALIASES,
-  isFileDatabaseKind,
   safeErrorMessage,
   type CreateConnectionProfileInput,
   type UpdateConnectionProfileInput,
   type ConnectionProfile,
   type DbKind,
 } from '@kamehadb/shared';
+import { KIND, ALL_KINDS, PROTOCOL_ALIASES, DEFAULT_PORTS, isFileDatabaseKind } from '@/lib/kinds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +19,7 @@ import { Label } from '@/components/ui/label';
 
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Plus } from 'lucide-react';
-import { DEFAULT_PORTS, TOAST_AUTO_HIDE_MS, AUTO_TEST_DEBOUNCE_MS } from '@/lib/constants';
+import { TOAST_AUTO_HIDE_MS, AUTO_TEST_DEBOUNCE_MS } from '@/lib/constants';
 import { appendFrontendLog } from '@/lib/app-logs';
 import {
   DatabaseTypeGrid,
@@ -78,6 +75,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   const testConnection = useTestConnection();
   const resetRef = useRef(testConnection.reset);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const rootCAInputRef = useRef<HTMLInputElement>(null);
   resetRef.current = testConnection.reset;
 
   const form = useForm<CreateConnectionProfileInput>({
@@ -93,6 +91,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       database: editConnection?.database ?? '',
       username: editConnection?.username ?? '',
       ssl: editConnection?.ssl ?? false,
+      sslCaCert: editConnection?.sslCaCert ?? undefined,
       color: editConnection?.color ?? undefined,
       connectionString: editConnection?.connectionString ?? undefined,
       filePath: editConnection?.filePath ?? undefined,
@@ -110,6 +109,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         database: editConnection.database ?? '',
         username: editConnection.username ?? '',
         ssl: editConnection.ssl ?? false,
+        sslCaCert: editConnection.sslCaCert ?? undefined,
         color: editConnection.color ?? undefined,
         connectionString: editConnection.connectionString ?? undefined,
         filePath: editConnection.filePath ?? undefined,
@@ -214,6 +214,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         if (values.username !== (editConnection.username ?? '')) updateValues.username = values.username;
         if (values.password) updateValues.password = values.password;
         if (values.ssl !== Boolean(editConnection.ssl)) updateValues.ssl = values.ssl;
+        if (values.sslCaCert !== editConnection.sslCaCert) updateValues.sslCaCert = values.sslCaCert;
         if ((values.filePath || undefined) !== editConnection.filePath) updateValues.filePath = values.filePath;
         if ((values.connectionString || undefined) !== editConnection.connectionString) {
           updateValues.connectionString = values.connectionString;
@@ -247,9 +248,8 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {!isEditing && (
-        <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
+        <DialogTrigger render={<Button size="icon" title="New connection" />}>
           <Plus className="size-3.5" />
-          New
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
@@ -259,7 +259,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
           </DialogHeader>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 px-1 pr-4 -mr-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+        <div className="flex-1 overflow-y-auto min-h-0 px-1 pr-4 -mr-4">
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
             {/* Name Field */}
             <div className="space-y-1.5">
@@ -276,6 +276,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
               kind={kind}
               onUrlChange={handleUrlChange}
               fileInputRef={fileInputRef}
+              rootCAInputRef={rootCAInputRef}
               isEditing={isEditing}
             />
 

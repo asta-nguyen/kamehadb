@@ -252,10 +252,10 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
               autoFocus
             />
             <div className="mt-1 flex justify-end gap-1">
-              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={cancelEdit}>
+              <Button variant="ghost" size="sm" className="text-xs" onClick={cancelEdit}>
                 Cancel
               </Button>
-              <Button variant="default" size="sm" className="h-6 text-xs" onClick={submitEdit} disabled={!draft.trim()}>
+              <Button variant="default" size="sm" className="text-xs" onClick={submitEdit} disabled={!draft.trim()}>
                 Send
               </Button>
             </div>
@@ -270,7 +270,7 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground"
               onClick={startEdit}
               disabled={disabled}
             >
@@ -280,7 +280,7 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => onResend(msg.id, getChatTextContent(msg))}
               disabled={disabled}
             >
@@ -472,7 +472,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
   // effect sends the prompt via the panel's useChat instance and clears the
   // field. The sentPromptRef guard prevents double-sends from React strict-mode
   // double-invocation. The tableId from pendingAiPrompt flows into forwardedProps
-  // so the sidecar builds table-scoped DDL instead of full-schema DDL.
+  // so the backend builds table-scoped DDL instead of full-schema DDL.
   const pendingAiPrompt = useStore(appStore, (s) => s.pendingAiPrompt);
   const sentPromptRef = useRef<PendingAiPrompt | null>(null);
 
@@ -634,7 +634,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 </span>
                 <span className="truncate text-sm font-medium">AI Assistant</span>
                 {aiSettings && (
-                  <Badge variant="outline" className="max-w-32 truncate text-[10px] font-normal text-muted-foreground">
+                  <Badge variant="outline" className="max-w-32 truncate text-xs font-normal text-muted-foreground">
                     {aiSettings.activeProvider}
                   </Badge>
                 )}

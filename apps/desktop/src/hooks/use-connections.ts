@@ -88,7 +88,6 @@ export function useRefreshConnection() {
         QUERY_KEYS.REDIS_STATS(id),
         ['mongo', id],
         ['mongo-stats', id],
-        QUERY_KEYS.QDRANT_COLLECTIONS(id),
       ];
       keysToInvalidate.forEach((queryKey) => qc.invalidateQueries({ queryKey }));
       // Refetch only the keys that map to currently-mounted views.
@@ -106,7 +105,6 @@ export function useRefreshConnection() {
         'redis-keys',
         'redis-stats',
         'active-connections',
-        'qdrant-collections',
       ]);
       void Promise.all(
         keysToInvalidate

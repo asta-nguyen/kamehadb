@@ -6,24 +6,24 @@
   </a>
 </p>
 
-**KamehaDB** is a local-first, cross-platform desktop database workspace that connects to PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, and TigerBeetle — browse schemas, run queries, chat with AI, capture schema history, and generate migrations, all in one Tauri app with a local Node sidecar.
+**KamehaDB** is a local-first, cross-platform desktop database workspace that connects to PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis — browse schemas, run queries, chat with AI, capture schema history, and generate migrations, all in one lightweight Wails app with an embedded Go backend.
 
 ## Features
 
-- **12+ engines, one app** — SQL, document, cache, vector, and ledger systems side by side: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis, Qdrant, TigerBeetle
-- **Local-first** — All metadata stored locally in a SQLite database; nothing leaves your machine. No hosted proxy, no telemetry
-- **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, Redis commands, and Qdrant searches. Streaming responses with stop/cancel
+- **10 engines, one app** — SQL, document, and cache systems side by side: PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, Redis
+- **Local-first** — All metadata stored locally in a SQLite database; no hosted proxy, no telemetry. Remote AI providers receive your conversation and the relevant schema context directly from the app; local Ollama stays on-device
+- **Small and fast** — single Go binary with an embedded backend; no sidecar process, no Node runtime, fast builds
+- **AI with real schema context** — multi-provider chat (OpenAI, Ollama local + cloud, 9Router, DeepSeek, Gemini) reads your actual DDL, indexes, and constraints to generate SQL, MongoDB pipelines, and Redis commands. Generated SQL is shown for review and never executed by the chat flow. Streaming responses with stop/cancel
 - **Read-only MCP server** — let Codex, Claude Code, Devin CLI, and OpenCode inspect schemas and run read-only SQL/Mongo queries against opt-in connections over a local `127.0.0.1` endpoint secured with a bearer token
 - **Schema timeline + diff + migration assistant** — capture on-demand snapshots, compare schemas side by side with per-table change cards (columns, indexes), and auto-generate DDL to migrate from one state to the next
 - **Global search (Ctrl+K)** — fuzzy search across connections, tables, columns, open tabs, and quick actions across every connected engine
-- **Engine-native tooling** — PostgreSQL stats and embedded PSQL terminal, MongoDB explorer with chart view, Redis key browser, Qdrant 3D vector map, TigerBeetle accounts/transfers
+- **Engine-native tooling** — PostgreSQL stats and embedded PSQL terminal, MongoDB explorer with chart view, Redis key browser
 - **Query history with favorites** — normalized patterns, duration per group, per-connection
 - **Charts** — bar, line, area, pie views on any query result or Mongo collection (powered by recharts)
 - **Health monitoring** — live status badges with latency tracking; slow/reconnecting/offline states with tooltips
 - **Schema browser & ER diagram** — auto-generated ER graphs via ReactFlow + dagre
 - **Pin & workspace memory** — pinned connections and open tabs persisted to localStorage and restored on refresh
-- **Schema-aware SQL editor** — Monaco with FK-aware JOIN/ON suggestions and autocomplete across tables, columns, functions, keywords
-- **PostgreSQL pgvector workflows** — detect vector columns and indexes, run guided vector/raw search, inspect nearest neighbors, and open a sampled PCA vector map
+- **Schema-aware SQL editor** — CodeMirror 6 with FK-aware JOIN/ON suggestions and autocomplete across tables, columns, functions, keywords
 - **Embedded mongosh terminal** — interactive mongosh session with full PTY, ANSI colors, resize, and persistence across tab navigation
 - **Connection URL** — paste `postgresql://`, `mysql://`, `redis://`, etc. to auto-fill connection fields
 
@@ -36,7 +36,7 @@ pnpm install
 # Start dev services
 docker compose up -d
 
-# Run the app (sidecar + desktop)
+# Run the app (Wails dev mode — Go backend + Vite frontend)
 pnpm dev
 ```
 
@@ -46,12 +46,14 @@ Then open the desktop app, create a new connection pointing at `localhost`, and 
 
 Configure AI providers in the app settings (API Settings page):
 
-| Provider       | Default Model | Notes                                    |
-| -------------- | ------------- | ---------------------------------------- |
-| Ollama (local) | `llama3.2`    | Uses `http://localhost:11434` by default |
-| Ollama (cloud) | —             | Requires base URL and API key            |
-| OpenAI         | `gpt-4o`      | Requires API key                         |
-| 9Router        | Any model     | Requires base URL and API key            |
+| Provider       | Default Model   | Notes                                    |
+| -------------- | --------------- | ---------------------------------------- |
+| Ollama (local) | `llama3.2`      | Uses `http://localhost:11434` by default |
+| Ollama (cloud) | —               | Requires base URL and API key            |
+| OpenAI         | `gpt-4o`        | Requires API key                         |
+| 9Router        | Any model       | Requires base URL and API key            |
+| DeepSeek       | `deepseek-chat` | Requires API key                         |
+| Gemini         | —               | Requires API key                         |
 
 ### Read-only MCP setup
 
@@ -64,8 +66,8 @@ selected database.
    and grant read access on its selected database.
 2. Open **API Settings → MCP Server** and choose **Create read-only account**.
    KamehaDB grants only read access on that database and stores the generated
-   credential encrypted in its local SQLite metadata store, using an app-managed
-   key file. This works across macOS, Windows, and Linux. Existing accounts
+   credential encrypted in its local SQLite metadata store, with the vault key in
+   the OS keychain and an owner-only key file as a fallback. Existing accounts
    created by older Keychain-backed versions must be revoked and recreated.
    SQLite keeps its existing read-only file connection and does not need a
    database account.
@@ -87,29 +89,28 @@ database-grant test fixtures.
 
 ### Connection defaults (Docker)
 
-| Engine      | Port | User    | Password | Database |
-| ----------- | ---- | ------- | -------- | -------- |
-| PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
-| MySQL       | 3306 | kameha  | kameha   | kamehadb |
-| MariaDB     | 3307 | kameha  | kameha   | kamehadb |
-| Redis       | 6379 | —       | —        | —        |
-| SQL Server  | 1433 | sa      | Kameha1! | kamehadb |
-| Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
-| ClickHouse  | 8123 | default | default  | kamehadb |
-| DuckDB      | 5432 | —       | —        | —        |
-| TigerBeetle | 3001 | —       | —        | —        |
-| Qdrant      | 6333 | —       | —        | —        |
+| Engine     | Port  | User    | Password | Database |
+| ---------- | ----- | ------- | -------- | -------- |
+| PostgreSQL | 5432  | kameha  | kameha   | kamehadb |
+| MySQL      | 3306  | kameha  | kameha   | kamehadb |
+| MariaDB    | 3307  | kameha  | kameha   | kamehadb |
+| Redis      | 6379  | —       | —        | —        |
+| MongoDB    | 27017 | —       | —        | —        |
+| SQL Server | 1433  | sa      | Kameha1! | kamehadb |
+| Oracle     | 1521  | SYS     | oracle   | ORCLPDB1 |
+| ClickHouse | 8123  | default | default  | kamehadb |
+| DuckDB     | 5433  | —       | —        | —        |
 
 ## Project Structure
 
 ```
 kamehadb/
 ├── apps/
-│   ├── desktop/          # Tauri v2 + React 19 frontend (Vite, Tailwind v4)
-│   └── sidecar/          # Hono HTTP server + database adapters + metadata SQLite
+│   └── desktop/          # React 19 frontend (Vite, Tailwind v4) — Wails webview
+├── internal/             # Go backend: adapters, services, store, MCP, terminal
 ├── packages/
-│   ├── shared/           # Shared Zod schemas, app state types, adapter contracts
-│   └── ui/               # Shared UI primitives
+│   └── shared/           # Shared Zod schemas and frontend-facing types
+├── main.go / app.go      # Wails entrypoint
 ├── landing/              # Next.js marketing & docs site (managed with npm, separate lockfile)
 ├── docker-compose.yml    # Dev databases
 └── docker-init/          # Seed SQL scripts for dev databases
@@ -118,7 +119,8 @@ kamehadb/
 ## Running Tests
 
 ```bash
-pnpm test
+pnpm test       # frontend (vitest)
+pnpm test:go    # Go backend suite
 ```
 
 ## Contributing
@@ -148,41 +150,21 @@ You can also disable Gatekeeper globally with `sudo spctl --master-disable`, but
 
 ### Build for Local Machine
 
-If you see "Target does not exist" error, add the required Rust targets first:
-
 ```bash
-rustup target add aarch64-apple-darwin x86_64-apple-darwin
-```
+# Native build for the current platform (output in build/bin/)
+pnpm build
 
-Then build for your local machine:
-
-```bash
-# Apple Silicon (M1/M2/M3)
-cd apps/desktop && pnpm tauri build --target aarch64-apple-darwin
-
-# Intel Mac
-cd apps/desktop && pnpm tauri build --target x86_64-apple-darwin
-```
-
-### Linux
-
-```bash
-# Build for Linux
-cd apps/desktop && pnpm tauri build --target x86_64-unknown-linux-gnu
-```
-
-### Windows
-
-```bash
-# Build for Windows
-cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
+# Cross-platform targets
+wails build -platform darwin/universal   # macOS universal .app
+wails build -platform linux/amd64        # Linux binary
+wails build -platform windows/amd64      # Windows .exe
 ```
 
 ## Tech Stack
 
-- **Desktop**: Tauri v2, React 19, Vite, Tailwind CSS v4, Base UI (`@base-ui/react`), TanStack (Query, Store, Table)
-- **Editor**: Monaco (via `@monaco-editor/react`), custom SQL autocomplete with FK-aware JOIN/ON hints, markdown rendering with `react-markdown`
-- **Sidecar**: Hono, PostgreSQL (`pg`), MySQL (`mysql2`), SQLite (`better-sqlite3`), MongoDB (`mongodb`), Redis (`ioredis`), SQL Server (`mssql`), Oracle (`oracledb`), ClickHouse, DuckDB (`duckdb`), TigerBeetle (`tigerbeetle-node`)
+- **Desktop**: Wails v2 (Go + native webview), React 19, Vite, Tailwind CSS v4, Base UI (`@base-ui/react`), TanStack (Query, Store, Table)
+- **Editor**: CodeMirror 6, custom SQL autocomplete with FK-aware JOIN/ON hints, markdown rendering with `react-markdown`
+- **Backend (Go)**: pgx (PostgreSQL), go-sql-driver (MySQL/MariaDB), modernc.org/sqlite, go-mssqldb (SQL Server), go-ora (Oracle), clickhouse-go, go-duckdb, mongo-driver, go-redis
 - **Graph**: ReactFlow (`@xyflow/react`), dagre auto-layout
 - **AI**: Multi-provider abstraction (OpenAI, Ollama local/cloud, 9Router)
 
@@ -196,12 +178,10 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] MongoDB
 - [x] Redis
 - [x] Data export (CSV, JSON, SQL)
-- [x] Qdrant (vectordb)
 - [x] SQL Server
 - [x] Oracle
 - [x] ClickHouse
 - [x] DuckDB
-- [x] Tigerbeetle
 - [x] MariaDB
 
 ### Features
@@ -215,11 +195,8 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc
 - [x] Production safety mode — prevent accidental writes to production
 - [x] PostgreSQL backup & restore
 - [x] PostgreSQL embedded PSQL tool
-
-### In Progress
-
-- [ ] Schema change timeline — capture on-demand snapshots, see what changed, and auto-generate DDL to migrate between states
-- [ ] Migration assistant
+- [x] Schema change timeline — capture on-demand snapshots, see what changed, and auto-generate DDL to migrate between states
+- [x] Migration assistant
 
 ### Future Ideas
 

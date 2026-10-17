@@ -13,7 +13,7 @@ interface DataFooterProps {
   rowCount: number;
   durationMs: number;
   page: number;
-  totalCount: number;
+  totalCount?: number;
   pageSize: number;
   hasMore: boolean;
   isFetching?: boolean;
@@ -38,7 +38,8 @@ export function DataFooter({
   onCopyJSON,
   className,
 }: DataFooterProps) {
-  const maxPage = Math.max(0, Math.ceil(totalCount / pageSize) - 1);
+  // Page jumps need a known total; without one the footer offers Prev/Next only.
+  const maxPage = totalCount != null ? Math.max(page, Math.ceil(totalCount / pageSize) - 1) : page;
   return (
     <div
       className={`px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3 rounded-b-md ${
@@ -54,19 +55,24 @@ export function DataFooter({
         </span>
       )}
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <span>Page</span>
-          <Input
-            type="number"
-            min={1}
-            value={page + 1}
-            onChange={(e) => {
-              const p = parseInt(e.target.value, 10);
-              if (!isNaN(p) && p >= 1) onPageChange(Math.min(p - 1, maxPage));
-            }}
-            className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-          />
-        </div>
+        {totalCount != null ? (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span>Page</span>
+            <Input
+              type="number"
+              min={1}
+              max={maxPage + 1}
+              value={page + 1}
+              onChange={(e) => {
+                const p = parseInt(e.target.value, 10);
+                if (!isNaN(p) && p >= 1) onPageChange(Math.min(p - 1, maxPage));
+              }}
+              className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">Page {page + 1}</span>
+        )}
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"

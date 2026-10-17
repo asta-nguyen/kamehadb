@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KamehaDB
+Comment=Local-first database GUI
+Exec=kamehadb
+Icon=kamehadb
+Terminal=false
+Categories=Development;
+StartupWMClass=kamehadb

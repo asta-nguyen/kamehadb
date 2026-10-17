@@ -1,6 +1,6 @@
 ---
 name: bump-version
-description: Bump the KamehaDB app version across all 6 package files (package.json, desktop/sidecar/shared package.json, tauri.conf.json, Cargo.toml) and update CHANGELOG.md. Use when the user wants to release a new version, bump the version, cut a release tag, or update the changelog.
+description: Bump the KamehaDB app version across all 3 package files (root, desktop, and shared package.json) and update CHANGELOG.md. Use when the user wants to release a new version, bump the version, cut a release tag, or update the changelog.
 ---
 
 # Bump Version
@@ -11,16 +11,14 @@ This workflow updates the KamehaDB app version across all files that contain it,
 
 The version string must be updated in **all** of these files (they must stay in sync):
 
-| #   | File                                     | Field                               |
-| --- | ---------------------------------------- | ----------------------------------- |
-| 1   | `package.json`                           | `"version"`                         |
-| 2   | `apps/desktop/package.json`              | `"version"`                         |
-| 3   | `apps/sidecar/package.json`              | `"version"`                         |
-| 4   | `packages/shared/package.json`           | `"version"`                         |
-| 5   | `apps/desktop/src-tauri/tauri.conf.json` | `"version"`                         |
-| 6   | `apps/desktop/src-tauri/Cargo.toml`      | `version = "..."` under `[package]` |
+| #   | File                           | Field       |
+| --- | ------------------------------ | ----------- |
+| 1   | `package.json`                 | `"version"` |
+| 2   | `apps/desktop/package.json`    | `"version"` |
+| 3   | `packages/shared/package.json` | `"version"` |
 
 > **Note:** `landing/package.json` has its own independent version (`0.1.0`) — do NOT touch it.
+> **Note:** the version shown inside the app comes from `git describe --tags` (see `apps/desktop/vite.config.ts`) — tagging the release is what updates the in-app version string.
 
 ## Steps
 
@@ -50,23 +48,11 @@ If the user specifies a version, use that. Otherwise, analyze the commit message
 
 Ask the user to confirm the target version before proceeding.
 
-### 2. Update version in all 6 files
+### 2. Update version in all 3 files
 
 Edit each file listed in the table above. Replace the old version string with the new one.
 
 Example for `package.json`:
-
-```json
-"version": "1.5.0"
-```
-
-Example for `Cargo.toml`:
-
-```toml
-version = "1.5.0"
-```
-
-Example for `tauri.conf.json`:
 
 ```json
 "version": "1.5.0"
@@ -123,8 +109,7 @@ Run a quick check that all files have the same version:
 
 ```bash
 # // turbo
-grep -r '"1.5.0"' package.json apps/desktop/package.json apps/sidecar/package.json packages/shared/package.json apps/desktop/src-tauri/tauri.conf.json
-grep 'version = "1.5.0"' apps/desktop/src-tauri/Cargo.toml
+grep -r '"1.5.0"' package.json apps/desktop/package.json packages/shared/package.json
 ```
 
 (Replace `1.5.0` with the actual new version.)

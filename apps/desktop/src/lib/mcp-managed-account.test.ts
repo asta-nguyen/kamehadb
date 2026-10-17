@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  isTauriRuntime: vi.fn<() => boolean>(),
   api: {
     prepareMcpAccount: vi.fn(),
     provisionMcpAccount: vi.fn(),
@@ -10,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('./tauri', () => ({ isTauriRuntime: mocks.isTauriRuntime }));
 vi.mock('./api', () => ({ api: mocks.api }));
 
 import { createMcpManagedAccount, revokeMcpManagedAccount } from './mcp-managed-account';
@@ -21,7 +19,6 @@ afterEach(() => {
 
 describe('MCP managed account actions', () => {
   it('prepares the stored credential before provisioning the database account', async () => {
-    mocks.isTauriRuntime.mockReturnValue(true);
     mocks.api.prepareMcpAccount.mockResolvedValue({ state: 'prepared' });
     mocks.api.provisionMcpAccount.mockResolvedValue({ state: 'ready' });
 
@@ -33,7 +30,6 @@ describe('MCP managed account actions', () => {
   });
 
   it('discards a prepared account after a failed provision request', async () => {
-    mocks.isTauriRuntime.mockReturnValue(true);
     mocks.api.prepareMcpAccount.mockResolvedValue({ state: 'prepared' });
     mocks.api.provisionMcpAccount.mockRejectedValue(new Error('Setup failed'));
     mocks.api.getMcpAccounts.mockResolvedValue({
@@ -45,7 +41,6 @@ describe('MCP managed account actions', () => {
   });
 
   it('leaves an interrupted database operation for explicit recovery', async () => {
-    mocks.isTauriRuntime.mockReturnValue(true);
     mocks.api.prepareMcpAccount.mockResolvedValue({ state: 'prepared' });
     mocks.api.provisionMcpAccount.mockRejectedValue(new Error('Setup interrupted'));
     mocks.api.getMcpAccounts.mockResolvedValue({
@@ -56,8 +51,7 @@ describe('MCP managed account actions', () => {
     expect(mocks.api.revokeMcpAccount).not.toHaveBeenCalled();
   });
 
-  it('asks the sidecar to revoke the managed database account', async () => {
-    mocks.isTauriRuntime.mockReturnValue(true);
+  it('revokes the managed database account', async () => {
     mocks.api.revokeMcpAccount.mockResolvedValue({ revoked: true });
 
     await revokeMcpManagedAccount('profile');

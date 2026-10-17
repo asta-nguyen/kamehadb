@@ -1,5 +1,7 @@
 import type { ConnectionProfile } from '@kamehadb/shared';
-import { invokeTauri, isTauriRuntime } from '@/lib/tauri';
+import { EventsOn } from '../../wailsjs/runtime/runtime';
+import { CancelPostgresJob, StartPostgresBackup, StartPostgresRestore } from '../../wailsjs/go/api/MaintenanceService';
+import { PickOpenFile, PickSaveFile } from '../../wailsjs/go/main/App';
 
 export const POSTGRES_TOOL_EVENT = 'postgres-tool-event';
 
@@ -78,48 +80,43 @@ export function defaultBackupPath(connection: ConnectionProfile, format: Postgre
   return `${baseName}-${date}.${BACKUP_EXTENSION[format]}`;
 }
 
+// Wails FileFilter patterns use glob syntax (`*.sql`), not bare extensions.
+function filterPattern(extensions: string[]): string {
+  return extensions.map((ext) => `*.${ext}`).join(';');
+}
+
 export async function pickBackupDestination(
   connection: ConnectionProfile,
   format: PostgresBackupFormat,
 ): Promise<string | null> {
-  if (!isTauriRuntime()) {
-    throw new Error('Backup is only available in the Tauri desktop app');
-  }
-  const { save } = await import('@tauri-apps/plugin-dialog');
-  const selected = await save({
-    canCreateDirectories: true,
-    defaultPath: defaultBackupPath(connection, format),
-    filters: [
-      {
-        name: `PostgreSQL ${format} backup`,
-        extensions: [BACKUP_EXTENSION[format]],
-      },
-    ],
-  });
-  return selected ?? null;
+  const selected = await PickSaveFile(defaultBackupPath(connection, format), 'Save PostgreSQL backup', [
+    {
+      displayName: `PostgreSQL ${format} backup`,
+      pattern: filterPattern([BACKUP_EXTENSION[format]]),
+    },
+  ]);
+  return selected || null;
 }
 
 export async function pickRestoreInput(): Promise<string | null> {
-  if (!isTauriRuntime()) {
-    throw new Error('Restore is only available in the Tauri desktop app');
-  }
-  const { open } = await import('@tauri-apps/plugin-dialog');
-  const selected = await open({
-    directory: false,
-    multiple: false,
-    filters: [{ name: 'Supported PostgreSQL dumps', extensions: ['sql', 'dump', 'backup', 'tar', 'psql'] }],
-  });
-  return typeof selected === 'string' ? selected : null;
+  const selected = await PickOpenFile('Select PostgreSQL dump', [
+    { displayName: 'Supported PostgreSQL dumps', pattern: filterPattern(['sql', 'dump', 'backup', 'tar', 'psql']) },
+  ]);
+  return selected || null;
+}
+
+export function onPostgresToolEvent(handler: (event: PostgresToolEvent) => void): () => void {
+  return EventsOn(POSTGRES_TOOL_EVENT, handler as (data: unknown) => void);
 }
 
 export async function startPostgresBackup(request: PostgresBackupRequest): Promise<PostgresJobStart> {
-  return invokeTauri<PostgresJobStart>('start_postgres_backup', { request });
+  return StartPostgresBackup(request as never) as Promise<PostgresJobStart>;
 }
 
 export async function startPostgresRestore(request: PostgresRestoreRequest): Promise<PostgresJobStart> {
-  return invokeTauri<PostgresJobStart>('start_postgres_restore', { request });
+  return StartPostgresRestore(request as never) as Promise<PostgresJobStart>;
 }
 
 export async function cancelPostgresToolJob(jobId: string): Promise<void> {
-  await invokeTauri('cancel_postgres_job', { jobId });
+  await CancelPostgresJob(jobId);
 }

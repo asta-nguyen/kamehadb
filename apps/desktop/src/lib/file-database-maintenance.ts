@@ -4,8 +4,8 @@ import type {
   FileDatabaseMaintenanceResult,
   FileDatabaseRestoreRequest,
 } from '@kamehadb/shared';
-import { isFileDatabaseKind, FileDatabaseMaintenanceError } from '@kamehadb/shared';
-import { isTauriRuntime } from '@/lib/tauri';
+import { isFileDatabaseKind } from '@kamehadb/shared';
+import { PickSaveFile, PickOpenFile } from '../../wailsjs/go/main/App';
 
 export { FileDatabaseMaintenanceError } from '@kamehadb/shared';
 
@@ -35,24 +35,11 @@ export function defaultFileDatabaseBackupPath(connection: ConnectionProfile): st
 }
 
 export async function pickFileDatabaseBackupDestination(connection: ConnectionProfile): Promise<string | null> {
-  if (!isTauriRuntime()) {
-    throw new FileDatabaseMaintenanceError('missing-file-path', 'Backup is only available in the Tauri desktop app');
-  }
-
-  const { save } = await import('@tauri-apps/plugin-dialog');
-  const selected = await save({
-    canCreateDirectories: true,
-    defaultPath: defaultFileDatabaseBackupPath(connection),
-  });
-  return selected ?? null;
+  const selected = await PickSaveFile(defaultFileDatabaseBackupPath(connection), 'Backup database', []);
+  return selected || null;
 }
 
 export async function pickFileDatabaseRestoreInput(connection: ConnectionProfile): Promise<string | null> {
-  if (!isTauriRuntime()) {
-    throw new FileDatabaseMaintenanceError('missing-file-path', 'Restore is only available in the Tauri desktop app');
-  }
-
-  const { open } = await import('@tauri-apps/plugin-dialog');
   const sourcePath = connection.filePath?.trim();
   let extension: string | null = null;
   if (sourcePath) {
@@ -61,12 +48,11 @@ export async function pickFileDatabaseRestoreInput(connection: ConnectionProfile
     const lastDot = fileName.lastIndexOf('.');
     if (lastDot > 0) extension = fileName.slice(lastDot + 1);
   }
-  const selected = await open({
-    directory: false,
-    multiple: false,
-    filters: extension ? [{ name: `${connection.kind} backups`, extensions: [extension] }] : undefined,
-  });
-  return typeof selected === 'string' ? selected : null;
+  const selected = await PickOpenFile(
+    'Restore database',
+    extension ? [{ displayName: `${connection.kind} backups`, pattern: `*.${extension}` }] : [],
+  );
+  return selected || null;
 }
 
 export async function backupFileDatabase(

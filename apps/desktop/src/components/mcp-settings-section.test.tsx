@@ -1,5 +1,4 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { McpSettingsSection } from './mcp-settings-section';
 
@@ -33,14 +32,6 @@ vi.mock('@/hooks/use-mcp-settings', () => ({
 }));
 
 vi.mock('@/hooks/use-connections', () => ({ useConnections: hooks.useConnections }));
-
-// Render inactive panels too so this static test can inspect the Logs panel.
-vi.mock('@/components/ui/tabs', () => ({
-  Tabs: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TabsList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TabsTrigger: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-  TabsContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}));
 
 beforeEach(() => {
   hooks.useMcpSettings.mockReturnValue({

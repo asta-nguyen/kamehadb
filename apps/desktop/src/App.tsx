@@ -20,12 +20,11 @@ import {
   setTheme,
 } from '@/store';
 import { useStore } from '@tanstack/react-store';
-import { Monitor, Moon, Search, Sun, TriangleAlert, Keyboard } from 'lucide-react';
+import { Monitor, Moon, ScrollText, Search, Settings, Sun, Keyboard } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { isSqlKind } from '@/lib/constants';
 import { toast } from '@/lib/toast';
 import { useConnections } from '@/hooks/use-connections';
-import { useSidecar } from '@/hooks/use-sidecar';
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -41,10 +40,10 @@ function ThemeToggle() {
   );
 
   return (
-    <div className="relative grid grid-cols-[repeat(3,1.75rem)] items-center gap-0.5 rounded-md bg-muted/40 p-0.5 shadow-sm">
+    <div className="relative grid grid-cols-[repeat(3,1.5rem)] items-center gap-0.5 rounded-md bg-muted/40 p-0.5 shadow-sm">
       <div
-        className="pointer-events-none absolute left-0.5 top-0.5 h-7 w-7 rounded bg-background shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.1)] transition-transform duration-200 ease-out will-change-transform"
-        style={{ transform: `translateX(${activeIndex * 1.875}rem)` }}
+        className="pointer-events-none absolute left-0.5 top-0.5 size-6 rounded bg-background transition-transform duration-200 ease-out will-change-transform"
+        style={{ transform: `translateX(${activeIndex * 1.625}rem)` }}
       />
       {THEME_OPTIONS.map(({ value, label, Icon }) => (
         <Button
@@ -53,7 +52,7 @@ function ThemeToggle() {
           variant="ghost"
           size="sm"
           onClick={() => setTheme(value)}
-          className={`relative z-10 flex size-7 items-center justify-center rounded transition-colors duration-150 ${
+          className={`relative z-10 flex size-6 items-center justify-center rounded transition-colors duration-150 ${
             theme === value ? 'text-foreground' : 'text-muted-foreground/60 hover:text-foreground'
           }`}
           title={label}
@@ -102,20 +101,18 @@ function Header({
   readonly onShortcutsOpen: () => void;
 }) {
   return (
-    <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-4">
-      <div className="flex items-center gap-3">
+    <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-2">
+      <div className="flex items-center gap-2">
         <img alt="kamehadb" className="h-5 w-5 rounded object-contain" src="/logo.png" />
-        <div className="flex items-baseline">
-          <span className="font-mono text-sm font-bold tracking-widest text-foreground/90">KAME</span>
-          <span className="font-mono text-sm font-black tracking-widest text-foreground">HA</span>
-          <span className="ml-0.5 font-mono text-sm font-bold tracking-widest text-primary">DB</span>
-        </div>
+        <span className="text-sm font-semibold tracking-tight text-foreground">
+          Kameha<span className="text-xs font-bold text-primary">DB</span>
+        </span>
       </div>
       <div className="flex items-center gap-2">
         <Button variant="outline" size="sm" onClick={onSearchOpen} className="gap-1.5 text-xs text-muted-foreground/60">
           <Search className="size-3.5" />
           <span className="hidden sm:inline">Search</span>
-          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50 sm:inline-flex">
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-xs font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>K
           </kbd>
         </Button>
@@ -127,13 +124,27 @@ function Header({
           title="Keyboard shortcuts"
         >
           <Keyboard className="size-3.5" />
-          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-[10px] font-normal text-muted-foreground/50 sm:inline-flex">
+          <kbd className="ml-1 hidden items-center gap-0.5 rounded bg-muted/60 px-1 py-0.5 font-mono text-xs font-normal text-muted-foreground/50 sm:inline-flex">
             <span>⌘</span>/
           </kbd>
         </Button>
-        <Button variant="outline" size="sm" onClick={() => navigateTo('logs')} className="gap-1.5 text-xs">
-          <TriangleAlert className="size-3.5" />
-          <span className="hidden sm:inline">Logs</span>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => navigateTo('logs')}
+          className="text-muted-foreground/60"
+          title="Logs"
+        >
+          <ScrollText className="size-3.5" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          onClick={() => navigateTo('api-settings')}
+          className="text-muted-foreground/60"
+          title="API settings"
+        >
+          <Settings className="size-3.5" />
         </Button>
         <ThemeToggle />
       </div>
@@ -146,7 +157,6 @@ function App() {
   const theme = useStore(appStore, (state) => state.theme);
   const openedTabs = useStore(appStore, (state) => state.openedTabs);
   const connectionsRef = useRef<ReturnType<typeof useConnections>['data']>(undefined);
-  const { ready: sidecarReady, error: sidecarError } = useSidecar();
 
   // Kill orphaned mongo-shell PTY sessions when their tabs are closed.
   // Lives in App() (always mounted) rather than Workspace() (unmounted when
@@ -167,9 +177,7 @@ function App() {
     }
     prevShellTabsRef.current = current;
   }, [openedTabs]);
-  const { data: connections } = useConnections({
-    enabled: sidecarReady,
-  });
+  const { data: connections } = useConnections();
   connectionsRef.current = connections;
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -185,6 +193,15 @@ function App() {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme]);
+
+  // Right-click is always our menu: suppress the webview's native menu so surfaces
+  // without a custom one stay consistent. Base UI menus open on their trigger
+  // before this window listener runs, so they are unaffected. (Why)
+  useEffect(() => {
+    const suppressNativeMenu = (event: MouseEvent) => event.preventDefault();
+    window.addEventListener('contextmenu', suppressNativeMenu);
+    return () => window.removeEventListener('contextmenu', suppressNativeMenu);
+  }, []);
 
   useEffect(() => {
     appendFrontendLog({
@@ -366,30 +383,10 @@ function App() {
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <div className="flex h-screen w-screen flex-col">
         <Header onSearchOpen={() => setSearchOpen(true)} onShortcutsOpen={() => setShortcutsOpen(true)} />
-        {!sidecarReady ? (
-          <div className="flex flex-1 items-center justify-center">
-            {sidecarError ? (
-              <div className="max-w-md text-center">
-                <TriangleAlert className="mx-auto mb-4 size-12 text-destructive" />
-                <h2 className="mb-2 text-lg font-semibold">Sidecar failed to start</h2>
-                <p className="text-sm text-muted-foreground">{sidecarError}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Ensure Node.js is installed and try restarting the app.
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <div className="size-4 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-                Starting sidecar...
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-1 overflow-hidden">
-            <Sidebar />
-            {view === 'api-settings' ? <ApiSettingsPage /> : view === 'logs' ? <LogsPage /> : <MainLayout />}
-          </div>
-        )}
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar />
+          {view === 'api-settings' ? <ApiSettingsPage /> : view === 'logs' ? <LogsPage /> : <MainLayout />}
+        </div>
       </div>
     </TooltipProvider>
   );

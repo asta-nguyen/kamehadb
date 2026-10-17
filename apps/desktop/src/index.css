@@ -50,13 +50,13 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.075);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.375rem;
+  --radius-2xl: 0.375rem;
+  --radius-3xl: 0.375rem;
+  --radius-4xl: 0.375rem;
 }
 
 :root {
@@ -84,7 +84,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.375rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -179,8 +179,9 @@
   body {
     @apply bg-background text-foreground;
   }
-  html {
-    @apply font-sans;
+  html,
+  body {
+    @apply font-sans overflow-hidden h-full w-full;
   }
 
   /* Custom scrollbar styling */
@@ -202,10 +203,70 @@
     background: var(--muted-foreground);
   }
 
-  /* Firefox scrollbar */
-  * {
+  /* Standard-property baseline for engines that honour it. Engines that take the
+     ::-webkit-scrollbar rules above ignore it, and WebKitGTK draws native scrollbars
+     and honours neither. The thumb uses muted-foreground, not border: border is
+     white-at-10% in dark mode, which leaves only the native hairline edge visible. (How / Why) */
+  html {
     scrollbar-width: thin;
     scrollbar-color: var(--muted-foreground) transparent;
+  }
+
+  /* WebKitGTK reveals an overlay scrollbar for every scrollable pane on any pointer
+     motion over the view, so hovering one pane lit up its neighbour's bar and the two
+     flickered together. Leaving a pane unscrollable until the pointer is inside it
+     means only the hovered pane can show a bar, and it stays put while the pointer
+     moves within that pane. Overlay bars take no layout space, so toggling one never
+     shifts the content. (How / Why / What) */
+  [data-slot='data-table-scrollport'],
+  [data-slot='sidebar-scroll'] {
+    overflow: hidden;
+  }
+
+  /* The table's pinned header is a sibling of the scrollport and forwards wheel
+     events to it, so the whole table area has to own the hover state; keying this off
+     the scrollport alone would leave a wheel over the header hitting an unscrollable
+     box. (How / Why) */
+  [data-slot='data-table']:hover [data-slot='data-table-scrollport'] {
+    overflow: auto;
+  }
+
+  [data-slot='sidebar-scroll']:hover {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* Popups, menus, tooltips, and no-scrollbar containers must never instantiate
+     WebKitGTK native overlay scrollbar widgets that render above web content. (How / Why / What) */
+  [data-slot='dropdown-menu-content'],
+  [data-slot='context-menu-content'],
+  [data-slot='select-content'],
+  [data-slot='tooltip-content'],
+  [data-slot='popover-content'],
+  [data-sonner-toaster],
+  [data-sonner-toast],
+  .no-scrollbar {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  [data-slot='dropdown-menu-content']::-webkit-scrollbar,
+  [data-slot='context-menu-content']::-webkit-scrollbar,
+  [data-slot='select-content']::-webkit-scrollbar,
+  [data-slot='tooltip-content']::-webkit-scrollbar,
+  [data-slot='popover-content']::-webkit-scrollbar,
+  [data-sonner-toaster]::-webkit-scrollbar,
+  [data-sonner-toast]::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* Completely suppress any icon, diamond, or svg in toast notifications per user directive. (How / Why / What) */
+  [data-sonner-toast] [data-icon],
+  [data-sonner-toast] svg {
+    display: none !important;
   }
 
   /* SQL Syntax Highlighting */

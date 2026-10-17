@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { debounce } from '@tanstack/pacer';
 import { useTableColumns, useTableIndexes, usePreviewRows, useTables } from '@/hooks/use-schema';
@@ -9,16 +9,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from 'cnfast';
 
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { DataTable, type ColumnDef } from '@/components/data-table';
+import { MiddleTruncate } from '@/components/middle-truncate';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import {
   Key,
   Hash,
-  Table2,
   ChevronLeft,
+  ChevronsLeft,
   ChevronRight,
   FileJson,
   Copy,
@@ -27,23 +29,43 @@ import {
   Download,
   Ellipsis,
   Search,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
+  Filter,
   X,
   Trash2,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { downloadResult, exportToJSON } from '@/lib/export';
+import { SLOW_FETCH_INDICATOR_DELAY_MS } from '@/lib/constants';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { buildRowUpdateQuery } from '@/lib/table-editability';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { buildRowDeleteQuery, buildRowUpdateQuery } from '@/lib/table-editability';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
+import { ResultLimitNotice } from '@/components/result-limit-notice';
+import { NativeCSVExportButton } from '@/components/native-csv-export-button';
+import type { QueryResult } from '@kamehadb/shared';
+import {
+  INITIAL_PREVIEW_NAVIGATION,
+  canAdvancePreview,
+  canGoBackPreview,
+  jumpPreviewPage,
+  nextPreviewPage,
+  previousPreviewPage,
+  type PreviewNavigation,
+} from '@/lib/preview-navigation';
 
 type TableViewProps = {
   connectionId: string;
@@ -53,60 +75,90 @@ type TableViewProps = {
 // Group offset/pageSize/selectedRow/search/sort state into one reducer so a
 // single dispatch produces a single re-render instead of seven.
 type DataGridState = {
-  offset: number;
+  navigation: PreviewNavigation;
   pageSize: number;
   selectedRow: Record<string, unknown> | null;
   searchText: string;
   querySearch: string;
+  searchColumn: string;
+  matchCase: boolean;
   sortColumn: string;
   sortDirection: 'asc' | 'desc';
 };
 
 type DataGridAction =
   | { type: 'setOffset'; value: number }
+  | { type: 'nextPage'; result: QueryResult; pending: boolean }
+  | { type: 'previousPage' }
   | { type: 'setPageSize'; value: number }
   | { type: 'selectRow'; row: Record<string, unknown> | null }
   | { type: 'setSearchText'; value: string }
   | { type: 'setQuerySearch'; value: string }
+  | { type: 'setSearchColumn'; value: string }
+  | { type: 'setMatchCase'; value: boolean }
   | { type: 'setSortColumn'; value: string }
   | { type: 'setSortDirection'; value: 'asc' | 'desc' }
   | { type: 'cycleSort'; column: string }
   | { type: 'clearSort' };
 
+// Ordering/search/size changes invalidate every bookmark, including the
+// ascending-to-descending cycle; reusing an old key would skip or repeat rows.
 function dataGridReducer(state: DataGridState, action: DataGridAction): DataGridState {
+  const reset = { navigation: INITIAL_PREVIEW_NAVIGATION, selectedRow: null };
   switch (action.type) {
     case 'setOffset':
-      return { ...state, offset: action.value };
+      return { ...state, navigation: jumpPreviewPage(action.value, state.pageSize), selectedRow: null };
+    case 'nextPage':
+      return {
+        ...state,
+        navigation: nextPreviewPage(state.navigation, action.result, action.pending),
+        selectedRow: null,
+      };
+    case 'previousPage':
+      return { ...state, navigation: previousPreviewPage(state.navigation, state.pageSize), selectedRow: null };
     case 'setPageSize':
-      return { ...state, pageSize: action.value, offset: 0 };
+      return { ...state, pageSize: action.value, ...reset };
     case 'selectRow':
       return { ...state, selectedRow: action.row };
     case 'setSearchText':
       return { ...state, searchText: action.value };
     case 'setQuerySearch':
-      return { ...state, querySearch: action.value, offset: 0 };
+      return { ...state, querySearch: action.value, ...reset };
+    case 'setSearchColumn':
+      return { ...state, searchColumn: action.value, ...reset };
+    case 'setMatchCase':
+      return { ...state, matchCase: action.value, ...reset };
     case 'setSortColumn':
-      return { ...state, sortColumn: action.value };
+      return { ...state, sortColumn: action.value, ...reset };
     case 'setSortDirection':
-      return { ...state, sortDirection: action.value };
+      return { ...state, sortDirection: action.value, ...reset };
     case 'cycleSort':
       if (state.sortColumn === action.column) {
-        if (state.sortDirection === 'asc') return { ...state, sortDirection: 'desc' as const };
-        return { ...state, sortColumn: '', sortDirection: 'asc' as const, offset: 0 };
+        if (state.sortDirection === 'asc') return { ...state, sortDirection: 'desc' as const, ...reset };
+        return { ...state, sortColumn: '', sortDirection: 'asc' as const, ...reset };
       }
-      return { ...state, sortColumn: action.column, sortDirection: 'asc' as const, offset: 0 };
+      return { ...state, sortColumn: action.column, sortDirection: 'asc' as const, ...reset };
     case 'clearSort':
-      return { ...state, sortColumn: '', sortDirection: 'asc' as const, offset: 0 };
+      return { ...state, sortColumn: '', sortDirection: 'asc' as const, ...reset };
   }
+}
+
+// Format query duration with sub-millisecond precision for fast queries (<1ms) or rounded integers otherwise. (How / Why / What)
+function formatDuration(ms: number | undefined): string {
+  if (ms === undefined || ms === null) return '<1ms';
+  if (ms < 1) return '<1ms';
+  return `${Math.round(ms)}ms`;
 }
 
 function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: string }) {
   const [state, dispatch] = useReducer(dataGridReducer, {
-    offset: 0,
+    navigation: INITIAL_PREVIEW_NAVIGATION,
     pageSize: 50,
     selectedRow: null,
     searchText: '',
     querySearch: '',
+    searchColumn: '',
+    matchCase: false,
     sortColumn: '',
     sortDirection: 'asc',
   });
@@ -127,11 +179,18 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   const { data: tables } = useTables(connectionId, tableSchema);
   const isView = tables?.find((t) => t.id === tableId)?.type === 'view';
   const { data: columns, isLoading: isLoadingColumns } = useTableColumns(connectionId, tableId);
-  const { data: result, isLoading } = usePreviewRows(connectionId, {
+  const {
+    data: result,
+    isLoading,
+    isFetching,
+    isPlaceholderData,
+  } = usePreviewRows(connectionId, {
     tableId,
-    offset: state.offset,
+    ...state.navigation.position,
     limit: state.pageSize,
     search: state.querySearch || undefined,
+    searchColumn: state.searchColumn || undefined,
+    matchCase: state.matchCase,
     sortColumn: state.sortColumn || undefined,
     sortDirection: state.sortColumn ? state.sortDirection : undefined,
   });
@@ -150,7 +209,20 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   // flashes a false "No primary key" state during the first render.
   const showNoPrimaryKeyWarning = !isLoadingColumns && !!columns && pkColumns.length === 0 && !isView;
 
-  const page = Math.floor(state.offset / state.pageSize) + 1;
+  const offset = state.navigation.position.offset;
+  const page = state.navigation.pageIndex + 1;
+  const pendingPage = isFetching || isPlaceholderData;
+  // Show the loading chip only when a fetch stays pending past a short delay,
+  // so fast indexed sorts and cached pages never flash it. (Why)
+  const [slowFetch, setSlowFetch] = useState(false);
+  useEffect(() => {
+    if (!pendingPage) {
+      setSlowFetch(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowFetch(true), SLOW_FETCH_INDICATOR_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [pendingPage]);
   // Prefer schema metadata because several adapters cannot infer columns from
   // an empty page; result metadata remains the fallback while schema loads.
   const displayColumns = columns && columns.length > 0 ? columns : (result?.columns ?? []);
@@ -209,6 +281,43 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     [result, pkColumns, dateColumns, runQuery, queryClient, connectionId, tableId, displayColumnNames],
   );
 
+  const [rowToDelete, setRowToDelete] = useState<Record<string, unknown> | null>(null);
+
+  // Construct and execute DELETE query for selected row using primary keys to avoid ambiguous row removal. (How / Why / What)
+  const handleDeleteRow = useCallback(
+    (row: Record<string, unknown>) => {
+      if (isView) {
+        toastError('This is a view — rows cannot be deleted');
+        return;
+      }
+      if (pkColumns.length === 0) {
+        toastError('Cannot delete row: table has no primary key');
+        return;
+      }
+      const sql = buildRowDeleteQuery({
+        tableId,
+        row,
+        pkColumns,
+        allColumnNames: displayColumnNames,
+      });
+
+      runQuery.mutate(
+        { query: sql },
+        {
+          onSuccess: () => {
+            toastSuccess('Row deleted successfully');
+            queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
+          },
+          onError: (err) => {
+            console.error('Failed to delete row:', err);
+            toastError(err instanceof Error ? err.message : 'Failed to delete row');
+          },
+        },
+      );
+    },
+    [isView, pkColumns, tableId, displayColumnNames, runQuery, queryClient, connectionId],
+  );
+
   const tableColumns: ColumnDef<Record<string, unknown>>[] = displayColumns
     .filter((col) => visibleColumns.includes(col.name))
     .map((col) => ({
@@ -263,7 +372,9 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
               pkColumns.length > 0 && !isView ? () => setEditingCell({ rowIndex, column: col.name }) : undefined
             }
             className={
-              pkColumns.length > 0 && !isView ? 'cursor-pointer flex-1 min-w-0 truncate' : 'flex-1 min-w-0 truncate'
+              pkColumns.length > 0 && !isView
+                ? 'cursor-pointer flex-1 min-w-0 flex items-center overflow-hidden'
+                : 'flex-1 min-w-0 flex items-center overflow-hidden'
             }
           >
             {value === null ? (
@@ -271,9 +382,9 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
             ) : value === undefined ? (
               <span className="text-muted-foreground">-</span>
             ) : typeof value === 'object' ? (
-              <span className="text-primary">{JSON.stringify(value)}</span>
+              <MiddleTruncate text={JSON.stringify(value)} className="text-primary font-mono" />
             ) : (
-              <span>{String(value)}</span>
+              <MiddleTruncate text={String(value)} />
             )}
           </span>
         );
@@ -292,69 +403,79 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center gap-2 mb-3 shrink-0">
-        <div className="relative flex-1 max-w-64">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            value={state.searchText}
-            onChange={(e) => {
-              dispatch({ type: 'setSearchText', value: e.target.value });
-              debouncedSearchFn(e.target.value);
-            }}
-            placeholder="Search all fields..."
-            className="h-7 pl-7 text-xs"
-          />
-        </div>
-        <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2 mb-2 shrink-0">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={state.searchText}
+              onChange={(e) => {
+                dispatch({ type: 'setSearchText', value: e.target.value });
+                debouncedSearchFn(e.target.value);
+              }}
+              placeholder={state.searchColumn ? `Search in ${state.searchColumn}...` : 'Search all fields...'}
+              className={cn('h-7 pl-7 text-xs md:text-xs rounded-lg border-input', state.searchText ? 'pr-13' : 'pr-8')}
+            />
+            {/* Match case is a mode badge inside the field: quiet when off, tinted when on.
+                Positioned with top-1 instead of translate centering because the button's press
+                effect (active:translate-y-px) overrides -translate-y-1/2 and makes it jump on click. (Why) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => dispatch({ type: 'setMatchCase', value: !state.matchCase })}
+              className={cn(
+                'absolute right-1 top-1 h-5 w-6 rounded-md border font-mono text-xs transition-colors',
+                state.matchCase
+                  ? 'border-primary/50 bg-primary/15 text-primary font-medium'
+                  : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+              )}
+              title={state.matchCase ? 'Match case: ON (Case-sensitive)' : 'Match case: OFF (Case-insensitive)'}
+            >
+              Aa
+            </Button>
+            {state.searchText && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  dispatch({ type: 'setSearchText', value: '' });
+                  dispatch({ type: 'setQuerySearch', value: '' });
+                }}
+                className="absolute right-8 top-1 h-5 w-5 text-muted-foreground hover:text-foreground"
+                title="Clear search"
+              >
+                <X className="size-3" />
+              </Button>
+            )}
+          </div>
+          {/* Explicitly pass the friendly label as children to SelectValue so Base UI's
+              unmounted dropdown doesn't leak the raw __ALL__ sentinel value to the button. (How / Why / What) */}
           <Select
-            value={state.sortColumn}
-            onValueChange={(v) => {
-              if (!v) return;
-              dispatch({ type: 'cycleSort', column: v });
-            }}
+            value={state.searchColumn || '__ALL__'}
+            onValueChange={(v) => dispatch({ type: 'setSearchColumn', value: v === '__ALL__' ? '' : (v ?? '') })}
           >
-            <SelectTrigger className="h-7 w-28 text-xs gap-1.5 px-2">
-              <ArrowUpDown className="size-3.5 text-muted-foreground" />
-              <SelectValue placeholder="Sort by" />
+            <SelectTrigger
+              size="sm"
+              className="h-7 min-w-[7.5rem] max-w-[12rem] text-xs gap-1.5 px-2 shrink-0 rounded-lg border-input"
+              title="Filter by column"
+            >
+              <Filter className="size-3 text-muted-foreground shrink-0" />
+              <SelectValue placeholder="All fields">{state.searchColumn || 'All fields'}</SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent side="bottom" align="start" alignItemWithTrigger={false} className="max-h-64 min-w-[9rem]">
+              <SelectItem value="__ALL__" className="text-xs py-1">
+                All fields
+              </SelectItem>
               {displayColumns.map((col) => (
-                <SelectItem key={col.name} value={col.name} className="text-xs">
+                <SelectItem key={col.name} value={col.name} className="text-xs py-1">
                   {col.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {state.sortColumn && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => dispatch({ type: 'clearSort' })}
-              className="h-7 w-7"
-              title="Clear sort"
-            >
-              <X className="size-3" />
-            </Button>
-          )}
-          {state.sortColumn && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() =>
-                dispatch({
-                  type: 'setSortDirection',
-                  value: state.sortDirection === 'asc' ? 'desc' : 'asc',
-                })
-              }
-              className="h-7 w-7 shrink-0"
-              title={`Sorted ${state.sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-            >
-              {state.sortDirection === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
-            </Button>
-          )}
         </div>
       </div>
-
+      <ResultLimitNotice result={result} />
       {isView && (
         <div className="mb-2 px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 rounded-md">
           This is a view — in-cell editing is not supported.
@@ -365,26 +486,35 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           No primary key — in-cell editing disabled to prevent ambiguous row updates.
         </div>
       )}
-      <div className="min-h-0 max-h-full flex flex-col border border-border rounded-md overflow-hidden">
-        <div className="overflow-auto min-h-0">
-          <DataTable
-            rows={result.rows}
-            columns={tableColumns}
-            rowKey={(_, i) => String(i)}
-            suffixHeader="Actions"
-            suffixWidth="64px"
-            showIndex
-            indexOffset={state.offset}
-            stickyHeader
-            onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
-            sortColumn={state.sortColumn}
-            sortDirection={state.sortDirection}
-            suffix={(row) => (
+      <div className="min-h-0 flex-1 flex flex-col border border-border rounded-md overflow-hidden">
+        <DataTable
+          rows={result.rows}
+          columns={tableColumns}
+          rowKey={(_, i) => String(i)}
+          suffixHeader="Actions"
+          suffixWidth="64px"
+          showIndex
+          indexOffset={offset}
+          stickyHeader
+          onSortChange={(col) => dispatch({ type: 'cycleSort', column: col })}
+          sortColumn={state.sortColumn}
+          sortDirection={state.sortDirection}
+          suffix={(row) => (
+            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Row actions"
+                    />
+                  }
+                >
                   <Ellipsis className="size-3.5" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuContent side="left" align="start" sideOffset={4} className="w-40">
                   <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
                     <Eye className="size-3.5 mr-2" />
                     View details
@@ -402,18 +532,21 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                     <Copy className="size-3.5 mr-2" />
                     Copy row
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => dispatch({ type: 'selectRow', row })}>
+                  <DropdownMenuItem
+                    onClick={() => setRowToDelete(row)}
+                    className="text-destructive focus:text-destructive"
+                  >
                     <Trash2 className="size-3.5 mr-2" />
                     Delete row
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-            className="text-xs"
-          />
-        </div>
+            </div>
+          )}
+          className="text-xs"
+        />
         {result && (
-          <div className="shrink-0 px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-2 rounded-b-md">
+          <div className="shrink-0 px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex flex-nowrap items-center gap-2 rounded-b-md">
             <div className="flex items-center gap-1">
               <Select
                 value={String(state.pageSize)}
@@ -433,43 +566,75 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                 </SelectContent>
               </Select>
             </div>
-            <span>{result.rowCount} rows</span>
-            <span className="ml-auto">{result.durationMs}ms</span>
-            <div className="flex items-center gap-2">
+            <span className="min-w-0 truncate">
+              {result.rows.length > 0 ? `Rows ${offset + 1}–${offset + result.rows.length}` : 'No rows'}
+            </span>
+            {/* The duration describes the rows on screen, so it sits next to the count, not the pager. (Why) */}
+            <span className="text-muted-foreground/70">{formatDuration(result.durationMs)}</span>
+            {slowFetch && (
+              <span role="status" className="flex items-center gap-1 text-muted-foreground">
+                <Spinner size="sm" />
+                Loading...
+              </span>
+            )}
+            <div className="ml-auto flex items-center gap-2">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <span>Page</span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={page}
-                  onChange={(e) => {
-                    const p = parseInt(e.target.value, 10);
-                    if (!isNaN(p) && p >= 1) dispatch({ type: 'setOffset', value: (p - 1) * state.pageSize });
-                  }}
-                  className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+                {result.paginationMode === 'keyset' ? (
+                  <span>{page}</span>
+                ) : (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={page}
+                    disabled={pendingPage}
+                    aria-label="Jump to offset page"
+                    onChange={(e) => {
+                      const p = Number(e.target.value);
+                      const target = (p - 1) * state.pageSize;
+                      if (Number.isSafeInteger(p) && p >= 1 && Number.isSafeInteger(target)) {
+                        dispatch({ type: 'setOffset', value: target });
+                      }
+                    }}
+                    className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  disabled={state.offset === 0}
-                  onClick={() => dispatch({ type: 'setOffset', value: Math.max(0, state.offset - state.pageSize) })}
+                  aria-label="First page"
+                  title="First page"
+                  disabled={pendingPage || offset === 0}
+                  onClick={() => dispatch({ type: 'setOffset', value: 0 })}
+                >
+                  <ChevronsLeft className="size-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Previous page"
+                  disabled={pendingPage || !canGoBackPreview(state.navigation)}
+                  onClick={() => dispatch({ type: 'previousPage' })}
                 >
                   <ChevronLeft className="size-3.5" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  disabled={!result.truncated}
-                  onClick={() => dispatch({ type: 'setOffset', value: state.offset + state.pageSize })}
+                  aria-label="Next page"
+                  disabled={!canAdvancePreview(result, pendingPage)}
+                  onClick={() => dispatch({ type: 'nextPage', result, pending: pendingPage })}
                 >
                   <ChevronRight className="size-3.5" />
                 </Button>
               </div>
             </div>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" className="h-7 w-7" />}>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon-sm" className="h-7 w-7" title="Export displayed rows" />}
+              >
                 <Download className="size-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -484,11 +649,13 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                     }
                   }}
                 >
-                  Copy JSON
+                  Copy as JSON
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <NativeCSVExportButton connectionId={connectionId} tableId={tableId} asMenuItem />
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -505,12 +672,40 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           <SheetHeader className="shrink-0">
             <SheetTitle className="flex items-center gap-2">
               <FileJson className="size-4" />
-              Record #{state.selectedRow && result ? state.offset + result.rows.indexOf(state.selectedRow) + 1 : ''}
+              Record #{state.selectedRow && result ? offset + result.rows.indexOf(state.selectedRow) + 1 : ''}
             </SheetTitle>
           </SheetHeader>
           <RecordDetailTabs selectedRow={state.selectedRow} />
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!rowToDelete} onOpenChange={(open) => !open && setRowToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete row</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this row from <span className="font-mono text-foreground">{tableId}</span>
+              ? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setRowToDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (rowToDelete) {
+                  handleDeleteRow(rowToDelete);
+                  setRowToDelete(null);
+                }
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -521,15 +716,8 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="px-4 py-2 border-b border-border shrink-0">
-        <div className="flex items-center gap-2">
-          <Table2 className="size-4" />
-          <span className="text-sm font-medium">{tableId}</span>
-        </div>
-      </div>
-
-      <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0">
-        <div className="px-4 pt-2 shrink-0">
+      <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0 gap-0">
+        <div className="px-2 pt-2 shrink-0">
           <TabsList>
             <TabsTrigger value="data" className="text-xs">
               Data
@@ -547,11 +735,11 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
           </TabsList>
         </div>
 
-        <TabsContent value="data" className="flex-1 p-4 pt-2 overflow-hidden min-h-0">
+        <TabsContent value="data" className="flex-1 p-2 overflow-hidden min-h-0">
           <DataGrid connectionId={connectionId} tableId={tableId} />
         </TabsContent>
 
-        <TabsContent value="columns" className="flex-1 p-4 pt-2 overflow-auto">
+        <TabsContent value="columns" className="flex-1 p-2 overflow-auto">
           <div className="border rounded-md">
             <Table className="text-xs">
               <TableHeader>
@@ -571,7 +759,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                       <div className="flex items-center gap-1.5">
                         <span>{col.type}</span>
                         {col.isVector && (
-                          <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px]">
+                          <Badge variant="secondary" className="px-1 py-0 h-4 text-xs">
                             vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
                           </Badge>
                         )}
@@ -598,7 +786,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="indexes" className="flex-1 p-4 pt-2 overflow-auto">
+        <TabsContent value="indexes" className="flex-1 p-2 overflow-auto">
           <div className="border rounded-md">
             <Table className="text-xs">
               <TableHeader>

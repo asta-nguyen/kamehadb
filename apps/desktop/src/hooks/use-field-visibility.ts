@@ -1,22 +1,28 @@
 import { useCallback, useMemo, useState } from 'react';
 
-interface FieldVisibilityState {
+type FieldVisibilityState = {
   scope: string;
   hiddenFields: string[];
-}
+};
 
-interface FieldVisibilityResult {
+type FieldVisibilityResult = {
   visibleFields: string[];
   toggleFieldVisibility: (field: string, nextVisible: boolean) => void;
-}
+};
 
-export function collectRecordFields(records: Record<string, unknown>[]): string[] {
+export function collectRecordFields(records?: Record<string, unknown>[] | null): string[] {
   const fields = new Set<string>();
-  records.forEach((record) => Object.keys(record).forEach((field) => fields.add(field)));
+  if (!records || !Array.isArray(records)) return [];
+  records.forEach((record) => {
+    if (record && typeof record === 'object') {
+      Object.keys(record).forEach((field) => fields.add(field));
+    }
+  });
   return Array.from(fields);
 }
 
 export function resolveVisibleFields(fields: string[], hiddenFields: string[]): string[] {
+  if (!Array.isArray(fields)) return [];
   return fields.filter((field) => !hiddenFields.includes(field));
 }
 
@@ -33,12 +39,13 @@ export function toggleHiddenField(
   return [...hiddenFields, field];
 }
 
-export function useFieldVisibility(fields: string[], scope: string): FieldVisibilityResult {
+export function useFieldVisibility(fields: string[] = [], scope: string): FieldVisibilityResult {
   // Store only explicit user exclusions so newly discovered columns remain
   // visible by default, while a scope change starts with every field shown.
+  const safeFields = Array.isArray(fields) ? fields : [];
   const [state, setState] = useState<FieldVisibilityState>({ scope, hiddenFields: [] });
   const hiddenFields = state.scope === scope ? state.hiddenFields : [];
-  const visibleFields = useMemo(() => resolveVisibleFields(fields, hiddenFields), [fields, hiddenFields]);
+  const visibleFields = useMemo(() => resolveVisibleFields(safeFields, hiddenFields), [safeFields, hiddenFields]);
 
   const toggleFieldVisibility = useCallback(
     (field: string, nextVisible: boolean) => {
@@ -46,11 +53,11 @@ export function useFieldVisibility(fields: string[], scope: string): FieldVisibi
         const currentHiddenFields = previous.scope === scope ? previous.hiddenFields : [];
         return {
           scope,
-          hiddenFields: toggleHiddenField(fields, currentHiddenFields, field, nextVisible),
+          hiddenFields: toggleHiddenField(safeFields, currentHiddenFields, field, nextVisible),
         };
       });
     },
-    [fields, scope],
+    [safeFields, scope],
   );
 
   return { visibleFields, toggleFieldVisibility };

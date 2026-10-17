@@ -1,8 +1,6 @@
 # Read-only MCP Server
 
-Verification: [~] verification limit — MCP Call History sources and tests checked; the desktop Logs tab and settings/history endpoints were smoke-checked. Toggle/clear interaction and the existing managed-account, adapter, timeout, and listener claims elsewhere on this page were not fully re-verified.
-
-KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI clients can inspect opted-in database profiles. The endpoint is separate from the sidecar management API and listens only on loopback.
+KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI clients can inspect opted-in database profiles. The endpoint is separate from the Wails-bound management service and listens only on loopback.
 
 ## Requirements
 
@@ -22,7 +20,7 @@ The system SHALL record validated inputs and call summaries for database-backed 
 - WHEN the tool callback completes
 - THEN history stores the error code with no item count, and `list_mcp_profiles` does not create a history entry
 
-Evidence: `apps/sidecar/src/mcp/tools.ts`, `apps/sidecar/src/mcp/tools.test.ts`, `apps/sidecar/src/mcp/runtime.test.ts`
+Evidence: `internal/mcp/tools.go`, `internal/mcp/mcp_test.go`
 
 ### MCP-call-history-limits
 
@@ -34,7 +32,7 @@ The system SHALL prune history older than 30 days and return no more than the ne
 - WHEN the store initializes or history is read
 - THEN expired entries are removed and at most the newest 50 entries are returned
 
-Evidence: `apps/sidecar/src/lib/constants.ts`, `apps/sidecar/src/db/metadata-store.ts`, `apps/sidecar/src/db/metadata-store.test.ts`
+Evidence: `internal/store/mcp.go`, `internal/store/store_test.go`
 
 ### MCP-call-history-recording
 
@@ -46,7 +44,7 @@ The system SHALL default history to enabled for new and existing metadata stores
 - WHEN the metadata store initializes and recording is later disabled
 - THEN history starts enabled, existing entries remain, and later calls are not added
 
-Evidence: `apps/sidecar/src/db/metadata-store.ts`, `apps/sidecar/src/db/metadata-store.test.ts`, `apps/sidecar/src/routes/mcp-settings.ts`, `apps/sidecar/src/routes/mcp-settings.test.ts`
+Evidence: `internal/store/mcp.go`, `internal/store/store_test.go`, `internal/api/mcp.go`
 
 ### MCP-call-history-ui
 
@@ -58,12 +56,12 @@ The desktop SHALL show recorded inputs and summaries with a plain-text storage w
 - WHEN the MCP Server Logs tab is rendered
 - THEN the user sees the recording toggle, Clear History action, local-storage warning, and recorded inputs and summaries without database results
 
-Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/src/components/mcp-settings-section.test.tsx`, `apps/sidecar/src/routes/mcp-settings.ts`, `apps/sidecar/src/routes/mcp-settings.test.ts`
+Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/src/components/mcp-settings-section.test.tsx`, `internal/api/mcp.go`
 
 ## Business rules
 
 - The MCP listener binds to `127.0.0.1` at `/mcp`. Its default port is `13979`; the port is configurable and does not fall back if binding fails.
-- MCP access is a per-profile allowlist. Profiles default to disabled. PostgreSQL, MySQL, MariaDB, SQL Server, and MongoDB require a KamehaDB-managed account before enablement; SQLite uses its read-only file worker.
+- MCP access is a per-profile allowlist. Profiles default to disabled. PostgreSQL, MySQL, MariaDB, SQL Server, and MongoDB require a KamehaDB-managed account before enablement; SQLite uses a dedicated read-only file adapter.
 - The server registers ten read-oriented tools: `list_mcp_profiles`; SQL database/schema/table/column discovery and `sql_query`; MongoDB database/collection discovery, `mongo_find`, and `mongo_aggregate`.
 - `sql_query` uses the shared `isQuerySafe` heuristic. It rejects statement chains, destructive keywords, and statements that do not begin with `SELECT`, `WITH`, `SHOW`, `DESCRIBE`, or `EXPLAIN`. This is keyword screening, not a SQL parser. Database permissions remain the write-prevention boundary. MongoDB exposes only read methods and rejects aggregation stages `$out` and `$merge`.
 - SQL metadata database arguments and MongoDB database arguments are restricted to the database configured in the profile. SQL and MongoDB database-list tools expose only that configured database. MySQL/MariaDB treat database and schema names as equivalents; SQLite metadata is limited to `main`.
@@ -73,30 +71,30 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 
 ## Flow
 
-1. On sidecar startup, KamehaDB initializes metadata SQLite, constructs `McpRuntime`, mounts the internal settings router, and starts the separate MCP listener. Listener status is `listening`, `unavailable`, or `stopped`.
-2. In **API Settings → MCP Server**, the desktop reads listener settings, enabled profiles, and managed-account status. For server database profiles, **Create read-only account** asks the sidecar to generate the credential, encrypt it into local metadata SQLite, reload and verify it, then provision and verify the DB account. The desktop never receives the credential. SQLite needs no account. The user explicitly enables the profile after setup.
+1. On app startup, `main.go` opens metadata SQLite, constructs the bound `McpService`, and starts the `mcp.Runtime` listener alongside Wails. Listener status is `listening`, `unavailable`, or `stopped`.
+2. In **API Settings → MCP Server**, the desktop reads listener settings, enabled profiles, and managed-account status via `McpService` bindings. For server database profiles, **Create read-only account** asks the backend to generate the credential, encrypt it into local metadata SQLite, reload and verify it, then provision and verify the DB account. The desktop never receives the credential. SQLite needs no account. The user explicitly enables the profile after setup.
 3. The **Logs** tab under MCP Server settings has a local call-history toggle, a recent-call list, and a Clear History action. The list resolves profile names when available and falls back to profile IDs after removal.
 4. The desktop provides copyable snippets for Codex, Claude Code, Devin CLI, and OpenCode; it does not edit client config files. Token rotation requires updating the snippets.
 5. MCP clients send stateless Streamable HTTP JSON-RPC `POST` requests to `http://127.0.0.1:<port>/mcp` with `Authorization: Bearer <token>`.
-6. Every database tool asks `McpAdapterManager` to re-read the profile and check its allowlist. Server database calls require a ready managed-account record and an in-memory credential restored from encrypted local storage. Missing credentials fail closed with no fallback to saved profile credentials. SQLite calls use the existing read-only child worker.
+6. Every database tool asks the `mcp.Manager` to re-read the profile and check its allowlist. Server database calls require a ready managed-account record and an in-memory credential restored from encrypted local storage. Missing credentials fail closed with no fallback to saved profile credentials. SQLite calls use the dedicated read-only adapter.
 
 ## State changes
 
 - The singleton `mcp_settings` row stores the listener port and a random 32-byte base64url bearer token in metadata SQLite. Both survive restarts; listener status is runtime-only.
 - The same `mcp_settings` row stores whether MCP call history is enabled. `mcp_call_history` stores tool inputs and call metadata in local metadata SQLite; rows expire after 30 days. Returned database rows and documents are not stored.
 - `connection_profiles.mcp_enabled` stores the per-profile allowlist flag and defaults to disabled. Migration disables legacy enabled server profiles that lack managed accounts while preserving SQLite settings.
-- `mcp_managed_accounts` stores the profile ID, an opaque reference used to derive the generated DB principal, lifecycle state, and an AES-256-GCM encrypted credential bundle. The random 32-byte encryption key is stored beside the metadata DB in `<dbPath>.mcp.key` with owner-only permissions where supported. Copying only the SQLite DB does not reveal the credentials; copying the complete app data directory includes the key and allows decryption.
-- On sidecar startup, ready credentials are decrypted and loaded into process memory. Credentials are bound to their profile and account reference, and invalid ciphertext or a missing key fails closed. The desktop does not hydrate credentials after startup.
+- `mcp_managed_accounts` stores the profile ID, an opaque reference used to derive the generated DB principal, lifecycle state, and an AES-256-GCM encrypted credential bundle. The random 32-byte encryption key is stored in the OS keychain (service `kamehadb-mcp-vault`, account = absolute metadata DB path). A legacy `<dbPath>.mcp.key` is moved into the keychain on first read; when no keychain is available (e.g. headless Linux) the key stays in that file with owner-only permissions and a warning is logged. Only a keychain "not found" result allows writing a key, so a locked keychain never overwrites an existing one. Copying the SQLite DB or the app data directory does not reveal the credentials unless the key file fallback is in use.
+- On app startup, ready credentials are decrypted and loaded into process memory. Credentials are bound to their profile and account reference, and invalid ciphertext or a missing key fails closed. The desktop does not hydrate credentials after startup.
 - Disabling MCP retains the managed DB account and encrypted credential. Revoke disables MCP first, closes the adapter, drops the exact generated principal, then removes the local account record and ciphertext. A failed database revoke retains state for retry. A `prepared` account can be discarded without a DB call because no DB write has started.
 - Legacy managed-account rows without encrypted SQLite credentials remain unavailable to MCP until revoked and recreated. Current sources do not establish whether an OS Keychain value from an older version is separately removed.
-- While a managed account exists, changing the profile kind, target, SSL settings, saved username/password, or deleting the profile is rejected until Revoke.
-- MCP adapters and decrypted credentials are process-local. Profile updates, deletions, credential changes, and allowlist changes invalidate cached adapters; sidecar shutdown closes adapters and clears decrypted secrets.
+- While a managed account exists, changing the profile kind or target, toggling SSL, changing the saved username/password, or deleting the profile is rejected until Revoke. The Root CA PEM remains editable; the updated trust data is used by subsequent managed-account database connections.
+- MCP adapters and decrypted credentials are process-local. Profile updates, deletions, credential changes, and allowlist changes invalidate cached adapters; app shutdown closes adapters and clears decrypted secrets.
 
 ## Authorization & constraints
 
 - The public MCP listener requires a bearer token and compares equal-length values in constant time. It binds to loopback only.
-- Internal settings and account-management routes use the normal sidecar authentication middleware; they are not mounted on the MCP listener.
-- PostgreSQL, MySQL/MariaDB, and SQL Server apply native query timeouts; MongoDB applies `maxTimeMS`; SQLite runs in a child worker opened with `readonly: true` and is terminated on timeout.
+- Settings and account management run through the bound `McpService` inside the app process; they are not mounted on the MCP listener.
+- PostgreSQL, MySQL/MariaDB, and SQL Server apply native query timeouts; MongoDB applies `maxTimeMS` (context deadline); SQLite opens with `mode=ro` and each call runs under a context deadline.
 - If a native timeout cannot be applied, the query fails closed with `TIMEOUT_UNAVAILABLE`; recognized driver timeout errors map to `QUERY_TIMEOUT`.
 - A bind conflict leaves MCP `unavailable`; retry uses the configured port. KamehaDB's ordinary workspace continues to run.
 - `docker-init/MCP-READONLY.md` describes direct grant fixtures. The repository's default MongoDB Docker service has no authentication, so its managed-account probe correctly refuses it.
@@ -149,13 +147,10 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 
 ## Tests
 
-- `apps/sidecar/src/db/metadata-store.test.ts` — metadata persistence, legacy migration, history defaults, retention pruning, record cap, toggle, and clear behavior.
-- `apps/sidecar/src/routes/mcp-settings.test.ts` — settings validation, credential preparation, profile MCP enablement, connection edits, profile deletion protections, prepared-account Revoke, and call-history routes.
-- `apps/sidecar/src/mcp/adapter-manager.test.ts` — concurrency cap and rejection without a hydrated managed credential.
-- `apps/sidecar/src/mcp/adapters.test.ts` — SQLite read-only behavior, bounded reads, write-stage rejection, server credential requirement, and database scope.
-- `apps/sidecar/src/mcp/account-provisioner.test.ts` — stable generated usernames, random passwords, MongoDB URI preparation, and SQLite exclusion.
-- `apps/sidecar/src/mcp/runtime.test.ts` — loopback transport, auth, tool list, query bounds, listener recovery, and SQL call-history integration.
-- `apps/sidecar/src/mcp/tools.test.ts` — item counts, truncation, error codes, excluded profile-list tool, disabled recording, and history-store failure behavior.
+- `internal/store/store_test.go` — metadata persistence, migration, history defaults, retention pruning, and managed-account records.
+- `internal/api/api_test.go` — allows a Root CA update with a managed account while keeping the SSL toggle protected; `internal/mcp/root_ca_test.go` — verifies SQL profiles carry Root CA data into MCP connection paths.
+- `internal/store/vault_test.go` — AES-256-GCM vault byte-compatibility with the legacy sidecar format, tamper and missing-key fail-closed behavior.
+- `internal/mcp/mcp_test.go` — loopback transport, bearer auth, tool list, bounded reads against a real SQLite file, concurrency cap (`BUSY`), provisioning state, error mapping, and call-history integration.
 - `apps/desktop/src/components/mcp-settings-section.test.tsx` — verifies the Logs tab displays local inputs and summaries without database results.
 - `apps/desktop/src/lib/mcp-managed-account.test.ts` — prepare/provision order, failed setup cleanup, and recovery retention.
 
@@ -167,39 +162,33 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 
 - `README.md`
 - `docker-init/MCP-READONLY.md`
+- `main.go`
 - `apps/desktop/src/components/mcp-settings-section.tsx`
+- `apps/desktop/src/components/mcp-settings-section.test.tsx`
 - `apps/desktop/src/hooks/use-mcp-settings.ts`
-- `apps/desktop/src/hooks/use-sidecar.ts`
 - `apps/desktop/src/lib/mcp-managed-account.ts`
 - `apps/desktop/src/lib/api.ts`
-- `apps/desktop/src/lib/tauri.ts`
-- `apps/desktop/src-tauri/src/lib.rs`
-- `apps/sidecar/src/index.ts`
-- `apps/sidecar/src/db/metadata-store.ts`
-- `apps/sidecar/src/db/mcp-credential-vault.ts`
-- `apps/sidecar/src/routes/connections.ts`
-- `apps/sidecar/src/routes/mcp-settings.ts`
-- `apps/sidecar/src/mcp/runtime.ts`
-- `apps/sidecar/src/mcp/tools.ts`
-- `apps/sidecar/src/mcp/adapter-manager.ts`
-- `apps/sidecar/src/mcp/adapters/factory.ts`
-- `apps/sidecar/src/mcp/adapters/sqlite-worker.ts`
-- `apps/sidecar/src/mcp/account-provisioner.ts`
-- `apps/sidecar/src/mcp/errors.ts`
-- `apps/sidecar/src/mcp/invalidation.ts`
-- `apps/sidecar/src/lib/constants.ts`
-- `apps/sidecar/src/mcp/tools.test.ts`
-- `apps/desktop/src/components/mcp-settings-section.test.tsx`
-- `apps/sidecar/src/adapters/postgres.ts`
-- `apps/sidecar/src/adapters/mysql.ts`
-- `apps/sidecar/src/adapters/sqlserver.ts`
-- `apps/sidecar/src/adapters/mongodb.ts`
-- `packages/shared/src/types.ts`
+- `internal/api/mcp.go`
+- `internal/store/vault.go`
+- `internal/store/profiles.go`
+- `internal/store/mcp.go`
+- `internal/mcp/runtime.go`
+- `internal/mcp/jsonrpc.go`
+- `internal/mcp/tools.go`
+- `internal/mcp/manager.go`
+- `internal/engines/sqlite/sqlite.go`
+- `internal/mcp/provisioner.go`
+- `internal/mcp/root_ca_test.go`
+- `internal/mcp/credentials.go`
+- `internal/mcp/errors.go`
+- `internal/engines/postgres/postgres.go`
+- `internal/engines/mysql/mysql.go`
+- `internal/engines/sqlserver/sqlserver.go`
+- `internal/api/connections.go`
+- `internal/api/api_test.go`
+- `internal/mongo/mongo.go`
 - `packages/shared/src/schemas.ts`
-- `apps/sidecar/src/db/metadata-store.test.ts`
-- `apps/sidecar/src/routes/mcp-settings.test.ts`
-- `apps/sidecar/src/mcp/adapter-manager.test.ts`
-- `apps/sidecar/src/mcp/adapters.test.ts`
-- `apps/sidecar/src/mcp/account-provisioner.test.ts`
-- `apps/sidecar/src/mcp/runtime.test.ts`
+- `internal/store/store_test.go`
+- `internal/store/vault_test.go`
+- `internal/mcp/mcp_test.go`
 - `apps/desktop/src/lib/mcp-managed-account.test.ts`

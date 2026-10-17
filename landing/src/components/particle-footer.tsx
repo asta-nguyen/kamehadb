@@ -51,7 +51,8 @@ export function ParticleFooter() {
             <div className="flex flex-1 flex-col gap-3">
               <p className="text-2xl font-extrabold tracking-tight text-zinc-100">One app for every database you run</p>
               <p className="text-sm leading-relaxed text-zinc-500">
-                Free, open source, and local-first. No telemetry, no cloud proxy — your data stays on your machine.
+                Free, open source, and local-first. No telemetry, no cloud proxy — your metadata stays on your machine.
+                Remote AI providers receive only the conversation and schema context you send them.
               </p>
               <div className="mt-2 flex items-center gap-4 flex-wrap">
                 <motion.a

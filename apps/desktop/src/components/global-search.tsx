@@ -18,7 +18,7 @@ import {
   openNewQueryTab,
   setActiveConnection,
 } from '@/store';
-import { getApiHeaders, getApiBase } from '@/lib/api-client';
+import { api } from '@/lib/api';
 import { DbIcon } from '@/components/db-icon';
 import { useStore } from '@tanstack/react-store';
 import { BarChart3, Database, FileText, GitCompare, Keyboard, Share2, Sparkles, Table2, Terminal } from 'lucide-react';
@@ -80,17 +80,15 @@ export function GlobalSearch({
       await Promise.all(
         sqlConns.map(async (conn) => {
           try {
-            const url = `${getApiBase()}/sql/${conn.id}/schema/search?q=${encodeURIComponent(query)}&limit=5`;
-            const res = await fetch(url, { headers: getApiHeaders(), signal: abort.signal });
-            if (res.ok) {
-              const data: SchemaSearchMatch[] = await res.json();
-              if (data.length > 0) results.set(conn.id, data);
-            } else if (res.status === 400) {
-              const body = await res.json().catch(() => ({}));
-              if (body.error === 'NOT_SUPPORTED') unsupported.add(conn.id);
+            const data = await api.searchSchema(conn.id, query, undefined, 5);
+            if (data.length > 0) results.set(conn.id, data);
+          } catch (err) {
+            if (err instanceof Error && err.message === 'Schema search not available for this database type') {
+              unsupported.add(conn.id);
+            } else {
+              // A single failed connection shouldn't abort the whole search.
+              console.warn(`Schema search failed for connection ${conn.id}:`, err);
             }
-          } catch {
-            // Aborted or failed — skip silently
           }
         }),
       );
@@ -252,7 +250,8 @@ export function GlobalSearch({
                   onSelect={() =>
                     select(() => {
                       setActiveConnection(connId);
-                      const tabId = `${connId}:${match.table}`;
+                      const fullTableId = match.schema ? `${match.schema}.${match.table}` : match.table;
+                      const tabId = `${connId}:${fullTableId}`;
                       const existingTab = appStore.state.openedTabs.find((t) => t.id === tabId);
                       if (existingTab) {
                         appStore.setState((s) => ({ ...s, view: 'workspace', activeTabId: tabId }));
@@ -262,7 +261,7 @@ export function GlobalSearch({
                           view: 'workspace',
                           openedTabs: [
                             ...s.openedTabs,
-                            { id: tabId, type: 'table' as const, title: match.table, connectionId: connId },
+                            { id: tabId, type: 'table' as const, title: fullTableId, connectionId: connId },
                           ],
                           activeTabId: tabId,
                         }));

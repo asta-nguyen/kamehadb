@@ -2,7 +2,7 @@
 // landing/ is NOT in the pnpm workspace, so @kamehadb/shared cannot be imported here.
 // Kind values MUST match KIND.* exactly. Update this file when the shared engine list changes.
 
-export type EngineType = 'sql' | 'document' | 'cache' | 'vector' | 'ledger';
+export type EngineType = 'sql' | 'document' | 'cache';
 
 export type EngineFeature = {
   label: string;
@@ -24,22 +24,18 @@ export const ENGINE_TYPE_LABELS: Record<EngineType, string> = {
   sql: 'SQL',
   document: 'Document',
   cache: 'Cache',
-  vector: 'Vector',
-  ledger: 'Ledger',
 };
 
-export const ENGINE_TYPE_FILTERS: EngineType[] = ['sql', 'document', 'cache', 'vector', 'ledger'];
+export const ENGINE_TYPE_FILTERS: EngineType[] = ['sql', 'document', 'cache'];
 
 // Color classes for each engine type badge — matches the provider badge pattern in home-view.
 export const ENGINE_TYPE_COLORS: Record<EngineType, string> = {
   sql: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
   document: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
   cache: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  vector: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-  ledger: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
 };
 
-// 12 engines — mirrors ALL_KINDS from packages/shared/src/schemas.ts.
+// 10 engines — mirrors ALL_KINDS from packages/shared/src/schemas.ts.
 // Docker snippets use the connection defaults from AGENTS.md.
 export const ENGINES: EngineInfo[] = [
   {
@@ -57,7 +53,7 @@ export const ENGINES: EngineInfo[] = [
       { label: 'Schema timeline', supported: true },
       { label: 'Stats views', supported: true },
       { label: 'Backup / restore', supported: true },
-      { label: 'pgvector', supported: true },
+      { label: 'pgvector', supported: false },
       { label: 'Embedded psql', supported: true },
     ],
   },
@@ -227,43 +223,6 @@ export const ENGINES: EngineInfo[] = [
       { label: 'Stats views', supported: true },
       { label: 'Schema timeline', supported: false },
       { label: 'Document editing', supported: false },
-      { label: 'Embedded shell', supported: false },
-    ],
-  },
-  {
-    kind: 'qdrant',
-    label: 'Qdrant',
-    type: 'vector',
-    port: 6333,
-    dockerImage: 'qdrant/qdrant:v1.13.6',
-    dockerSnippet: 'docker run -d --name kameha-qdrant \\\n  -p 6333:6333 -p 6334:6334 \\\n  qdrant/qdrant:v1.13.6',
-    features: [
-      { label: 'Collection browsing', supported: true },
-      { label: 'Vector search', supported: true },
-      { label: 'AI chat', supported: true },
-      { label: '3D vector map', supported: true },
-      { label: 'Recommend search', supported: true },
-      { label: 'Stats views', supported: true },
-      { label: 'Schema timeline', supported: false },
-      { label: 'Embedded shell', supported: false },
-    ],
-  },
-  {
-    kind: 'tigerbeetle',
-    label: 'TigerBeetle',
-    type: 'ledger',
-    port: 3001,
-    dockerImage: 'ghcr.io/tigerbeetle/tigerbeetle:0.16.3',
-    dockerSnippet:
-      '# TigerBeetle auto-formats on first start\ndocker run -d --name kameha-tb \\\n  -p 3001:3001 \\\n  ghcr.io/tigerbeetle/tigerbeetle:0.16.3',
-    features: [
-      { label: 'Account explorer', supported: true },
-      { label: 'Transfer browser', supported: true },
-      { label: 'Balance views', supported: true },
-      { label: 'AI chat', supported: true },
-      { label: 'Stats views', supported: true },
-      { label: 'Schema timeline', supported: false },
-      { label: 'Vector search', supported: false },
       { label: 'Embedded shell', supported: false },
     ],
   },

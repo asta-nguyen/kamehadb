@@ -53,7 +53,8 @@ Every finding needs an exact repository-relative `path:line`, evidence, and a
 replacement. For `shrink`, show the shorter equivalent form. After complete
 coverage with no validated cut, keep the header and scope, then output
 `Lean already. Ship.` and omit findings and net. If coverage is incomplete,
-output the limitation instead.
+output the limitation instead. End with the `Next:` block from `using-devkit`
+(`Next: none` after a complete report).
 
 ## Quick reference
 
