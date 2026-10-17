@@ -1,0 +1,142 @@
+internal/engines/sqlserver/sqlserver_test.go
+  s_4acd7ca197a190::t_8e74a5ff29d784 1-31,39-58,66-67
+  s_4acd7ca197a190::t_b397e64e38a064 32-38,59-65
+internal/tmpfmtcheck/x.go
+  s_fb677d5dd9e501::t_2d257ca5088991 5-6
+  s_fb677d5dd9e501::t_f2d00c7c3284aa 1-4,7
+docs/agent-devkit/plans/2026-10-16-connection-root-ca-plan.md
+  s_4acd7ca197a190::t_b4371a4d946d03 17
+  s_4acd7ca197a190::t_d97b45db3fc281 1-2,5,8,11-16,19-23
+  s_4acd7ca197a190::t_979fc45218b026 3-4,6-7,9-10,18,26
+  s_4acd7ca197a190::t_42f2f15f32e40e 24-25
+packages/shared/src/schemas.ts
+  s_4acd7ca197a190::t_72eaef53bf483e 166
+internal/engines/sqlserver/sqlserver.go
+  s_4acd7ca197a190::t_8e74a5ff29d784 14,53-59,61-78,92,560
+  s_4acd7ca197a190::t_7af65955e3a551 60
+internal/engines/tls_test.go
+  s_4acd7ca197a190::t_7af65955e3a551 19,39,85,91-93
+  s_4acd7ca197a190::t_93b44ae3a15941 1-3,7,9,11-14,16-18,20-38,40-52,54-58,82-84,86-90,94-95
+  s_4acd7ca197a190::t_39423f11e89f46 4-6,8,10,15,53,59-81
+apps/desktop/src/components/connection-dialog-fields.tsx
+  s_4acd7ca197a190::t_c397268bb215d3 18,24,393-397,418-423
+  s_4acd7ca197a190::t_e033e88203e77c 12,16,19-23,25-27,230,237,240,242,364,369,376-383,390-392,398-417,424-430
+  s_4acd7ca197a190::t_d28b0bcc12be3b 385
+  s_4acd7ca197a190::t_d53012cd7529e6 241,384,386-389
+  s_4acd7ca197a190::t_d3fd6c19b30121 17
+  s_4acd7ca197a190::t_a51a19ced5b415 431
+internal/engines/postgres/postgres_test.go
+  s_4acd7ca197a190::t_9c60da5a7f9edd 9,64-71,73-80
+  s_4acd7ca197a190::t_40ef3c8709a344 72
+  s_4acd7ca197a190::t_55d91f36aca037 39-63,81-83
+internal/api/connections.go
+  s_4acd7ca197a190::t_8c817d2c0b5c72 632-634
+internal/engines/tls.go
+  s_4acd7ca197a190::t_7af65955e3a551 9-10,25
+  s_4acd7ca197a190::t_93b44ae3a15941 1-8,11-24,26-27
+internal/engines/mysql/mysql.go
+  s_4acd7ca197a190::t_835cad1321897a 32,51-54,56,148,156-165,807
+  s_4acd7ca197a190::t_30cdab8a475b41 31
+  s_4acd7ca197a190::t_52131ebf29f0eb 50
+internal/mcp/manager.go
+  s_4acd7ca197a190::t_312ba53a3fb76b 334
+apps/desktop/src/components/connection-dialog-fields.test.tsx
+  s_4acd7ca197a190::t_1123d67bb897f1 4,9-22
+  s_4acd7ca197a190::t_791876385ad2bf 1-3,5-8,23,25-86,89,91-92
+  s_4acd7ca197a190::t_c397268bb215d3 24
+  s_4acd7ca197a190::t_d350fa83c8b0b4 87-88,90
+apps/desktop/src/lib/constants.ts
+  s_4acd7ca197a190::t_e033e88203e77c 97-98
+CHANGELOG.md
+  s_4acd7ca197a190::t_df98ed2ebfbb77 25,36
+internal/engines/postgres/postgres.go
+  s_4acd7ca197a190::t_7af65955e3a551 92
+  s_4acd7ca197a190::t_9c60da5a7f9edd 86-91,93-98,122-123,162-163,842-843
+docs/llm/workflows/connections-and-workspace.md
+  s_4acd7ca197a190::t_32698db02e17f4 86,91
+  s_4acd7ca197a190::t_7a79a76bb0bd09 30,35,43,55,61,68,78-79,83-85,87
+  s_4acd7ca197a190::t_ebfb8ffc7ca705 31
+.gitignore
+  s_4acd7ca197a190::t_979fc45218b026 5-6
+  s_4acd7ca197a190::t_882544d59505b1 7,72
+internal/store/migrate.go
+  s_6610e233b25016::t_8abe305c743204 333
+docs/llm/integrations/read-only-mcp.md
+  s_4acd7ca197a190::t_ebfb8ffc7ca705 90
+  s_4acd7ca197a190::t_ee5e5b842634c0 151,181,187-188
+docs/llm/integrations/ai-assistant.md
+  s_6610e233b25016::t_2ef55bb9d8f32a 109
+internal/mcp/provisioner.go
+  s_4acd7ca197a190::t_312ba53a3fb76b 34-51,68,301-302,317-318,436-437,448-449
+internal/mcp/root_ca_test.go
+  s_4acd7ca197a190::t_312ba53a3fb76b 1-30
+docs/agent-devkit/INDEX.md
+  s_6610e233b25016::t_2dd832ca8d5a64 7-9
+  s_4acd7ca197a190::t_979fc45218b026 10,27
+  s_8a8458c92a88a7::t_054eb4619fb74c 6
+internal/api/api_test.go
+  s_4acd7ca197a190::t_8c817d2c0b5c72 192-235
+apps/desktop/src/components/connection-dialog.tsx
+  s_4acd7ca197a190::t_e033e88203e77c 78,94,112,217,279
+docs/llm/architecture/engine-support.md
+  s_4acd7ca197a190::t_1b5bf412524079 40,65,73,79
+  s_4acd7ca197a190::t_54902bf26a6a99 41-42,48-49,54,80,94-103
+  s_4acd7ca197a190::t_32698db02e17f4 104
+docs/agent-devkit/changes/archive/2026-10-16-connection-root-ca/design.md
+  s_4acd7ca197a190::t_26e73a982ce012 1-130
+internal/api/ai.go
+  s_4acd7ca197a190::t_8c817d2c0b5c72 540
+internal/store/profiles_test.go
+  s_4acd7ca197a190::t_72eaef53bf483e 4,6-7,47-149
+package.json
+  s_fb677d5dd9e501::t_18fb6b93fafddd 21
+  s_fb677d5dd9e501::t_936f59f946a6d9 16
+  s_fb677d5dd9e501::t_f8a9fca7db841f 25
+.golangci.yml
+  s_fb677d5dd9e501::t_97b15e1a591a82 5-10
+  s_fb677d5dd9e501::t_0fcadf4c4d78e9 1-4,11-15
+internal/engines/mysql/mysql_test.go
+  s_4acd7ca197a190::t_835cad1321897a 4-6,70-73,75-85,87-93
+  s_4acd7ca197a190::t_30cdab8a475b41 74,86
+  s_8a8458c92a88a7::t_c4f0dc054c64a9 94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2f76f132790f1124e24e1b7015c5a2bce07f68b5",
+  "prompts": {},
+  "sessions": {
+    "s_4acd7ca197a190": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a142bd-4b41-7cf3-8404-69bf5418d60f",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_6610e233b25016": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "53c6203a-c67d-4216-8dda-d0d99136db61",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_8a8458c92a88a7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14923-94a8-71f2-957b-10d045a2d97a",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_fb677d5dd9e501": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "plausible-barracuda",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
