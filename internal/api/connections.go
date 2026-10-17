@@ -629,6 +629,9 @@ func connProfileFromInput(in store.ProfileInput) engines.ConnProfile {
 	if in.SSL != nil {
 		cp.SSL = *in.SSL
 	}
+	if in.SSLCACert != nil {
+		cp.SSLCACert = *in.SSLCACert
+	}
 	if in.FilePath != nil {
 		cp.FilePath = *in.FilePath
 	}

@@ -9,10 +9,22 @@ import { KIND, DEFAULT_PORTS, isFileDatabaseKind } from '@/lib/kinds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Check, Plus, FolderOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { DbIcon } from '@/components/db-icon';
-import { KIND_LABELS, KINDS, PRESET_COLORS } from '@/lib/constants';
+import { KIND_LABELS, KINDS, PRESET_COLORS, SSL_KINDS } from '@/lib/constants';
+
+// Keep file-selected PEM in the same field used by manual entry and save payloads.
+export function loadRootCACertificateFile(
+  file: Pick<File, 'text'>,
+  form: UseFormReturn<CreateConnectionProfileInput>,
+): Promise<void> {
+  return file.text().then((contents) => {
+    form.clearErrors('sslCaCert');
+    form.setValue('sslCaCert', contents, { shouldDirty: true });
+  });
+}
 
 const KIND_ACCENTS: Partial<Record<DbKind, { border: string; bg: string; icon: string; ring: string }>> = {
   [KIND.POSTGRES]: {
@@ -215,14 +227,19 @@ export function ConnectionDetailsSection({
   kind,
   onUrlChange,
   fileInputRef,
+  rootCAInputRef,
   isEditing,
 }: {
   form: UseFormReturn<CreateConnectionProfileInput>;
   kind: DbKind;
   onUrlChange: (value: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  rootCAInputRef: React.RefObject<HTMLInputElement | null>;
   isEditing: boolean;
 }) {
+  const sslEnabled = form.watch('ssl') ?? false;
+  const rootCAField = form.register('sslCaCert');
+
   return (
     <div className="space-y-3">
       <div className="h-px bg-border/50" />
@@ -344,17 +361,73 @@ export function ConnectionDetailsSection({
               />
             </div>
           </div>
-          {kind === KIND.POSTGRES && (
+          {SSL_KINDS.includes(kind) && (
             <Label className="flex items-center gap-2 cursor-pointer select-none">
               {/* eslint-disable-next-line local/no-restricted-syntax -- native checkbox, no shadcn equivalent */}
               <input
                 type="checkbox"
-                checked={form.watch('ssl') ?? false}
+                checked={sslEnabled}
                 onChange={(e) => form.setValue('ssl', e.target.checked)}
                 className="size-4 rounded border-border"
               />
               <span className="text-xs font-medium text-muted-foreground">Use SSL</span>
             </Label>
+          )}
+          {SSL_KINDS.includes(kind) && sslEnabled && (
+            <div className="space-y-1.5">
+              <Label htmlFor="sslCaCert" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Root CA PEM
+              </Label>
+              <Textarea
+                id="sslCaCert"
+                rows={5}
+                {...rootCAField}
+                defaultValue={form.getValues('sslCaCert') ?? ''}
+                onChange={(e) => {
+                  form.clearErrors('sslCaCert');
+                  void rootCAField.onChange(e);
+                }}
+                placeholder="-----BEGIN CERTIFICATE-----"
+                className="font-mono text-xs"
+              />
+              {form.formState.errors.sslCaCert?.message && (
+                <p className="text-xs text-destructive" role="alert">
+                  {form.formState.errors.sslCaCert.message}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => rootCAInputRef.current?.click()}
+                  className="gap-1.5"
+                >
+                  <FolderOpen className="size-3.5" />
+                  Browse PEM
+                </Button>
+                <Input
+                  ref={rootCAInputRef}
+                  type="file"
+                  accept=".pem,.crt,.cer"
+                  aria-label="Root CA PEM file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void loadRootCACertificateFile(file, form).catch(() => {
+                        form.setError('sslCaCert', {
+                          type: 'manual',
+                          message: 'Could not read the selected Root CA file.',
+                        });
+                      });
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">Used to verify the server certificate.</span>
+              </div>
+            </div>
           )}
         </>
       )}

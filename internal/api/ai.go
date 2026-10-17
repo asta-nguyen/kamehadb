@@ -537,6 +537,7 @@ func (s *AiService) resolvePostgresVectorPrompt(ctx context.Context, connectionI
 		Password:    password,
 		HasPassword: true,
 		SSL:         profile.SSL,
+		SSLCACert:   strOf(profile.SSLCACert),
 	}
 	capability, err := postgres.DetectPgVectorCapability(ctx, cp)
 	if err != nil || capability == nil || !capability.Available || len(capability.Columns) == 0 {

@@ -3,7 +3,11 @@
 ## Changes
 
 - [Runtime footprint and large-table browsing](changes/2026-10-13-footprint-and-large-tables/tasks.md) — all-engine performance revision approved; partial checkpoint authorized, 8/12 tasks recorded done, implementation still open. [Interim sorting/RAM benchmark](changes/2026-10-13-footprint-and-large-tables/benchmark.md).
-- [Connection Root CA and TLS Mode](changes/2026-10-16-connection-root-ca/design.md) — optional Root CA on connection profiles for PostgreSQL, MySQL/MariaDB, and SQL Server; encrypt-without-verify default. Plan pending approval.
+
+## Archived changes
+
+- [Review feedback hardening](changes/archive/2026-10-16-review-feedback-hardening/tasks.md) — AI chat no longer runs generated SQL, PostgreSQL TLS verification, atomic file backup/restore, encrypted stored credentials, least-privilege release workflow, loopback Docker ports. All 7 tasks verified.
+- [Connection Root CA and TLS Mode](changes/archive/2026-10-16-connection-root-ca/design.md) — local Root CA verification for PostgreSQL, MySQL/MariaDB, and SQL Server; all 9 implementation tasks passed final review.
 
 ## Research
 
@@ -20,7 +24,7 @@
 
 ## Plans
 
-- [Connection Root CA and TLS Mode implementation plan](plans/2026-10-16-connection-root-ca-plan.md)
+- [Legacy pointer: Connection Root CA and TLS Mode](plans/2026-10-16-connection-root-ca-plan.md) — redirects to the archived change record.
 - [KamehaDB Wails + Go rewrite implementation plan](plans/2026-10-12-wails-rewrite-plan.md)
 - [MCP Call History implementation plan](plans/2026-10-08-mcp-call-history-plan.md)
 - [Read-only Database MCP implementation plan](plans/2026-09-30-read-only-database-mcp-plan.md)

@@ -94,6 +94,8 @@ export const SIDEBAR_DEFAULT_WIDTH = 300;
 
 export const KINDS: DbKind[] = [...ALL_KINDS];
 
+export const SSL_KINDS: readonly DbKind[] = [KIND.POSTGRES, KIND.MYSQL, KIND.MARIADB, KIND.SQLSERVER];
+
 /** Engine kinds that use the SQL adapter path (not Mongo/Redis). */
 export { SQL_KINDS, isSqlKind, DEFAULT_PORTS };
 

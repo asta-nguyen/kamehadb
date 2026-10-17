@@ -11,6 +11,7 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
+	"github.com/microsoft/go-mssqldb/msdsn"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 )
@@ -23,10 +24,6 @@ const (
 	// MCP_QUERY_TIMEOUT_MS — default statement deadline for adapter requests.
 	defaultRequestTimeout = 30 * time.Second
 )
-
-// DSN builds the go-mssqldb URL for a connect profile — exported for the
-// MCP provisioner's one-off admin connections.
-func DSN(cp engines.ConnProfile, timeout time.Duration) string { return dsn(cp, timeout) }
 
 func dsn(cp engines.ConnProfile, timeout time.Duration) string {
 	host := cp.Host
@@ -53,6 +50,32 @@ func dsn(cp engines.ConnProfile, timeout time.Duration) string {
 	return u.String()
 }
 
+// tlsConnectionConfig keeps the existing DSN parsing while adding the per-profile trust settings.
+func tlsConnectionConfig(cp engines.ConnProfile, timeout time.Duration) (msdsn.Config, error) {
+	config, err := msdsn.Parse(dsn(cp, timeout))
+	if err != nil {
+		return msdsn.Config{}, err
+	}
+	config.Encryption = msdsn.EncryptionRequired
+	config.TLSConfig, err = engines.TLSConfig(cp, config.Host)
+	if err != nil {
+		return msdsn.Config{}, err
+	}
+	return config, nil
+}
+
+// OpenDB opens SQL Server with the caller's connection timeout and profile TLS settings.
+func OpenDB(cp engines.ConnProfile, timeout time.Duration) (*sql.DB, error) {
+	if !cp.SSL {
+		return sql.Open("sqlserver", dsn(cp, timeout))
+	}
+	config, err := tlsConnectionConfig(cp, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return sql.OpenDB(mssql.NewConnectorConfig(config)), nil
+}
+
 type Adapter struct {
 	db             *sql.DB
 	requestTimeout time.Duration
@@ -66,7 +89,7 @@ func New(cp engines.ConnProfile) (*Adapter, error) {
 }
 
 func NewWithTimeout(cp engines.ConnProfile, timeoutMs int64) (*Adapter, error) {
-	db, err := sql.Open("sqlserver", dsn(cp, connectTimeout))
+	db, err := OpenDB(cp, connectTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -534,7 +557,7 @@ func (a *Adapter) Close() error {
 // TestSqlServerConnection mirrors testSqlServerConnection — fresh pool,
 // SELECT @@VERSION, discard.
 func TestSqlServerConnection(ctx context.Context, cp engines.ConnProfile) (*engines.TestConnectionResult, error) {
-	db, err := sql.Open("sqlserver", dsn(cp, testConnectTimeout))
+	db, err := OpenDB(cp, testConnectTimeout)
 	if err != nil {
 		return nil, err
 	}

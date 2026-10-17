@@ -1767,6 +1767,7 @@ export namespace store {
     database?: string;
     username?: string;
     ssl: boolean;
+    sslCaCert?: string;
     filePath?: string;
     color?: string;
     connectionString?: string;
@@ -1788,6 +1789,7 @@ export namespace store {
       this.database = source['database'];
       this.username = source['username'];
       this.ssl = source['ssl'];
+      this.sslCaCert = source['sslCaCert'];
       this.filePath = source['filePath'];
       this.color = source['color'];
       this.connectionString = source['connectionString'];
@@ -1805,6 +1807,7 @@ export namespace store {
     username?: string;
     password?: string;
     ssl?: boolean;
+    sslCaCert?: string;
     filePath?: string;
     color?: string;
     connectionString?: string;
@@ -1823,6 +1826,7 @@ export namespace store {
       this.username = source['username'];
       this.password = source['password'];
       this.ssl = source['ssl'];
+      this.sslCaCert = source['sslCaCert'];
       this.filePath = source['filePath'];
       this.color = source['color'];
       this.connectionString = source['connectionString'];

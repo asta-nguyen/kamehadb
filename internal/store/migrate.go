@@ -330,7 +330,7 @@ type secretColumn struct {
 	field string
 }
 
-// secretColumnFor returns the current stored secret locations. Kept as a slice
+// secretColumns returns the current stored secret locations. Kept as a slice
 // so the migration and its tests share one list.
 func secretColumns() []secretColumn {
 	return []secretColumn{

@@ -28,12 +28,8 @@ const (
 // rejectsTimeoutWeakeningHint).
 var timeoutWeakenRe = regexp.MustCompile(`(?i)set_var\s*\(\s*max_execution_time\s*=`)
 
-// DSN builds the go-sql-driver DSN for a connect profile — exported so the
-// MCP provisioner can open one-off admin connections through the same
-// format instead of duplicating it.
-func DSN(cp engines.ConnProfile) string { return dsn(cp) }
-
-func dsn(cp engines.ConnProfile) string {
+// driverConfig keeps TLS scoped to this connection instead of a process-wide driver registration.
+func driverConfig(cp engines.ConnProfile) (*mysqldrv.Config, error) {
 	host := cp.Host
 	if host == "" {
 		host = defaultHost
@@ -51,9 +47,13 @@ func dsn(cp engines.ConnProfile) string {
 	cfg.Timeout = connectTimeout
 	cfg.ParseTime = true
 	if cp.SSL {
-		cfg.TLSConfig = "skip-verify"
+		tlsConfig, err := engines.TLSConfig(cp, host)
+		if err != nil {
+			return nil, err
+		}
+		cfg.TLS = tlsConfig
 	}
-	return cfg.FormatDSN()
+	return cfg, nil
 }
 
 // Adapter is the database/sql-backed SqlAdapter for MySQL and MariaDB. MCP
@@ -145,10 +145,7 @@ func (c sessionInitConnector) Connect(ctx context.Context) (driver.Conn, error) 
 // goes through the connector so every connection starts with the deadline set.
 func openDB(cp engines.ConnProfile, timeoutMs int64) (*sql.DB, error) {
 	statement := sessionTimeoutStatement(cp.Kind == engines.KindMariaDB, timeoutMs)
-	if statement == "" {
-		return sql.Open("mysql", dsn(cp))
-	}
-	cfg, err := mysqldrv.ParseDSN(dsn(cp))
+	cfg, err := driverConfig(cp)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +153,16 @@ func openDB(cp engines.ConnProfile, timeoutMs int64) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sql.OpenDB(sessionInitConnector{Connector: connector, statement: statement}), nil
+	var dbConnector driver.Connector = connector
+	if statement != "" {
+		dbConnector = sessionInitConnector{Connector: connector, statement: statement}
+	}
+	return sql.OpenDB(dbConnector), nil
+}
+
+// OpenDB opens a MySQL or MariaDB pool using the profile's TLS settings.
+func OpenDB(cp engines.ConnProfile) (*sql.DB, error) {
+	return openDB(cp, 0)
 }
 
 func (a *Adapter) queryRows(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
@@ -798,7 +804,7 @@ func (a *Adapter) Close() error {
 // TestMysqlConnection mirrors testMysqlConnection — fresh limit-1 pool,
 // SELECT VERSION(), discard.
 func TestMysqlConnection(ctx context.Context, cp engines.ConnProfile) (*engines.TestConnectionResult, error) {
-	db, err := sql.Open("mysql", dsn(cp))
+	db, err := openDB(cp, 0)
 	if err != nil {
 		return nil, err
 	}

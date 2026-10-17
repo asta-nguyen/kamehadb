@@ -87,7 +87,7 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 - On app startup, ready credentials are decrypted and loaded into process memory. Credentials are bound to their profile and account reference, and invalid ciphertext or a missing key fails closed. The desktop does not hydrate credentials after startup.
 - Disabling MCP retains the managed DB account and encrypted credential. Revoke disables MCP first, closes the adapter, drops the exact generated principal, then removes the local account record and ciphertext. A failed database revoke retains state for retry. A `prepared` account can be discarded without a DB call because no DB write has started.
 - Legacy managed-account rows without encrypted SQLite credentials remain unavailable to MCP until revoked and recreated. Current sources do not establish whether an OS Keychain value from an older version is separately removed.
-- While a managed account exists, changing the profile kind, target, SSL settings, saved username/password, or deleting the profile is rejected until Revoke.
+- While a managed account exists, changing the profile kind or target, toggling SSL, changing the saved username/password, or deleting the profile is rejected until Revoke. The Root CA PEM remains editable; the updated trust data is used by subsequent managed-account database connections.
 - MCP adapters and decrypted credentials are process-local. Profile updates, deletions, credential changes, and allowlist changes invalidate cached adapters; app shutdown closes adapters and clears decrypted secrets.
 
 ## Authorization & constraints
@@ -148,6 +148,7 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 ## Tests
 
 - `internal/store/store_test.go` — metadata persistence, migration, history defaults, retention pruning, and managed-account records.
+- `internal/api/api_test.go` — allows a Root CA update with a managed account while keeping the SSL toggle protected; `internal/mcp/root_ca_test.go` — verifies SQL profiles carry Root CA data into MCP connection paths.
 - `internal/store/vault_test.go` — AES-256-GCM vault byte-compatibility with the legacy sidecar format, tamper and missing-key fail-closed behavior.
 - `internal/mcp/mcp_test.go` — loopback transport, bearer auth, tool list, bounded reads against a real SQLite file, concurrency cap (`BUSY`), provisioning state, error mapping, and call-history integration.
 - `apps/desktop/src/components/mcp-settings-section.test.tsx` — verifies the Logs tab displays local inputs and summaries without database results.
@@ -177,11 +178,14 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 - `internal/mcp/manager.go`
 - `internal/engines/sqlite/sqlite.go`
 - `internal/mcp/provisioner.go`
+- `internal/mcp/root_ca_test.go`
 - `internal/mcp/credentials.go`
 - `internal/mcp/errors.go`
 - `internal/engines/postgres/postgres.go`
 - `internal/engines/mysql/mysql.go`
 - `internal/engines/sqlserver/sqlserver.go`
+- `internal/api/connections.go`
+- `internal/api/api_test.go`
 - `internal/mongo/mongo.go`
 - `packages/shared/src/schemas.ts`
 - `internal/store/store_test.go`

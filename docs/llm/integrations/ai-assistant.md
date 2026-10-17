@@ -106,6 +106,7 @@ MongoDB chat uses Mongo schema context. Redis receives an engine-specific system
 
 - `apps/desktop/src/components/ai-chat-panel.tsx`
 - `apps/desktop/src/components/api-settings-page.tsx`
+- `apps/desktop/src/components/sql-editor.tsx`
 - `apps/desktop/src/hooks/use-chat.ts`
 - `apps/desktop/src/hooks/use-ai-chat.ts`
 - `apps/desktop/src/lib/api.ts`

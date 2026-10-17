@@ -13,13 +13,16 @@
     "build:duckdb-driver": "node scripts/build-duckdb-driver.mjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
+    "lint:go": "go tool golangci-lint run",
     "test": "pnpm -r test",
     "test:go": "mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html && go test ./...",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "format:go": "go tool golangci-lint fmt",
     "prepare": "husky"
   },
   "lint-staged": {
+    "**/*.go": "go tool golangci-lint fmt",
     "*.{json,css,md}": "prettier --write",
     "apps/desktop/**/*.{ts,tsx}": [
       "pnpm --dir apps/desktop exec eslint --fix",

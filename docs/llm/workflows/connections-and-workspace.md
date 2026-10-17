@@ -27,11 +27,12 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 
 - Profiles are created and edited in the desktop connection dialog, tested before save when the user requests it, then listed from the Go backend.
 - The dialog supports connection URLs and structured fields. URL parsing uses shared protocol aliases; engine-specific defaults come from shared constants.
-- The backend persists profiles in the metadata SQLite store. Secrets (profile password, connection string, and AI provider API key) are AES-256-GCM encrypted at rest; the returned profile list omits the password value. If a profile has an active managed MCP account, protected fields and deletion are rejected until that account is revoked.
+- PostgreSQL, MySQL, MariaDB, and SQL Server show an SSL toggle. When SSL is enabled, the dialog can save an optional Root CA PEM from pasted text or a selected file. The PEM is local profile trust data; it is not sent to the database server. Per-engine certificate verification behavior is documented in [Database support and adapter boundaries](../architecture/engine-support.md).
+- The backend persists profiles in the metadata SQLite store. Secrets (profile password, connection string, and AI provider API key) are AES-256-GCM encrypted at rest; the returned profile list omits the password value. If a profile has an active managed MCP account, connection identity, target, SSL toggle, credentials, and deletion are protected until that account is revoked; Root CA PEM remains editable.
 
 ### Flow
 
-1. The connection dialog validates the selected engine fields and calls create, update, or test mutations from use-connections.
+1. The connection dialog validates the selected engine fields and calls create, update, or test mutations from use-connections. For the four SSL-capable kinds, the SSL toggle controls Root CA field visibility; selecting a PEM file reads its text into the same form field used for save and edit.
 2. The desktop API client calls the bound `ConnectionsService` methods through `apps/desktop/src/lib/api.ts`.
 3. The backend validates the shared profile contract, performs the relevant adapter health check for test requests, and reads or writes the metadata store for profile CRUD.
 4. Successful desktop mutations invalidate the saved-connection query so the sidebar reloads the profile list.
@@ -39,6 +40,7 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 ### State changes
 
 - Profile fields are stored in the metadata SQLite database; secret columns hold ciphertext and are decrypted on read. The profile list returned to the desktop omits the password value.
+- The optional Root CA PEM is persisted with the profile as client-side trust data and passed into the SQL driver's TLS configuration.
 - Creating, editing, or deleting a profile updates the local profile row and changes the connection list after query invalidation.
 
 ### Side effects
@@ -50,19 +52,20 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 
 - The backend is called through Wails bindings; there is no HTTP API or sidecar port.
 - Profile validation and defaults are shared from packages/shared.
-- While an MCP managed account exists, changing protected connection identity/credentials or deleting that profile is rejected. See [Read-only MCP server](../integrations/read-only-mcp.md).
+- While an MCP managed account exists, changing the profile kind, target, SSL toggle, saved username/password, or deleting the profile is rejected. The Root CA PEM remains editable so an expired certificate cannot block Revoke. See [Read-only MCP server](../integrations/read-only-mcp.md).
 
 ### Error paths
 
 - Invalid profile data is rejected by schema validation.
 - Failed database tests return the adapter's connection failure to the dialog.
+- Invalid Root CA PEM is rejected before the SQL driver opens a connection.
 - A profile protected by an MCP managed account cannot be edited or deleted until that account is revoked.
 - A missing or unreadable vault key fails decryption rather than returning plaintext.
 
 ### Tests
 
 - `internal/store/credentials_test.go` covers secret migration, keychain/file key resolution, fail-closed decryption, and POSIX permissions; `internal/store/vault_test.go` covers record/field binding.
-- Searches for a connection CRUD route test found no direct backend profile-CRUD test.
+- `apps/desktop/src/components/connection-dialog-fields.test.tsx` covers SSL-kind visibility, Root CA visibility, edit values, and PEM file loading. `internal/store/profiles_test.go` covers Root CA persistence and migration; `internal/api/api_test.go` covers profile pass-through and Root CA edits while a managed MCP account exists.
 
 ### Related
 
@@ -72,12 +75,20 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 ### Sources
 
 - apps/desktop/src/components/connection-dialog.tsx
+- apps/desktop/src/components/connection-dialog-fields.tsx
+- apps/desktop/src/components/connection-dialog-fields.test.tsx
 - apps/desktop/src/hooks/use-connections.ts
 - apps/desktop/src/lib/api.ts
 - internal/api/connections.go
+- internal/api/api_test.go
+- internal/engines/tls.go
+- internal/engines/tls_test.go
+- internal/store/migrate.go
+- internal/store/profiles_test.go
 - internal/store/profiles.go
 - internal/store/vault.go
 - packages/shared/src/index.ts
+- packages/shared/src/schemas.ts
 
 ## Connection health and reload
 

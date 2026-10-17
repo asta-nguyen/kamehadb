@@ -1,6 +1,9 @@
 package mysql
 
 import (
+	"encoding/pem"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
@@ -62,5 +65,30 @@ func TestEsc(t *testing.T) {
 	a := &Adapter{}
 	if got := a.esc("we`ird"); got != "`we``ird`" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestOpenDBTLSConfig(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer server.Close()
+	caPEM := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))
+
+	plain, err := driverConfig(engines.ConnProfile{Host: "db.local"})
+	if err != nil || plain.TLS != nil {
+		t.Fatalf("SSL-off config = (%+v, %v), want no TLS", plain, err)
+	}
+
+	unverified, err := driverConfig(engines.ConnProfile{Host: "db.local", SSL: true})
+	if err != nil || unverified.TLS == nil || !unverified.TLS.InsecureSkipVerify {
+		t.Fatalf("SSL config without PEM = (%+v, %v), want skip-verify", unverified, err)
+	}
+
+	verified, err := driverConfig(engines.ConnProfile{Host: "db.local", SSL: true, SSLCACert: caPEM})
+	if err != nil || verified.TLS == nil || verified.TLS.RootCAs == nil || verified.TLS.ServerName != "db.local" {
+		t.Fatalf("SSL config with PEM = (%+v, %v), want profile CA and hostname", verified, err)
+	}
+
+	if _, err := driverConfig(engines.ConnProfile{SSL: true, SSLCACert: "not a certificate"}); err == nil {
+		t.Fatal("invalid Root CA PEM should fail before opening a connection")
 	}
 }

@@ -331,19 +331,7 @@ func createSqlAdapter(profile *store.Profile, credential *store.MCPCredentialBun
 	if credential == nil || credential.Kind != profile.Kind {
 		return nil, nil
 	}
-	cp := engines.ConnProfile{
-		Kind: profile.Kind, Database: database,
-		Username: credential.Username, Password: credential.Password, HasPassword: true,
-	}
-	if profile.Host != nil {
-		cp.Host = *profile.Host
-	}
-	if profile.Port != nil {
-		cp.Port = *profile.Port
-	}
-	if profile.SSL {
-		cp.SSL = true
-	}
+	cp := sqlProfileFor(profile, database, credential.Username, credential.Password)
 	var adapter engines.SQLAdapter
 	switch profile.Kind {
 	case engines.KindPostgres:

@@ -189,3 +189,47 @@ func TestWatcherStatusDefaults(t *testing.T) {
 		t.Fatal("expected pg-only error")
 	}
 }
+
+func TestConnProfileFromInputPreservesRootCA(t *testing.T) {
+	kind, host, pem := engines.KindPostgres, "db.local", "test-root-ca-pem"
+	ssl := true
+	cp := connProfileFromInput(store.ProfileInput{Kind: &kind, Host: &host, SSL: &ssl, SSLCACert: &pem})
+	if cp.Kind != kind || cp.Host != host || !cp.SSL || cp.SSLCACert != pem {
+		t.Fatalf("connection profile = %+v, want Root CA input preserved", cp)
+	}
+}
+
+func TestUpdateConnectionAllowsRootCAChangeWithManagedAccount(t *testing.T) {
+	st, err := store.Open(t.TempDir() + "/m.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	name, kind, host, username, password, oldPEM := "postgres", engines.KindPostgres, "db.local", "user", "password", "old-root-ca"
+	ssl := true
+	profile, err := st.CreateProfile(store.ProfileInput{
+		Name: &name, Kind: &kind, Host: &host, Username: &username, Password: &password,
+		SSL: &ssl, SSLCACert: &oldPEM,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.CreateMCPManagedAccount(profile.ID, "managed-account"); err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewConnectionsService(st, engines.NewRegistry(st))
+	cacheCleared := false
+	service.onCacheClear = func(id string) { cacheCleared = id == profile.ID }
+	newPEM := "new-root-ca"
+	updated, err := service.UpdateConnection(profile.ID, store.ProfileInput{SSLCACert: &newPEM})
+	if err != nil || updated.SSLCACert == nil || *updated.SSLCACert != newPEM || !cacheCleared {
+		t.Fatalf("Root CA update = (%+v, %v), cache invalidated = %v", updated, err, cacheCleared)
+	}
+
+	ssl = false
+	if _, err := service.UpdateConnection(profile.ID, store.ProfileInput{SSL: &ssl}); err == nil {
+		t.Fatal("SSL toggle should remain protected while the managed MCP account exists")
+	}
+}

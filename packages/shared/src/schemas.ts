@@ -163,7 +163,7 @@ export type ConnectionProfile = {
   database?: string;
   username?: string;
   ssl?: boolean;
-  /** Root CA certificate (PEM) used to verify an SSL server; empty means encrypt without verifying. */
+  /** Optional Root CA PEM; when omitted, TLS verification follows the database engine's defaults. */
   sslCaCert?: string;
   filePath?: string;
   color?: string;

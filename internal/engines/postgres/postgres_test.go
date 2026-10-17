@@ -2,57 +2,16 @@ package postgres
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"math/big"
-	"net"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 )
-
-// pgTLSConfig must verify the server chain and the configured host name, while
-// rejecting an unknown root and a name mismatch. A test-only root pool models
-// a private CA without requiring one. (What / Why)
-func TestPGTLSConfigVerifiesServer(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	addr := server.Listener.Addr().String()
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	trusted := x509.NewCertPool()
-	trusted.AddCert(server.Certificate())
-
-	dial := func(cfg *tls.Config) error {
-		conn, err := tls.Dial("tcp", addr, cfg)
-		if err != nil {
-			return err
-		}
-		return conn.Close()
-	}
-
-	if err := dial(pgTLSConfig(host, trusted)); err != nil {
-		t.Fatalf("trusted certificate + matching host should succeed: %v", err)
-	}
-	if err := dial(pgTLSConfig(host, x509.NewCertPool())); err == nil {
-		t.Fatal("unknown root should fail the handshake")
-	}
-	if err := dial(pgTLSConfig("mismatch.example", trusted)); err == nil {
-		t.Fatal("host-name mismatch should fail the handshake")
-	}
-}
 
 func TestValidation(t *testing.T) {
 	cases := []struct {
@@ -75,6 +34,51 @@ func TestValidation(t *testing.T) {
 		t.Fatalf("empty password should pass validation: %v", err)
 	}
 	a.Close()
+}
+
+func TestNewAdapterRejectsInvalidRootCA(t *testing.T) {
+	_, err := New(engines.ConnProfile{
+		Host: "invalid.invalid", Database: "db", Username: "user", HasPassword: true,
+		SSL: true, SSLCACert: "not a certificate",
+	})
+	if err == nil || err.Error() != "invalid Root CA PEM" {
+		t.Fatalf("New error = %v, want invalid PEM before dialing", err)
+	}
+}
+
+func TestNewNotifyConnRejectsInvalidRootCA(t *testing.T) {
+	_, err := NewNotifyConn(context.Background(), engines.ConnProfile{
+		Host: "invalid.invalid", SSL: true, SSLCACert: "not a certificate",
+	})
+	if err == nil || err.Error() != "invalid Root CA PEM" {
+		t.Fatalf("NewNotifyConn error = %v, want invalid PEM before dialing", err)
+	}
+}
+
+func TestPostgresConnectionRejectsInvalidRootCA(t *testing.T) {
+	_, err := TestPostgresConnection(context.Background(), engines.ConnProfile{
+		Host: "invalid.invalid", SSL: true, SSLCACert: "not a certificate",
+	})
+	if err == nil || err.Error() != "invalid Root CA PEM" {
+		t.Fatalf("TestPostgresConnection error = %v, want invalid PEM before dialing", err)
+	}
+}
+
+func TestConfigurePostgresTLSWithoutRootCA(t *testing.T) {
+	cfg, err := pgx.ParseConfig("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Fallbacks = []*pgconn.FallbackConfig{{Host: "fallback.local"}}
+	if err := configurePostgresTLS(cfg, engines.ConnProfile{SSL: true}, "db.local"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.TLSConfig == nil || cfg.TLSConfig.ServerName != "db.local" || !cfg.TLSConfig.InsecureSkipVerify {
+		t.Fatalf("TLS config = %+v, want encrypted TLS without certificate verification", cfg.TLSConfig)
+	}
+	if len(cfg.Fallbacks) != 0 {
+		t.Fatalf("TLS fallback count = %d, want none", len(cfg.Fallbacks))
+	}
 }
 
 func TestSplitTableID(t *testing.T) {

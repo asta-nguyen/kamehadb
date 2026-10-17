@@ -9,10 +9,8 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	_ "github.com/microsoft/go-mssqldb"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -33,6 +31,24 @@ const (
 
 var provisionTimeout = time.Duration(QueryTimeoutMs) * time.Millisecond
 
+// sqlProfileFor gives every MCP SQL connection the saved transport settings along with its selected credentials.
+func sqlProfileFor(profile *store.Profile, database, username, password string) engines.ConnProfile {
+	cp := engines.ConnProfile{
+		Kind: profile.Kind, Database: database,
+		Username: username, Password: password, HasPassword: true, SSL: profile.SSL,
+	}
+	if profile.Host != nil {
+		cp.Host = *profile.Host
+	}
+	if profile.Port != nil {
+		cp.Port = *profile.Port
+	}
+	if profile.SSLCACert != nil {
+		cp.SSLCACert = *profile.SSLCACert
+	}
+	return cp
+}
+
 func adminSQLProfile(profile *store.Profile, adminPassword string) (engines.ConnProfile, error) {
 	database, err := requireDatabase(profile)
 	if err != nil {
@@ -49,14 +65,7 @@ func adminSQLProfile(profile *store.Profile, adminPassword string) (engines.Conn
 	if host == "" || username == "" {
 		return engines.ConnProfile{}, opError("Saved database administrator credentials are incomplete")
 	}
-	cp := engines.ConnProfile{
-		Kind: profile.Kind, Host: host, Database: database,
-		Username: username, Password: adminPassword, HasPassword: true, SSL: profile.SSL,
-	}
-	if profile.Port != nil {
-		cp.Port = *profile.Port
-	}
-	return cp, nil
+	return sqlProfileFor(profile, database, username, adminPassword), nil
 }
 
 func requireSQLCredential(profile *store.Profile, credential *store.MCPCredentialBundle) (*store.MCPCredentialBundle, error) {
@@ -289,18 +298,8 @@ func mysqlAdminDB(profile *store.Profile, adminPassword string) (*sql.DB, error)
 	if host == "" || username == "" {
 		return nil, opError("Saved database administrator credentials are incomplete")
 	}
-	cp := engines.ConnProfile{
-		Kind: profile.Kind, Host: host, Database: database,
-		Username: username, Password: adminPassword, HasPassword: true, SSL: profile.SSL,
-	}
-	if profile.Port != nil {
-		cp.Port = *profile.Port
-	}
-	db, err := sql.Open("mysql", mysqladapter.DSN(cp))
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
+	cp := sqlProfileFor(profile, database, username, adminPassword)
+	return mysqladapter.OpenDB(cp)
 }
 
 func mysqlAccount(username string) string {
@@ -315,18 +314,8 @@ func verifyMysqlAccount(ctx context.Context, profile *store.Profile, credential 
 	if err != nil {
 		return err
 	}
-	host := ""
-	if profile.Host != nil {
-		host = *profile.Host
-	}
-	cp := engines.ConnProfile{
-		Kind: profile.Kind, Host: host, Database: database,
-		Username: credential.Username, Password: credential.Password, HasPassword: true, SSL: profile.SSL,
-	}
-	if profile.Port != nil {
-		cp.Port = *profile.Port
-	}
-	db, err := sql.Open("mysql", mysqladapter.DSN(cp))
+	cp := sqlProfileFor(profile, database, credential.Username, credential.Password)
+	db, err := mysqladapter.OpenDB(cp)
 	if err != nil {
 		return opError("Generated MySQL account could not be verified")
 	}
@@ -444,14 +433,8 @@ func sqlServerAdminDB(profile *store.Profile, adminPassword, database string) (*
 	if host == "" || username == "" {
 		return nil, opError("Saved database administrator credentials are incomplete")
 	}
-	cp := engines.ConnProfile{
-		Kind: profile.Kind, Host: host, Database: database,
-		Username: username, Password: adminPassword, HasPassword: true,
-	}
-	if profile.Port != nil {
-		cp.Port = *profile.Port
-	}
-	return sql.Open("sqlserver", mssqladapter.DSN(cp, provisionTimeout))
+	cp := sqlProfileFor(profile, database, username, adminPassword)
+	return mssqladapter.OpenDB(cp, provisionTimeout)
 }
 
 func mssqlIdent(v string) string { return "[" + strings.ReplaceAll(v, "]", "]]") + "]" }
@@ -462,18 +445,8 @@ func verifySqlServerAccount(ctx context.Context, profile *store.Profile, credent
 	if err != nil {
 		return err
 	}
-	host := ""
-	if profile.Host != nil {
-		host = *profile.Host
-	}
-	cp := engines.ConnProfile{
-		Kind: profile.Kind, Host: host, Database: database,
-		Username: credential.Username, Password: credential.Password, HasPassword: true,
-	}
-	if profile.Port != nil {
-		cp.Port = *profile.Port
-	}
-	db, err := sql.Open("sqlserver", mssqladapter.DSN(cp, provisionTimeout))
+	cp := sqlProfileFor(profile, database, credential.Username, credential.Password)
+	db, err := mssqladapter.OpenDB(cp, provisionTimeout)
 	if err != nil {
 		return opError("Generated SQL Server account could not be verified")
 	}

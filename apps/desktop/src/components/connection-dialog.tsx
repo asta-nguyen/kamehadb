@@ -75,6 +75,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   const testConnection = useTestConnection();
   const resetRef = useRef(testConnection.reset);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const rootCAInputRef = useRef<HTMLInputElement>(null);
   resetRef.current = testConnection.reset;
 
   const form = useForm<CreateConnectionProfileInput>({
@@ -90,6 +91,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       database: editConnection?.database ?? '',
       username: editConnection?.username ?? '',
       ssl: editConnection?.ssl ?? false,
+      sslCaCert: editConnection?.sslCaCert ?? undefined,
       color: editConnection?.color ?? undefined,
       connectionString: editConnection?.connectionString ?? undefined,
       filePath: editConnection?.filePath ?? undefined,
@@ -107,6 +109,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         database: editConnection.database ?? '',
         username: editConnection.username ?? '',
         ssl: editConnection.ssl ?? false,
+        sslCaCert: editConnection.sslCaCert ?? undefined,
         color: editConnection.color ?? undefined,
         connectionString: editConnection.connectionString ?? undefined,
         filePath: editConnection.filePath ?? undefined,
@@ -211,6 +214,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         if (values.username !== (editConnection.username ?? '')) updateValues.username = values.username;
         if (values.password) updateValues.password = values.password;
         if (values.ssl !== Boolean(editConnection.ssl)) updateValues.ssl = values.ssl;
+        if (values.sslCaCert !== editConnection.sslCaCert) updateValues.sslCaCert = values.sslCaCert;
         if ((values.filePath || undefined) !== editConnection.filePath) updateValues.filePath = values.filePath;
         if ((values.connectionString || undefined) !== editConnection.connectionString) {
           updateValues.connectionString = values.connectionString;
@@ -272,6 +276,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
               kind={kind}
               onUrlChange={handleUrlChange}
               fileInputRef={fileInputRef}
+              rootCAInputRef={rootCAInputRef}
               isEditing={isEditing}
             />
 
