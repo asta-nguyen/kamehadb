@@ -234,7 +234,7 @@ func TestToolCallsOverHTTP(t *testing.T) {
 	}
 
 	// unknown connection → PROFILE_NOT_FOUND
-	call = fmt.Sprintf(`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"sql_list_databases","arguments":{"connection_id":"nope"}}}`)
+	call = `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"sql_list_databases","arguments":{"connection_id":"nope"}}}`
 	resp = rpcCall(t, r, call)
 	result = resp["result"].(map[string]any)
 	text = result["content"].([]any)[0].(map[string]any)["text"].(string)

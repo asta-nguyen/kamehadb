@@ -335,4 +335,3 @@ func TestMCPCallHistory(t *testing.T) {
 		t.Fatalf("expected 0 entries after clear, got %d", len(list))
 	}
 }
-

@@ -53,7 +53,7 @@ func TestNativeExportAtomicSuccessAndFailure(t *testing.T) {
 			})
 			dir := t.TempDir()
 			path := filepath.Join(dir, "result.csv")
-			if err := os.WriteFile(path, []byte("KEEP"), 0600); err != nil {
+			if err := os.WriteFile(path, []byte("KEEP"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			result, err := service.ExportQueryCSV("connection", QueryExportInput{ID: "job", Path: path, Query: "SELECT original LIMIT 7"})
@@ -85,7 +85,7 @@ func TestNativeExportCancelAndShutdownPreserveDestination(t *testing.T) {
 			})
 			dir := t.TempDir()
 			path := filepath.Join(dir, "result.csv")
-			if err := os.WriteFile(path, []byte("KEEP"), 0600); err != nil {
+			if err := os.WriteFile(path, []byte("KEEP"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			done := make(chan *QueryExportResult, 1)

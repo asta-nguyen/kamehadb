@@ -3,8 +3,10 @@ package schema
 import "sort"
 
 // COLUMN_FIELDS / INDEX_FIELDS from lib/constants.ts.
-var columnFields = []string{"type", "nullable", "default", "primaryKey"}
-var indexFields = []string{"columns", "unique", "primary"}
+var (
+	columnFields = []string{"type", "nullable", "default", "primaryKey"}
+	indexFields  = []string{"columns", "unique", "primary"}
+)
 
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {

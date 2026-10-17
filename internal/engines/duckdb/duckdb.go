@@ -138,24 +138,31 @@ func request[T any](ctx context.Context, a *Adapter, method string, input any) (
 func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionResult, error) {
 	return request[*engines.TestConnectionResult](ctx, a, duckdriver.MethodTest, nil)
 }
+
 func (a *Adapter) ListDatabases(ctx context.Context) ([]engines.DatabaseInfo, error) {
 	return request[[]engines.DatabaseInfo](ctx, a, duckdriver.MethodDatabases, nil)
 }
+
 func (a *Adapter) ListSchemas(ctx context.Context, schema *string) ([]engines.SchemaInfo, error) {
 	return request[[]engines.SchemaInfo](ctx, a, duckdriver.MethodSchemas, schema)
 }
+
 func (a *Adapter) ListTables(ctx context.Context, schema *string) ([]engines.TableInfo, error) {
 	return request[[]engines.TableInfo](ctx, a, duckdriver.MethodTables, schema)
 }
+
 func (a *Adapter) GetTableColumns(ctx context.Context, table string) ([]engines.ColumnInfo, error) {
 	return request[[]engines.ColumnInfo](ctx, a, duckdriver.MethodColumns, table)
 }
+
 func (a *Adapter) GetTableIndexes(ctx context.Context, table string) ([]engines.IndexInfo, error) {
 	return request[[]engines.IndexInfo](ctx, a, duckdriver.MethodIndexes, table)
 }
+
 func (a *Adapter) GetCompletions(ctx context.Context, schema *string) ([]engines.TableCompletions, error) {
 	return request[[]engines.TableCompletions](ctx, a, duckdriver.MethodCompletions, schema)
 }
+
 func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInput) (*engines.QueryResult, error) {
 	return request[*engines.QueryResult](ctx, a, duckdriver.MethodPreview, input)
 }
@@ -165,9 +172,11 @@ func (a *Adapter) PreviewRows(ctx context.Context, input engines.PreviewRowsInpu
 func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.PreviewRowsInput, columns []engines.ColumnInfo) (*engines.QueryResult, error) {
 	return request[*engines.QueryResult](ctx, a, duckdriver.MethodPreviewMetadata, duckdriver.PreviewMetadataInput{Input: input, Columns: columns})
 }
+
 func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*engines.QueryResult, error) {
 	return request[*engines.QueryResult](ctx, a, duckdriver.MethodQuery, input)
 }
+
 func (a *Adapter) GetTableStats(ctx context.Context, table string) (*engines.TableStats, error) {
 	return request[*engines.TableStats](ctx, a, duckdriver.MethodStats, table)
 }

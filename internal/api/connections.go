@@ -34,8 +34,8 @@ import (
 const (
 	// CONNECTION_TEST_TIMEOUT_MS / CONNECTION_HEALTH_INTERVAL_MS from the
 	// sidecar constants.
-	connTestTimeoutMs    = 5 * time.Second
-	connHealthIntervalMs = 60 * time.Second
+	connTestTimeout    = 5 * time.Second
+	connHealthInterval = 60 * time.Second
 
 	// HealthEvent carries the id→result map the SSE stream used to push.
 	HealthEvent = "connections:health"
@@ -434,7 +434,7 @@ func (s *ConnectionsService) activeHealthCheck(id string, cp engines.ConnProfile
 	if cp.Kind == engines.KindDuckDB {
 		// Background rounds must not download/start an unused helper or open
 		// another process against a database already locked by its active child.
-		ctx, cancel := context.WithTimeout(s.ctxOrBG(), connTestTimeoutMs)
+		ctx, cancel := context.WithTimeout(s.ctxOrBG(), connTestTimeout)
 		defer cancel()
 		var adapter engines.SQLAdapter
 		adapter, err = s.registry.Get(ctx, id)
@@ -509,10 +509,10 @@ func (s *ConnectionsService) timedCheck(id string, cp engines.ConnProfile) *engi
 	select {
 	case r := <-resCh:
 		return r
-	case <-time.After(connTestTimeoutMs):
+	case <-time.After(connTestTimeout):
 		return &engines.TestConnectionResult{
 			Success: false,
-			Message: fmt.Sprintf("Timeout after %dms", connTestTimeoutMs.Milliseconds()),
+			Message: fmt.Sprintf("Timeout after %dms", connTestTimeout.Milliseconds()),
 		}
 	}
 }
@@ -542,7 +542,7 @@ func (h *HealthLoop) Start(ctx context.Context) {
 			}
 		}
 		emit() // the SSE stream yielded a round on connect too
-		ticker := time.NewTicker(connHealthIntervalMs)
+		ticker := time.NewTicker(connHealthInterval)
 		defer ticker.Stop()
 		for {
 			select {

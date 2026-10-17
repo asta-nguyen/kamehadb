@@ -239,7 +239,7 @@ func localEmbedding(text string) []float64 {
 	const dimensions = 256
 	vec := make([]float64, dimensions)
 	for _, token := range strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
-		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
 	}) {
 		hash := int32(0)
 		for _, r := range token {

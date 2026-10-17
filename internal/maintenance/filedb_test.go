@@ -100,11 +100,11 @@ func TestBackupCopyDuckDBWithWAL(t *testing.T) {
 func TestRestoreRemovesStaleWAL(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "live.duckdb")
-	os.WriteFile(target, []byte("old"), 0o644)
-	os.WriteFile(target+".wal", []byte("stale"), 0o644)
+	_ = os.WriteFile(target, []byte("old"), 0o644)
+	_ = os.WriteFile(target+".wal", []byte("stale"), 0o644)
 
 	input := filepath.Join(dir, "backup.duckdb")
-	os.WriteFile(input, []byte("new"), 0o644)
+	_ = os.WriteFile(input, []byte("new"), 0o644)
 
 	res, err := RestoreFileDatabase(engines.KindDuckDB, target, input)
 	if err != nil {
@@ -125,8 +125,8 @@ func TestRestoreCopiesWALWhenPresent(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "live.duckdb")
 	input := filepath.Join(dir, "backup.duckdb")
-	os.WriteFile(input, []byte("new"), 0o644)
-	os.WriteFile(input+".wal", []byte("wal"), 0o644)
+	_ = os.WriteFile(input, []byte("new"), 0o644)
+	_ = os.WriteFile(input+".wal", []byte("wal"), 0o644)
 
 	if _, err := RestoreFileDatabase(engines.KindDuckDB, target, input); err != nil {
 		t.Fatal(err)

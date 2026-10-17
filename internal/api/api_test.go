@@ -111,8 +111,8 @@ func TestSchemaCaptureEndToEnd(t *testing.T) {
 
 	// Mutate the schema, recapture, diff.
 	raw2, _ := sql.Open("sqlite", dataPath)
-	raw2.Exec("ALTER TABLE users ADD COLUMN email TEXT")
-	raw2.Exec("CREATE TABLE orders (id INTEGER)")
+	_, _ = raw2.Exec("ALTER TABLE users ADD COLUMN email TEXT")
+	_, _ = raw2.Exec("CREATE TABLE orders (id INTEGER)")
 	raw2.Close()
 
 	res2, err := svc.CaptureSchemaSnapshot(id)

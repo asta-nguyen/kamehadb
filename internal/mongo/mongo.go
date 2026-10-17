@@ -149,8 +149,10 @@ func (a *Adapter) db(database string) *mongo.Database {
 }
 
 // TestConnectionResult / DatabaseInfo alias the shared engine types.
-type TestConnectionResult = engines.TestConnectionResult
-type DatabaseInfo = engines.DatabaseInfo
+type (
+	TestConnectionResult = engines.TestConnectionResult
+	DatabaseInfo         = engines.DatabaseInfo
+)
 
 // CollectionInfo mirrors the shared CollectionInfo.
 type CollectionInfo struct {
@@ -456,10 +458,6 @@ func (r MongoCommandRequest) Document() (any, error) {
 	}
 	return command, nil
 }
-
-// aggregateCountCap bounds the total-count pipeline: counting stops one past
-// 10,000 so a huge collection reports "10,000+" instead of a full scan.
-const aggregateCountCap = 10001
 
 // stages returns the pipeline to run. The legacy Pipeline maps have already lost
 // the key order inside each stage, so those keys are sorted: deterministic, but

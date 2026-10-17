@@ -56,7 +56,7 @@ func Serve(parent context.Context, input io.Reader, output io.Writer, open func(
 		}
 		return nil
 	}
-	defer cleanup()
+	defer func() { _ = cleanup() }()
 	scanner := bufio.NewScanner(input)
 	scanner.Buffer(make([]byte, initialMessageBuffer), MaxMessageBytes+1)
 	for scanner.Scan() {

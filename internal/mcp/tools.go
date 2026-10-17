@@ -75,10 +75,12 @@ func clampRows(v int64, ok bool, fallback int64) int64 {
 	return v
 }
 
-var connIDSchema = map[string]any{"type": "string", "minLength": 1, "description": "Connection profile id"}
-var dbOptSchema = map[string]any{"type": "string", "minLength": 1}
-var schemaOptSchema = map[string]any{"type": "string", "minLength": 1}
-var maxRowsSchema = map[string]any{"type": "integer", "minimum": 1, "maximum": MaxRowLimit}
+var (
+	connIDSchema    = map[string]any{"type": "string", "minLength": 1, "description": "Connection profile id"}
+	dbOptSchema     = map[string]any{"type": "string", "minLength": 1}
+	schemaOptSchema = map[string]any{"type": "string", "minLength": 1}
+	maxRowsSchema   = map[string]any{"type": "integer", "minimum": 1, "maximum": MaxRowLimit}
+)
 
 func objectSchema(props map[string]any, required []string) map[string]any {
 	return map[string]any{"type": "object", "properties": props, "required": required}

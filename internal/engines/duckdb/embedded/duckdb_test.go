@@ -135,7 +135,7 @@ func TestTestDuckDBConnection(t *testing.T) {
 	if err != nil || !res.Success {
 		t.Fatalf("%+v %v", res, err)
 	}
-	res, err = TestDuckDBConnection(context.Background(), "")
+	_, err = TestDuckDBConnection(context.Background(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

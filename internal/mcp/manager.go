@@ -216,12 +216,12 @@ func (s *sqlScoped) ListSchemas(ctx context.Context, database *string) ([]engine
 }
 
 func (s *sqlScoped) ListTables(ctx context.Context, database, schema *string) ([]engines.TableInfo, error) {
-	switch {
-	case s.kind == engines.KindSQLite:
+	switch s.kind {
+	case engines.KindSQLite:
 		if err := assertSqliteTarget(database, schema); err != nil {
 			return nil, err
 		}
-	case s.kind == engines.KindMySQL || s.kind == engines.KindMariaDB:
+	case engines.KindMySQL, engines.KindMariaDB:
 		target, err := mysqlTargetDatabase(database, schema)
 		if err != nil {
 			return nil, err
@@ -239,13 +239,13 @@ func (s *sqlScoped) ListTables(ctx context.Context, database, schema *string) ([
 }
 
 func (s *sqlScoped) GetTableColumns(ctx context.Context, table string, database, schema *string) ([]engines.ColumnInfo, error) {
-	switch {
-	case s.kind == engines.KindSQLite:
+	switch s.kind {
+	case engines.KindSQLite:
 		if err := assertSqliteTarget(database, schema); err != nil {
 			return nil, err
 		}
 		return s.adapter.GetTableColumns(ctx, table)
-	case s.kind == engines.KindMySQL || s.kind == engines.KindMariaDB:
+	case engines.KindMySQL, engines.KindMariaDB:
 		target, err := mysqlTargetDatabase(database, schema)
 		if err != nil {
 			return nil, err

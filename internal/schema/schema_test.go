@@ -11,17 +11,23 @@ func col(name, typ string, nullable bool, pk bool) ColumnSnapshot {
 
 func TestCompareSnapshots(t *testing.T) {
 	before := &SnapshotRecord{ID: "a", ConnectionID: "c", CapturedAt: "t1", Tables: []TableSnapshot{
-		{ID: "main.users", Name: "users", Schema: "main",
+		{
+			ID: "main.users", Name: "users", Schema: "main",
 			Columns: []ColumnSnapshot{col("id", "INTEGER", false, true), col("name", "TEXT", true, false)},
-			Indexes: []IndexSnapshot{{Name: "idx_name", Columns: []string{"name"}}}},
+			Indexes: []IndexSnapshot{{Name: "idx_name", Columns: []string{"name"}}},
+		},
 		{ID: "main.old", Name: "old", Schema: "main", Columns: []ColumnSnapshot{col("id", "INTEGER", false, false)}},
 	}}
 	after := &SnapshotRecord{ID: "b", ConnectionID: "c", CapturedAt: "t2", Tables: []TableSnapshot{
-		{ID: "main.users", Name: "users", Schema: "main",
-			Columns: []ColumnSnapshot{col("id", "INTEGER", false, true),
+		{
+			ID: "main.users", Name: "users", Schema: "main",
+			Columns: []ColumnSnapshot{
+				col("id", "INTEGER", false, true),
 				col("name", "TEXT", false, false), // nullable flipped
-				col("email", "TEXT", true, false)},
-			Indexes: []IndexSnapshot{{Name: "idx_name", Columns: []string{"name", "email"}, Unique: true}}},
+				col("email", "TEXT", true, false),
+			},
+			Indexes: []IndexSnapshot{{Name: "idx_name", Columns: []string{"name", "email"}, Unique: true}},
+		},
 		{ID: "main.orders", Name: "orders", Schema: "main", Columns: []ColumnSnapshot{col("id", "INTEGER", false, true)}},
 	}}
 
@@ -81,19 +87,25 @@ func TestToChangelogChanges(t *testing.T) {
 
 func TestGenerateMigration(t *testing.T) {
 	before := &SnapshotRecord{ID: "a", CapturedAt: "t1", Tables: []TableSnapshot{
-		{ID: "public.users", Name: "users", Schema: "public",
-			Columns: []ColumnSnapshot{col("id", "int", false, true)}},
+		{
+			ID: "public.users", Name: "users", Schema: "public",
+			Columns: []ColumnSnapshot{col("id", "int", false, true)},
+		},
 	}}
 	def := "'x'"
 	after := &SnapshotRecord{ID: "b", CapturedAt: "t2", Tables: []TableSnapshot{
-		{ID: "public.users", Name: "users", Schema: "public",
+		{
+			ID: "public.users", Name: "users", Schema: "public",
 			Columns: []ColumnSnapshot{
 				col("id", "bigint", false, true),
 				{Name: "tag", Type: "text", Nullable: false, Default: &def},
 			},
-			Indexes: []IndexSnapshot{{Name: "ix_tag", Columns: []string{"tag"}, Unique: true}}},
-		{ID: "public.logs", Name: "logs", Schema: "public",
-			Columns: []ColumnSnapshot{col("a", "int", false, true), col("b", "int", false, true)}},
+			Indexes: []IndexSnapshot{{Name: "ix_tag", Columns: []string{"tag"}, Unique: true}},
+		},
+		{
+			ID: "public.logs", Name: "logs", Schema: "public",
+			Columns: []ColumnSnapshot{col("a", "int", false, true), col("b", "int", false, true)},
+		},
 	}}
 
 	m := GenerateMigration(CompareSnapshots(before, after), DialectPostgres)

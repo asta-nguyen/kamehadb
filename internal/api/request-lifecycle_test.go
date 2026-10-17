@@ -22,6 +22,7 @@ func (adapter *requestLifecycleAdapter) RunQuery(ctx context.Context, _ engines.
 	<-ctx.Done()
 	return nil, ctx.Err()
 }
+
 func (adapter *requestLifecycleAdapter) Close() error {
 	adapter.closedBeforeCancel = adapter.ctx != nil && adapter.ctx.Err() == nil
 	return nil

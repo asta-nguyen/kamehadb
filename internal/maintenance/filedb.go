@@ -53,12 +53,16 @@ type MaintenanceResult struct {
 // engines — backup/restore need a concrete on-disk path.
 func requireFileDatabaseProfile(kind, filePath string) error {
 	if !engines.IsFileDatabaseKind(kind) {
-		return &MaintenanceError{ErrNotFileDatabase,
-			"Backup and restore are only available for SQLite and DuckDB connections"}
+		return &MaintenanceError{
+			ErrNotFileDatabase,
+			"Backup and restore are only available for SQLite and DuckDB connections",
+		}
 	}
 	if filePath == "" {
-		return &MaintenanceError{ErrMissingFilePath,
-			"The saved connection does not include a database file"}
+		return &MaintenanceError{
+			ErrMissingFilePath,
+			"The saved connection does not include a database file",
+		}
 	}
 	return nil
 }

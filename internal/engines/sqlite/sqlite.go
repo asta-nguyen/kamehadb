@@ -17,8 +17,10 @@ import (
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 )
 
-const sqlitePageCacheKiB = 8 * 1024
-const sqliteMmapBytes = 0
+const (
+	sqlitePageCacheKiB = 8 * 1024
+	sqliteMmapBytes    = 0
+)
 
 type Adapter struct {
 	db           *sql.DB

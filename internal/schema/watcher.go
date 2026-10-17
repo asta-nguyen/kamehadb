@@ -3,9 +3,10 @@ package schema
 import (
 	"context"
 	"fmt"
-	"github.com/asta-nguyen/kamehadb/internal/logs"
 	"sync"
 	"time"
+
+	"github.com/asta-nguyen/kamehadb/internal/logs"
 
 	"github.com/jackc/pgx/v5"
 

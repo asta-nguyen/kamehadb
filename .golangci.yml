@@ -2,7 +2,18 @@ version: "2"
 
 linters:
   default: standard
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*database/sql.Tx).Rollback
+        - (*go.mongodb.org/mongo-driver/v2/mongo.Client).Disconnect
   exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      - linters:
+          - staticcheck
+        text: "ST1005:"
     paths:
       - third_party$
       - builtin$

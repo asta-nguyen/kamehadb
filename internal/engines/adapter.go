@@ -63,27 +63,35 @@ type UnsupportedAdapter struct {
 func (a *UnsupportedAdapter) TestConnection(ctx context.Context) (*TestConnectionResult, error) {
 	return &TestConnectionResult{Success: false, Message: "Unsupported for " + a.Kind}, nil
 }
+
 func (a *UnsupportedAdapter) ListDatabases(ctx context.Context) ([]DatabaseInfo, error) {
 	return []DatabaseInfo{}, nil
 }
+
 func (a *UnsupportedAdapter) ListSchemas(ctx context.Context, database *string) ([]SchemaInfo, error) {
 	return []SchemaInfo{}, nil
 }
+
 func (a *UnsupportedAdapter) ListTables(ctx context.Context, schema *string) ([]TableInfo, error) {
 	return []TableInfo{}, nil
 }
+
 func (a *UnsupportedAdapter) GetTableColumns(ctx context.Context, tableID string) ([]ColumnInfo, error) {
 	return []ColumnInfo{}, nil
 }
+
 func (a *UnsupportedAdapter) GetTableIndexes(ctx context.Context, tableID string) ([]IndexInfo, error) {
 	return []IndexInfo{}, nil
 }
+
 func (a *UnsupportedAdapter) GetCompletions(ctx context.Context, schema *string) ([]TableCompletions, error) {
 	return []TableCompletions{}, nil
 }
+
 func (a *UnsupportedAdapter) PreviewRows(ctx context.Context, input PreviewRowsInput) (*QueryResult, error) {
 	return nil, errNotSupported
 }
+
 func (a *UnsupportedAdapter) RunQuery(ctx context.Context, input RunQueryInput) (*QueryResult, error) {
 	return nil, errNotSupported
 }

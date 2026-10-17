@@ -927,7 +927,7 @@ func toInt64(v any) int64 {
 		return int64(n)
 	case string:
 		var out int64
-		fmt.Sscan(n, &out)
+		_, _ = fmt.Sscan(n, &out)
 		return out
 	}
 	return 0
@@ -948,7 +948,7 @@ func floatv(r []any, i int) float64 {
 		return float64(n)
 	case string:
 		var out float64
-		fmt.Sscan(n, &out)
+		_, _ = fmt.Sscan(n, &out)
 		return out
 	}
 	return 0

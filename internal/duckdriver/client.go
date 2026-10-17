@@ -83,8 +83,10 @@ func startCommand(ctx context.Context, cmd *exec.Cmd, input OpenInput) (*Client,
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	c := &Client{cmd: cmd, queue: make(chan outgoing, sendQueueSize),
-		done: make(chan struct{}), waitDone: make(chan struct{}), pending: make(map[uint64]chan reply)}
+	c := &Client{
+		cmd: cmd, queue: make(chan outgoing, sendQueueSize),
+		done: make(chan struct{}), waitDone: make(chan struct{}), pending: make(map[uint64]chan reply),
+	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err

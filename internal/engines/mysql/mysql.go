@@ -153,7 +153,7 @@ func openDB(cp engines.ConnProfile, timeoutMs int64) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	var dbConnector driver.Connector = connector
+	dbConnector := connector
 	if statement != "" {
 		dbConnector = sessionInitConnector{Connector: connector, statement: statement}
 	}
@@ -224,7 +224,7 @@ func (a *Adapter) TestConnection(ctx context.Context) (*engines.TestConnectionRe
 	defer rows.Close()
 	version := ""
 	if rows.Next() {
-		rows.Scan(&version)
+		_ = rows.Scan(&version)
 	}
 	return &engines.TestConnectionResult{Success: true, ServerVersion: version}, nil
 }

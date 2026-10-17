@@ -65,30 +65,39 @@ type fakeAdapter struct {
 func (a fakeAdapter) TestConnection(ctx context.Context) (*TestConnectionResult, error) {
 	return &TestConnectionResult{Success: true}, nil
 }
+
 func (a fakeAdapter) ListDatabases(ctx context.Context) ([]DatabaseInfo, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) ListSchemas(ctx context.Context, d *string) ([]SchemaInfo, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) ListTables(ctx context.Context, s *string) ([]TableInfo, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) GetTableColumns(ctx context.Context, t string) ([]ColumnInfo, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) GetTableIndexes(ctx context.Context, t string) ([]IndexInfo, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) GetCompletions(ctx context.Context, s *string) ([]TableCompletions, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) PreviewRows(ctx context.Context, i PreviewRowsInput) (*QueryResult, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) RunQuery(ctx context.Context, i RunQueryInput) (*QueryResult, error) {
 	return nil, nil
 }
+
 func (a fakeAdapter) Close() error {
 	if a.closed != nil {
 		*a.closed = true

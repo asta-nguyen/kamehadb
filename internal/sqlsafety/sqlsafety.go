@@ -206,10 +206,7 @@ func checkStripped(stripped string) (safe bool, reason string) {
 
 	// Reject statement chains: checking only the first command would let a
 	// read-only query hide a mutating command behind a semicolon.
-	statement := normalized
-	if strings.HasSuffix(statement, ";") {
-		statement = statement[:len(statement)-1]
-	}
+	statement := strings.TrimSuffix(normalized, ";")
 	if strings.Contains(statement, ";") {
 		return false, "Only one read-only statement can run automatically"
 	}

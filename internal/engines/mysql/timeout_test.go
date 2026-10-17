@@ -50,6 +50,7 @@ func (c *fakeConn) ExecContext(_ context.Context, query string, _ []driver.Named
 	c.f.execs = append(c.f.execs, query)
 	return driver.RowsAffected(0), c.f.execErr
 }
+
 func (c *fakeConn) QueryContext(context.Context, string, []driver.NamedValue) (driver.Rows, error) {
 	return &fakeRows{remaining: 2}, nil
 }

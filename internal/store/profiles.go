@@ -302,7 +302,8 @@ func (s *Store) scanProfileRow(row *sql.Row) (Profile, error) {
 }
 
 func (s *Store) fillProfile(p *Profile, id any, host sql.NullString, port sql.NullInt64,
-	database, username, caCert, filePath, color, connStr sql.NullString, ssl, mcp int64) error {
+	database, username, caCert, filePath, color, connStr sql.NullString, ssl, mcp int64,
+) error {
 	p.ID = fmt.Sprint(id)
 	p.Host = nullStr(host)
 	p.Port = nullInt(port)

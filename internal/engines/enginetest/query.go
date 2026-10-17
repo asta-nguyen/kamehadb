@@ -13,9 +13,11 @@ import (
 
 type QueryFunc func(context.Context, string, []driver.NamedValue) (driver.Rows, error)
 
-type connector struct{ query QueryFunc }
-type connection struct{ query QueryFunc }
-type stubDriver struct{}
+type (
+	connector  struct{ query QueryFunc }
+	connection struct{ query QueryFunc }
+	stubDriver struct{}
+)
 
 func DB(t *testing.T, query QueryFunc) *sql.DB {
 	t.Helper()
@@ -24,12 +26,14 @@ func DB(t *testing.T, query QueryFunc) *sql.DB {
 	return db
 }
 
-func (c connector) Connect(context.Context) (driver.Conn, error) { return connection{c.query}, nil }
+func (c connector) Connect(context.Context) (driver.Conn, error) { return connection(c), nil }
 func (c connector) Driver() driver.Driver                        { return stubDriver{} }
 func (stubDriver) Open(string) (driver.Conn, error)              { return nil, errors.New("use connector") }
+
 func (connection) Prepare(string) (driver.Stmt, error) {
 	return nil, errors.New("unexpected prepared query")
 }
+
 func (connection) Begin() (driver.Tx, error)                { return nil, errors.New("unexpected transaction") }
 func (connection) Close() error                             { return nil }
 func (connection) CheckNamedValue(*driver.NamedValue) error { return nil }

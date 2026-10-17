@@ -78,7 +78,7 @@ func Log(level, scope, message, details string) {
 	if details != "" {
 		entry.Details = &details
 	}
-	appendEntry(appLogFile, entry)
+	_ = appendEntry(appLogFile, entry)
 	if details != "" {
 		log.Printf("[%s] %s: %s", level, scope, details)
 	} else {

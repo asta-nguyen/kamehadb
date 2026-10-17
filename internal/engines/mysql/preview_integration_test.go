@@ -61,7 +61,7 @@ func TestNativeMySQLMariaDBPreview(t *testing.T) {
 					if _, err := a.db.ExecContext(ctx, "CREATE TABLE "+a.esc(table)+"(id "+fixture.dataType+" PRIMARY KEY) DEFAULT CHARSET=utf8mb4"); err != nil {
 						t.Fatal(err)
 					}
-					defer a.db.ExecContext(context.Background(), "DROP TABLE "+a.esc(table))
+					defer func() { _, _ = a.db.ExecContext(context.Background(), "DROP TABLE "+a.esc(table)) }()
 					if _, err := a.db.ExecContext(ctx, "INSERT INTO "+a.esc(table)+" VALUES "+fixture.values); err != nil {
 						t.Fatal(err)
 					}
@@ -98,7 +98,7 @@ func TestNativeMySQLMariaDBPreview(t *testing.T) {
 			if _, err := a.db.ExecContext(ctx, "CREATE TABLE preview_wide(`i``d` BIGINT PRIMARY KEY,left_text LONGTEXT,right_text VARCHAR(20))"); err != nil {
 				t.Fatal(err)
 			}
-			defer a.db.ExecContext(context.Background(), "DROP TABLE preview_wide")
+			defer func() { _, _ = a.db.ExecContext(context.Background(), "DROP TABLE preview_wide") }()
 			for i := 1; i <= 70; i++ {
 				if _, err := a.db.ExecContext(ctx, "INSERT INTO preview_wide VALUES (?,REPEAT('x',64000),'needle')", i); err != nil {
 					t.Fatal(err)

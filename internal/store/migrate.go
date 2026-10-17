@@ -459,7 +459,7 @@ func (s *Store) tableSQL(name string) string {
 // table/column names, so only plain identifiers are allowed through.
 func validIdent(name string) bool {
 	for _, r := range name {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '_' {
 			return false
 		}
 	}

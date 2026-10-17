@@ -3,8 +3,9 @@ package ai
 import (
 	"context"
 	"fmt"
-	"github.com/asta-nguyen/kamehadb/internal/logs"
 	"strings"
+
+	"github.com/asta-nguyen/kamehadb/internal/logs"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"

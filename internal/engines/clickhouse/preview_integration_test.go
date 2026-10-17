@@ -50,7 +50,7 @@ func TestPrivateNativeClickHouseFallback(t *testing.T) {
 	if _, err := db.ExecContext(ctx, "CREATE DATABASE "+privateDatabase); err != nil {
 		t.Fatal(err)
 	}
-	defer db.ExecContext(context.Background(), "DROP DATABASE "+privateDatabase)
+	defer func() { _, _ = db.ExecContext(context.Background(), "DROP DATABASE "+privateDatabase) }()
 	for _, query := range []string{
 		"CREATE TABLE " + privateDatabase + ".pages(id UInt64,label String) ENGINE=MergeTree ORDER BY id",
 		"INSERT INTO " + privateDatabase + ".pages VALUES (9,'A'),(9,'B'),(10,'C')",

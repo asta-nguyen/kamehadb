@@ -33,8 +33,10 @@ func newID() string {
 
 // SessionTimeout mirrors SHELL_TIMEOUT_MS — sessions older than this are
 // killed by the cleanup sweep.
-const SessionTimeout = 30 * time.Minute
-const sweepInterval = time.Minute
+const (
+	SessionTimeout = 30 * time.Minute
+	sweepInterval  = time.Minute
+)
 
 // EmitFunc delivers an event payload to the frontend — bound to
 // wailsRuntime.EventsEmit by the caller.
@@ -249,7 +251,7 @@ func (m *Manager) Kill(id string) error {
 	}
 	s.ptmx.Close()
 	if s.cmd.Process != nil {
-		s.cmd.Process.Kill()
+		_ = s.cmd.Process.Kill()
 	}
 	return nil
 }
@@ -275,7 +277,7 @@ func (m *Manager) sweep() {
 				delete(m.sessions, id)
 				s.ptmx.Close()
 				if s.cmd.Process != nil {
-					s.cmd.Process.Kill()
+					_ = s.cmd.Process.Kill()
 				}
 			}
 			m.mu.Unlock()
@@ -292,7 +294,7 @@ func (m *Manager) Shutdown() {
 		delete(m.sessions, id)
 		s.ptmx.Close()
 		if s.cmd.Process != nil {
-			s.cmd.Process.Kill()
+			_ = s.cmd.Process.Kill()
 		}
 	}
 }

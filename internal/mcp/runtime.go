@@ -208,7 +208,7 @@ func (r *Runtime) bind(port int64) {
 	}
 	state := &serverState{st: r.st, manager: r.Manager}
 	r.server = &http.Server{Handler: r.handler(state)}
-	go r.server.Serve(listener)
+	go func() { _ = r.server.Serve(listener) }()
 	r.status = "listening"
 	r.message = ""
 	logs.Info("mcp", fmt.Sprintf("MCP listener listening on 127.0.0.1:%d", r.port))
@@ -250,7 +250,7 @@ func (r *Runtime) authorized(req *http.Request) bool {
 func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(payload)
+	_ = json.NewEncoder(w).Encode(payload)
 }
 
 func (r *Runtime) handler(state *serverState) http.Handler {

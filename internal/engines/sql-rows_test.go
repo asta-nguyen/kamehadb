@@ -10,17 +10,21 @@ import (
 	"testing"
 )
 
-type budgetTestDriver struct{}
-type budgetTestConn struct{}
-type budgetTestRows struct {
-	ctx   context.Context
-	index int
-}
+type (
+	budgetTestDriver struct{}
+	budgetTestConn   struct{}
+	budgetTestRows   struct {
+		ctx   context.Context
+		index int
+	}
+)
 
-func (budgetTestDriver) Open(string) (driver.Conn, error)  { return budgetTestConn{}, nil }
-func (budgetTestConn) Close() error                        { return nil }
-func (budgetTestConn) Begin() (driver.Tx, error)           { return nil, errors.New("not supported") }
+func (budgetTestDriver) Open(string) (driver.Conn, error) { return budgetTestConn{}, nil }
+func (budgetTestConn) Close() error                       { return nil }
+func (budgetTestConn) Begin() (driver.Tx, error)          { return nil, errors.New("not supported") }
+
 func (budgetTestConn) Prepare(string) (driver.Stmt, error) { return nil, errors.New("not supported") }
+
 func (budgetTestConn) QueryContext(ctx context.Context, _ string, _ []driver.NamedValue) (driver.Rows, error) {
 	return &budgetTestRows{ctx: ctx}, nil
 }

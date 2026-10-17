@@ -22,6 +22,7 @@ func (a *sortTestAdapter) GetTableColumns(context.Context, string) ([]engines.Co
 	a.reads++
 	return []engines.ColumnInfo{{Name: "name", Type: "text"}}, nil
 }
+
 func (a *sortTestAdapter) PreviewRows(context.Context, engines.PreviewRowsInput) (*engines.QueryResult, error) {
 	return &engines.QueryResult{Columns: []engines.QueryColumn{}, Rows: []map[string]any{}}, nil
 }
