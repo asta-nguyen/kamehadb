@@ -1,0 +1,103 @@
+internal/engines/sqlite/sqlite.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 20-23
+internal/api/sql_sort_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 25
+internal/maintenance/filedb.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 56-59,62-65
+internal/logs/logs.go
+  s_fb677d5dd9e501::t_d6212a932fb289 81
+internal/api/request-lifecycle_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 25
+internal/duckdriver/client.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 86-89
+internal/mcp/tools.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 78-83
+internal/engines/clickhouse/preview_integration_test.go
+  s_fb677d5dd9e501::t_f113d2529dc479 53
+internal/engines/mysql/timeout_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 53
+internal/engines/mysql/preview_integration_test.go
+  s_fb677d5dd9e501::t_13e92473178d10 101
+  s_fb677d5dd9e501::t_b682f8549ea22d 64
+internal/maintenance/filedb_test.go
+  s_fb677d5dd9e501::t_70fc477445f559 103-104,107,128-129
+internal/engines/json-value_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 15-16
+internal/engines/adapter.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 66,70,74,78,82,86,90,94
+internal/mcp/mcp_test.go
+  s_fb677d5dd9e501::t_2b7c7a84a27e57 237
+internal/schema/schema_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 14-15,17-18,22-25,27-30,90-93,97-98,103-108
+internal/sqlsafety/sqlsafety.go
+  s_fb677d5dd9e501::t_1b3779abc4e0d8 209
+internal/ai/indexer.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 8
+  s_fb677d5dd9e501::t_6394940fa601e2 9
+internal/schema/diff.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 6-9
+internal/engines/duckdb/duckdb.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 141,145,149,153,157,161,165,175,179
+internal/ai/provider.go
+  s_fb677d5dd9e501::t_c2e0b96a944543 242
+internal/api/api_test.go
+  s_fb677d5dd9e501::t_3d3dc6e1f97912 114-115
+internal/engines/mysql/mysql.go
+  s_fb677d5dd9e501::t_b5520d4543370a 156
+  s_fb677d5dd9e501::t_adecf0cf4f06d5 227
+internal/mongo/mongo.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 152-155
+internal/mcp/runtime.go
+  s_fb677d5dd9e501::t_9e0868465cdf97 253
+  s_fb677d5dd9e501::t_2240c4e0a5d53f 211
+internal/engines/engines_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 68,72,76,80,84,88,92,96,100
+internal/engines/sql-rows_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 13-24,27
+internal/store/migrate.go
+  s_fb677d5dd9e501::t_2a28408cc5edf3 462
+internal/store/profiles.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 305-306
+internal/mcp/manager.go
+  s_fb677d5dd9e501::t_76d91661ddd301 224,248
+  s_fb677d5dd9e501::t_f44256b70a9b95 219-220,242-243
+internal/duckdriver/server.go
+  s_fb677d5dd9e501::t_2c95dd17155f50 59
+internal/engines/postgres/postgres.go
+  s_fb677d5dd9e501::t_cda8d98c05c527 930,951
+internal/engines/duckdb/embedded/duckdb_test.go
+  s_fb677d5dd9e501::t_383491dde02e72 138
+internal/schema/watcher.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 9
+  s_fb677d5dd9e501::t_2dfb8400807508 10
+internal/api/connections.go
+  s_fb677d5dd9e501::t_edafde80f9f854 38,545
+  s_fb677d5dd9e501::t_168ec50526ed38 37,437,512,515
+internal/terminal/terminal.go
+  s_fb677d5dd9e501::t_b819df24d5ebcf 254
+  s_fb677d5dd9e501::t_d7e78441a13c6f 36-39
+  s_fb677d5dd9e501::t_27b3d57af53432 280,297
+internal/api/export_test.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 56,88
+.golangci.yml
+  s_fb677d5dd9e501::t_b8a2cf3400aea4 5-9,11-16
+internal/engines/enginetest/query.go
+  s_fb677d5dd9e501::t_d7e78441a13c6f 16-20,32,36
+  s_fb677d5dd9e501::t_a194d4dd552fc9 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "661d7fe658e81b01392b4f726feb767983d02384",
+  "prompts": {},
+  "sessions": {
+    "s_fb677d5dd9e501": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "plausible-barracuda",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
