@@ -1,0 +1,24 @@
+internal/store/store_test.go
+  s_d6a562511a90ca::t_4d5714d311bf08 395,401-402,404-409,418-420,423-430,433-437,439,443,445,447
+  s_d6a562511a90ca::t_00f1cc21304a68 341-347
+  s_d6a562511a90ca::t_75e5d9a5b09405 383,385-389,392-394
+  s_d6a562511a90ca::t_e6576f2d38edb2 348,384,390-391
+internal/store/migrate.go
+  s_d6a562511a90ca::t_117a9c49f5628a 296-311
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c5f81b631c363a2e75ba1c71bf8dec27585af002",
+  "prompts": {},
+  "sessions": {
+    "s_d6a562511a90ca": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14e7a-8bfb-7091-8498-ddde26404021",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
