@@ -1,0 +1,22 @@
+.github/workflows/screenshot-refresh.yml
+  s_73b2be259491e0::t_8bc7dab490ae27 22,42-48,55-58
+.github/workflows/release.yml
+  s_73b2be259491e0::t_ac2f312b10b48a 131-134,138-144
+  s_73b2be259491e0::t_2c8ea208455505 145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c292a2743c5f6d0556e22515dbf6acca3ae31882",
+  "prompts": {},
+  "sessions": {
+    "s_73b2be259491e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14dfd-2c10-7981-8460-8c3251ce7a1d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
