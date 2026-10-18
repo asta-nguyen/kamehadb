@@ -198,8 +198,19 @@ func (s *Store) GetAISettings() (*AISettings, error) {
 }
 
 // SaveAISettings persists the normalized settings in one transaction.
+// Secret encryption is performed before starting the transaction because the
+// SQLite connection pool holds a single connection and encryption checks stored
+// ciphertext presence against the database. (What / Why)
 func (s *Store) SaveAISettings(settings AISettings) error {
 	normalized := normalizeAISettings(settings)
+	encryptedKeys := make(map[string]string, len(normalized.Providers))
+	for provider, cfg := range normalized.Providers {
+		apiKey, err := s.encryptSecret(provider, aiAPIKeyField, cfg.APIKey)
+		if err != nil {
+			return err
+		}
+		encryptedKeys[provider] = apiKey
+	}
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -214,14 +225,9 @@ func (s *Store) SaveAISettings(settings AISettings) error {
 		if cfg.Enabled {
 			enabled = 1
 		}
-		apiKey, err := s.encryptSecret(provider, aiAPIKeyField, cfg.APIKey)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
 		if _, err := tx.Exec(`INSERT OR REPLACE INTO ai_provider_configs
 			(provider, enabled, model, base_url, api_key) VALUES (?, ?, ?, ?, ?)`,
-			provider, enabled, cfg.Model, cfg.BaseURL, apiKey); err != nil {
+			provider, enabled, cfg.Model, cfg.BaseURL, encryptedKeys[provider]); err != nil {
 			tx.Rollback()
 			return err
 		}

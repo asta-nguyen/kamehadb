@@ -75,6 +75,25 @@ var (
 	keyringSet = keyring.Set
 )
 
+// SetKeyringHooksForTest overrides the OS keychain get/set hooks during tests and
+// returns a cleanup function to restore them.
+func SetKeyringHooksForTest(get func(service, user string) (string, error), set func(service, user, password string) error) func() {
+	mcpKeyMu.Lock()
+	origGet, origSet := keyringGet, keyringSet
+	if get != nil {
+		keyringGet = get
+	}
+	if set != nil {
+		keyringSet = set
+	}
+	mcpKeyMu.Unlock()
+	return func() {
+		mcpKeyMu.Lock()
+		keyringGet, keyringSet = origGet, origSet
+		mcpKeyMu.Unlock()
+	}
+}
+
 // mcpKeyMu serialises key lookup/creation: the keychain has no O_EXCL, so two
 // concurrent first-saves could otherwise each create a different key.
 var mcpKeyMu sync.Mutex
@@ -216,8 +235,26 @@ func openWithKey(key, aad []byte, stored string) (string, error) {
 	return string(plaintext), nil
 }
 
-func encryptStoredSecret(dbPath, recordID, field, plaintext string) (string, error) {
-	key, err := readMCPKey(dbPath, true)
+// hasStoredCiphertext reports whether any stored secrets or credentials exist
+// in the database. When ciphertexts exist, creating a new random vault key is
+// prohibited because it would split keys and orphan existing data. (What / Why)
+func (s *Store) hasStoredCiphertext() (bool, error) {
+	var count int64
+	err := s.db.QueryRow(`
+		SELECT (
+			(SELECT COUNT(*) FROM connection_profiles WHERE (password IS NOT NULL AND password != '') OR (connection_string IS NOT NULL AND connection_string != '')) +
+			(SELECT COUNT(*) FROM ai_provider_configs WHERE api_key IS NOT NULL AND api_key != '') +
+			(SELECT COUNT(*) FROM mcp_managed_accounts WHERE credential_ciphertext IS NOT NULL AND credential_ciphertext != '')
+		)
+	`).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func encryptStoredSecret(dbPath string, allowCreate bool, recordID, field, plaintext string) (string, error) {
+	key, err := readMCPKey(dbPath, allowCreate)
 	if err != nil {
 		return "", err
 	}
@@ -239,7 +276,11 @@ func (s *Store) encryptSecret(recordID, field, plaintext string) (string, error)
 	if !s.secretsEncrypted {
 		return plaintext, nil
 	}
-	return encryptStoredSecret(s.path, recordID, field, plaintext)
+	hasCiphertext, err := s.hasStoredCiphertext()
+	if err != nil {
+		return "", err
+	}
+	return encryptStoredSecret(s.path, !hasCiphertext, recordID, field, plaintext)
 }
 
 // decryptSecret reads a value according to the migration marker: before the
@@ -346,13 +387,11 @@ func (s *Store) SaveMCPManagedCredential(profileID string, credential MCPCredent
 	if account == nil {
 		return errMCPNotPrepared
 	}
-	var existing int64
-	if err := s.db.QueryRow(
-		`SELECT COUNT(*) FROM mcp_managed_accounts WHERE credential_ciphertext IS NOT NULL`,
-	).Scan(&existing); err != nil {
+	hasCiphertext, err := s.hasStoredCiphertext()
+	if err != nil {
 		return err
 	}
-	ciphertext, err := encryptMCPCredential(s.path, profileID, account.AccountRef, credential, existing == 0)
+	ciphertext, err := encryptMCPCredential(s.path, profileID, account.AccountRef, credential, !hasCiphertext)
 	if err != nil {
 		return err
 	}

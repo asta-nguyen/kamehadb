@@ -55,7 +55,10 @@ func (s *RedisService) adapterForContext(ctx context.Context, connectionID strin
 	if p.Kind != engines.KindRedis {
 		return nil, fmt.Errorf("This endpoint is for redis connections only")
 	}
-	password, _ := s.st.GetProfilePassword(connectionID)
+	password, err := s.st.GetProfilePassword(connectionID)
+	if err != nil {
+		return nil, err
+	}
 	cfg := redis.Config{
 		Host:     strOf(p.Host),
 		Port:     int64Of(p.Port),

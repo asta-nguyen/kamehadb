@@ -75,21 +75,6 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	// Drop legacy profiles for engines that were removed in the rewrite
-	// (Qdrant & TigerBeetle), exporting them first so the purge stays
-	// recoverable. A failed export aborts the migration rather than losing
-	// the rows. (How / Why / What)
-	exportPath, err := s.exportRemovedProfiles()
-	if err != nil {
-		return fmt.Errorf("export removed profiles: %w", err)
-	}
-	if exportPath != "" {
-		logs.Info("store", "exported legacy qdrant/tigerbeetle profiles to "+exportPath)
-	}
-	if _, err := s.db.Exec("DELETE FROM connection_profiles WHERE kind IN ('tigerbeetle', 'qdrant')"); err != nil {
-		return fmt.Errorf("purge removed profiles: %w", err)
-	}
-
 	managedStates := "'" + strings.Join(MCPManagedAccountStates, "', '") + "'"
 	if _, err := s.db.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS mcp_managed_accounts (
 		profile_id TEXT PRIMARY KEY,
@@ -308,10 +293,22 @@ func (s *Store) migrate() error {
 	if err := s.migrateLegacyAIConfig(); err != nil {
 		return err
 	}
-	// Runs last: every table it encrypts must already exist, and it flips
-	// secretsEncrypted so accessors switch from plaintext passthrough to
-	// ciphertext. (Why)
-	return s.migrateCredentialStorage()
+	// Encrypt first so the export decrypts stored secrets before purging their rows. (Why)
+	if err := s.migrateCredentialStorage(); err != nil {
+		return err
+	}
+	// A failed export aborts before the removed-engine rows are deleted. (Why)
+	exportPath, err := s.exportRemovedProfiles()
+	if err != nil {
+		return fmt.Errorf("export removed profiles: %w", err)
+	}
+	if exportPath != "" {
+		logs.Info("store", "exported legacy qdrant/tigerbeetle profiles to "+exportPath)
+	}
+	if _, err := s.db.Exec("DELETE FROM connection_profiles WHERE kind IN ('tigerbeetle', 'qdrant')"); err != nil {
+		return fmt.Errorf("purge removed profiles: %w", err)
+	}
+	return nil
 }
 
 // Marker rows in the ai_settings key/value table record that stored secrets are
@@ -557,7 +554,8 @@ func (s *Store) exportRemovedProfiles() (string, error) {
 	defer rows.Close()
 	var profiles []Profile
 	for rows.Next() {
-		p, err := s.scanProfile(rows)
+		// Abort before purge rather than writing a backup without its secret. (Why)
+		p, err := s.scanProfile(rows, false)
 		if err != nil {
 			return "", err
 		}

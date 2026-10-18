@@ -5,10 +5,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
-import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
+import {
+  appStore,
+  closeTabsForConnection,
+  setActiveConnection,
+  togglePinnedConnection,
+  openAiChatPanel,
+} from '@/store';
+import { useStore } from '@tanstack/react-store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
 import type { ConnectionProfile } from '@kamehadb/shared';
-import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload } from 'lucide-react';
+import { Download, MoreVertical, Pin, PinOff, Settings2, Sparkles, Terminal, Trash2, Upload, X } from 'lucide-react';
 
 function activate(connId: string, action: (id: string) => void) {
   setActiveConnection(connId);
@@ -34,6 +41,10 @@ export function ConnectionDropdownMenu({
   onBackup: () => void;
   onRestore: () => void;
 }) {
+  const hasOpenTabs = useStore(appStore, (s) =>
+    s.openedTabs.some((tab) => 'connectionId' in tab && tab.connectionId === conn.id),
+  );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -105,6 +116,13 @@ export function ConnectionDropdownMenu({
             {action.label}
           </DropdownMenuItem>
         ))}
+
+        {hasOpenTabs && (
+          <DropdownMenuItem onClick={() => closeTabsForConnection(conn.id)}>
+            <X className="mr-2 size-3.5" />
+            Close Tabs
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuItem onClick={onEdit}>
           <Settings2 className="mr-2 size-3.5" />

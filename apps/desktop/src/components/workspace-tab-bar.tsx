@@ -6,6 +6,7 @@ import {
   closeAllTabs,
   closeOtherTabs,
   closeTab,
+  closeTabsForConnection,
   closeTabsToRight,
   duplicateTab,
   openFederatedQueryTab,
@@ -123,7 +124,13 @@ export function WorkspaceTabBar() {
                 <ContextMenuTrigger
                   role="button"
                   tabIndex={0}
-                  title={connection ? `${tab.title} (${connection.name})` : tab.title}
+                  title={
+                    connection
+                      ? `${tab.title || 'Untitled'} (${connection.name})`
+                      : 'connectionId' in tab
+                        ? `${tab.title || 'Untitled'} (Connection not found)`
+                        : tab.title || 'Untitled'
+                  }
                   draggable
                   onDragStart={(e) => {
                     dragIndexRef.current = index;
@@ -166,17 +173,22 @@ export function WorkspaceTabBar() {
                     }
                   }}
                 >
-                  {/* The dot is a warning light: it only needs to show when the tab's connection is not healthy. (Why) */}
-                  {status && status !== 'connected' && (
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: signalColor }} />
+                  {/* The dot is a warning light: show if the tab's connection is unhealthy or missing. (Why) */}
+                  {(('connectionId' in tab && !connection) || (status && status !== 'connected')) && (
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: !connection ? 'var(--destructive)' : signalColor }}
+                    />
                   )}
                   {tabIcon(tab.type)}
-                  <span className="max-w-30 truncate">{tab.title}</span>
-                  {connection && (tab.type === 'query' || tab.type === 'mongo-query' || tab.type === 'redis-query') && (
+                  <span className="max-w-30 truncate">{tab.title || (tab.type === 'table' ? 'Table' : 'Tab')}</span>
+                  {connection ? (
                     <span className="text-[11px] text-muted-foreground/70 truncate max-w-24 font-normal">
                       ({connection.name})
                     </span>
-                  )}
+                  ) : 'connectionId' in tab ? (
+                    <span className="text-[11px] text-destructive truncate max-w-24 font-normal">(Missing)</span>
+                  ) : null}
                   {tab.pinned && <Pin className="size-3 shrink-0 text-muted-foreground" />}
                   <Button
                     type="button"
@@ -213,6 +225,11 @@ export function WorkspaceTabBar() {
                     <span>Close</span>
                     <ContextMenuShortcut>Ctrl+W</ContextMenuShortcut>
                   </ContextMenuItem>
+                  {'connectionId' in tab && (
+                    <ContextMenuItem onClick={() => closeTabsForConnection(tab.connectionId)}>
+                      <span>Close Connection Tabs</span>
+                    </ContextMenuItem>
+                  )}
                   {hasOtherTabs && (
                     <ContextMenuItem onClick={() => closeOtherTabs(tab.id)}>
                       <span>Close Others</span>

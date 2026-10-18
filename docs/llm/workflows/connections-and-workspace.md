@@ -60,11 +60,12 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 - Failed database tests return the adapter's connection failure to the dialog.
 - Invalid Root CA PEM is rejected before the SQL driver opens a connection.
 - A profile protected by an MCP managed account cannot be edited or deleted until that account is revoked.
-- A missing or unreadable vault key fails decryption rather than returning plaintext.
+- An unreadable vault key never falls back to plaintext. During `ListProfiles`, an unreadable encrypted connection string is omitted from the returned profile with a warning, so the rest of the list remains visible; `GetProfile` and connection attempts still fail on decryption errors.
+- Before deleting legacy Qdrant or TigerBeetle profiles, migration exports them to a local backup. If an encrypted connection string cannot be decrypted, migration stops before writing an incomplete backup or deleting the profile row.
 
 ### Tests
 
-- `internal/store/credentials_test.go` covers secret migration, keychain/file key resolution, fail-closed decryption, and POSIX permissions; `internal/store/vault_test.go` covers record/field binding.
+- `internal/store/credentials_test.go` covers secret migration, keychain/file key resolution, fail-closed decryption, and POSIX permissions; `internal/store/vault_test.go` covers record/field binding. `internal/store/profiles_test.go` covers listing a profile with an unreadable connection string while keeping `GetProfile` strict; `internal/store/store_test.go` covers retaining a removed-engine profile when its secret cannot be exported.
 - `apps/desktop/src/components/connection-dialog-fields.test.tsx` covers SSL-kind visibility, Root CA visibility, edit values, and PEM file loading. `internal/store/profiles_test.go` covers Root CA persistence and migration; `internal/api/api_test.go` covers profile pass-through and Root CA edits while a managed MCP account exists.
 
 ### Related
@@ -86,6 +87,7 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 - internal/store/migrate.go
 - internal/store/profiles_test.go
 - internal/store/profiles.go
+- internal/store/store_test.go
 - internal/store/vault.go
 - packages/shared/src/index.ts
 - packages/shared/src/schemas.ts

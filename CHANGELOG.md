@@ -9,6 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v2.0.3] — 2026-10-18
+
+### Fixed
+
+- **Connection list** — a stored secret that cannot be decrypted (locked, reset, or missing OS keychain) no longer blanks the whole connections list; the unreadable field is logged and left empty, and connecting still reports the credential problem.
+- **Connection profile update** — editing a profile whose secret cannot be decrypted now loads existing fields leniently and preserves stored ciphertext when omitted, allowing users to update settings or repair invalid credentials without save errors.
+- **Redis credential check** — Redis connection initialization now reports vault decryption errors instead of attempting to authenticate with an empty password.
+- **Legacy profile backup** — migration stops and preserves Qdrant/TigerBeetle profiles when an encrypted connection string cannot be decrypted, instead of writing an incomplete backup and deleting the row.
+
+---
+
 ## [v2.0.1] — 2026-10-18
 
 ### Fixed

@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -231,5 +232,38 @@ func TestUpdateConnectionAllowsRootCAChangeWithManagedAccount(t *testing.T) {
 	ssl = false
 	if _, err := service.UpdateConnection(profile.ID, store.ProfileInput{SSL: &ssl}); err == nil {
 		t.Fatal("SSL toggle should remain protected while the managed MCP account exists")
+	}
+}
+
+func TestUpdateConnectionSurvivesUnreadableVaultKey(t *testing.T) {
+	st, err := store.Open(t.TempDir() + "/m.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	name, kind, uri := "mongo-test", engines.KindMongoDB, "mongodb://localhost:27017"
+	profile, err := st.CreateProfile(store.ProfileInput{
+		Name: &name, Kind: &kind, ConnectionString: &uri,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Invalidate the vault key: secret reads fail.
+	restore := store.SetKeyringHooksForTest(
+		func(string, string) (string, error) { return "", errors.New("keychain locked") },
+		nil,
+	)
+	defer restore()
+
+	service := NewConnectionsService(st, engines.NewRegistry(st))
+	newName := "mongo-renamed"
+	updated, err := service.UpdateConnection(profile.ID, store.ProfileInput{Name: &newName})
+	if err != nil {
+		t.Fatalf("UpdateConnection failed: %v", err)
+	}
+	if updated.Name != newName {
+		t.Errorf("updated name = %q, want %q", updated.Name, newName)
 	}
 }

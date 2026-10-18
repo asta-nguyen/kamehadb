@@ -5,7 +5,8 @@ import { fuzzyMatch } from '@/lib/utils';
 import { appStore, setActiveMongoDatabase } from '@/store';
 import { useStore } from '@tanstack/react-store';
 import type { CollectionInfo } from '@kamehadb/shared';
-import { ChevronDown, ChevronRight, Clock, Database, Eye, Search, Table2 } from 'lucide-react';
+import { safeErrorMessage } from '@kamehadb/shared';
+import { AlertCircle, ChevronDown, ChevronRight, Clock, Database, Eye, Search, Table2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,7 +31,12 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
   const selectedDbRef = useRef<string | null>(null);
   const [expandedDbs, setExpandedDbs] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: databases, isLoading: loadingDatabases } = useMongoDatabases(connectionId);
+  const {
+    data: databases,
+    isLoading: loadingDatabases,
+    error: dbsError,
+    isError: isDbsError,
+  } = useMongoDatabases(connectionId);
 
   // Auto-select and auto-expand the first database once it loads
   const firstDb = databases?.[0]?.name;
@@ -63,8 +69,22 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
         <div className="flex items-center justify-center py-4">
           <Spinner size="md" />
         </div>
+      ) : isDbsError ? (
+        <div className="p-3 space-y-1.5">
+          <div className="flex items-start gap-1.5 text-destructive text-xs">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <div className="space-y-1 min-w-0">
+              <p className="font-medium">Failed to load databases</p>
+              <p className="text-muted-foreground break-words text-[11px] leading-tight">
+                {safeErrorMessage(dbsError, 'Could not retrieve MongoDB databases.')}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : !databases?.length ? (
+        <div className="flex items-center justify-center py-6 text-muted-foreground text-xs">No databases found</div>
       ) : (
-        databases?.map((db: { name: string }) => (
+        databases.map((db: { name: string }) => (
           <DatabaseNode
             key={db.name}
             dbName={db.name}

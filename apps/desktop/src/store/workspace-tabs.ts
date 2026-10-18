@@ -208,6 +208,33 @@ export function closeAllTabs(): void {
   appStore.setState((state) => ({ ...state, openedTabs: [], activeTabId: null }));
 }
 
+/**
+ * Close every tab associated with a connectionId. Pinned or unpinned, all tabs
+ * for this connection are closed, and if the active tab was closed, the most
+ * recently opened surviving tab becomes active. (How / Why / What)
+ */
+export function closeTabsForConnection(connectionId: string): void {
+  appStore.setState((state) => {
+    const tabs = state.openedTabs.filter((tab) => !('connectionId' in tab && tab.connectionId === connectionId));
+    if (tabs.length === state.openedTabs.length) return state;
+
+    const activeWasClosed = state.activeTabId !== null && !tabs.some((tab) => tab.id === state.activeTabId);
+    const newActiveTabId = activeWasClosed ? (tabs[tabs.length - 1]?.id ?? null) : state.activeTabId;
+    const newActiveTab = tabs.find((tab) => tab.id === newActiveTabId);
+    return {
+      ...state,
+      openedTabs: tabs,
+      activeTabId: newActiveTabId,
+      activeConnectionId:
+        newActiveTab && 'connectionId' in newActiveTab
+          ? newActiveTab.connectionId
+          : activeWasClosed
+            ? null
+            : state.activeConnectionId,
+    };
+  });
+}
+
 /** Close every tab except the one with the given id and any pinned tabs. The
  * surviving tab becomes active so the workspace doesn't jump to an empty state. */
 export function closeOtherTabs(keepTabId: string): void {

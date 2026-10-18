@@ -5,12 +5,12 @@ import { fuzzyMatch } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronRight, ChevronDown, Database, Table2, Columns3, Search } from 'lucide-react';
+import { ChevronRight, ChevronDown, Database, Table2, Columns3, Search, AlertCircle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { AI_SCHEMA_ACTIONS, AI_SCHEMA_ACTION_ORDER } from '@/lib/constants';
 import { openAiChatPanel, setPendingAiPrompt } from '@/store';
-import type { AiSchemaAction } from '@kamehadb/shared';
+import { safeErrorMessage, type AiSchemaAction } from '@kamehadb/shared';
 
 function SchemaItem({
   connectionId,
@@ -29,7 +29,7 @@ function SchemaItem({
   onToggle: () => void;
   onSelectTable: (tableId: string) => void;
 }) {
-  const { data: tables, isLoading } = useTables(connectionId, schema);
+  const { data: tables, isLoading, isError: isTablesError, error: tablesError } = useTables(connectionId, schema);
 
   // The sidebar search covers both levels: a schema stays when its own name
   // matches and then keeps every table, or it stays with just the tables whose
@@ -63,6 +63,12 @@ function SchemaItem({
             {isLoading ? (
               <div className="flex justify-center py-2">
                 <Spinner size="sm" className="text-muted-foreground/60" />
+              </div>
+            ) : isTablesError ? (
+              <div className="px-2 py-1 text-xs text-destructive">
+                <span className="truncate text-[11px]" title={safeErrorMessage(tablesError)}>
+                  Failed to load tables
+                </span>
               </div>
             ) : visibleTables.length === 0 ? (
               <p className="pl-2 py-1 text-muted-foreground/60 text-xs italic">
@@ -193,7 +199,7 @@ export function SchemaTree({
   activeTableId: string | null;
   onSelectTable: (tableId: string) => void;
 }) {
-  const { data: schemas, isLoading } = useSchemas(connectionId);
+  const { data: schemas, isLoading, error, isError } = useSchemas(connectionId);
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const searchFilter = searchQuery.trim();
@@ -215,6 +221,22 @@ export function SchemaTree({
     return (
       <div className="flex items-center justify-center py-6">
         <Spinner size="md" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-3 space-y-1.5">
+        <div className="flex items-start gap-1.5 text-destructive text-xs">
+          <AlertCircle className="size-4 shrink-0 mt-0.5" />
+          <div className="space-y-1 min-w-0">
+            <p className="font-medium">Failed to load schema</p>
+            <p className="text-muted-foreground break-words text-[11px] leading-tight">
+              {safeErrorMessage(error, 'Could not retrieve database schemas.')}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

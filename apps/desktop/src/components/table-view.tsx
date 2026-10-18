@@ -32,6 +32,8 @@ import {
   Filter,
   X,
   Trash2,
+  AlertCircle,
+  Database,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { downloadResult, exportToJSON } from '@/lib/export';
@@ -56,7 +58,11 @@ import { toastError, toastSuccess } from '@/lib/toast';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
 import { ResultLimitNotice } from '@/components/result-limit-notice';
 import { NativeCSVExportButton } from '@/components/native-csv-export-button';
-import type { QueryResult } from '@kamehadb/shared';
+import { ErrorState } from '@/components/ui/error-state';
+import { useConnections } from '@/hooks/use-connections';
+import { appStore, closeTab, closeTabsForConnection } from '@/store';
+import { useStore } from '@tanstack/react-store';
+import { safeErrorMessage, type QueryResult } from '@kamehadb/shared';
 import {
   INITIAL_PREVIEW_NAVIGATION,
   canAdvancePreview,
@@ -184,6 +190,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     isLoading,
     isFetching,
     isPlaceholderData,
+    error,
+    isError,
   } = usePreviewRows(connectionId, {
     tableId,
     ...state.navigation.position,
@@ -395,6 +403,24 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     return (
       <div className="flex items-center justify-center py-8">
         <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <div className="max-w-md space-y-4">
+          <div className="inline-flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
+            <AlertCircle className="size-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-foreground">Failed to load table data</h3>
+            <p className="text-xs text-muted-foreground break-words leading-relaxed">
+              {safeErrorMessage(error, 'Could not retrieve rows.')}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -711,8 +737,69 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 }
 
 export function TableView({ connectionId, tableId }: TableViewProps) {
-  const { data: columns } = useTableColumns(connectionId, tableId);
-  const { data: indexes } = useTableIndexes(connectionId, tableId);
+  const { data: connections, isLoading: isLoadingConnections } = useConnections();
+  const connection = connections?.find((c) => c.id === connectionId);
+  const { data: columns, error: columnsError, isError: isColumnsError } = useTableColumns(connectionId, tableId);
+  const { data: indexes, error: indexesError, isError: isIndexesError } = useTableIndexes(connectionId, tableId);
+
+  const status = useStore(appStore, (s) => s.connectionStatus[connectionId]);
+
+  if (!isLoadingConnections && !connection) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-background">
+        <div className="max-w-md space-y-4">
+          <div className="inline-flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground mb-2">
+            <Database className="size-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-foreground">Connection not found</h3>
+            <p className="text-xs text-muted-foreground">
+              This database connection was removed or is no longer available.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => closeTabsForConnection(connectionId)}>
+              Close Connection Tabs
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => closeTab(`${connectionId}:${tableId}`)}>
+              Close Tab
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // When disconnected or when the table schema fails to load, render the warning directly
+  // across the full panel without the inner sub-tabs (Data/Columns/Indexes/Stats) on top. (How / Why / What)
+  if (status === 'disconnected' || isColumnsError) {
+    const errorMsg = isColumnsError
+      ? safeErrorMessage(columnsError, 'Could not connect to the database or retrieve table information.')
+      : `Connection to “${connection?.name ?? 'database'}” is disconnected.`;
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-background">
+        <div className="max-w-md space-y-4">
+          <div className="inline-flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
+            <AlertCircle className="size-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-foreground">
+              {status === 'disconnected' ? 'Connection disconnected' : 'Failed to load table'}
+            </h3>
+            <p className="text-xs text-muted-foreground break-words leading-relaxed">{errorMsg}</p>
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => closeTabsForConnection(connectionId)}>
+              Close Connection Tabs
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => closeTab(`${connectionId}:${tableId}`)}>
+              Close Tab
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -740,88 +827,100 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
         </TabsContent>
 
         <TabsContent value="columns" className="flex-1 p-2 overflow-auto">
-          <div className="border rounded-md">
-            <Table className="text-xs">
-              <TableHeader>
-                <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-                  <TableHead className="px-3 py-1.5">Name</TableHead>
-                  <TableHead className="px-3 py-1.5">Type</TableHead>
-                  <TableHead className="px-3 py-1.5">Nullable</TableHead>
-                  <TableHead className="px-3 py-1.5">Default</TableHead>
-                  <TableHead className="px-3 py-1.5">Key</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {columns?.map((col) => (
-                  <TableRow key={col.name} style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-                    <TableCell className="px-3 py-1.5 font-medium">{col.name}</TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <span>{col.type}</span>
-                        {col.isVector && (
-                          <Badge variant="secondary" className="px-1 py-0 h-4 text-xs">
-                            vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
-                      {col.default ?? <span className="italic">null</span>}
-                    </TableCell>
-                    <TableCell className="px-3 py-1.5">
-                      <div className="flex items-center gap-1">
-                        {col.primaryKey && <Key className="size-3 text-muted-foreground" />}
-                        {col.foreignKey && (
-                          <span className="text-xs text-muted-foreground">
-                            &rarr; {col.foreignKey.table}({col.foreignKey.column})
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
+          {isColumnsError ? (
+            <div className="p-4">
+              <ErrorState error={columnsError} />
+            </div>
+          ) : (
+            <div className="border rounded-md">
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+                    <TableHead className="px-3 py-1.5">Name</TableHead>
+                    <TableHead className="px-3 py-1.5">Type</TableHead>
+                    <TableHead className="px-3 py-1.5">Nullable</TableHead>
+                    <TableHead className="px-3 py-1.5">Default</TableHead>
+                    <TableHead className="px-3 py-1.5">Key</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {columns?.map((col) => (
+                    <TableRow key={col.name} style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+                      <TableCell className="px-3 py-1.5 font-medium">{col.name}</TableCell>
+                      <TableCell className="px-3 py-1.5 text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <span>{col.type}</span>
+                          {col.isVector && (
+                            <Badge variant="secondary" className="px-1 py-0 h-4 text-xs">
+                              vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
+                      <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
+                        {col.default ?? <span className="italic">null</span>}
+                      </TableCell>
+                      <TableCell className="px-3 py-1.5">
+                        <div className="flex items-center gap-1">
+                          {col.primaryKey && <Key className="size-3 text-muted-foreground" />}
+                          {col.foreignKey && (
+                            <span className="text-xs text-muted-foreground">
+                              &rarr; {col.foreignKey.table}({col.foreignKey.column})
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="indexes" className="flex-1 p-2 overflow-auto">
-          <div className="border rounded-md">
-            <Table className="text-xs">
-              <TableHeader>
-                <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                  <TableHead className="px-3 py-1.5">Name</TableHead>
-                  <TableHead className="px-3 py-1.5">Columns</TableHead>
-                  <TableHead className="px-3 py-1.5">Unique</TableHead>
-                  <TableHead className="px-3 py-1.5">Method</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {indexes?.map((idx) => (
-                  <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
-                    <TableCell className="px-3 py-1.5 font-medium">
-                      <div className="flex items-center gap-1">
-                        {idx.primary && <Hash className="size-3 text-muted-foreground" />}
-                        {idx.name}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</TableCell>
-                    <TableCell className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</TableCell>
-                    <TableCell className="px-3 py-1.5">
-                      {idx.method ? (
-                        <Badge variant={idx.method === 'hnsw' || idx.method === 'ivfflat' ? 'secondary' : 'outline'}>
-                          {idx.method}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
+          {isIndexesError ? (
+            <div className="p-4">
+              <ErrorState error={indexesError} />
+            </div>
+          ) : (
+            <div className="border rounded-md">
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+                    <TableHead className="px-3 py-1.5">Name</TableHead>
+                    <TableHead className="px-3 py-1.5">Columns</TableHead>
+                    <TableHead className="px-3 py-1.5">Unique</TableHead>
+                    <TableHead className="px-3 py-1.5">Method</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {indexes?.map((idx) => (
+                    <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                      <TableCell className="px-3 py-1.5 font-medium">
+                        <div className="flex items-center gap-1">
+                          {idx.primary && <Hash className="size-3 text-muted-foreground" />}
+                          {idx.name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-3 py-1.5 text-muted-foreground">{idx.columns.join(', ')}</TableCell>
+                      <TableCell className="px-3 py-1.5">{idx.unique ? 'YES' : 'NO'}</TableCell>
+                      <TableCell className="px-3 py-1.5">
+                        {idx.method ? (
+                          <Badge variant={idx.method === 'hnsw' || idx.method === 'ivfflat' ? 'secondary' : 'outline'}>
+                            {idx.method}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="stats" className="flex-1 overflow-auto">

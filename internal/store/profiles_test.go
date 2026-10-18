@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -146,4 +147,114 @@ func createLegacyProfileDB(t *testing.T, withCACert bool) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// A vault key that cannot be read (locked keychain, keyring reset, no keyring)
+// must not hide the connection list: listing drops the field it cannot decrypt
+// so the user still sees their connections, while the connect path stays strict
+// and reports the failure. (Why)
+func TestListProfilesSurvivesUnreadableVaultKey(t *testing.T) {
+	withMemoryKeyring(t)
+	path := filepath.Join(t.TempDir(), "kamehadb.db")
+	seedLegacyPlaintext(t, path)
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if pw, err := s.GetProfilePassword("p1"); err != nil || pw != "pw-plain" {
+		t.Fatalf("password before key loss = %q, %v", pw, err)
+	}
+
+	// The keychain is gone: reads fail and no key file exists to fall back on.
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+
+	profiles, err := s.ListProfiles()
+	if err != nil {
+		t.Fatalf("list must survive an unreadable vault key: %v", err)
+	}
+	if len(profiles) != 1 || profiles[0].Name != "Legacy" {
+		t.Fatalf("profiles = %+v", profiles)
+	}
+	if profiles[0].ConnectionString != nil {
+		t.Errorf("unreadable connection string should be dropped, got %q", *profiles[0].ConnectionString)
+	}
+	if _, err := s.GetProfile("p1"); err == nil {
+		t.Error("GetProfile must still report the unreadable secret")
+	}
+}
+
+// Updating a profile whose secret cannot be decrypted must succeed so users
+// can repair broken credentials or edit unrelated fields without wiping out
+// the stored ciphertext. (Why)
+func TestUpdateProfileSurvivesUnreadableVaultKey(t *testing.T) {
+	withMemoryKeyring(t)
+	path := filepath.Join(t.TempDir(), "kamehadb.db")
+	seedLegacyPlaintext(t, path)
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	// Invalidate the vault key: secret reads fail.
+	originalGet := keyringGet
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+
+	// 1. Updating name only must succeed and keep the stored raw secret intact.
+	newName := "Renamed Legacy"
+	updated, err := s.UpdateProfile("p1", ProfileInput{Name: &newName})
+	if err != nil {
+		t.Fatalf("update profile name must succeed even with locked keychain: %v", err)
+	}
+	if updated.Name != newName {
+		t.Errorf("updated name = %q, want %q", updated.Name, newName)
+	}
+
+	// 2. Restoring the keychain confirms the stored connection string was not erased.
+	keyringGet = originalGet
+	restored, err := s.GetProfile("p1")
+	if err != nil {
+		t.Fatalf("GetProfile should succeed after keychain recovery: %v", err)
+	}
+	if restored.ConnectionString == nil || *restored.ConnectionString != "postgres://u:p@h/db" {
+		t.Errorf("connection string should be preserved verbatim, got %v", restored.ConnectionString)
+	}
+
+	// 3. Updating with a new connection string encrypts and saves successfully.
+	newConn := "postgres://new-uri"
+	if _, err := s.UpdateProfile("p1", ProfileInput{ConnectionString: &newConn}); err != nil {
+		t.Fatalf("updating connection string failed: %v", err)
+	}
+	updatedConn, err := s.GetProfile("p1")
+	if err != nil || updatedConn.ConnectionString == nil || *updatedConn.ConnectionString != newConn {
+		t.Fatalf("updated connection string = %v, err %v", updatedConn.ConnectionString, err)
+	}
+}
+
+// Updating a profile with a new secret when the vault key is unavailable and
+// ciphertexts already exist must fail closed rather than generating a new vault
+// key, which would split keys and orphan existing ciphertexts. (What / Why)
+func TestUpdateProfileFailsWhenVaultKeyUnavailableForNewSecret(t *testing.T) {
+	withMemoryKeyring(t)
+	path := filepath.Join(t.TempDir(), "kamehadb.db")
+	seedLegacyPlaintext(t, path)
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	// Invalidate the vault key: secret writes must fail.
+	originalGet := keyringGet
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+	defer func() { keyringGet = originalGet }()
+
+	newConn := "postgres://new-uri"
+	if _, err := s.UpdateProfile("p1", ProfileInput{ConnectionString: &newConn}); err == nil {
+		t.Fatal("expected UpdateProfile with new secret to fail when vault key is unavailable and ciphertexts exist")
+	}
 }
