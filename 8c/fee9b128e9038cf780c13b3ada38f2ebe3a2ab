@@ -1,0 +1,95 @@
+.prettierignore
+  s_e9f6499458d1b2::t_bcbc113f14241c 18,21-24
+  s_e9f6499458d1b2::t_fd670e96261775 19-20
+CHANGELOG.md
+  s_e9f6499458d1b2::t_0064d124287ac8 10-13
+  s_e9f6499458d1b2::t_7d27c8ee75674e 16-18,20-27,31-34,38-48,52-71,75
+internal/mcp/runtime.go
+  s_e9f6499458d1b2::t_37294a6947f026 210-212
+apps/desktop/eslint.config.mjs
+  s_e9f6499458d1b2::t_e6b29298e7d557 3,10,15,17-18,23,26-27,30-31,35-36,42,47,52-53,57,62-63,67-68,72-73,77-78,82-83,87-88,92-93,99
+internal/api/mcp.go
+  s_e9f6499458d1b2::t_a78da391cb82f1 31-37,40-44,52-53,56-59,64-69,74-78,81,95-99,117-120,144,152-155,204,210-213,241,263,281-284,313
+.husky/pre-commit
+  s_e9f6499458d1b2::t_13c8bf6337cf67 2-3
+packages/shared/eslint/no-restricted-syntax.mjs
+  s_e9f6499458d1b2::t_e6b29298e7d557 3,16,18,21,23,25-26,28,37,43-44,52,54,70,88
+scripts/build-duckdb-driver.mjs
+  s_e9f6499458d1b2::t_e6b29298e7d557 14-16,22-23,41-53,69-72,81-97
+internal/maintenance/filedb_test.go
+  s_e9f6499458d1b2::t_1d80631d77f9a3 302-347,376
+  s_e9f6499458d1b2::t_671c6a91f6f7ff 8,260-301,348-375
+  s_e9f6499458d1b2::t_71be4e80ad96a9 140-159,178-181,200-203
+internal/maintenance/filedb.go
+  s_e9f6499458d1b2::t_9b9be8d434c13e 8,172-178,180-182,184-186,188-199,201,209-217,219,221,229,231
+  s_e9f6499458d1b2::t_46a1312f7f9b34 167-168,179,183,187
+docs/agent-devkit/INDEX.md
+  s_e9f6499458d1b2::t_a7ad620ebbcc7d 11
+landing/src/lib/contributors.ts
+  s_e9f6499458d1b2::t_bcbc113f14241c 21
+.golangci.yml
+  s_e9f6499458d1b2::t_e6b29298e7d557 1,18
+  s_e9f6499458d1b2::t_dcee272e62ea3f 5-6
+landing/scripts/render-og-animated.mjs
+  s_e9f6499458d1b2::t_e6b29298e7d557 81-93,99-104,133-136,203,268-277
+apps/desktop/package.json
+  s_e9f6499458d1b2::t_0064d124287ac8 4
+docs/llm/integrations/read-only-mcp.md
+  s_e9f6499458d1b2::t_e6d0b80d46eef8 112,116-117,129,133,145,153
+  s_e9f6499458d1b2::t_9a51b2c6b3df39 9,14-15,17,20-21,23,174
+  s_e9f6499458d1b2::t_d55bb31c389743 128
+AGENTS.md
+  s_fb677d5dd9e501::t_4932f67e52688e 64-69
+  s_e9f6499458d1b2::t_8618a21229b807 193
+packages/shared/package.json
+  s_e9f6499458d1b2::t_0064d124287ac8 4
+package.json
+  s_e9f6499458d1b2::t_0064d124287ac8 4
+  s_e9f6499458d1b2::t_13c8bf6337cf67 27
+  s_e9f6499458d1b2::t_d0b0b24283b424 25-26,28
+internal/mcp/mcp_test.go
+  s_e9f6499458d1b2::t_01001da5b19ab1 13,441-464
+  s_e9f6499458d1b2::t_919145b6a899c4 15
+  s_e9f6499458d1b2::t_0f47f48b47fa24 465
+internal/store/profiles.go
+  s_e9f6499458d1b2::t_f6b4336327bc16 77,270
+landing/src/app/opengraph-image.tsx
+  s_e9f6499458d1b2::t_bcbc113f14241c 156
+internal/api/mcp_test.go
+  s_e9f6499458d1b2::t_01001da5b19ab1 1-29
+.husky/pre-push
+  s_fb677d5dd9e501::t_a229df64c71948 4
+packages/shared/eslint.config.mjs
+  s_e9f6499458d1b2::t_e6b29298e7d557 3,8,13,15-16,20,23-24,26-27,30-31,36
+landing/src/components/particle-image.tsx
+  s_e9f6499458d1b2::t_bcbc113f14241c 135
+landing/scripts/capture-images.mjs
+  s_e9f6499458d1b2::t_e6b29298e7d557 116-117,146-150
+landing/src/components/ui/compare.tsx
+  s_e9f6499458d1b2::t_945ee8fb1018aa 110-114,135-139
+  s_e9f6499458d1b2::t_bcbc113f14241c 131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8cfee9b128e9038cf780c13b3ada38f2ebe3a2ab",
+  "prompts": {},
+  "sessions": {
+    "s_e9f6499458d1b2": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1498f-9266-7621-b467-403058f7ffe0",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_fb677d5dd9e501": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "plausible-barracuda",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
