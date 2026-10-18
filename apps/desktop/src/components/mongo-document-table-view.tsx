@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Copy, Eye, Trash2, Ellipsis } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { MiddleTruncate } from '@/components/middle-truncate';
 import {
@@ -30,7 +31,7 @@ function formatObjectPreview(value: unknown): string {
   return formatScalar(value);
 }
 
-interface DocumentTableViewProps {
+type DocumentTableViewProps = {
   documents: Record<string, unknown>[];
   connectionId: string;
   collection: string;
@@ -39,7 +40,7 @@ interface DocumentTableViewProps {
   onUpdate: () => void;
   sortStr: string;
   onSortChange: (field: string) => void;
-}
+};
 
 export function DocumentTableView({
   documents,
@@ -100,15 +101,19 @@ export function DocumentTableView({
     clearEditValue();
   }, [clearEditValue]);
 
-  const saveEdit = useCallback(async () => {
-    if (!editCell) return;
-    if (editCell.docId == null) return;
-    const success = await saveFieldEdit(editCell.docId, editCell.key);
-    if (success) {
-      setEditCell(null);
-      clearEditValue();
-    }
-  }, [editCell, saveFieldEdit, clearEditValue]);
+  // Save edited field value, accepting an optional override string so Select changes commit immediately. (How / Why / What)
+  const saveEdit = useCallback(
+    async (overrideValue?: string) => {
+      if (!editCell) return;
+      if (editCell.docId == null) return;
+      const success = await saveFieldEdit(editCell.docId, editCell.key, overrideValue);
+      if (success) {
+        setEditCell(null);
+        clearEditValue();
+      }
+    },
+    [editCell, saveFieldEdit, clearEditValue],
+  );
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -166,6 +171,35 @@ export function DocumentTableView({
         render: (value, row) => {
           const isEditing = editCell?.docId === row?._id && editCell?.key === col;
           if (isEditing) {
+            // Render boolean fields as a Select dropdown instead of text input for clear, type-safe editing. (How / Why / What)
+            const isBool = typeof value === 'boolean' || editValue === 'true' || editValue === 'false';
+            if (isBool) {
+              return (
+                <Select
+                  value={editValue}
+                  onValueChange={(val) => {
+                    if (val) {
+                      setEditValue(val);
+                      void saveEdit(val);
+                    }
+                  }}
+                  open
+                  onOpenChange={(isOpen) => {
+                    if (!isOpen) {
+                      void saveEdit();
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-7 min-w-0 w-full text-xs font-mono" autoFocus>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">true</SelectItem>
+                    <SelectItem value="false">false</SelectItem>
+                  </SelectContent>
+                </Select>
+              );
+            }
             return (
               <Input
                 type="text"

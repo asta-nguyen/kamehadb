@@ -144,8 +144,14 @@ export function buildRowUpdateQuery(input: {
     .join(' AND ');
 
   let setClause: string;
+  const isBoolColumn =
+    (input.columnType && (input.columnType.toLowerCase() === 'bool' || input.columnType.toLowerCase() === 'boolean')) ||
+    typeof input.row[input.column] === 'boolean';
+
   if (input.newValue === '') {
     setClause = `${quoteSqlIdentifier(input.column)} = NULL`;
+  } else if (isBoolColumn && (input.newValue === 'true' || input.newValue === 'false')) {
+    setClause = `${quoteSqlIdentifier(input.column)} = ${input.newValue === 'true' ? 'TRUE' : 'FALSE'}`;
   } else if (input.columnType && input.dateColumns.has(input.column)) {
     const lowerType = input.columnType.toLowerCase();
     const castTo = lowerType.includes('timestamp') || lowerType === 'timestamptz' ? 'timestamp' : 'date';
