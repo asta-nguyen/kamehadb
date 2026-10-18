@@ -1,0 +1,47 @@
+apps/desktop/wailsjs/go/api/TerminalService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3,5,7,9,11
+apps/desktop/wailsjs/go/api/ConnectionsService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3-6,8,10,12,14,16,18,20,22,24,26,28
+apps/desktop/wailsjs/runtime/runtime.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 12-13,17-18,22-25,30-32,239,243,249,253-258,262-264,268-272,330
+apps/desktop/wailsjs/go/api/MongoService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3-5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43
+apps/desktop/wailsjs/go/api/LogsService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3,5,7,9
+apps/desktop/wailsjs/go/models.ts
+  s_73b2be259491e0::t_f14409de75f8ec 2-16,21-235,240-714,719-801,806-820,825-909,914-938,943-1104,1109-1275,1280-1731,1736-1886,1889
+apps/desktop/wailsjs/go/api/RedisService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3,5,7,9,11,13,15,17,19,21
+apps/desktop/wailsjs/go/api/QueryHistoryService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3-4,6,8,10,12
+apps/desktop/wailsjs/go/api/SqlService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3-4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38
+apps/desktop/wailsjs/go/api/AiService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3-4,6,8,10,12,14,16,18,20,22
+apps/desktop/wailsjs/go/api/McpService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3,5,7,9,11,13,15,17,19,21,23,25
+apps/desktop/wailsjs/go/main/App.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3,5,7,9
+apps/desktop/wailsjs/go/api/SchemaService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3-4,6,8,10,12,14,16,18,20,22,24
+apps/desktop/wailsjs/runtime/package.json
+  s_73b2be259491e0::t_f14409de75f8ec 7-8
+apps/desktop/wailsjs/go/api/MaintenanceService.d.ts
+  s_73b2be259491e0::t_f14409de75f8ec 3,5,7,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d6c5b3e8961466a61f8fc32a9c4eb9fd62952c87",
+  "prompts": {},
+  "sessions": {
+    "s_73b2be259491e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14dfd-2c10-7981-8460-8c3251ce7a1d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
