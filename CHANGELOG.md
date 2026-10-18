@@ -7,98 +7,72 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v2.0.0] — 2026-10-18
+
 ### Changed
 
-- **Balanced table tab padding** — the table view's tab strip and its Data, Columns, and Indexes panels sit inside one uniform 16px frame on all four sides (previously uneven horizontal/top/bottom insets, with the tab strip only 4px from the window tab bar).
-- **MCP credential vault key** — store the AES-256-GCM key in the OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service) instead of a `.mcp.key` file beside the database. An existing key file is moved into the keychain on first use; where no keychain is available the owner-only key file remains as a fallback and a warning is logged.
-- **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with a single Wails/Go binary. All backend routes are now in-process Go services and the frontend communicates through generated Wails bindings, eliminating sidecar IPC.
+- **Balanced table workspace** — give the table tabs and panels consistent spacing, keep sorting on column headers, place search options beside the search field, and keep row count and query duration together.
+- **MCP credential vault key** — store the AES-256-GCM key in the OS keychain where available; migrate an existing key file on first use and keep an owner-only file fallback when no keychain is available.
+- **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with one Wails/Go app; backend services now run in-process.
 - **Desktop bundle size** — the local macOS ARM64 Wails app bundle is about 80% smaller than the previously installed app.
-- **Query editor** — replace Monaco with CodeMirror 6 across SQL, MongoDB, Redis, and federated query surfaces.
-- **Release packaging** — ship `.dmg`, `.deb`, Fedora 40+ `.rpm`, and `.AppImage` packages, plus a Windows NSIS installer and a WiX `.msi` for stable tags. The AppImage uses the GTK bundling plugin and requires the host WebKit2GTK 4.1 runtime; it does not bundle the WebKit subprocess runtime.
-- **Compact table workspace** — remove the duplicate table title strip (the tab already names the table), move the match-case toggle inside the search field, and drop the Sort-by dropdown; clicking a column header sorts and a hover glyph marks sortable columns. The footer keeps the row count and query duration together on one line with an icon-led pager.
-- **Table and tab affordances** — the row `⋮` menu in the table view and query editor uses the smaller icon size; a tab's connection dot only shows when that connection is not healthy, and the tab close button stays visible at a compact size.
-- **Denser sidebar** — connection rows, group headers, schema rows and table rows each lose four pixels of height, the connection list keeps a single 6 px gap, and the API settings entry uses the small button size.
-- **Navigation labels** — the sidebar entry keeps a single "API Settings" label with an active state (the page's back arrow returns to the workspace) and the page header drops the profile and version badges; the schema tree keeps a single search box that now matches table names as well as schema names and opens the schemas that match, so the per-schema `Filter tables` box is gone and the tree rows sit one level tighter.
-- **Micro type tier** — badges, keyboard hints and footnotes move from 10 px to an 11 px tier recorded in `DESIGN-SYSTEM.md`.
-- **Encrypted credential storage** — connection-profile passwords, connection strings, and AI provider API keys are now sealed with the AES-256-GCM app secret vault before they are written to metadata SQLite. Values written before this change are encrypted in a one-time migration; a failed migration leaves the existing data untouched, and a value that cannot be decrypted fails closed instead of falling back to plaintext. The metadata directory and database are restricted to owner-only on POSIX.
-- **AI chat SQL display** — provider-generated SQL is shown in chat for review and no longer executed by the chat flow; the assistant response is streamed verbatim and query result rows are not sent back to the provider.
-- **PostgreSQL TLS** — explicit SSL profiles stay encrypted without a plaintext fallback. Without a Root CA PEM, PostgreSQL skips server-certificate verification; a supplied PEM verifies the certificate chain and hostname.
-- **Atomic file-database backup/restore** — SQLite and DuckDB backup/restore stage new content in temporary siblings and promote it with rollback, so a failed backup or restore no longer deletes the existing output or database; stale sidecars are removed only after a successful restore.
-- **Release tag validation and least-privilege workflow** — release tags are validated by `.github/scripts/resolve-release-tag.sh` (shape and Git-ref checks) before any checkout or release mutation, the workflow token is read-only globally with write scoped to the release jobs, and build checkouts no longer persist credentials.
-- **Docker dev databases bind loopback** — the sample `docker-compose.yml` publishes every database port on `127.0.0.1` instead of all interfaces.
-- **Unified control sizing** — buttons, inputs, and selects across the app share one 28 px height and a single 6 px corner radius, and panels keep one spacing mechanism between blocks; the API settings and MCP sections, Database Analytics, and Schema Timeline were rebuilt on that scale, with helper text directly under the control it describes.
-- **AI provider tiles** — the settings page lists providers as compact tiles, each with the service's own logo (OpenAI, DeepSeek, Google, Ollama) instead of a generic icon, and the active provider is stated once in the tile's status line instead of a badge repeating it.
-- **App-owned context menus** — right-click menus are app-rendered across the workspace instead of the webview's native menu, and the Redis key list and key details share a single menu.
-- **Query-run shortcut chip** — the SQL, MongoDB, and Redis query toolbars consistently show the Ctrl+Enter run chip.
+- **Query editor** — use CodeMirror 6 for SQL, MongoDB, Redis, and federated query editors.
+- **Release packages** — add macOS DMG, Linux DEB/RPM/AppImage, and Windows NSIS/MSI packages. AppImage requires the host WebKit2GTK 4.1 runtime.
+- **Sidebar and navigation** — make the schema search cover table names, tighten connection and schema rows, and keep the API Settings entry and page navigation consistent.
+- **Encrypted credential storage** — encrypt connection passwords, connection strings, and AI provider keys before storing them in metadata SQLite. Migrate existing values once; failed migration preserves existing data, and decryption errors never fall back to plaintext.
+- **AI chat SQL display** — show generated SQL for review instead of executing it in the chat flow; do not send query result rows back to the provider.
+- **PostgreSQL TLS** — keep SSL profiles encrypted; a supplied Root CA verifies the certificate chain and hostname, while connections without one remain encrypted without server-certificate verification.
+- **Atomic file-database backup and restore** — stage SQLite and DuckDB changes before promotion, preserve the existing file on failure, and retain and report recovery copies if rollback fails.
+- **Controls and menus** — standardize control sizing, clarify active AI providers, use app-owned context menus, and show the Ctrl+Enter run shortcut across query toolbars.
 
 ### Added
 
-- **Root CA certificates for SSL connections** — add an optional local PEM trust certificate for PostgreSQL, MySQL, MariaDB, and SQL Server connections. A supplied PEM verifies the certificate chain and hostname; without one, all four keep encrypted TLS without server-certificate verification. The PEM is not sent to the server; PostgreSQL's `psql`, backup, and restore tools continue to encrypt without verification and ignore it.
-- **Native full CSV export** — stream read-only PostgreSQL/SQLite queries or whole tables directly to disk, preserving intentional query limits and keeping displayed-row exports available. Cancel or close the view without replacing an existing destination; changing connections cannot launch a stale export dialog.
-- **Column-specific table search & case-sensitive toggle** — add column filter dropdown (`All fields` or specific column) and `Aa` Match Case toggle to Table View search; uses native fast string operations (`instr` in SQLite, `contains` in DuckDB, `position` in ClickHouse, `INSTR` in Oracle, `BINARY LIKE` in MySQL) to accelerate queries on million-row tables by up to 3x–5x.
-- **Table view loading indicator** — sorts and page loads that stay pending past a short delay show a spinner with "Loading..." in the table footer, so a slow unindexed sort reads as work in progress instead of a frozen grid; fast queries never flash it.
+- **Root CA certificates** — optionally verify certificates and hostnames for PostgreSQL, MySQL, MariaDB, and SQL Server. Without a supplied CA, connections stay encrypted but do not verify the server certificate. PostgreSQL's bundled psql, backup, and restore tools continue encrypted without certificate verification.
+- **Native full CSV export** — export read-only PostgreSQL/SQLite queries or whole tables directly to disk; cancel an export without replacing an existing destination.
+- **Column-specific table search** — search all fields or a selected column with an optional case-sensitive match; engine-native filtering measured up to 3x–5x faster on million-row tables.
+- **Table loading indicator** — show progress when sorting or paging takes long enough to look like a stalled view.
 
 ### Performance
 
-- **Interim sorting/RAM benchmark** — three private Wails/SQLite runs over one million rows measured median instrumented sort interactions of 79 ms (primary key), 89 ms (indexed column), and 374 ms (unindexed text), displaying 50 rows. Whole-app PSS medians were 321.5 MiB idle and 424.4 MiB with five small tabs: RAM targets remain unmet, and no matched-baseline improvement is claimed. See the [method and remaining evidence](docs/agent-devkit/changes/2026-10-13-footprint-and-large-tables/benchmark.md).
-
-- **Exact SQL paging** — extend eligible primary-key seeks to MySQL/MariaDB, SQL Server, Oracle and DuckDB with exact unsigned/wider anchors and connection-owned bookmarks. Unsupported keys and arbitrary sorts retain server-side offset fallback; ClickHouse stays non-unique offset paging and streams bounded native responses without admitting failed partial queries.
-- **Request-scoped cancellation** — SQL, Mongo and Redis GUI calls use bounded per-request ownership. Cancelling, closing or changing one view no longer targets a connection-wide query slot; exports keep independent cancellation. Ambiguous commands are not automatically replayed, and cancellation does not claim rollback.
-- **Optional DuckDB driver** — keep DuckDB support in an app-managed helper instead of linking its native library into the desktop. Matching release builds verify the first-use download and cached executable, use private cancellable stdio RPC, and clean up owned children/spill files. Background health does not install/start unused helpers or create databases; development uses an explicit local build.
-- **Mongo browse cancellation/no-count pages** — MongoDB find/aggregate no longer issue compulsory count queries; responses report whether more rows may follow, admit complete documents within the 2 MiB browse cap, and oversized first documents fail explicitly.
-- **Go/Wails runtime comparison** — local synthetic PostgreSQL timings were similar to the previous Tauri/Node build: median ~8 ms for 1,000 rows in both builds and ~15 ms vs. ~13 ms for 10,000 rows. A one-time macOS ARM64 process-footprint snapshot measured ~179 MB vs. ~206 MB across app processes; the apps had different UI states, so treat the RAM figures as indicative only.
-- **Virtual table scrolling** — add `@tanstack/react-virtual` row windowing in `DataTable` for results over 40 rows to prevent massive DOM tree and WebProcess memory expansion.
-- **Go runtime memory limits** — cap Go heap target at 128MB with `debug.SetMemoryLimit` and GOGC=50 to eagerly reclaim and release unused pages back to the OS.
-- **Query cache trimming & lazy indexing** — reduce frontend query cache retention from 5 minutes to 60 seconds and eliminate eager startup AI schema indexing across all configured profiles.
-- **SQL engine query allocation & GUI row cap** — preallocate and reuse scan pointer buffers across SQLite, MySQL, Postgres, SQL Server, Oracle, DuckDB, and ClickHouse to eliminate millions of per-row heap allocations; cap unpaginated GUI results at 50,000 rows with a `Truncated` badge to prevent WebKit IPC freezes.
-- **SQLite engine PRAGMAs & LIKE search filtering** — tune SQLite connections with `mmap_size` (256MB), `cache_size` (64MB), and `temp_store = MEMORY` for faster scans, sorts, and joins; restrict `LIKE` search in table views to text columns (skipping blobs and non-numeric columns when searching text).
+- **Interim sorting and RAM benchmark** — across three private Wails/SQLite runs over one million rows, median instrumented sorts were 79 ms by primary key, 89 ms by indexed column, and 374 ms by unindexed text while displaying 50 rows. Whole-app PSS medians were 321.5 MiB idle and 424.4 MiB with five small tabs. RAM targets remain unmet; no matched-baseline improvement is claimed. See the [method and remaining evidence](docs/agent-devkit/changes/2026-10-13-footprint-and-large-tables/benchmark.md).
+- **Exact SQL paging** — use primary-key paging for eligible tables on MySQL/MariaDB, SQL Server, Oracle, and DuckDB; unsupported keys and arbitrary sorts retain offset paging, and ClickHouse keeps bounded offset paging.
+- **Request-scoped cancellation** — cancel a SQL, MongoDB, or Redis request without cancelling unrelated work; exports have independent cancellation, and cancellation does not claim to roll back database work.
+- **Optional DuckDB driver** — install and verify the app-managed driver only when needed instead of linking its native library into the desktop.
+- **MongoDB browse pages** — avoid compulsory count queries and report when more results may follow; reject a first document that exceeds the 2 MiB browse cap.
+- **Go/Wails runtime comparison** — synthetic PostgreSQL runs measured medians of about 8 ms in both builds for 1,000 rows, and about 15 ms for Tauri/Node versus 13 ms for Wails/Go for 10,000 rows. One macOS ARM64 snapshot measured about 179 MB versus 206 MB across app processes; the apps had different UI states, so treat the RAM figures as indicative.
+- **Virtual table scrolling** — window large table results so the UI renders visible rows instead of building a large DOM tree.
+- **Go runtime memory limits** — cap the heap target at 128 MB and use GOGC=50 to return unused memory more eagerly.
+- **Query cache and schema indexing** — shorten frontend cache retention and defer startup schema indexing until it is needed.
+- **SQL result allocation and row cap** — reduce per-row allocations across SQL engines and cap unpaginated GUI results at 50,000 rows with a Truncated badge.
+- **SQLite search and cache tuning** — tune SQLite scan/sort settings and skip blobs when filtering text fields.
 
 ### Fixed
 
-- **Flickering pane scrollbars** — WebKitGTK draws native overlay scrollbars, reveals them on any pointer motion over the web view, and ignores the app's scrollbar CSS, so hovering the sidebar also painted the table's bar and the two appeared and vanished together. The table grid and the sidebar now stay unscrollable until the pointer is inside that pane, which is the only way to make the engine claim a bar for the pane in use; overlay bars take no layout space, so toggling one never shifts content. The per-pane `scrollbar-color` override, which WebKitGTK never honoured, is removed.
-- **Centered table empty state** — render the `DataTable` "No data" placeholder as a block centered on both axes in the table area. The previous empty-state cell was a flex row, so its content-width child sat pinned to the left edge instead of centered.
-- **Empty workspace startup** — return an empty connection array instead of `null` so fresh installs and deleting the last profile do not crash the welcome screen.
-- **Query history durations** — round fractional execution times only when saving history to match the Go integer-millisecond binding, preserving precise timings in query results.
-- **Closed-table result retention** — evict all cached preview pages for an unmounted table and collect unobserved SQL mutation results without discarding active or pending executions.
-- **Dialect-aware query limiting** — update `sql-editor.tsx` to apply T-SQL `OFFSET...FETCH` on SQL Server and Oracle `OFFSET...FETCH` instead of invalid `LIMIT` clauses; strip leading single and multi-line comments so commented queries (`/* ... */`, `-- ...`) are correctly limited without syntax errors.
-- **T-SQL pagination with window/comment ORDER BY** — detect only the outermost `ORDER BY` when appending `OFFSET...FETCH` in `sql-editor.tsx`, including clauses with arbitrary whitespace and ignoring occurrences inside window expressions, comments (including nested block comments), string literals, and quoted identifiers (including escaped `]]`) that previously produced invalid T-SQL.
-- **ClickHouse search escaping & fail-closed probe** — escape backslashes before quotes in Table View search literals (ClickHouse treats backslash as the escape character) and return an error instead of running the query unfiltered when the search-column metadata probe fails.
-- **AI schema cache scoping** — read schema context back under the key it was written with: a table-scoped chat reuses its table-keyed cache entry instead of being shadowed by a connection-level entry, and full-schema fallbacks cache at connection scope.
-- **Tab bar action button visibility** — pin tab bar action buttons (`New Aggregation`, `New Query`, `Schema Graph`, `Federated Query`) to a fixed right-side container so they remain accessible when opening many tabs.
-- **Connection tooltip click blocking** — add `pointer-events-none` to connection tooltips so hover cards never intercept clicks on the `...` action menu.
-- **CodeMirror theme switching** — dynamically toggle CodeMirror between native light styling and `oneDark` using a `Compartment` to respect light/dark mode.
-- **Legacy engine profile cleanup** — export dropped `tigerbeetle` and `qdrant` profiles to a `removed-profiles-*.json` file beside the metadata database, then purge them during metadata migration and filter them in the sidebar with `ALL_KINDS`.
-- **SQL query cancellation** — wire `api.cancelQuery` to Escape key press, toolbar Cancel button, and tab unmount cleanup so long-running queries can be aborted on demand and do not outlive closed tabs.
-- **Query tab connection visibility** — display target database name and color badge in the query editor toolbar and tab bar to avoid running queries against the wrong database.
-- **Table virtualization offset** — pass `scrollMargin` to `useVirtualizer` in `DataTable` and compute dynamic index column width to prevent offset calculation bugs and cell text clipping on deep offsets.
-- **Defensive record field collection** — guard `collectRecordFields` and `useFieldVisibility` against undefined records to prevent runtime navigation crashes.
-- **Read-only query screening bypass** — scan SQL once, left to right, under PostgreSQL, MySQL/MariaDB/ClickHouse and SQL Server/SQLite lexing rules instead of stripping comments and strings with a regex chain. A second statement hidden behind a quote or comment marker (for example `SELECT '--'; COMMIT; DELETE ...`) is now rejected for AI auto-run, MCP and full CSV export. PostgreSQL CSV export also uses the extended protocol, so the database itself refuses multi-statement text inside its read-only transaction.
-- **Redis stats** — parse `INFO` output by section header; the previous lookahead regex panicked, so Redis statistics could never load.
-- **MySQL/MariaDB over MCP** — apply the per-query timeout when each connection opens instead of holding a dedicated connection around the open result, which made every MCP query on MySQL/MariaDB hang until it timed out.
-- **PostgreSQL managed MCP accounts** — run account setup and removal statements with `Exec` so each result is closed. Provisioning no longer fails with `conn busy` and leaves an unremovable login role behind.
-- **Stable pages when sorting by a repeated value** — append the table's primary key to the sort order for offset paging on PostgreSQL, SQLite, MySQL/MariaDB, DuckDB, SQL Server and Oracle. Rows that share a sort value no longer repeat or disappear between pages (a 3,000-row PostgreSQL check returned a row twice before the fix). Composite keys now order by every key column. ClickHouse is unchanged because its sorting key does not identify a row.
-- **Managed MongoDB MCP accounts** — send `createUser` and `connectionStatus` with the command name as the first field. A random key order made account creation fail intermittently, and the cleanup then reported a partial account that needed manual recovery.
-- **MCP connection reuse** — concurrent first calls to one connection share a single adapter instead of each opening one, and a connection whose credential or profile changed mid-call is closed instead of leaking an open pool. The call is refused with `BUSY` so a retry uses the new settings.
-- **Redis raw commands** — use RESP2 so replies such as `HGETALL`, `CONFIG GET` and `XINFO` can be returned to the UI; go-redis' default RESP3 maps could not be serialized.
-- **MongoDB key order in sorts, pipelines and commands** — send aggregation pipelines, Find sorts and raw commands to the backend as JSON text and parse them in order. They were decoded into Go maps, which lost the key order: a compound `$sort` reached the server in a random order (a three-key sort came out as typed only about 75% of the time), a Find sort was silently re-sorted alphabetically, and a command could lose its name-first position or the key order of a compound index. Empty arrays such as `{"$in": []}` stay empty arrays. The previous object fields remain accepted for older callers.
-- **PostgreSQL Table Stats** — compute bloat from dead tuples against the heap size instead of counting index and TOAST bytes as bloat, so a freshly vacuumed table no longer reports bloat and suggests `VACUUM FULL`; the index list loads again after adding the missing `pg_am` join that made every table show "0 indexes".
-- **Table View export menu** — render whole-table CSV export as a proper dropdown item instead of a nested native button, keeping the menu open so Cancel stays reachable while the export runs.
-- **MongoDB page footers** — show the exact document count when the server reported one and "N+ documents" while more may follow; without a known total the page box becomes a plain current-page label and page jumps cannot exceed the known page count.
-- **Displayed-row exports** — save CSV/JSON/SQL through the native save dialog and a backend write in the table view, query editor, and MongoDB panels; the previous blob download was silently ignored by WebKitGTK, so the menu actions did nothing.
-- **Scrollbar styling on Linux** — style scrollbars with the standard `scrollbar-width`/`scrollbar-color` properties, which WebKitGTK does honour, instead of only `::-webkit-scrollbar`, which it ignores. The thumb uses the muted foreground because the previous border token is white-at-10% in the dark theme and left only the native hairline edge visible. Natively scrolled panes keep WebKitGTK's overlay behaviour and fade out once scrolling stops; the tab strip and sidebar draw their own static bar.
-- **Scrollbar over the table header** — move the pinned header row out of the table's scrollport, so its bar hangs on the body rows instead of spanning the header. Horizontal scrolling and column resizing stay in sync with the header.
-- **Tab strip and sidebar scrollbars** — replace the native overlay bars with a small static 4 px custom bar: the tab strip keeps a horizontal bar in its own lane under the tabs, and the sidebar draws one over its right edge that fades out after two seconds idle like a native overlay; both can be dragged and clicked to jump.
-- **MongoDB document list** — give list mode a scroll container and keep the pagination footer in place; long results and the footer were clipped before, with no way to scroll.
-- **Table scroll smoothness** — run the Linux webview with GPU acceleration and zero-copy DMA-BUF frame transport (Wails defaults Linux to software rendering, wails#2977) and drop the sticky table header's backdrop blur; result pages up to 200 rows also render in one pass, so scrolling no longer re-renders the table on every frame.
-- **Export menu wording** — "Displayed rows as CSV" is now "Export as CSV", the whole-table export sits below a separator and reads "Export whole table as CSV", and "Copy JSON" reads "Copy as JSON".
-- **Welcome screen tiles** — remove the hardcoded emerald and red glow shadows; connected and disconnected tiles now use the success and destructive tokens with flat borders.
-- **Select fields showing raw values** — the schema timeline interval, SQL editor row limit, chart view, and PostgreSQL backup/restore dialog selects could render an option's raw value instead of its label; every select now renders the selected item's label.
+- **Pane scrollbars** — stop hover in one pane from revealing another pane's scrollbar, keep the table scrollbar below its pinned header, and make tab-strip/sidebar scrollbars usable on Linux.
+- **Empty workspace and table states** — show a stable empty connection list on fresh installs and center the table's no-data state.
+- **Query history and cached results** — preserve precise query timings in results while saving integer milliseconds to history, and clear stale table previews after a tab closes.
+- **SQL dialect-aware row limits** — use valid SQL Server and Oracle pagination and ignore ORDER BY text inside comments, strings, and window expressions.
+- **ClickHouse search safety** — escape search values correctly and stop with an error if search-column metadata cannot be loaded.
+- **AI schema context** — reuse cache entries at the table or connection scope where they were stored.
+- **Workspace navigation** — keep tab actions visible, prevent tooltips from blocking menu clicks, and show each query tab's target database.
+- **CodeMirror themes** — switch editor themes when the app changes between light and dark mode.
+- **Removed-engine profiles** — export and remove old Qdrant and TigerBeetle profiles during migration.
+- **Read-only SQL screening** — reject a second statement hidden after a quote or comment for AI auto-run, MCP, and full-table CSV export.
+- **Redis views** — fix Redis statistics and return raw command replies such as HGETALL, CONFIG GET, and XINFO in a form the UI can display.
+- **MCP reliability** — apply per-query timeouts for MySQL/MariaDB, fix managed PostgreSQL and MongoDB account setup, and reuse one adapter for concurrent calls to the same connection.
+- **Stable SQL pages** — include primary-key columns in sort order so rows with repeated values do not disappear or repeat between pages; composite keys use every key column.
+- **MongoDB sorting and commands** — preserve field order in compound sorts, pipelines, and commands, and keep empty arrays intact.
+- **PostgreSQL table statistics** — calculate bloat from dead tuples relative to heap size and restore index counts.
+- **Native exports** — make displayed-row CSV/JSON/SQL exports work through the app save dialog and keep whole-table export cancellation reachable.
+- **MongoDB pagination** — show exact totals when available and prevent page jumps beyond the known result range.
+- **MongoDB document list** — keep long lists scrollable while the pagination footer stays visible.
+- **Linux table scrolling** — improve scrollbar visibility and keep table scrolling responsive for larger result pages.
+- **Menus and controls** — clarify export menu wording, use select labels instead of raw values, and apply success/error theme tokens to connection tiles.
 
 ### Removed
 
-- **Qdrant and TigerBeetle** — drop the vector and ledger engines and their dedicated explorers; supported engines are PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis.
-
----
+- **Qdrant and TigerBeetle** — remove their explorers and support. KamehaDB supports PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis.
 
 ## [v1.6.2] — 2026-10-11
 

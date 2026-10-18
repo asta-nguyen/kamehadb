@@ -15,5 +15,12 @@ yarn.lock
 *.node
 *.log
 .openez
+.agents/
+# Delta blocks use fixed four-backtick fences for exact merge checks.
+docs/agent-devkit/changes/**/delta.md
+.next/
+apps/desktop/wailsjs/
+landing/next-env.d.ts
+*.wxs
 docker-compose.yml
 Dockerfile

@@ -207,8 +207,9 @@ func (r *Runtime) bind(port int64) {
 		r.port = int64(listener.Addr().(*net.TCPAddr).Port)
 	}
 	state := &serverState{st: r.st, manager: r.Manager}
-	r.server = &http.Server{Handler: r.handler(state)}
-	go func() { _ = r.server.Serve(listener) }()
+	server := &http.Server{Handler: r.handler(state)}
+	r.server = server
+	go func() { _ = server.Serve(listener) }()
 	r.status = "listening"
 	r.message = ""
 	logs.Info("mcp", fmt.Sprintf("MCP listener listening on 127.0.0.1:%d", r.port))

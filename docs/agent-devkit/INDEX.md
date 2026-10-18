@@ -8,6 +8,7 @@
 
 - [Review feedback hardening](changes/archive/2026-10-16-review-feedback-hardening/tasks.md) — AI chat no longer runs generated SQL, PostgreSQL TLS verification, atomic file backup/restore, encrypted stored credentials, least-privilege release workflow, loopback Docker ports. All 7 tasks verified.
 - [Connection Root CA and TLS Mode](changes/archive/2026-10-16-connection-root-ca/design.md) — local Root CA verification for PostgreSQL, MySQL/MariaDB, and SQL Server; all 9 implementation tasks passed final review.
+- [MCP runtime and history audit](changes/archive/mcp-audit/delta.md) — rollback recovery reporting, unavailable-runtime handling, and source-grounded MCP history documentation.
 
 ## Research
 

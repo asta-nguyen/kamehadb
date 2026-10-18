@@ -153,7 +153,7 @@ export default async function Image() {
                 overflow: 'hidden',
               }}
             >
-              <img src={logoSrc} width={100} height={100} />
+              <img src={logoSrc} width={100} height={100} alt="KamehaDB logo" />
             </div>
           </div>
         </div>

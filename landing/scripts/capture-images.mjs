@@ -113,7 +113,8 @@ async function main() {
 
     // Hide the slider line + handle so they don't appear in screenshots.
     await page.addStyleTag({
-      content: '[data-testid="compare-slider-handle"] { display: none !important; } .compare-container [class*="z-30"] { display: none !important; }',
+      content:
+        '[data-testid="compare-slider-handle"] { display: none !important; } .compare-container [class*="z-30"] { display: none !important; }',
     });
 
     // chat-panel.png — the first image (top overlay).
@@ -142,7 +143,11 @@ async function main() {
       } catch {
         // Process group may have already exited — fall back to the
         // wrapper PID in case it's still alive.
-        try { devServer.kill(signal); } catch { /* already dead */ }
+        try {
+          devServer.kill(signal);
+        } catch {
+          /* already dead */
+        }
       }
     };
 

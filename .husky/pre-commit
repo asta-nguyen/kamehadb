@@ -1,2 +1,3 @@
 #!/bin/sh
-pnpm exec lint-staged
+# Keep resource-heavy Go and frontend lint tasks from running together.
+pnpm exec lint-staged --concurrent 1

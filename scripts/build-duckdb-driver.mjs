@@ -11,14 +11,16 @@ for (let i = 2; i < process.argv.length; i += 2) {
   const name = process.argv[i];
   const value = process.argv[i + 1];
   if (!['--version', '--platform', '--out-dir'].includes(name) || !value) {
-    throw new Error('Usage: build-duckdb-driver.mjs [--version dev|vX.Y.Z] [--platform linux-amd64|windows-amd64|macos-universal] [--out-dir path]');
+    throw new Error(
+      'Usage: build-duckdb-driver.mjs [--version dev|vX.Y.Z] [--platform linux-amd64|windows-amd64|macos-universal] [--out-dir path]',
+    );
   }
   flags.set(name, value);
 }
 const version = flags.get('--version') ?? 'dev';
 if (version !== 'dev' && !/^v[0-9][0-9A-Za-z.-]*$/.test(version)) throw new Error('Invalid release version');
-const defaultPlatform = process.platform === 'darwin' ? 'macos-universal'
-  : process.platform === 'win32' ? 'windows-amd64' : 'linux-amd64';
+const defaultPlatform =
+  process.platform === 'darwin' ? 'macos-universal' : process.platform === 'win32' ? 'windows-amd64' : 'linux-amd64';
 const platform = flags.get('--platform') ?? defaultPlatform;
 const target = { 'linux-amd64': 'linux', 'windows-amd64': 'windows', 'macos-universal': 'darwin' }[platform];
 if (!target) throw new Error('Unsupported driver release platform');
@@ -36,9 +38,19 @@ function execute(program, args, env = process.env) {
   if (result.status !== 0) throw new Error(`${program} failed (${result.status})`);
 }
 function build(arch, path) {
-  execute('go', ['build', '-trimpath', '-ldflags', `-s -w -X ${pkg}.ReleaseVersion=${version}`,
-    '-o', path, './cmd/kamehadb-duckdb-driver'],
-    { ...process.env, GOOS: target, GOARCH: arch, CGO_ENABLED: '1' });
+  execute(
+    'go',
+    [
+      'build',
+      '-trimpath',
+      '-ldflags',
+      `-s -w -X ${pkg}.ReleaseVersion=${version}`,
+      '-o',
+      path,
+      './cmd/kamehadb-duckdb-driver',
+    ],
+    { ...process.env, GOOS: target, GOARCH: arch, CGO_ENABLED: '1' },
+  );
 }
 if (target === 'darwin') {
   const amd64 = `${output}-amd64`;
@@ -54,8 +66,10 @@ if (target === 'darwin') {
 chmodSync(output, 0o755);
 // Read protocol identity from the built executable, keeping the release
 // manifest aligned with the Go source without another version constant.
-const identity = spawnSync(output, [], { encoding: 'utf8', input:
-  `${JSON.stringify({ id: 1, method: 'hello' })}\n${JSON.stringify({ id: 2, method: 'close' })}\n` });
+const identity = spawnSync(output, [], {
+  encoding: 'utf8',
+  input: `${JSON.stringify({ id: 1, method: 'hello' })}\n${JSON.stringify({ id: 2, method: 'close' })}\n`,
+});
 if (identity.error || identity.status !== 0) throw identity.error ?? new Error('Driver handshake failed');
 const handshake = JSON.parse(identity.stdout.trim().split('\n')[0]).result;
 if (handshake.version !== version) throw new Error('Built driver release version mismatch');
@@ -64,8 +78,23 @@ const sha256 = createHash('sha256').update(binary).digest('hex');
 const asset = `${output}.gz`;
 writeFileSync(asset, gzipSync(binary, { level: 9 }));
 const appLdflags = version === 'dev' ? '' : `-X ${pkg}.ReleaseVersion=${version} -X ${pkg}.ReleaseSHA256=${sha256}`;
-writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify({ version, platform, name, sha256,
-  protocol: handshake.protocol, bytes: binary.length, gzipBytes: readFileSync(asset).length, appLdflags }, null, 2)}\n`);
+writeFileSync(
+  join(dir, 'manifest.json'),
+  `${JSON.stringify(
+    {
+      version,
+      platform,
+      name,
+      sha256,
+      protocol: handshake.protocol,
+      bytes: binary.length,
+      gzipBytes: readFileSync(asset).length,
+      appLdflags,
+    },
+    null,
+    2,
+  )}\n`,
+);
 if (process.env.GITHUB_ENV && appLdflags) {
   appendFileSync(process.env.GITHUB_ENV, `DUCKDB_LDFLAGS=${appLdflags}\n`);
 }

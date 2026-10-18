@@ -78,18 +78,30 @@ function cursorBlink(t) {
 
 function typingProgress(t) {
   let seqIdx, localT;
-  if (t < 0.45) { seqIdx = 0; localT = t / 0.45; }
-  else if (t < 0.5) { seqIdx = 0; localT = 1; }
-  else if (t < 0.95) { seqIdx = 1; localT = (t - 0.5) / 0.45; }
-  else { seqIdx = 1; localT = 1; }
+  if (t < 0.45) {
+    seqIdx = 0;
+    localT = t / 0.45;
+  } else if (t < 0.5) {
+    seqIdx = 0;
+    localT = 1;
+  } else if (t < 0.95) {
+    seqIdx = 1;
+    localT = (t - 0.5) / 0.45;
+  } else {
+    seqIdx = 1;
+    localT = 1;
+  }
   const query = QUERIES[seqIdx];
   const charsShown = Math.floor(localT * query.length);
   return { text: query.slice(0, charsShown), done: localT >= 1 };
 }
 
-const MAC_ICON = '<path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>';
-const WIN_ICON = '<path d="M3 5.1L10.4 4v7.3H3V5.1zM10.4 12.7V20L3 18.9v-6.2h7.4zM11.6 3.8L21 2.5v8.8h-9.4V3.8zM21 12.7v8.8l-9.4-1.3v-7.5H21z"/>';
-const LINUX_ICON = '<path d="M12 2c-1.5 0-2.5 1.5-2.5 3v3c0 1-1 2-1.5 3-1 2-2 3-2 5 0 2 1.5 4 4 4h4c2.5 0 4-2 4-4 0-2-1-3-2-5-.5-1-1.5-2-1.5-3V5c0-1.5-1-3-2.5-3z"/>';
+const MAC_ICON =
+  '<path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>';
+const WIN_ICON =
+  '<path d="M3 5.1L10.4 4v7.3H3V5.1zM10.4 12.7V20L3 18.9v-6.2h7.4zM11.6 3.8L21 2.5v8.8h-9.4V3.8zM21 12.7v8.8l-9.4-1.3v-7.5H21z"/>';
+const LINUX_ICON =
+  '<path d="M12 2c-1.5 0-2.5 1.5-2.5 3v3c0 1-1 2-1.5 3-1 2-2 3-2 5 0 2 1.5 4 4 4h4c2.5 0 4-2 4-4 0-2-1-3-2-5-.5-1-1.5-2-1.5-3V5c0-1.5-1-3-2.5-3z"/>';
 
 function buildFrameHtml(t, ctx) {
   const { displayFont, monoFont, logoUri, starCount, formatStars } = ctx;
@@ -118,9 +130,10 @@ function buildFrameHtml(t, ctx) {
     ? `<div style="display:flex;flex-direction:row;align-items:center;gap:6px;font-size:12px;font-family:${monoFont};color:#28c840;margin-top:4px"><span>\u2713</span><span>42 rows in 23ms</span></div>`
     : '';
 
-  const starLine = starCount !== null
-    ? `<span style="font-size:12px;color:${TEXT_MUTED}">\u2b50 ${formatStars(starCount)} stars</span><span style="font-size:12px;color:${TEXT_MUTED}">•</span>`
-    : '';
+  const starLine =
+    starCount !== null
+      ? `<span style="font-size:12px;color:${TEXT_MUTED}">\u2b50 ${formatStars(starCount)} stars</span><span style="font-size:12px;color:${TEXT_MUTED}">•</span>`
+      : '';
 
   return `<div style="width:1200px;height:630px;display:flex;flex-direction:column;background:linear-gradient(135deg, ${BG_DEEP} 0%, #0A0F1C 50%, #05080F 100%);font-family:${displayFont};position:relative;overflow:hidden">
   <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(245,158,11,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.05) 1px, transparent 1px);background-size:48px 48px"></div>
@@ -187,7 +200,7 @@ async function main() {
     loadFont('JetBrains Mono', 400),
   ]);
 
-  const displayFont = (outfit700 || outfit800) ? 'Outfit, system-ui, sans-serif' : 'system-ui, sans-serif';
+  const displayFont = outfit700 || outfit800 ? 'Outfit, system-ui, sans-serif' : 'system-ui, sans-serif';
   const monoFont = jbMono400 ? 'JetBrains Mono, monospace' : 'ui-monospace, monospace';
   const logoUri = logoDataUri();
 
@@ -252,11 +265,16 @@ async function main() {
     await execFileAsync(
       ffmpegBin,
       [
-        '-framerate', String(fps),
-        '-i', framePattern,
-        '-i', palettePath,
-        '-lavfi', 'paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle',
-        '-y', outPath,
+        '-framerate',
+        String(fps),
+        '-i',
+        framePattern,
+        '-i',
+        palettePath,
+        '-lavfi',
+        'paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle',
+        '-y',
+        outPath,
       ],
       { timeout: 180000, maxBuffer: 10 * 1024 * 1024 },
     );

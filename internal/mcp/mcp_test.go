@@ -10,7 +10,9 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -435,4 +437,29 @@ func TestPortUpdateAndRotate(t *testing.T) {
 	if settings.Token != tok {
 		t.Fatal("rotated token not persisted")
 	}
+}
+
+func TestConcurrentBindKeepsLatestListener(t *testing.T) {
+	r, _ := newTestRuntime(t)
+	defer r.Close()
+
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r.bind(0)
+		}()
+	}
+	wg.Wait()
+
+	status := r.GetStatus()
+	if status.Status != "listening" || status.Port == 0 {
+		t.Fatalf("latest listener is not available: %+v", status)
+	}
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", status.Port), time.Second)
+	if err != nil {
+		t.Fatalf("latest listener refused a connection: %v", err)
+	}
+	conn.Close()
 }

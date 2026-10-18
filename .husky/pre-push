@@ -1,3 +1,4 @@
 #!/bin/sh
 pnpm typecheck
 pnpm lint
+pnpm lint:go

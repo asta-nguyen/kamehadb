@@ -61,6 +61,12 @@ pnpm test
 
 # Run the Go backend tests
 pnpm test:go
+
+# Lint the Go backend with golangci-lint (resolved via `go tool` from go.mod — no separate install)
+pnpm lint:go
+
+# Format Go source with gofumpt + goimports
+pnpm format:go
 ```
 
 ### Important package-level scripts
@@ -184,6 +190,7 @@ Notes:
 
 - `pnpm test` runs workspace package tests; the desktop package uses `vitest run`
 - `pnpm test:go` runs the Go backend suite (`go test ./...`)
+- `pnpm lint:go` runs golangci-lint and `pnpm format:go` runs gofumpt+goimports; both resolve the tool from the `go.mod` `tool` directive, so no machine-level install is needed. `.golangci.yml` holds the config. The pre-commit hook formats staged `.go` files, then runs the repository-wide lint because golangci-lint cannot lint named files from multiple directories in one invocation; lint-staged runs task groups serially to limit resource contention. The pre-push hook also runs `pnpm lint:go` across the whole repo.
 - Backend changes should also be verified with `go build ./...` and, when bindings change, `wails generate module`
 - CI runs `pnpm typecheck`, desktop `tsc --noEmit`, `pnpm lint`, desktop tests, `go test ./...`, and a full `wails build`
 - When changing bound service signatures, regenerate bindings and verify the desktop `tsc` pass — shape drift surfaces as type errors in `wailsjs/`

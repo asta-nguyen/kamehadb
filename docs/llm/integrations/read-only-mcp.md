@@ -6,21 +6,21 @@ KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI c
 
 ### MCP-call-history-capture
 
-The system SHALL record validated inputs and call summaries for database-backed MCP tools without storing returned database rows or documents in history or changing the tool response.
+The system SHALL record request arguments and call summaries for database-backed MCP tools without storing returned database rows or documents in history or changing the tool response.
 
 #### Scenario: successful query is summarized
 
 - GIVEN an enabled MCP `sql_query` call returns two rows
-- WHEN the tool callback completes
-- THEN history stores its validated input and item count without the rows, while the original MCP response still contains them
+- WHEN the tool handler completes
+- THEN history stores its request arguments and item count without the rows, while the original MCP response still contains them
 
-#### Scenario: rejected query stores only its stable error code
+#### Scenario: rejected query stores its stable error code
 
 - GIVEN `sql_query` rejects an unsafe statement
-- WHEN the tool callback completes
-- THEN history stores the error code with no item count, and `list_mcp_profiles` does not create a history entry
+- WHEN the tool handler completes
+- THEN history stores the request arguments and error code with no item count, and `list_mcp_profiles` does not create a history entry
 
-Evidence: `internal/mcp/tools.go`, `internal/mcp/mcp_test.go`
+Evidence: `internal/mcp/jsonrpc.go`, `internal/store/mcp.go`, `internal/mcp/mcp_test.go`
 
 ### MCP-call-history-limits
 
@@ -109,12 +109,12 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 - A record stores the profile ID, tool name, validated input, timestamp, success/error status, elapsed duration, item count, truncation flag, and a stable error code on failure.
 - `item_count` is the length of the primary result array: SQL `rows`, MongoDB `documents`, or a metadata list/describe array. Failed calls have no count and are not truncated.
 - Inputs are stored locally as plain text and may contain sensitive SQL literals or filters. The settings UI explains this and provides the toggle and clear action.
-- Returned rows and documents are not persisted or added to MCP responses. Sidecar history-write warnings include only the tool and profile identifiers.
+- Returned rows and documents are not persisted or added to history summaries.
 
 ### Flow
 
-1. One wrapper in `registerMcpTools` surrounds all nine database-backed tool callbacks. It captures validated inputs and elapsed time, summarizes the existing result, stores the summary, and returns the original result unchanged.
-2. The authenticated sidecar settings router serves recent history, updates the recording flag, and clears history. These routes stay on the internal sidecar API, separate from the public MCP listener.
+1. `Runtime.callMethod` dispatches each MCP tool handler, then records the request arguments, elapsed time, item count, truncation state, or stable error code for database-backed calls. It returns the original MCP result unchanged.
+2. Wails-bound `McpService` methods read recent history, update the recording flag, and clear history inside the app process. These management calls are separate from the public MCP listener.
 3. The desktop uses the existing MCP settings query and API Settings section to display local inputs and summaries. It never renders returned database content.
 
 ### State changes
@@ -125,12 +125,12 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 
 ### Side effects
 
-- Each enabled database-backed MCP call writes a local metadata row. It does not write to the customer database or change the MCP tool response.
-- If summary extraction or the local history write fails, the MCP callback result is still returned and the sidecar logs a warning without the input or result content.
+- Each enabled database-backed MCP call attempts to write a local metadata row. It does not write to the customer database or change the MCP tool response.
+- If local history persistence fails, the MCP tool result is still returned, but that call may have no history entry.
 
 ### Authorization & constraints
 
-- History management uses the normal sidecar authentication middleware.
+- History management uses the Wails-bound service inside the app process; the public listener's bearer token does not apply to these desktop calls.
 - Tool inputs are stored in the local metadata database without a new encryption layer. Users can disable future recording or clear existing records.
 - The query-history table and desktop SQL Query History remain separate and unchanged.
 
@@ -142,6 +142,7 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 ## Error paths
 
 - The listener returns `404 NOT_FOUND` for an unknown path, `405 METHOD_NOT_ALLOWED` for methods other than `POST`, and `401 UNAUTHORIZED` for an invalid bearer token. Invalid/oversized JSON returns `400 INVALID_JSON`.
+- If MCP runtime initialization fails, startup logs the error and continues; runtime-dependent management calls return `MCP runtime is unavailable` and the ordinary workspace remains available.
 - Tools return stable errors for invalid arguments, unknown/disabled profiles, unsupported targets, unsafe SQL, unavailable native timeouts, query timeout, overload (`BUSY`), missing managed credentials, and database failures. Driver messages redact common credential forms.
 - Provisioning that may have partially reached the database retains the reference with `recovery_required`; failed Revoke retains `revoke_failed`. Both keep MCP disabled and allow explicit cleanup retry.
 
@@ -149,6 +150,7 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 
 - `internal/store/store_test.go` — metadata persistence, migration, history defaults, retention pruning, and managed-account records.
 - `internal/api/api_test.go` — allows a Root CA update with a managed account while keeping the SSL toggle protected; `internal/mcp/root_ca_test.go` — verifies SQL profiles carry Root CA data into MCP connection paths.
+- `internal/api/mcp_test.go` — verifies runtime-dependent management calls return an unavailable error if MCP runtime initialization fails.
 - `internal/store/vault_test.go` — AES-256-GCM vault byte-compatibility with the legacy sidecar format, tamper and missing-key fail-closed behavior.
 - `internal/mcp/mcp_test.go` — loopback transport, bearer auth, tool list, bounded reads against a real SQLite file, concurrency cap (`BUSY`), provisioning state, error mapping, and call-history integration.
 - `apps/desktop/src/components/mcp-settings-section.test.tsx` — verifies the Logs tab displays local inputs and summaries without database results.
@@ -169,6 +171,7 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 - `apps/desktop/src/lib/mcp-managed-account.ts`
 - `apps/desktop/src/lib/api.ts`
 - `internal/api/mcp.go`
+- `internal/api/mcp_test.go`
 - `internal/store/vault.go`
 - `internal/store/profiles.go`
 - `internal/store/mcp.go`

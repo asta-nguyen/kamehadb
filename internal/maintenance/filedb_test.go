@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -136,6 +137,26 @@ func TestRestoreCopiesWALWhenPresent(t *testing.T) {
 	}
 }
 
+// Share the preservation checks so backup and restore failure cases stay focused on their inputs.
+func assertFileDatabaseOperationFailurePreservesFiles(t *testing.T, dir, message string, operation func() error, expected map[string]string) {
+	t.Helper()
+	if err := operation(); err == nil {
+		t.Fatal(message)
+	}
+	for path, want := range expected {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if string(b) != want {
+			t.Fatalf("%s changed on failure: %q", path, b)
+		}
+	}
+	if m, _ := filepath.Glob(filepath.Join(dir, "*.kamehadb-stage-*")); len(m) != 0 {
+		t.Fatalf("staged temp files left behind: %v", m)
+	}
+}
+
 // A failed backup must not truncate or delete the previous output; staging keeps
 // the destination untouched until a fully successful promote. (What / Why)
 func TestBackupFileDatabaseFailurePreservesExistingOutput(t *testing.T) {
@@ -154,18 +175,10 @@ func TestBackupFileDatabaseFailurePreservesExistingOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := BackupFileDatabase(engines.KindDuckDB, srcDir, out); err == nil {
-		t.Fatal("expected backup to fail when the source cannot be read")
-	}
-	if b, _ := os.ReadFile(out); string(b) != "original-db" {
-		t.Fatalf("output changed on failure: %q", b)
-	}
-	if b, _ := os.ReadFile(out + ".wal"); string(b) != "original-wal" {
-		t.Fatalf("sidecar changed on failure: %q", b)
-	}
-	if m, _ := filepath.Glob(filepath.Join(dir, "*.kamehadb-stage-*")); len(m) != 0 {
-		t.Fatalf("staged temp files left behind: %v", m)
-	}
+	assertFileDatabaseOperationFailurePreservesFiles(t, dir, "expected backup to fail when the source cannot be read", func() error {
+		_, err := BackupFileDatabase(engines.KindDuckDB, srcDir, out)
+		return err
+	}, map[string]string{out: "original-db", out + ".wal": "original-wal"})
 }
 
 // A failed restore must leave the live database and its sidecars intact. (What / Why)
@@ -184,18 +197,10 @@ func TestRestoreFileDatabaseFailurePreservesExistingDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := RestoreFileDatabase(engines.KindDuckDB, live, inputDir); err == nil {
-		t.Fatal("expected restore to fail when the backup cannot be read")
-	}
-	if b, _ := os.ReadFile(live); string(b) != "live-db" {
-		t.Fatalf("live database changed on failure: %q", b)
-	}
-	if b, _ := os.ReadFile(live + ".wal"); string(b) != "live-wal" {
-		t.Fatalf("live sidecar changed on failure: %q", b)
-	}
-	if m, _ := filepath.Glob(filepath.Join(dir, "*.kamehadb-stage-*")); len(m) != 0 {
-		t.Fatalf("staged temp files left behind: %v", m)
-	}
+	assertFileDatabaseOperationFailurePreservesFiles(t, dir, "expected restore to fail when the backup cannot be read", func() error {
+		_, err := RestoreFileDatabase(engines.KindDuckDB, live, inputDir)
+		return err
+	}, map[string]string{live: "live-db", live + ".wal": "live-wal"})
 }
 
 // A rename error partway through promotion must restore the previous file set
@@ -250,5 +255,122 @@ func TestReplaceFileSetRestoresPreviousFilesOnPromotionError(t *testing.T) {
 	}
 	if m, _ := filepath.Glob(filepath.Join(dir, "*.kamehadb-backup")); len(m) != 0 {
 		t.Fatalf("backup temporaries left behind: %v", m)
+	}
+}
+
+func TestReplaceFileSetReportsRollbackFailureAndPreservesBackup(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "data.db")
+	staged := filepath.Join(dir, "data.stage")
+	if err := os.WriteFile(target, []byte("old-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(staged, []byte("new-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	promotionErr := errors.New("injected promotion failure")
+	rollbackErr := errors.New("injected rollback failure")
+	orig := renameFile
+	defer func() { renameFile = orig }()
+	calls := 0
+	renameFile = func(oldpath, newpath string) error {
+		calls++
+		switch calls {
+		case 2:
+			return promotionErr
+		case 3:
+			return rollbackErr
+		default:
+			return os.Rename(oldpath, newpath)
+		}
+	}
+
+	err := replaceFileSet([]stagedFile{{staged: staged, target: target}}, nil)
+	if !errors.Is(err, promotionErr) || !errors.Is(err, rollbackErr) {
+		t.Fatalf("want promotion and rollback errors, got %v", err)
+	}
+	backup := target + ".kamehadb-backup"
+	if !strings.Contains(err.Error(), backup) {
+		t.Fatalf("error does not identify the recovery backup %q: %v", backup, err)
+	}
+	if b, readErr := os.ReadFile(backup); readErr != nil || string(b) != "old-data" {
+		t.Fatalf("old data not preserved at backup: %q %v", b, readErr)
+	}
+}
+
+func TestReplaceFileSetReportsFailureRemovingPromotedFile(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "data.db")
+	staged := filepath.Join(dir, "data.stage")
+	if err := os.WriteFile(target, []byte("old-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(staged, []byte("new-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	promotionErr := errors.New("injected promotion failure")
+	orig := renameFile
+	defer func() { renameFile = orig }()
+	renameFile = func(oldpath, newpath string) error {
+		if oldpath != staged {
+			return os.Rename(oldpath, newpath)
+		}
+		if err := os.Rename(oldpath, newpath); err != nil {
+			return err
+		}
+		if err := os.Remove(target); err != nil {
+			return err
+		}
+		if err := os.Mkdir(target, 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(target, "keep"), []byte("block removal"), 0o644); err != nil {
+			return err
+		}
+		return promotionErr
+	}
+
+	err := replaceFileSet([]stagedFile{{staged: staged, target: target}}, nil)
+	if !errors.Is(err, promotionErr) {
+		t.Fatalf("want promotion error, got %v", err)
+	}
+	backup := target + ".kamehadb-backup"
+	if !strings.Contains(err.Error(), "recovery copy remains at "+backup) {
+		t.Fatalf("error does not explain the preserved recovery copy: %v", err)
+	}
+	if b, readErr := os.ReadFile(backup); readErr != nil || string(b) != "old-data" {
+		t.Fatalf("old data not preserved at backup: %q %v", b, readErr)
+	}
+}
+
+func TestReplaceFileSetPreservesExistingRecoveryBackup(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "data.db")
+	staged := filepath.Join(dir, "data.stage")
+	backup := target + ".kamehadb-backup"
+	if err := os.WriteFile(target, []byte("live-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(backup, []byte("recovery-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(staged, []byte("new-data"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := replaceFileSet([]stagedFile{{staged: staged, target: target}}, nil)
+	if err == nil || !strings.Contains(err.Error(), backup) {
+		t.Fatalf("expected recovery-backup conflict at %q, got %v", backup, err)
+	}
+	if b, readErr := os.ReadFile(target); readErr != nil || string(b) != "live-data" {
+		t.Fatalf("live data changed: %q %v", b, readErr)
+	}
+	if b, readErr := os.ReadFile(backup); readErr != nil || string(b) != "recovery-data" {
+		t.Fatalf("recovery backup changed: %q %v", b, readErr)
+	}
+	if fileExists(staged) {
+		t.Fatal("staged file should be removed after rejecting the recovery-backup conflict")
 	}
 }

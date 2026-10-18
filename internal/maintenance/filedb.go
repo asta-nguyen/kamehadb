@@ -5,6 +5,7 @@ package maintenance
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -163,17 +164,41 @@ func cleanupStaged(files []stagedFile) {
 
 // replaceFileSet promotes every staged file onto its target, moving each
 // existing target aside first so a reported promotion error restores the
-// previous set. Sidecars cannot be swapped as one filesystem operation, so the
-// guarantee is rollback on a reported rename error, not recovery from power
-// loss mid-swap. removeAfter lists stale targets (sidecars the backup does not
-// carry) deleted only after a fully successful promotion. (What / How / Why)
+// previous set. Failed rollback keeps its recovery copy and reports its path.
+// removeAfter lists stale sidecars deleted only after a successful promotion.
 func replaceFileSet(files []stagedFile, removeAfter []string) error {
 	type backup struct{ target, saved string }
 	var backups []backup
-	restore := func() {
-		for _, b := range backups {
-			_ = renameFile(b.saved, b.target)
+	restore := func(promoted int) error {
+		var rollbackErrors []error
+		blocked := map[string]bool{}
+		for i := promoted - 1; i >= 0; i-- {
+			target := files[i].target
+			if err := os.Remove(target); err != nil && !errors.Is(err, os.ErrNotExist) {
+				blocked[target] = true
+				reported := false
+				for _, b := range backups {
+					if b.target == target {
+						rollbackErrors = append(rollbackErrors, fmt.Errorf("could not remove replacement %s; recovery copy remains at %s: %w", target, b.saved, err))
+						reported = true
+						break
+					}
+				}
+				if !reported {
+					rollbackErrors = append(rollbackErrors, fmt.Errorf("could not remove replacement %s: %w", target, err))
+				}
+			}
 		}
+		for i := len(backups) - 1; i >= 0; i-- {
+			b := backups[i]
+			if blocked[b.target] {
+				continue
+			}
+			if err := renameFile(b.saved, b.target); err != nil {
+				rollbackErrors = append(rollbackErrors, fmt.Errorf("could not restore %s; recovery copy remains at %s: %w", b.target, b.saved, err))
+			}
+		}
+		return errors.Join(rollbackErrors...)
 	}
 
 	for _, f := range files {
@@ -181,11 +206,19 @@ func replaceFileSet(files []stagedFile, removeAfter []string) error {
 			continue
 		}
 		saved := f.target + ".kamehadb-backup"
-		_ = os.Remove(saved)
-		if err := renameFile(f.target, saved); err != nil {
-			restore()
+		if _, err := os.Lstat(saved); err == nil {
+			rollbackErr := restore(0)
 			cleanupStaged(files)
-			return err
+			return errors.Join(fmt.Errorf("existing recovery copy at %s prevents replacing %s", saved, f.target), rollbackErr)
+		} else if !errors.Is(err, os.ErrNotExist) {
+			rollbackErr := restore(0)
+			cleanupStaged(files)
+			return errors.Join(fmt.Errorf("could not inspect recovery copy %s: %w", saved, err), rollbackErr)
+		}
+		if err := renameFile(f.target, saved); err != nil {
+			rollbackErr := restore(0)
+			cleanupStaged(files)
+			return errors.Join(err, rollbackErr)
 		}
 		backups = append(backups, backup{target: f.target, saved: saved})
 	}
@@ -193,12 +226,9 @@ func replaceFileSet(files []stagedFile, removeAfter []string) error {
 	promoted := 0
 	for _, f := range files {
 		if err := renameFile(f.staged, f.target); err != nil {
-			for i := 0; i < promoted; i++ {
-				os.Remove(files[i].target)
-			}
-			restore()
+			rollbackErr := restore(promoted)
 			cleanupStaged(files[promoted:])
-			return err
+			return errors.Join(err, rollbackErr)
 		}
 		promoted++
 	}

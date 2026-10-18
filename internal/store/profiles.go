@@ -74,7 +74,7 @@ func (s *Store) ListProfiles() ([]Profile, error) {
 
 func (s *Store) GetProfile(id string) (*Profile, error) {
 	row := s.db.QueryRow(`SELECT `+profileColumns+` FROM connection_profiles WHERE id = ?`, id)
-	p, err := s.scanProfileRow(row)
+	p, err := s.scanProfile(row)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -267,24 +267,7 @@ func (s *Store) DeleteProfile(id string) (bool, error) {
 // (AUTOINCREMENT variant); scanning into any and stringifying keeps those
 // rows readable exactly like the TS rowToProfile cast. The connection string
 // is decrypted here so callers always receive the plaintext they can dial.
-func (s *Store) scanProfile(rows *sql.Rows) (Profile, error) {
-	var p Profile
-	var id any
-	var host, database, username, caCert, filePath, color, connStr sql.NullString
-	var port sql.NullInt64
-	var ssl, mcp int64
-	err := rows.Scan(&id, &p.Name, &p.Kind, &host, &port, &database, &username,
-		&ssl, &caCert, &filePath, &color, &connStr, &mcp, &p.CreatedAt, &p.UpdatedAt)
-	if err != nil {
-		return p, err
-	}
-	if err := s.fillProfile(&p, id, host, port, database, username, caCert, filePath, color, connStr, ssl, mcp); err != nil {
-		return p, err
-	}
-	return p, nil
-}
-
-func (s *Store) scanProfileRow(row *sql.Row) (Profile, error) {
+func (s *Store) scanProfile(row interface{ Scan(...any) error }) (Profile, error) {
 	var p Profile
 	var id any
 	var host, database, username, caCert, filePath, color, connStr sql.NullString

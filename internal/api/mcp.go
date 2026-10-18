@@ -28,9 +28,20 @@ func NewMcpService(s *store.Store, runtime *mcp.Runtime) *McpService {
 	return &McpService{store: s, runtime: runtime, provisioning: map[string]bool{}, revoking: map[string]bool{}}
 }
 
+func (s *McpService) requireRuntime() (*mcp.Runtime, error) {
+	if s.runtime == nil {
+		return nil, errors.New("MCP runtime is unavailable")
+	}
+	return s.runtime, nil
+}
+
 // GetMCPSettings mirrors GET /mcp/settings.
 func (s *McpService) GetMCPSettings() (*mcp.SettingsResponse, error) {
-	return s.runtime.SettingsResponse()
+	runtime, err := s.requireRuntime()
+	if err != nil {
+		return nil, err
+	}
+	return runtime.SettingsResponse()
 }
 
 // UpdateMCPPort mirrors PATCH /mcp/settings — UpdateMcpPortSchema bounds.
@@ -38,24 +49,36 @@ func (s *McpService) UpdateMCPPort(port int64) (*mcp.SettingsResponse, error) {
 	if port < 1 || port > 65535 {
 		return nil, errors.New("port must be between 1 and 65535")
 	}
-	if err := s.runtime.UpdatePort(port); err != nil {
+	runtime, err := s.requireRuntime()
+	if err != nil {
 		return nil, err
 	}
-	return s.runtime.SettingsResponse()
+	if err := runtime.UpdatePort(port); err != nil {
+		return nil, err
+	}
+	return runtime.SettingsResponse()
 }
 
 // RetryMCPListener mirrors POST /mcp/settings/retry.
 func (s *McpService) RetryMCPListener() (*mcp.SettingsResponse, error) {
-	s.runtime.Retry()
-	return s.runtime.SettingsResponse()
+	runtime, err := s.requireRuntime()
+	if err != nil {
+		return nil, err
+	}
+	runtime.Retry()
+	return runtime.SettingsResponse()
 }
 
 // RotateMCPToken mirrors POST /mcp/settings/rotate-token.
 func (s *McpService) RotateMCPToken() (*mcp.SettingsResponse, error) {
-	if _, err := s.runtime.RotateToken(); err != nil {
+	runtime, err := s.requireRuntime()
+	if err != nil {
 		return nil, err
 	}
-	return s.runtime.SettingsResponse()
+	if _, err := runtime.RotateToken(); err != nil {
+		return nil, err
+	}
+	return runtime.SettingsResponse()
 }
 
 // GetMCPCallHistory mirrors GET /mcp/history.
@@ -69,7 +92,11 @@ func (s *McpService) GetMCPCallHistory() (map[string]any, error) {
 
 // SetMCPHistoryEnabled mirrors PATCH /mcp/settings/history.
 func (s *McpService) SetMCPHistoryEnabled(enabled bool) (*mcp.SettingsResponse, error) {
-	return s.runtime.SetHistoryEnabled(enabled)
+	runtime, err := s.requireRuntime()
+	if err != nil {
+		return nil, err
+	}
+	return runtime.SetHistoryEnabled(enabled)
 }
 
 // ClearMCPCallHistory mirrors DELETE /mcp/history.
@@ -87,6 +114,10 @@ type ManagedAccountStatus struct {
 
 // GetMCPAccounts mirrors GET /mcp/accounts.
 func (s *McpService) GetMCPAccounts() (map[string]any, error) {
+	runtime, err := s.requireRuntime()
+	if err != nil {
+		return nil, err
+	}
 	records, err := s.store.ListMCPManagedAccounts()
 	if err != nil {
 		return nil, err
@@ -110,7 +141,7 @@ func (s *McpService) GetMCPAccounts() (map[string]any, error) {
 			ProfileID:           p.ID,
 			Applicable:          engines.IsMCPServerKind(p.Kind) || p.Kind == engines.KindSQLite,
 			State:               state,
-			CredentialAvailable: s.runtime.Manager.HasCredential(p.ID),
+			CredentialAvailable: runtime.Manager.HasCredential(p.ID),
 		})
 	}
 	return map[string]any{"accounts": accounts}, nil
@@ -118,6 +149,10 @@ func (s *McpService) GetMCPAccounts() (map[string]any, error) {
 
 // PrepareMCPAccount mirrors POST /mcp/profiles/:id/account/prepare.
 func (s *McpService) PrepareMCPAccount(profileID string) (map[string]any, error) {
+	runtime, err := s.requireRuntime()
+	if err != nil {
+		return nil, err
+	}
 	profile, err := s.store.GetProfile(profileID)
 	if err != nil {
 		return nil, err
@@ -166,12 +201,16 @@ func (s *McpService) PrepareMCPAccount(profileID string) (map[string]any, error)
 	if stored == nil || !mcp.IsManagedCredentialForProfile(profile, accountRef, stored) {
 		return fail(mcp.PrepareVerifyFailed)
 	}
-	s.runtime.Manager.SetCredential(profileID, stored)
+	runtime.Manager.SetCredential(profileID, stored)
 	return map[string]any{"profileId": profileID, "state": store.MCPStatePrepared}, nil
 }
 
 // ProvisionMCPAccount mirrors POST /mcp/profiles/:id/account/provision.
 func (s *McpService) ProvisionMCPAccount(profileID string) (map[string]any, error) {
+	runtime, err := s.requireRuntime()
+	if err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	if s.provisioning[profileID] || s.revoking[profileID] {
 		s.mu.Unlock()
@@ -199,7 +238,7 @@ func (s *McpService) ProvisionMCPAccount(profileID string) (map[string]any, erro
 	if account.State != store.MCPStatePrepared {
 		return nil, errors.New("MCP account is not ready to provision")
 	}
-	credential := s.runtime.Manager.GetCredential(profileID)
+	credential := runtime.Manager.GetCredential(profileID)
 	if credential == nil {
 		return nil, errors.New("The prepared credential is unavailable; revoke and create the account again")
 	}
@@ -221,7 +260,7 @@ func (s *McpService) ProvisionMCPAccount(profileID string) (map[string]any, erro
 	if err != nil {
 		var opErr *mcp.AccountOperationError
 		cleanupFailed := errors.As(err, &opErr) && opErr.CleanupFailed
-		s.runtime.Manager.ClearCredential(profileID)
+		runtime.Manager.ClearCredential(profileID)
 		state := store.MCPStatePrepared
 		if cleanupFailed {
 			state = store.MCPStateRecoveryRequired
@@ -239,6 +278,10 @@ func (s *McpService) ProvisionMCPAccount(profileID string) (map[string]any, erro
 
 // RevokeMCPAccount mirrors POST /mcp/profiles/:id/account/revoke.
 func (s *McpService) RevokeMCPAccount(profileID string) (map[string]any, error) {
+	runtime, err := s.requireRuntime()
+	if err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
 	if s.provisioning[profileID] || s.revoking[profileID] {
 		s.mu.Unlock()
@@ -267,7 +310,7 @@ func (s *McpService) RevokeMCPAccount(profileID string) (map[string]any, error) 
 	if _, err := s.store.SetProfileMCPEnabled(profileID, false); err != nil {
 		return nil, err
 	}
-	s.runtime.Manager.ClearCredential(profileID)
+	runtime.Manager.ClearCredential(profileID)
 	if account.State != store.MCPStatePrepared && account.State != store.MCPStateLocalCleanupPending {
 		adminPassword, err := s.store.GetProfilePassword(profileID)
 		if err != nil {
