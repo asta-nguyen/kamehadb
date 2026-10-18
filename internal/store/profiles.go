@@ -209,24 +209,42 @@ func (s *Store) encryptOptional(recordID, field string, value *string) (any, err
 }
 
 func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
-	existing, err := s.GetProfileLenient(id)
+	// Read stored profile and raw credentials directly: they are ciphertext
+	// (or legacy plaintext) and must be carried forward verbatim when omitted,
+	// never re-encrypted. Skipping decryption here also prevents spurious
+	// unreadable-secret warnings during non-secret metadata updates. (What / Why)
+	var (
+		curName, curKind string
+		curHost, curDB   sql.NullString
+		curPort          sql.NullInt64
+		curUser          sql.NullString
+		curPassword      sql.NullString
+		curSSL           int64
+		curSSLCACert     sql.NullString
+		curFilePath      sql.NullString
+		curColor         sql.NullString
+		curConnStr       sql.NullString
+	)
+	err := s.db.QueryRow(`
+		SELECT name, kind, host, port, database, username, password,
+		       ssl, ssl_ca_cert, file_path, color, connection_string
+		FROM connection_profiles WHERE id = ?`, id,
+	).Scan(
+		&curName, &curKind, &curHost, &curPort, &curDB, &curUser, &curPassword,
+		&curSSL, &curSSLCACert, &curFilePath, &curColor, &curConnStr,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	if existing == nil {
-		return nil, nil
-	}
-	// Read stored credentials directly: they are ciphertext (or legacy plaintext)
-	// and must be carried forward verbatim when omitted, never re-encrypted. (Why)
-	var existingPassword, existingConnStr sql.NullString
-	if err := s.db.QueryRow(`SELECT password, connection_string FROM connection_profiles WHERE id = ?`, id).Scan(&existingPassword, &existingConnStr); err != nil {
-		return nil, err
-	}
+
 	ssl := int64(0)
 	switch {
 	case in.SSL != nil && *in.SSL:
 		ssl = 1
-	case in.SSL == nil && existing.SSL:
+	case in.SSL == nil && curSSL == 1:
 		ssl = 1
 	}
 	password := any(nil)
@@ -234,27 +252,27 @@ func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
 		if password, err = s.encryptSecret(id, profilePasswordField, *in.Password); err != nil {
 			return nil, err
 		}
-	} else if existingPassword.Valid {
-		password = existingPassword.String
+	} else if curPassword.Valid {
+		password = curPassword.String
 	}
 	connStr := any(nil)
 	if in.ConnectionString != nil {
 		if connStr, err = s.encryptSecret(id, profileConnectionStringField, *in.ConnectionString); err != nil {
 			return nil, err
 		}
-	} else if existingConnStr.Valid {
-		connStr = existingConnStr.String
+	} else if curConnStr.Valid {
+		connStr = curConnStr.String
 	}
 	_, err = s.db.Exec(
 		`UPDATE connection_profiles SET
 			name = ?, kind = ?, host = ?, port = ?, database = ?, username = ?, password = ?,
 			ssl = ?, ssl_ca_cert = ?, file_path = ?, color = ?, connection_string = ?, updated_at = ?
 		 WHERE id = ?`,
-		orStr(in.Name, existing.Name), orStr(in.Kind, existing.Kind),
-		orPtr(in.Host, existing.Host), orInt(in.Port, existing.Port),
-		orPtr(in.Database, existing.Database), orPtr(in.Username, existing.Username),
-		password, ssl, orPtr(in.SSLCACert, existing.SSLCACert),
-		orPtr(in.FilePath, existing.FilePath), orPtr(in.Color, existing.Color),
+		orStr(in.Name, curName), orStr(in.Kind, curKind),
+		orPtr(in.Host, nullStr(curHost)), orInt(in.Port, nullInt(curPort)),
+		orPtr(in.Database, nullStr(curDB)), orPtr(in.Username, nullStr(curUser)),
+		password, ssl, orPtr(in.SSLCACert, nullStr(curSSLCACert)),
+		orPtr(in.FilePath, nullStr(curFilePath)), orPtr(in.Color, nullStr(curColor)),
 		connStr, nowISO(), id)
 	if err != nil {
 		return nil, err

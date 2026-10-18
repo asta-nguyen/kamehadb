@@ -17,8 +17,9 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string | null>(tab.sessionId ?? null);
 
-  const { data: connections } = useConnections();
+  const { data: connections, isLoading, isError } = useConnections();
   const profile = connections?.find((c) => c.id === connectionId);
+  const hasProfile = Boolean(profile);
   const connectionString = profile?.connectionString ?? '';
 
   // Forward keystrokes to the running shell session.
@@ -46,6 +47,24 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
   useEffect(() => {
     const terminalContainer = terminalRef.current;
     if (!terminalContainer) return;
+
+    // Do not show an error terminal while connections are still loading. (Why)
+    if (isLoading) return;
+
+    if (isError || !hasProfile) {
+      const term = new Terminal({
+        cursorBlink: false,
+        fontSize: 13,
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+        cols: 80,
+        rows: 24,
+      });
+      term.open(terminalContainer);
+      term.writeln('\r\n\x1b[31mError: Connection profile not found.\x1b[0m\r\n');
+      return () => {
+        term.dispose();
+      };
+    }
 
     if (!connectionString) {
       const term = new Terminal({
@@ -177,7 +196,7 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
       resizeObserver.disconnect();
       term.dispose();
     };
-  }, [connectionString, connectionId, tab.id, handleData, handleResize]);
+  }, [isLoading, isError, hasProfile, connectionString, connectionId, tab.id, handleData, handleResize]);
 
   return (
     <div className="h-full w-full overflow-hidden bg-black">

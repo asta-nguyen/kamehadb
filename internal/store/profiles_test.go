@@ -233,3 +233,28 @@ func TestUpdateProfileSurvivesUnreadableVaultKey(t *testing.T) {
 		t.Fatalf("updated connection string = %v, err %v", updatedConn.ConnectionString, err)
 	}
 }
+
+// Updating a profile with a new secret when the vault key is unavailable and
+// ciphertexts already exist must fail closed rather than generating a new vault
+// key, which would split keys and orphan existing ciphertexts. (What / Why)
+func TestUpdateProfileFailsWhenVaultKeyUnavailableForNewSecret(t *testing.T) {
+	withMemoryKeyring(t)
+	path := filepath.Join(t.TempDir(), "kamehadb.db")
+	seedLegacyPlaintext(t, path)
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	// Invalidate the vault key: secret writes must fail.
+	originalGet := keyringGet
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+	defer func() { keyringGet = originalGet }()
+
+	newConn := "postgres://new-uri"
+	if _, err := s.UpdateProfile("p1", ProfileInput{ConnectionString: &newConn}); err == nil {
+		t.Fatal("expected UpdateProfile with new secret to fail when vault key is unavailable and ciphertexts exist")
+	}
+}

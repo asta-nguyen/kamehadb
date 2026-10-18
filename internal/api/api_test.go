@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -248,6 +249,13 @@ func TestUpdateConnectionSurvivesUnreadableVaultKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Invalidate the vault key: secret reads fail.
+	restore := store.SetKeyringHooksForTest(
+		func(string, string) (string, error) { return "", errors.New("keychain locked") },
+		nil,
+	)
+	defer restore()
 
 	service := NewConnectionsService(st, engines.NewRegistry(st))
 	newName := "mongo-renamed"

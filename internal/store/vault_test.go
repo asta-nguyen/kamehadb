@@ -77,7 +77,7 @@ func TestDecryptFailsClosed(t *testing.T) {
 // moved to another row or column must fail rather than decrypt. (What / Why)
 func TestStoredSecretBindsRecordAndField(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "meta.db")
-	ciphertext, err := encryptStoredSecret(dbPath, "p1", "password", "secret")
+	ciphertext, err := encryptStoredSecret(dbPath, true, "p1", "password", "secret")
 	if err != nil {
 		t.Fatal(err)
 	}
