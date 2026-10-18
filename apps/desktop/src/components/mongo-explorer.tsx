@@ -6,7 +6,7 @@ import { appStore, setActiveMongoDatabase } from '@/store';
 import { useStore } from '@tanstack/react-store';
 import type { CollectionInfo } from '@kamehadb/shared';
 import { safeErrorMessage } from '@kamehadb/shared';
-import { AlertCircle, ChevronDown, ChevronRight, Clock, Database, Eye, RefreshCw, Search, Table2 } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronRight, Clock, Database, Eye, Search, Table2 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -36,7 +36,6 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
     isLoading: loadingDatabases,
     error: dbsError,
     isError: isDbsError,
-    refetch: refetchDbs,
   } = useMongoDatabases(connectionId);
 
   // Auto-select and auto-expand the first database once it loads
@@ -71,7 +70,7 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
           <Spinner size="md" />
         </div>
       ) : isDbsError ? (
-        <div className="p-3 space-y-2">
+        <div className="p-3 space-y-1.5">
           <div className="flex items-start gap-1.5 text-destructive text-xs">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
             <div className="space-y-1 min-w-0">
@@ -81,15 +80,6 @@ export function MongoExplorer({ connectionId }: MongoExplorerProps) {
               </p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetchDbs()}
-            className="w-full h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-          >
-            <RefreshCw className="size-3" />
-            Retry
-          </Button>
         </div>
       ) : !databases?.length ? (
         <div className="flex items-center justify-center py-6 text-muted-foreground text-xs">No databases found</div>

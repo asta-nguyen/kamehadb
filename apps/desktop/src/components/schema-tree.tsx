@@ -5,7 +5,7 @@ import { fuzzyMatch } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChevronRight, ChevronDown, Database, Table2, Columns3, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { ChevronRight, ChevronDown, Database, Table2, Columns3, Search, AlertCircle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { AI_SCHEMA_ACTIONS, AI_SCHEMA_ACTION_ORDER } from '@/lib/constants';
@@ -29,13 +29,7 @@ function SchemaItem({
   onToggle: () => void;
   onSelectTable: (tableId: string) => void;
 }) {
-  const {
-    data: tables,
-    isLoading,
-    isError: isTablesError,
-    error: tablesError,
-    refetch: refetchTables,
-  } = useTables(connectionId, schema);
+  const { data: tables, isLoading, isError: isTablesError, error: tablesError } = useTables(connectionId, schema);
 
   // The sidebar search covers both levels: a schema stays when its own name
   // matches and then keeps every table, or it stays with just the tables whose
@@ -71,13 +65,10 @@ function SchemaItem({
                 <Spinner size="sm" className="text-muted-foreground/60" />
               </div>
             ) : isTablesError ? (
-              <div className="px-2 py-1 flex items-center justify-between text-xs text-destructive gap-1">
+              <div className="px-2 py-1 text-xs text-destructive">
                 <span className="truncate text-[11px]" title={safeErrorMessage(tablesError)}>
                   Failed to load tables
                 </span>
-                <Button variant="ghost" size="icon-xs" onClick={() => refetchTables()} className="size-5 p-0 shrink-0">
-                  <RefreshCw className="size-3" />
-                </Button>
               </div>
             ) : visibleTables.length === 0 ? (
               <p className="pl-2 py-1 text-muted-foreground/60 text-xs italic">
@@ -208,7 +199,7 @@ export function SchemaTree({
   activeTableId: string | null;
   onSelectTable: (tableId: string) => void;
 }) {
-  const { data: schemas, isLoading, error, isError, refetch } = useSchemas(connectionId);
+  const { data: schemas, isLoading, error, isError } = useSchemas(connectionId);
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const searchFilter = searchQuery.trim();
@@ -236,7 +227,7 @@ export function SchemaTree({
 
   if (isError) {
     return (
-      <div className="p-3 space-y-2">
+      <div className="p-3 space-y-1.5">
         <div className="flex items-start gap-1.5 text-destructive text-xs">
           <AlertCircle className="size-4 shrink-0 mt-0.5" />
           <div className="space-y-1 min-w-0">
@@ -246,15 +237,6 @@ export function SchemaTree({
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          className="w-full h-6 text-xs gap-1 text-muted-foreground hover:text-foreground"
-        >
-          <RefreshCw className="size-3" />
-          Retry
-        </Button>
       </div>
     );
   }

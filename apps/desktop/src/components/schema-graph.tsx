@@ -199,7 +199,7 @@ type SchemaGraphProps = {
 };
 
 function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
-  const { data: completions, isLoading, isError, error, refetch } = useCompletionsSchema(connectionId);
+  const { data: completions, isLoading, isError, error } = useCompletionsSchema(connectionId);
   const { fitView } = useReactFlow();
   const layouted = useMemo(() => {
     if (!completions) return { nodes: [], edges: [] };
@@ -243,7 +243,7 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
   if (isError) {
     return (
       <div className="flex items-center justify-center h-full p-6">
-        <ErrorState error={error} onRetry={() => refetch()} />
+        <ErrorState error={error} />
       </div>
     );
   }

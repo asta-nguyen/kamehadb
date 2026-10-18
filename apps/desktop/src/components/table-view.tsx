@@ -33,7 +33,6 @@ import {
   X,
   Trash2,
   AlertCircle,
-  RotateCw,
   Database,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -61,7 +60,8 @@ import { ResultLimitNotice } from '@/components/result-limit-notice';
 import { NativeCSVExportButton } from '@/components/native-csv-export-button';
 import { ErrorState } from '@/components/ui/error-state';
 import { useConnections } from '@/hooks/use-connections';
-import { closeTab, closeTabsForConnection } from '@/store';
+import { appStore, closeTab, closeTabsForConnection } from '@/store';
+import { useStore } from '@tanstack/react-store';
 import { safeErrorMessage, type QueryResult } from '@kamehadb/shared';
 import {
   INITIAL_PREVIEW_NAVIGATION,
@@ -192,7 +192,6 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
     isPlaceholderData,
     error,
     isError,
-    refetch,
   } = usePreviewRows(connectionId, {
     tableId,
     ...state.navigation.position,
@@ -418,14 +417,8 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           <div className="space-y-1.5">
             <h3 className="text-sm font-semibold text-foreground">Failed to load table data</h3>
             <p className="text-xs text-muted-foreground break-words leading-relaxed">
-              {safeErrorMessage(error, 'Could not connect to the database or retrieve rows.')}
+              {safeErrorMessage(error, 'Could not retrieve rows.')}
             </p>
-          </div>
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
-              <RotateCw className="size-3.5" />
-              Retry
-            </Button>
           </div>
         </div>
       </div>
@@ -746,18 +739,10 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 export function TableView({ connectionId, tableId }: TableViewProps) {
   const { data: connections, isLoading: isLoadingConnections } = useConnections();
   const connection = connections?.find((c) => c.id === connectionId);
-  const {
-    data: columns,
-    error: columnsError,
-    isError: isColumnsError,
-    refetch: refetchColumns,
-  } = useTableColumns(connectionId, tableId);
-  const {
-    data: indexes,
-    error: indexesError,
-    isError: isIndexesError,
-    refetch: refetchIndexes,
-  } = useTableIndexes(connectionId, tableId);
+  const { data: columns, error: columnsError, isError: isColumnsError } = useTableColumns(connectionId, tableId);
+  const { data: indexes, error: indexesError, isError: isIndexesError } = useTableIndexes(connectionId, tableId);
+
+  const status = useStore(appStore, (s) => s.connectionStatus[connectionId]);
 
   if (!isLoadingConnections && !connection) {
     return (
@@ -771,6 +756,37 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
             <p className="text-xs text-muted-foreground">
               This database connection was removed or is no longer available.
             </p>
+          </div>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => closeTabsForConnection(connectionId)}>
+              Close Connection Tabs
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => closeTab(`${connectionId}:${tableId}`)}>
+              Close Tab
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // When disconnected or when the table schema fails to load, render the warning directly
+  // across the full panel without the inner sub-tabs (Data/Columns/Indexes/Stats) on top. (How / Why / What)
+  if (status === 'disconnected' || isColumnsError) {
+    const errorMsg = isColumnsError
+      ? safeErrorMessage(columnsError, 'Could not connect to the database or retrieve table information.')
+      : `Connection to “${connection?.name ?? 'database'}” is disconnected.`;
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-background">
+        <div className="max-w-md space-y-4">
+          <div className="inline-flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-2">
+            <AlertCircle className="size-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-sm font-semibold text-foreground">
+              {status === 'disconnected' ? 'Connection disconnected' : 'Failed to load table'}
+            </h3>
+            <p className="text-xs text-muted-foreground break-words leading-relaxed">{errorMsg}</p>
           </div>
           <div className="flex items-center justify-center gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => closeTabsForConnection(connectionId)}>
@@ -813,7 +829,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
         <TabsContent value="columns" className="flex-1 p-2 overflow-auto">
           {isColumnsError ? (
             <div className="p-4">
-              <ErrorState error={columnsError} onRetry={() => refetchColumns()} />
+              <ErrorState error={columnsError} />
             </div>
           ) : (
             <div className="border rounded-md">
@@ -866,7 +882,7 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
         <TabsContent value="indexes" className="flex-1 p-2 overflow-auto">
           {isIndexesError ? (
             <div className="p-4">
-              <ErrorState error={indexesError} onRetry={() => refetchIndexes()} />
+              <ErrorState error={indexesError} />
             </div>
           ) : (
             <div className="border rounded-md">
