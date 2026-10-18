@@ -2,9 +2,10 @@ import { useCallback, useState } from 'react';
 import { ChevronDown, ChevronRight, Copy, Check, Trash2, Save, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMongoFieldEdit } from '@/hooks/use-mongo-field-edit';
 
-interface DocumentCardProps {
+type DocumentCardProps = {
   doc: Record<string, unknown>;
   isExpanded: boolean;
   onToggle: () => void;
@@ -14,7 +15,7 @@ interface DocumentCardProps {
   collection: string;
   database: string;
   tabIndex?: number;
-}
+};
 
 export function DocumentCard({
   doc,
@@ -74,14 +75,18 @@ export function DocumentCard({
     clearEditValue();
   }, [clearEditValue]);
 
-  const saveEdit = useCallback(async () => {
-    if (!editingKey) return;
-    const success = await saveFieldEdit(doc._id, editingKey);
-    if (success) {
-      setEditingKey(null);
-      clearEditValue();
-    }
-  }, [editingKey, doc._id, saveFieldEdit, clearEditValue]);
+  // Save edited field value, accepting an optional override string so Select changes commit immediately. (How / Why / What)
+  const saveEdit = useCallback(
+    async (overrideValue?: string) => {
+      if (!editingKey) return;
+      const success = await saveFieldEdit(doc._id, editingKey, overrideValue);
+      if (success) {
+        setEditingKey(null);
+        clearEditValue();
+      }
+    },
+    [editingKey, doc._id, saveFieldEdit, clearEditValue],
+  );
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -155,15 +160,48 @@ export function DocumentCard({
                 </span>
                 {editingKey === key ? (
                   <div className="flex items-center gap-1 flex-1 min-w-0">
-                    <Input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={onKeyDown}
-                      className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
-                      autoFocus
-                    />
-                    <Button variant="ghost" size="icon" onClick={saveEdit} disabled={saving} title="Save (Enter)">
+                    {/* Render boolean fields as a Select dropdown instead of text input for clear, type-safe editing. (How / Why / What) */}
+                    {typeof value === 'boolean' || editValue === 'true' || editValue === 'false' ? (
+                      <Select
+                        value={editValue}
+                        onValueChange={(val) => {
+                          if (val) {
+                            setEditValue(val);
+                            void saveEdit(val);
+                          }
+                        }}
+                        open
+                        onOpenChange={(isOpen) => {
+                          if (!isOpen) {
+                            void saveEdit();
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="flex-1 min-w-0 h-6 px-1 text-xs font-mono" autoFocus>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">true</SelectItem>
+                          <SelectItem value="false">false</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={onKeyDown}
+                        className="flex-1 min-w-0 h-6 px-1 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary bg-background shrink-0"
+                        autoFocus
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => void saveEdit()}
+                      disabled={saving}
+                      title="Save (Enter)"
+                    >
                       <Save className="size-3" />
                     </Button>
                     <Button variant="ghost" size="icon" onClick={cancelEdit} title="Cancel (Esc)">

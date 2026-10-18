@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { safeErrorMessage } from '@kamehadb/shared';
 import { api } from '@/lib/api';
 import { appendFrontendLog } from '@/lib/app-logs';
+import { toastError, toastSuccess } from '@/lib/toast';
 
 /**
  * Parse a string edit value into a typed value for MongoDB.
@@ -9,7 +10,7 @@ import { appendFrontendLog } from '@/lib/app-logs';
  * - Valid JSON → parsed value
  * - Invalid JSON → raw string (for plain text fields)
  */
-function parseEditValue(editValue: string): unknown {
+export function parseEditValue(editValue: string): unknown {
   if (editValue === 'null') return null;
   try {
     return JSON.parse(editValue);
@@ -40,38 +41,52 @@ export function useMongoFieldEdit({
   logScope: string;
 }) {
   const [editValue, setEditValue] = useState('');
+  const [initialValue, setInitialValue] = useState('');
   const [saving, setSaving] = useState(false);
 
   /** Initialize the edit value from a typed field value. */
   const startEditValue = useCallback((value: unknown) => {
+    let strVal = '';
     if (value === null) {
-      setEditValue('null');
-      return;
+      strVal = 'null';
+    } else {
+      try {
+        strVal = JSON.stringify(value);
+      } catch {
+        // JSON.stringify throws on BigInt, circular references, etc.
+        strVal = String(value);
+      }
     }
-    try {
-      setEditValue(JSON.stringify(value));
-    } catch {
-      // JSON.stringify throws on BigInt, circular references, etc.
-      setEditValue(String(value));
-    }
+    setEditValue(strVal);
+    setInitialValue(strVal);
   }, []);
 
   /** Reset the edit value to its default empty state. */
   const clearEditValue = useCallback(() => {
     setEditValue('');
+    setInitialValue('');
   }, []);
 
   /**
    * Save a field update to the MongoDB document.
-   * Returns `true` on success (caller should clear its edit-target state),
+   * If value is unchanged from initialValue, cleanly exits without unnecessary network calls. (How / Why / What)
+   * Returns `true` on success or no-op (caller should clear its edit-target state),
    * `false` on failure or when the docId is missing.
    */
   const saveFieldEdit = useCallback(
-    async (docId: unknown, fieldKey: string): Promise<boolean> => {
+    async (docId: unknown, fieldKey: string, overrideValue?: string): Promise<boolean> => {
       if (docId === null || docId === undefined) return false;
+      const valToSave = overrideValue !== undefined ? overrideValue : editValue;
+
+      // If value hasn't changed from the initial value, this is a no-op!
+      // Silently finish without sending an unnecessary API update or erroring on blur. (How / Why / What)
+      if (valToSave === initialValue) {
+        return true;
+      }
+
       setSaving(true);
       try {
-        const parsedValue = parseEditValue(editValue);
+        const parsedValue = parseEditValue(valToSave);
         const result = await api.updateMongoDocument(connectionId, {
           collection,
           database,
@@ -79,7 +94,7 @@ export function useMongoFieldEdit({
           update: { [fieldKey]: parsedValue },
         });
         if (result.matchedCount === 0) {
-          alert('Update failed: no document matched the filter');
+          toastError('Update failed: no document matched the filter');
           void appendFrontendLog({
             level: 'warn',
             scope: logScope,
@@ -87,11 +102,12 @@ export function useMongoFieldEdit({
           });
           return false;
         }
+        toastSuccess('Field updated');
         onUpdate();
         return true;
       } catch (err) {
         const message = safeErrorMessage(err, String(err));
-        alert(`Update failed: ${message}`);
+        toastError(`Update failed: ${message}`);
         void appendFrontendLog({
           level: 'error',
           scope: logScope,
@@ -104,7 +120,7 @@ export function useMongoFieldEdit({
         setSaving(false);
       }
     },
-    [editValue, connectionId, collection, database, onUpdate, logScope],
+    [editValue, initialValue, connectionId, collection, database, onUpdate, logScope],
   );
 
   /** Keyboard handler for edit inputs: Enter saves, Escape cancels. */

@@ -107,10 +107,28 @@ func serializeValue(v any) any {
 
 // sanitizeFilter ports the NoSQL-injection guard: a filter VALUE that is a
 // plain object containing $-keys is wrapped in $eq so it matches literally
-// instead of executing operators.
+// instead of executing operators. It also normalizes _id hex strings to match
+// both BSON ObjectID and string representations so document updates and deletes
+// succeed when the frontend passes a serialized hex _id. (How / Why / What)
 func sanitizeFilter(filter map[string]any) map[string]any {
 	out := make(map[string]any, len(filter))
 	for k, v := range filter {
+		if k == "_id" {
+			if s, ok := v.(string); ok && len(s) == 24 {
+				if oid, err := bson.ObjectIDFromHex(s); err == nil {
+					out[k] = bson.M{"$in": []any{oid, s}}
+					continue
+				}
+			}
+			if m, ok := v.(map[string]any); ok {
+				if oidStr, ok := m["$oid"].(string); ok && len(oidStr) == 24 {
+					if oid, err := bson.ObjectIDFromHex(oidStr); err == nil {
+						out[k] = bson.M{"$in": []any{oid, oidStr}}
+						continue
+					}
+				}
+			}
+		}
 		if obj, ok := v.(map[string]any); ok {
 			hasOp := false
 			for key := range obj {
