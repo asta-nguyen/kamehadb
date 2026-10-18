@@ -7,9 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v2.0.4] — 2026-10-18
+
 ### Added
 
-- **Update Available notice** — lightweight, zero-cost background update notification at the bottom of the sidebar (`sidebar-update` with indicator dot and download icon), with 6-hour GitHub release throttling, local caching, SemVer comparison, release notes dialog, and an opt-out toggle in Settings → Updates.
+- **Update notifications** — check GitHub Releases every six hours, show release notes, and offer manual checks, per-version dismissal, an opt-out setting, and a link to the release page.
+
+### Changed
+
+- **Sidebar controls** — compact the new-connection button and align the resize handle with the sidebar edge.
 
 ---
 
