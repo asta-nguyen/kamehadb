@@ -560,7 +560,37 @@ function QueryResultTable({
     render: (value, _row, rowIndex) => {
       const isEditing = editingCell?.rowIndex === rowIndex && editingCell?.column === col.name;
       const isDate = dateColumns.has(col.name);
+      const isBool =
+        col.type.toLowerCase() === 'bool' || col.type.toLowerCase() === 'boolean' || typeof value === 'boolean';
       if (isEditing) {
+        // Render boolean columns as a Select dropdown instead of text input for clear, type-safe editing. (How / Why / What)
+        if (isBool) {
+          const currentBool = value === true || value === 'true' || value === 1 || value === '1' ? 'true' : 'false';
+          return (
+            <Select
+              value={currentBool}
+              onValueChange={(val) => {
+                if (val) {
+                  saveCellEdit(rowIndex, col.name, val, col.type);
+                }
+              }}
+              open
+              onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                  setEditingCell(null);
+                }
+              }}
+            >
+              <SelectTrigger className="h-7 min-w-0 w-full text-xs font-mono" autoFocus>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">true</SelectItem>
+                <SelectItem value="false">false</SelectItem>
+              </SelectContent>
+            </Select>
+          );
+        }
         const inputType =
           isDate && typeof value === 'string'
             ? col.type.toLowerCase() === 'date'

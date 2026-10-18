@@ -7,6 +7,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Boolean dropdown editing** — editing boolean fields in MongoDB documents and SQL tables now renders an accessible dropdown (`true`/`false`) instead of a text input.
+
+### Fixed
+
+- **MongoDB field update filter** — document updates and deletes now match both BSON `ObjectID` and string representations for 24-character hex `_id` values, resolving `no document matched the filter` errors.
+- **Unedited blur handling** — blurring or clicking outside an in-cell editor without changes now cleanly cancels editing as a no-op instead of triggering unnecessary update requests or error alerts.
+
+---
+
+## [v2.0.4] — 2026-10-18
+
+### Added
+
+- **Update notifications** — check GitHub Releases every six hours, show release notes, and offer manual checks, per-version dismissal, an opt-out setting, and a link to the release page.
+
+### Changed
+
+- **Sidebar controls** — compact the new-connection button and align the resize handle with the sidebar edge.
+
 ---
 
 ## [v2.0.3] — 2026-10-18

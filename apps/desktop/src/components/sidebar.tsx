@@ -39,6 +39,8 @@ import { ConnectionStatusDot } from './sidebar-status-dot';
 import { ConnectionTooltip } from './sidebar-tooltip';
 import { MongoExplorer } from './mongo-explorer';
 import { SchemaTree } from './schema-tree';
+import { SidebarUpdateNotice } from './sidebar-update-notice';
+import { useUpdateCheck } from '@/hooks/use-update-check';
 
 const ConnectionItem = memo(function ConnectionItem({
   conn,
@@ -236,6 +238,7 @@ export function Sidebar() {
   const { data: connections, isLoading } = useConnections();
   const activeConnectionId = useStore(appStore, (s) => s.activeConnectionId);
   const pinnedConnections = useStore(appStore, (s) => s.pinnedConnections);
+  const updateCheck = useUpdateCheck();
 
   const [showCreate, setShowCreate] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
@@ -328,7 +331,7 @@ export function Sidebar() {
   return (
     <aside
       ref={sidebarRef}
-      className="flex h-full bg-muted/30 border-border border-r shrink-0"
+      className="relative flex h-full bg-muted/30 border-border border-r shrink-0"
       style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
     >
       {/* Overflow is owned by index.css: unscrollable until hovered so WebKitGTK only
@@ -357,6 +360,14 @@ export function Sidebar() {
           </div>
           <ScrollIndicator scrollerRef={sidebarScrollRef} orientation="vertical" autoHide />
         </div>
+
+        {/* Footer: Update Available notice when a newer release is published. (How / Why / What) */}
+        <SidebarUpdateNotice
+          release={updateCheck.release}
+          currentVersion={updateCheck.currentVersion}
+          updateAvailable={updateCheck.updateAvailable}
+          onDismiss={updateCheck.dismissUpdate}
+        />
       </div>
 
       <div
@@ -365,7 +376,7 @@ export function Sidebar() {
         aria-orientation="vertical"
         aria-label="Resize sidebar"
         tabIndex={0}
-        className={`w-1 cursor-col-resize shrink-0 transition-colors border-0 m-0 ${
+        className={`absolute top-0 -right-0.5 bottom-0 w-1 cursor-col-resize z-20 transition-colors border-0 m-0 ${
           isResizing ? 'bg-primary' : 'bg-transparent hover:bg-border'
         }`}
       />

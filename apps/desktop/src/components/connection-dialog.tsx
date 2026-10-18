@@ -62,11 +62,11 @@ function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> 
   }
 }
 
-interface ConnectionDialogProps {
+type ConnectionDialogProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   editConnection?: ConnectionProfile | null;
-}
+};
 
 export function ConnectionDialog({ open, onOpenChange, editConnection }: ConnectionDialogProps) {
   const isEditing = !!editConnection;
@@ -248,8 +248,17 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {!isEditing && (
-        <DialogTrigger render={<Button size="icon" title="New connection" />}>
-          <Plus className="size-3.5" />
+        <DialogTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-4 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-sm"
+              title="New connection"
+            />
+          }
+        >
+          <Plus className="size-3" />
         </DialogTrigger>
       )}
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
