@@ -1,0 +1,25 @@
+CHANGELOG.md
+  s_73b2be259491e0::t_2693d3ba22284e 12-19
+apps/desktop/package.json
+  s_73b2be259491e0::t_2693d3ba22284e 4
+packages/shared/package.json
+  s_73b2be259491e0::t_2693d3ba22284e 4
+package.json
+  s_73b2be259491e0::t_2693d3ba22284e 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a89f83a5f3f4ad65f80a71a2e4a06801b3696d58",
+  "prompts": {},
+  "sessions": {
+    "s_73b2be259491e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14dfd-2c10-7981-8460-8c3251ce7a1d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
