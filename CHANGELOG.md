@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Connection list** — a stored secret that cannot be decrypted (locked, reset, or missing OS keychain) no longer blanks the whole connections list; the unreadable field is logged and left empty, and connecting still reports the credential problem.
+
 ---
 
 ## [v2.0.1] — 2026-10-18

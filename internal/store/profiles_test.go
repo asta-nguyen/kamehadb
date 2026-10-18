@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -146,4 +147,40 @@ func createLegacyProfileDB(t *testing.T, withCACert bool) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// A vault key that cannot be read (locked keychain, keyring reset, no keyring)
+// must not hide the connection list: listing drops the field it cannot decrypt
+// so the user still sees their connections, while the connect path stays strict
+// and reports the failure. (Why)
+func TestListProfilesSurvivesUnreadableVaultKey(t *testing.T) {
+	withMemoryKeyring(t)
+	path := filepath.Join(t.TempDir(), "kamehadb.db")
+	seedLegacyPlaintext(t, path)
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if pw, err := s.GetProfilePassword("p1"); err != nil || pw != "pw-plain" {
+		t.Fatalf("password before key loss = %q, %v", pw, err)
+	}
+
+	// The keychain is gone: reads fail and no key file exists to fall back on.
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+
+	profiles, err := s.ListProfiles()
+	if err != nil {
+		t.Fatalf("list must survive an unreadable vault key: %v", err)
+	}
+	if len(profiles) != 1 || profiles[0].Name != "Legacy" {
+		t.Fatalf("profiles = %+v", profiles)
+	}
+	if profiles[0].ConnectionString != nil {
+		t.Errorf("unreadable connection string should be dropped, got %q", *profiles[0].ConnectionString)
+	}
+	if _, err := s.GetProfile("p1"); err == nil {
+		t.Error("GetProfile must still report the unreadable secret")
+	}
 }

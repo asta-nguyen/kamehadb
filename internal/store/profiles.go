@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/internal/logs"
 )
 
 // Profile mirrors connection_profiles. Nullable columns use pointers so
@@ -63,7 +64,9 @@ func (s *Store) ListProfiles() ([]Profile, error) {
 	// Wails must serialize an empty list as [] rather than null for the welcome UI.
 	out := make([]Profile, 0)
 	for rows.Next() {
-		p, err := s.scanProfile(rows)
+		// Listing tolerates an unreadable secret: a locked or reset keychain
+		// must not turn the whole workspace into an empty list. (Why)
+		p, err := s.scanProfile(rows, true)
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +77,7 @@ func (s *Store) ListProfiles() ([]Profile, error) {
 
 func (s *Store) GetProfile(id string) (*Profile, error) {
 	row := s.db.QueryRow(`SELECT `+profileColumns+` FROM connection_profiles WHERE id = ?`, id)
-	p, err := s.scanProfile(row)
+	p, err := s.scanProfile(row, false)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -267,7 +270,8 @@ func (s *Store) DeleteProfile(id string) (bool, error) {
 // (AUTOINCREMENT variant); scanning into any and stringifying keeps those
 // rows readable exactly like the TS rowToProfile cast. The connection string
 // is decrypted here so callers always receive the plaintext they can dial.
-func (s *Store) scanProfile(row interface{ Scan(...any) error }) (Profile, error) {
+// lenient (listing) drops a field it cannot decrypt instead of failing.
+func (s *Store) scanProfile(row interface{ Scan(...any) error }, lenient bool) (Profile, error) {
 	var p Profile
 	var id any
 	var host, database, username, caCert, filePath, color, connStr sql.NullString
@@ -278,14 +282,14 @@ func (s *Store) scanProfile(row interface{ Scan(...any) error }) (Profile, error
 	if err != nil {
 		return p, err
 	}
-	if err := s.fillProfile(&p, id, host, port, database, username, caCert, filePath, color, connStr, ssl, mcp); err != nil {
+	if err := s.fillProfile(&p, id, host, port, database, username, caCert, filePath, color, connStr, ssl, mcp, lenient); err != nil {
 		return p, err
 	}
 	return p, nil
 }
 
 func (s *Store) fillProfile(p *Profile, id any, host sql.NullString, port sql.NullInt64,
-	database, username, caCert, filePath, color, connStr sql.NullString, ssl, mcp int64,
+	database, username, caCert, filePath, color, connStr sql.NullString, ssl, mcp int64, lenient bool,
 ) error {
 	p.ID = fmt.Sprint(id)
 	p.Host = nullStr(host)
@@ -301,7 +305,14 @@ func (s *Store) fillProfile(p *Profile, id any, host sql.NullString, port sql.Nu
 	if p.ConnectionString != nil && *p.ConnectionString != "" {
 		decoded, err := s.decryptSecret(p.ID, profileConnectionStringField, *p.ConnectionString)
 		if err != nil {
-			return err
+			if !lenient {
+				return err
+			}
+			// The profile is still useful without this field; log it so the
+			// failure is diagnosable instead of silently blanking the form. (Why)
+			logs.Warn("store", "connection string for profile "+p.Name+" could not be read: "+err.Error())
+			p.ConnectionString = nil
+			return nil
 		}
 		p.ConnectionString = &decoded
 	}

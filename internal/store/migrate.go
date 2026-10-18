@@ -557,7 +557,9 @@ func (s *Store) exportRemovedProfiles() (string, error) {
 	defer rows.Close()
 	var profiles []Profile
 	for rows.Next() {
-		p, err := s.scanProfile(rows)
+		// Lenient: an unreadable secret must not abort the migration that runs
+		// before these rows are purged. (Why)
+		p, err := s.scanProfile(rows, true)
 		if err != nil {
 			return "", err
 		}
