@@ -9,27 +9,27 @@ The electron alternative for Go
 */
 
 export interface Position {
-  x: number;
-  y: number;
+    x: number;
+    y: number;
 }
 
 export interface Size {
-  w: number;
-  h: number;
+    w: number;
+    h: number;
 }
 
 export interface Screen {
-  isCurrent: boolean;
-  isPrimary: boolean;
-  width: number;
-  height: number;
+    isCurrent: boolean;
+    isPrimary: boolean;
+    width : number
+    height : number
 }
 
 // Environment information such as platform, buildtype, ...
 export interface EnvironmentInfo {
-  buildType: string;
-  platform: string;
-  arch: string;
+    buildType: string;
+    platform: string;
+    arch: string;
 }
 
 // [EventsEmit](https://wails.io/docs/reference/runtime/events#eventsemit)
@@ -236,40 +236,40 @@ export function ClipboardSetText(text: string): Promise<boolean>;
 
 // [OnFileDrop](https://wails.io/docs/reference/runtime/draganddrop#onfiledrop)
 // OnFileDrop listens to drag and drop events and calls the callback with the coordinates of the drop and an array of path strings.
-export function OnFileDrop(callback: (x: number, y: number, paths: string[]) => void, useDropTarget: boolean): void;
+export function OnFileDrop(callback: (x: number, y: number ,paths: string[]) => void, useDropTarget: boolean) :void
 
 // [OnFileDropOff](https://wails.io/docs/reference/runtime/draganddrop#dragandddropoff)
 // OnFileDropOff removes the drag and drop listeners and handlers.
-export function OnFileDropOff(): void;
+export function OnFileDropOff() :void
 
 // Check if the file path resolver is available
 export function CanResolveFilePaths(): boolean;
 
 // Resolves file paths for an array of files
-export function ResolveFilePaths(files: File[]): void;
+export function ResolveFilePaths(files: File[]): void
 
 // Notification types
 export interface NotificationOptions {
-  id: string;
-  title: string;
-  subtitle?: string; // macOS and Linux only
-  body?: string;
-  categoryId?: string;
-  data?: { [key: string]: any };
+    id: string;
+    title: string;
+    subtitle?: string; // macOS and Linux only
+    body?: string;
+    categoryId?: string;
+    data?: { [key: string]: any };
 }
 
 export interface NotificationAction {
-  id?: string;
-  title?: string;
-  destructive?: boolean; // macOS-specific
+    id?: string;
+    title?: string;
+    destructive?: boolean; // macOS-specific
 }
 
 export interface NotificationCategory {
-  id?: string;
-  actions?: NotificationAction[];
-  hasReplyField?: boolean;
-  replyPlaceholder?: string;
-  replyButtonTitle?: string;
+    id?: string;
+    actions?: NotificationAction[];
+    hasReplyField?: boolean;
+    replyPlaceholder?: string;
+    replyButtonTitle?: string;
 }
 
 // [InitializeNotifications](https://wails.io/docs/reference/runtime/notification#initializenotifications)
