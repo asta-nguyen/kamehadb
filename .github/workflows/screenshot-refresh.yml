@@ -19,10 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Check out the default branch (not the tag ref) so git-auto-commit
-          # can push back to a named branch. persist-credentials: false keeps
-          # the GITHUB_TOKEN out of git config for build steps; the commit
-          # step uses its own GITHUB_TOKEN via the default token.
+          # Capture dependencies run without write credentials; add them only after capture.
           persist-credentials: false
           ref: ${{ github.event.repository.default_branch }}
 
@@ -42,9 +39,20 @@ jobs:
       - name: Capture screenshots
         run: node landing/scripts/capture-images.mjs
 
+      - name: Configure Git credentials for screenshot commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $auth_header"
+
       - name: Commit updated screenshots
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: 'chore: refresh AI Compare screenshots [skip ci]'
           file_pattern: 'landing/public/images/*.png'
           commit_options: '--no-verify'
+
+      - name: Remove Git credentials
+        if: always()
+        run: git config --local --unset-all http.https://github.com/.extraheader || true

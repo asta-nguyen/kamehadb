@@ -128,9 +128,20 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+          $nsisPath = Join-Path ${env:ProgramFiles(x86)} 'NSIS'
+          $makensis = Join-Path $nsisPath 'makensis.exe'
+
+          if (-not (Test-Path $makensis)) {
             choco install nsis -y --no-progress
           }
+
+          if (-not (Test-Path $makensis)) {
+            throw "NSIS did not install makensis.exe at $makensis"
+          }
+
+          # Chocolatey installs NSIS here but does not refresh PATH for later workflow steps.
+          Add-Content -Path $env:GITHUB_PATH -Value $nsisPath
+          & $makensis /VERSION
 
       - name: Install WiX (Windows)
         if: ${{ matrix.platform == 'windows-latest' && !contains(needs.create-release.outputs.tag_name, '-') }}
