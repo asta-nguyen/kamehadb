@@ -13,7 +13,7 @@ vi.hoisted(() => {
 });
 
 import { appStore } from './state';
-import { renameTab } from './workspace-tabs';
+import { closeTabsForConnection, renameTab } from './workspace-tabs';
 
 const queryTab: WorkspaceTab = {
   id: 'query-1',
@@ -30,6 +30,14 @@ const tableTab: WorkspaceTab = {
   connectionId: 'connection-1',
 };
 
+const otherTab: WorkspaceTab = {
+  id: 'query-2',
+  type: 'query',
+  title: 'Query 2',
+  connectionId: 'connection-2',
+  sql: 'SELECT 2',
+};
+
 describe('renameTab', () => {
   beforeEach(() => {
     appStore.setState((state) => ({
@@ -43,5 +51,33 @@ describe('renameTab', () => {
     renameTab(queryTab.id, 'Customer report');
 
     expect(appStore.state.openedTabs).toEqual([{ ...queryTab, title: 'Customer report' }, tableTab]);
+  });
+});
+
+describe('closeTabsForConnection', () => {
+  beforeEach(() => {
+    appStore.setState((state) => ({
+      ...state,
+      openedTabs: [queryTab, tableTab, otherTab],
+      activeTabId: tableTab.id,
+      activeConnectionId: 'connection-1',
+    }));
+  });
+
+  it('closes all tabs belonging to the given connection and updates active tab', () => {
+    closeTabsForConnection('connection-1');
+
+    expect(appStore.state.openedTabs).toEqual([otherTab]);
+    expect(appStore.state.activeTabId).toBe(otherTab.id);
+    expect(appStore.state.activeConnectionId).toBe('connection-2');
+  });
+
+  it('clears active tab and active connection if all tabs were closed', () => {
+    closeTabsForConnection('connection-2');
+    closeTabsForConnection('connection-1');
+
+    expect(appStore.state.openedTabs).toEqual([]);
+    expect(appStore.state.activeTabId).toBeNull();
+    expect(appStore.state.activeConnectionId).toBeNull();
   });
 });

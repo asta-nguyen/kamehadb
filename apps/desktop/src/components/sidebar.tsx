@@ -13,6 +13,7 @@ import {
 import { toastError } from '@/lib/toast';
 import {
   appStore,
+  closeTabsForConnection,
   openPostgresPsqlTab,
   openRedisTab,
   setActiveConnection,
@@ -164,7 +165,10 @@ const ConnectionItem = memo(function ConnectionItem({
         onConfirm={() => {
           return deleteConnection
             .mutateAsync(conn.id)
-            .then(() => setShowDeleteConfirm(false))
+            .then(() => {
+              closeTabsForConnection(conn.id);
+              setShowDeleteConfirm(false);
+            })
             .catch((error: unknown) => toastError(safeErrorMessage(error, 'Failed to delete connection')));
         }}
       />

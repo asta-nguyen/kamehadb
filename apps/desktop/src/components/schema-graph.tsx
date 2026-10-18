@@ -23,6 +23,7 @@ import { api } from '@/lib/api';
 import { openTab } from '@/store';
 import { Table2, LayoutGrid } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
+import { ErrorState } from '@/components/ui/error-state';
 
 type CompletionsData = {
   tables: Array<{
@@ -198,7 +199,7 @@ type SchemaGraphProps = {
 };
 
 function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
-  const { data: completions, isLoading } = useCompletionsSchema(connectionId);
+  const { data: completions, isLoading, isError, error, refetch } = useCompletionsSchema(connectionId);
   const { fitView } = useReactFlow();
   const layouted = useMemo(() => {
     if (!completions) return { nodes: [], edges: [] };
@@ -235,6 +236,14 @@ function SchemaGraphInner({ connectionId }: SchemaGraphProps) {
     return (
       <div className="flex items-center justify-center h-full">
         <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-full p-6">
+        <ErrorState error={error} onRetry={() => refetch()} />
       </div>
     );
   }
