@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Update Available notice** — lightweight, zero-cost background update notification at the bottom of the sidebar (`sidebar-update` with indicator dot and download icon), with 6-hour GitHub release throttling, local caching, SemVer comparison, release notes dialog, and an opt-out toggle in Settings → Updates.
+
 ---
 
 ## [v2.0.3] — 2026-10-18

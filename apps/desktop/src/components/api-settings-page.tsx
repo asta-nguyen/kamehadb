@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
 import { McpSettingsSection } from '@/components/mcp-settings-section';
+import { UpdateSettingsSection } from '@/components/update-settings-section';
 import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
 
 const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini'];
@@ -534,6 +535,11 @@ export function ApiSettingsPage() {
               <section className="space-y-2">
                 <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">MCP Server</h2>
                 <McpSettingsSection />
+              </section>
+
+              <section className="space-y-2">
+                <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Updates</h2>
+                <UpdateSettingsSection />
               </section>
             </div>
           </div>

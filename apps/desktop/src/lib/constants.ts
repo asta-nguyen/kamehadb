@@ -28,6 +28,15 @@ export const SCROLLBAR_AUTO_HIDE_MS = 2 * 1000;
 // cached page loads do not flash a loading indicator. (Why)
 export const SLOW_FETCH_INDICATOR_DELAY_MS = 250;
 
+// Update check interval and cache settings (periodic background check). (Why)
+export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const UPDATE_CHECK_TIMEOUT_MS = 8 * 1000;
+export const UPDATE_CACHE_STORAGE_KEY = 'kamehadb_update_cache';
+export const UPDATE_SETTINGS_STORAGE_KEY = 'kamehadb_check_for_updates';
+export const UPDATE_DISMISSED_VERSION_KEY = 'kamehadb_dismissed_update_version';
+export const DEMO_PREVIEW_STORAGE_KEY = 'kamehadb_preview_update';
+export const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/asta-nguyen/kamehadb/releases/latest';
+
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';
 import type { DbKind } from '@kamehadb/shared';
 import { KIND, ALL_KINDS, SQL_KINDS, isSqlKind, DEFAULT_PORTS } from './kinds';
