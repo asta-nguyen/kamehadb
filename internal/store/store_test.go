@@ -338,9 +338,14 @@ func TestMigrationExportsRemovedProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.DB().Exec(`INSERT INTO connection_profiles (id, name, kind, host, port)
-		VALUES ('q1', 'Old Qdrant', 'qdrant', 'localhost', 6333),
-		       ('t1', 'Old TigerBeetle', 'tigerbeetle', 'localhost', 3001)`); err != nil {
+	connectionString := "https://qdrant.local?api-key=test-secret"
+	ciphertext, err := s.encryptSecret("q1", profileConnectionStringField, connectionString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB().Exec(`INSERT INTO connection_profiles (id, name, kind, host, port, connection_string)
+		VALUES ('q1', 'Old Qdrant', 'qdrant', 'localhost', 6333, ?),
+		       ('t1', 'Old TigerBeetle', 'tigerbeetle', 'localhost', 3001, NULL)`, ciphertext); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()
@@ -375,15 +380,33 @@ func TestMigrationExportsRemovedProfiles(t *testing.T) {
 	if len(payload.Profiles) != 2 {
 		t.Fatalf("expected 2 exported profiles, got %d", len(payload.Profiles))
 	}
+	foundQdrant := false
+	for _, profile := range payload.Profiles {
+		if profile.ID != "q1" {
+			continue
+		}
+		foundQdrant = true
+		if profile.ConnectionString == nil || *profile.ConnectionString != connectionString {
+			t.Errorf("exported Qdrant connection string = %v, want original plaintext", profile.ConnectionString)
+		}
+	}
+	if !foundQdrant {
+		t.Error("export did not contain the Qdrant profile")
+	}
 	if strings.Contains(string(data), "password") {
 		t.Error("export must not contain password fields")
 	}
 }
 
-// An unreadable secret must stop the export before migration purges its source row. (Why)
-func TestMigrationKeepsRemovedProfileWhenSecretCannotBeExported(t *testing.T) {
+// A normal reopen must activate vault decryption before exporting rows for purge. (Why)
+func TestOpenRetainsRemovedProfileWhenSecretCannotBeExported(t *testing.T) {
 	withMemoryKeyring(t)
-	s := openTemp(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kamehadb.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ciphertext, err := s.encryptSecret("q1", profileConnectionStringField, "https://qdrant.local")
 	if err != nil {
 		t.Fatal(err)
@@ -392,22 +415,36 @@ func TestMigrationKeepsRemovedProfileWhenSecretCannotBeExported(t *testing.T) {
 		VALUES ('q1', 'Old Qdrant', 'qdrant', ?)`, ciphertext); err != nil {
 		t.Fatal(err)
 	}
-
-	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
-	if err := s.migrate(); err == nil {
-		t.Fatal("migration should fail when it cannot export an encrypted connection string")
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
 	}
 
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+	reopened, openErr := Open(path)
+	if reopened != nil {
+		if err := reopened.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+	if openErr == nil {
+		t.Error("open should fail when migration cannot export an encrypted connection string")
+	}
+
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
 	var count int
-	if err := s.DB().QueryRow(`SELECT COUNT(*) FROM connection_profiles WHERE id = 'q1'`).Scan(&count); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM connection_profiles WHERE id = 'q1'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
-		t.Fatalf("migration purged the unreadable profile, count = %d", count)
+		t.Errorf("migration purged the unreadable profile, count = %d", count)
 	}
-	matches, err := filepath.Glob(filepath.Join(filepath.Dir(s.Path()), "removed-profiles-*.json"))
+	matches, err := filepath.Glob(filepath.Join(dir, "removed-profiles-*.json"))
 	if err != nil || len(matches) != 0 {
-		t.Fatalf("migration should not write an incomplete export, got %v (err %v)", matches, err)
+		t.Errorf("migration should not write an incomplete export, got %v (err %v)", matches, err)
 	}
 }
 
