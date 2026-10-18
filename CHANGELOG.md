@@ -7,9 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v2.0.3] — 2026-10-18
+
 ### Fixed
 
 - **Connection list** — a stored secret that cannot be decrypted (locked, reset, or missing OS keychain) no longer blanks the whole connections list; the unreadable field is logged and left empty, and connecting still reports the credential problem.
+- **Legacy profile backup** — migration stops and preserves Qdrant/TigerBeetle profiles when an encrypted connection string cannot be decrypted, instead of writing an incomplete backup and deleting the row.
 
 ---
 

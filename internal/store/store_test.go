@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -376,6 +377,37 @@ func TestMigrationExportsRemovedProfiles(t *testing.T) {
 	}
 	if strings.Contains(string(data), "password") {
 		t.Error("export must not contain password fields")
+	}
+}
+
+// An unreadable secret must stop the export before migration purges its source row. (Why)
+func TestMigrationKeepsRemovedProfileWhenSecretCannotBeExported(t *testing.T) {
+	withMemoryKeyring(t)
+	s := openTemp(t)
+	ciphertext, err := s.encryptSecret("q1", profileConnectionStringField, "https://qdrant.local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DB().Exec(`INSERT INTO connection_profiles (id, name, kind, connection_string)
+		VALUES ('q1', 'Old Qdrant', 'qdrant', ?)`, ciphertext); err != nil {
+		t.Fatal(err)
+	}
+
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+	if err := s.migrate(); err == nil {
+		t.Fatal("migration should fail when it cannot export an encrypted connection string")
+	}
+
+	var count int
+	if err := s.DB().QueryRow(`SELECT COUNT(*) FROM connection_profiles WHERE id = 'q1'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("migration purged the unreadable profile, count = %d", count)
+	}
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(s.Path()), "removed-profiles-*.json"))
+	if err != nil || len(matches) != 0 {
+		t.Fatalf("migration should not write an incomplete export, got %v (err %v)", matches, err)
 	}
 }
 
