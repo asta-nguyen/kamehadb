@@ -1,0 +1,33 @@
+internal/store/migrate.go
+  s_d6a562511a90ca::t_504856e7910055 560-561
+packages/shared/package.json
+  s_d6a562511a90ca::t_9da5d968843afc 4
+internal/store/store_test.go
+  s_d6a562511a90ca::t_b1b786aac6eed7 6,383-411
+  s_d6a562511a90ca::t_da247952a161fa 412-413
+docs/llm/workflows/connections-and-workspace.md
+  s_d6a562511a90ca::t_9b770921155d1f 64,68,90
+  s_d6a562511a90ca::t_02f776bb306adb 63
+package.json
+  s_d6a562511a90ca::t_9da5d968843afc 4
+CHANGELOG.md
+  s_d6a562511a90ca::t_9da5d968843afc 10-13,17
+apps/desktop/package.json
+  s_d6a562511a90ca::t_9da5d968843afc 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "60b86963dbf0fe60e67c03ea4c44ff68c90c3f60",
+  "prompts": {},
+  "sessions": {
+    "s_d6a562511a90ca": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14e7a-8bfb-7091-8498-ddde26404021",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
