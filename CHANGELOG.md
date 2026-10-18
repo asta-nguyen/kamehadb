@@ -9,6 +9,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v2.0.4] — 2026-10-18
+
+### Added
+
+- **Update notifications** — check GitHub Releases every six hours, show release notes, and offer manual checks, per-version dismissal, an opt-out setting, and a link to the release page.
+
+### Changed
+
+- **Sidebar controls** — compact the new-connection button and align the resize handle with the sidebar edge.
+
+---
+
 ## [v2.0.3] — 2026-10-18
 
 ### Fixed

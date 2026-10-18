@@ -1,5 +1,5 @@
 import { runGUIRequest } from './gui-request';
-import { EventsOn } from '../../wailsjs/runtime/runtime';
+import { EventsOn, BrowserOpenURL } from '../../wailsjs/runtime/runtime';
 import {
   CheckAllHealth,
   CheckConnectionHealth,
@@ -500,4 +500,13 @@ export const api = {
 
   setConnectionMcpEnabled: (connectionId: string, enabled: boolean) =>
     SetConnectionMCPEnabled(connectionId, enabled) as Promise<Pick<ConnectionProfile, 'id' | 'mcpEnabled'>>,
+
+  // Open an external URL in the system's default browser with fallback. (How / Why / What)
+  openBrowser: (url: string) => {
+    try {
+      BrowserOpenURL(url);
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  },
 };
