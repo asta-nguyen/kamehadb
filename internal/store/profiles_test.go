@@ -184,3 +184,52 @@ func TestListProfilesSurvivesUnreadableVaultKey(t *testing.T) {
 		t.Error("GetProfile must still report the unreadable secret")
 	}
 }
+
+// Updating a profile whose secret cannot be decrypted must succeed so users
+// can repair broken credentials or edit unrelated fields without wiping out
+// the stored ciphertext. (Why)
+func TestUpdateProfileSurvivesUnreadableVaultKey(t *testing.T) {
+	withMemoryKeyring(t)
+	path := filepath.Join(t.TempDir(), "kamehadb.db")
+	seedLegacyPlaintext(t, path)
+
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	// Invalidate the vault key: secret reads fail.
+	originalGet := keyringGet
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+
+	// 1. Updating name only must succeed and keep the stored raw secret intact.
+	newName := "Renamed Legacy"
+	updated, err := s.UpdateProfile("p1", ProfileInput{Name: &newName})
+	if err != nil {
+		t.Fatalf("update profile name must succeed even with locked keychain: %v", err)
+	}
+	if updated.Name != newName {
+		t.Errorf("updated name = %q, want %q", updated.Name, newName)
+	}
+
+	// 2. Restoring the keychain confirms the stored connection string was not erased.
+	keyringGet = originalGet
+	restored, err := s.GetProfile("p1")
+	if err != nil {
+		t.Fatalf("GetProfile should succeed after keychain recovery: %v", err)
+	}
+	if restored.ConnectionString == nil || *restored.ConnectionString != "postgres://u:p@h/db" {
+		t.Errorf("connection string should be preserved verbatim, got %v", restored.ConnectionString)
+	}
+
+	// 3. Updating with a new connection string encrypts and saves successfully.
+	newConn := "postgres://new-uri"
+	if _, err := s.UpdateProfile("p1", ProfileInput{ConnectionString: &newConn}); err != nil {
+		t.Fatalf("updating connection string failed: %v", err)
+	}
+	updatedConn, err := s.GetProfile("p1")
+	if err != nil || updatedConn.ConnectionString == nil || *updatedConn.ConnectionString != newConn {
+		t.Fatalf("updated connection string = %v, err %v", updatedConn.ConnectionString, err)
+	}
+}

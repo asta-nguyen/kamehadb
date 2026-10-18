@@ -45,7 +45,24 @@ export function MongoShell({ tab, connectionId }: MongoShellProps) {
   // mongosh..." screen.
   useEffect(() => {
     const terminalContainer = terminalRef.current;
-    if (!terminalContainer || !connectionString) return;
+    if (!terminalContainer) return;
+
+    if (!connectionString) {
+      const term = new Terminal({
+        cursorBlink: false,
+        fontSize: 13,
+        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace",
+        cols: 80,
+        rows: 24,
+      });
+      term.open(terminalContainer);
+      term.writeln(
+        '\r\n\x1b[31mError: Connection string is unavailable. The stored secret could not be decrypted.\x1b[0m\r\n',
+      );
+      return () => {
+        term.dispose();
+      };
+    }
 
     // ---- xterm.js terminal setup ----
     const term = new Terminal({

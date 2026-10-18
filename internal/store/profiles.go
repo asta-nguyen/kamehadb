@@ -76,8 +76,18 @@ func (s *Store) ListProfiles() ([]Profile, error) {
 }
 
 func (s *Store) GetProfile(id string) (*Profile, error) {
+	return s.getProfile(id, false)
+}
+
+// GetProfileLenient reads a profile and ignores an unreadable connection string
+// so update and edit workflows can repair broken credentials. (Why)
+func (s *Store) GetProfileLenient(id string) (*Profile, error) {
+	return s.getProfile(id, true)
+}
+
+func (s *Store) getProfile(id string, lenient bool) (*Profile, error) {
 	row := s.db.QueryRow(`SELECT `+profileColumns+` FROM connection_profiles WHERE id = ?`, id)
-	p, err := s.scanProfile(row, false)
+	p, err := s.scanProfile(row, lenient)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -199,17 +209,17 @@ func (s *Store) encryptOptional(recordID, field string, value *string) (any, err
 }
 
 func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
-	existing, err := s.GetProfile(id)
+	existing, err := s.GetProfileLenient(id)
 	if err != nil {
 		return nil, err
 	}
 	if existing == nil {
 		return nil, nil
 	}
-	// Read the stored password directly: it is ciphertext (or legacy plaintext)
-	// and must be carried forward verbatim, never re-encrypted. (Why)
-	var existingPassword sql.NullString
-	if err := s.db.QueryRow(`SELECT password FROM connection_profiles WHERE id = ?`, id).Scan(&existingPassword); err != nil {
+	// Read stored credentials directly: they are ciphertext (or legacy plaintext)
+	// and must be carried forward verbatim when omitted, never re-encrypted. (Why)
+	var existingPassword, existingConnStr sql.NullString
+	if err := s.db.QueryRow(`SELECT password, connection_string FROM connection_profiles WHERE id = ?`, id).Scan(&existingPassword, &existingConnStr); err != nil {
 		return nil, err
 	}
 	ssl := int64(0)
@@ -227,18 +237,13 @@ func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
 	} else if existingPassword.Valid {
 		password = existingPassword.String
 	}
-	// existing.ConnectionString is decrypted, so a carried-forward value must be
-	// re-encrypted rather than written back as plaintext. (Why)
 	connStr := any(nil)
-	switch {
-	case in.ConnectionString != nil:
+	if in.ConnectionString != nil {
 		if connStr, err = s.encryptSecret(id, profileConnectionStringField, *in.ConnectionString); err != nil {
 			return nil, err
 		}
-	case existing.ConnectionString != nil:
-		if connStr, err = s.encryptSecret(id, profileConnectionStringField, *existing.ConnectionString); err != nil {
-			return nil, err
-		}
+	} else if existingConnStr.Valid {
+		connStr = existingConnStr.String
 	}
 	_, err = s.db.Exec(
 		`UPDATE connection_profiles SET
@@ -254,7 +259,7 @@ func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.GetProfile(id)
+	return s.GetProfileLenient(id)
 }
 
 func (s *Store) DeleteProfile(id string) (bool, error) {

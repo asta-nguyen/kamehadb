@@ -191,7 +191,7 @@ func ptrEq[T comparable](a, b *T) bool {
 }
 
 func (s *ConnectionsService) UpdateConnection(id string, in store.ProfileInput) (*store.Profile, error) {
-	existing, err := s.store.GetProfile(id)
+	existing, err := s.store.GetProfileLenient(id)
 	if err != nil {
 		return nil, err
 	}

@@ -233,3 +233,29 @@ func TestUpdateConnectionAllowsRootCAChangeWithManagedAccount(t *testing.T) {
 		t.Fatal("SSL toggle should remain protected while the managed MCP account exists")
 	}
 }
+
+func TestUpdateConnectionSurvivesUnreadableVaultKey(t *testing.T) {
+	st, err := store.Open(t.TempDir() + "/m.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	name, kind, uri := "mongo-test", engines.KindMongoDB, "mongodb://localhost:27017"
+	profile, err := st.CreateProfile(store.ProfileInput{
+		Name: &name, Kind: &kind, ConnectionString: &uri,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewConnectionsService(st, engines.NewRegistry(st))
+	newName := "mongo-renamed"
+	updated, err := service.UpdateConnection(profile.ID, store.ProfileInput{Name: &newName})
+	if err != nil {
+		t.Fatalf("UpdateConnection failed: %v", err)
+	}
+	if updated.Name != newName {
+		t.Errorf("updated name = %q, want %q", updated.Name, newName)
+	}
+}
