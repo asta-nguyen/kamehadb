@@ -2,20 +2,31 @@ import type { UseFormReturn } from 'react-hook-form';
 import {
   type CreateConnectionProfileInput,
   type DbKind,
-  KIND,
   isPasswordRequired,
   isUsernameRequired,
-  isFileDatabaseKind,
 } from '@kamehadb/shared';
+import { KIND, DEFAULT_PORTS, isFileDatabaseKind } from '@/lib/kinds';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Check, Plus, FolderOpen } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { DbIcon } from '@/components/db-icon';
-import { KIND_LABELS, KINDS, DEFAULT_PORTS, PRESET_COLORS } from '@/lib/constants';
+import { KIND_LABELS, KINDS, PRESET_COLORS, SSL_KINDS } from '@/lib/constants';
 
-const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; ring: string }> = {
+// Keep file-selected PEM in the same field used by manual entry and save payloads.
+export function loadRootCACertificateFile(
+  file: Pick<File, 'text'>,
+  form: UseFormReturn<CreateConnectionProfileInput>,
+): Promise<void> {
+  return file.text().then((contents) => {
+    form.clearErrors('sslCaCert');
+    form.setValue('sslCaCert', contents, { shouldDirty: true });
+  });
+}
+
+const KIND_ACCENTS: Partial<Record<DbKind, { border: string; bg: string; icon: string; ring: string }>> = {
   [KIND.POSTGRES]: {
     border: 'hover:border-primary/50',
     bg: 'data-[selected=true]:bg-primary/10',
@@ -45,12 +56,6 @@ const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; r
     bg: 'data-[selected=true]:bg-accent/50',
     icon: 'text-accent-foreground',
     ring: 'data-[selected=true]:ring-accent-foreground/20',
-  },
-  [KIND.QDRANT]: {
-    border: 'hover:border-primary/50',
-    bg: 'data-[selected=true]:bg-primary/10',
-    icon: 'text-primary',
-    ring: 'data-[selected=true]:ring-primary/20',
   },
   [KIND.SQLSERVER]: {
     border: 'hover:border-blue-500/50',
@@ -82,12 +87,6 @@ const KIND_ACCENTS: Record<DbKind, { border: string; bg: string; icon: string; r
     icon: 'text-emerald-500',
     ring: 'data-[selected=true]:ring-emerald-500/20',
   },
-  [KIND.TIGERBEETLE]: {
-    border: 'hover:border-orange-500/50',
-    bg: 'data-[selected=true]:bg-orange-500/10',
-    icon: 'text-orange-500',
-    ring: 'data-[selected=true]:ring-orange-500/20',
-  },
 };
 
 function selectKind(form: UseFormReturn<CreateConnectionProfileInput>, dbKind: DbKind) {
@@ -98,13 +97,6 @@ function selectKind(form: UseFormReturn<CreateConnectionProfileInput>, dbKind: D
     form.setValue('database', undefined);
     form.setValue('username', undefined);
     form.setValue('password', undefined);
-  } else if (dbKind === KIND.QDRANT) {
-    form.setValue('filePath', undefined);
-    form.setValue('database', undefined);
-    form.setValue('username', undefined);
-    form.setValue('password', undefined);
-    if (!form.getValues('host')) form.setValue('host', 'localhost');
-    form.setValue('port', DEFAULT_PORTS[dbKind]);
   } else {
     form.setValue('filePath', undefined);
     if (!form.getValues('host')) form.setValue('host', 'localhost');
@@ -119,7 +111,7 @@ export function DatabaseTypeGrid({ form, kind }: { form: UseFormReturn<CreateCon
       <div className="grid grid-cols-3 gap-2">
         {KINDS.map((dbKind) => {
           const selected = kind === dbKind;
-          const accent = KIND_ACCENTS[dbKind];
+          const accent = KIND_ACCENTS[dbKind]!;
           return (
             <Button
               key={dbKind}
@@ -235,14 +227,19 @@ export function ConnectionDetailsSection({
   kind,
   onUrlChange,
   fileInputRef,
+  rootCAInputRef,
   isEditing,
 }: {
   form: UseFormReturn<CreateConnectionProfileInput>;
   kind: DbKind;
   onUrlChange: (value: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  rootCAInputRef: React.RefObject<HTMLInputElement | null>;
   isEditing: boolean;
 }) {
+  const sslEnabled = form.watch('ssl') ?? false;
+  const rootCAField = form.register('sslCaCert');
+
   return (
     <div className="space-y-3">
       <div className="h-px bg-border/50" />
@@ -335,64 +332,102 @@ export function ConnectionDetailsSection({
               />
             </div>
           </div>
-          {kind !== KIND.QDRANT && kind !== KIND.TIGERBEETLE && (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Database
-                </Label>
-                <Input id="database" {...form.register('database')} placeholder="mydb" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="username"
-                    className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                  >
-                    Username {isUsernameRequired(kind) && <span className="text-destructive">*</span>}
-                  </Label>
-                  <Input
-                    id="username"
-                    {...form.register('username')}
-                    placeholder={kind === KIND.POSTGRES ? 'postgres' : 'root'}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label
-                    htmlFor="password"
-                    className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                  >
-                    Password {isPasswordRequired(kind) && <span className="text-destructive">*</span>}
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    onChange={(e) => form.setValue('password', e.target.value)}
-                    placeholder={isEditing ? '(unchanged)' : ''}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-          {kind === KIND.TIGERBEETLE && (
+          <div className="space-y-1.5">
+            <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Database
+            </Label>
+            <Input id="database" {...form.register('database')} placeholder="mydb" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
-              <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Cluster ID
+              <Label htmlFor="username" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Username {isUsernameRequired(kind) && <span className="text-destructive">*</span>}
               </Label>
-              <Input id="database" {...form.register('database')} placeholder="0" />
+              <Input
+                id="username"
+                {...form.register('username')}
+                placeholder={kind === KIND.POSTGRES ? 'postgres' : 'root'}
+              />
             </div>
-          )}
-          {kind === KIND.POSTGRES && (
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Password {isPasswordRequired(kind) && <span className="text-destructive">*</span>}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                onChange={(e) => form.setValue('password', e.target.value)}
+                placeholder={isEditing ? '(unchanged)' : ''}
+              />
+            </div>
+          </div>
+          {SSL_KINDS.includes(kind) && (
             <Label className="flex items-center gap-2 cursor-pointer select-none">
               {/* eslint-disable-next-line local/no-restricted-syntax -- native checkbox, no shadcn equivalent */}
               <input
                 type="checkbox"
-                checked={form.watch('ssl') ?? false}
+                checked={sslEnabled}
                 onChange={(e) => form.setValue('ssl', e.target.checked)}
                 className="size-4 rounded border-border"
               />
               <span className="text-xs font-medium text-muted-foreground">Use SSL</span>
             </Label>
+          )}
+          {SSL_KINDS.includes(kind) && sslEnabled && (
+            <div className="space-y-1.5">
+              <Label htmlFor="sslCaCert" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Root CA PEM
+              </Label>
+              <Textarea
+                id="sslCaCert"
+                rows={5}
+                {...rootCAField}
+                defaultValue={form.getValues('sslCaCert') ?? ''}
+                onChange={(e) => {
+                  form.clearErrors('sslCaCert');
+                  void rootCAField.onChange(e);
+                }}
+                placeholder="-----BEGIN CERTIFICATE-----"
+                className="font-mono text-xs"
+              />
+              {form.formState.errors.sslCaCert?.message && (
+                <p className="text-xs text-destructive" role="alert">
+                  {form.formState.errors.sslCaCert.message}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => rootCAInputRef.current?.click()}
+                  className="gap-1.5"
+                >
+                  <FolderOpen className="size-3.5" />
+                  Browse PEM
+                </Button>
+                <Input
+                  ref={rootCAInputRef}
+                  type="file"
+                  accept=".pem,.crt,.cer"
+                  aria-label="Root CA PEM file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void loadRootCACertificateFile(file, form).catch(() => {
+                        form.setError('sslCaCert', {
+                          type: 'manual',
+                          message: 'Could not read the selected Root CA file.',
+                        });
+                      });
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">Used to verify the server certificate.</span>
+              </div>
+            </div>
           )}
         </>
       )}

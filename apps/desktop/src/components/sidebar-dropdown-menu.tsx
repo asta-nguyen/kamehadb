@@ -4,7 +4,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { isTauriRuntime } from '@/lib/tauri';
 import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import { setActiveConnection, togglePinnedConnection, openAiChatPanel } from '@/store';
 import { SQL_TAB_ACTIONS, ENGINE_TAB_ACTIONS } from '@/lib/constants';
@@ -43,7 +42,8 @@ export function ConnectionDropdownMenu({
       >
         <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={4} className="min-w-max whitespace-nowrap">
+      {/* Open to the right into the spacious workspace canvas rather than crowding the narrow sidebar. (How / Why / What) */}
+      <DropdownMenuContent side="right" align="start" sideOffset={6} className="min-w-max whitespace-nowrap">
         <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
           <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
           Reload
@@ -59,7 +59,7 @@ export function ConnectionDropdownMenu({
           AI Chat
         </DropdownMenuItem>
 
-        {conn.kind === 'postgres' && isTauriRuntime() && (
+        {conn.kind === 'postgres' && (
           <>
             <DropdownMenuItem
               onClick={() => {

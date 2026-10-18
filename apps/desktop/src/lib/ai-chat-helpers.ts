@@ -50,7 +50,7 @@ export function getChatTextContent(msg: ChatMessageLike): string {
 }
 
 /**
- * Persisted chat history shape returned by the sidecar's `/ai/chat-history`
+ * Persisted chat history shape returned by the backend chat-history
  * endpoint. Mirrors the `ChatMessage` row in the metadata store, but kept
  * here as a local type so the desktop package doesn't reach across the
  * workspace boundary just to type this conversion.
@@ -63,8 +63,8 @@ export type ChatHistoryMessage = {
 };
 
 /**
- * Map a chat history row from the sidecar into a `ChatMessage`.
- * The sidecar returns `createdAt` as an ISO string; the output uses `Date`.
+ * Map a chat history row from the backend into a `ChatMessage`.
+ * The backend returns `createdAt` as an ISO string; the output uses `Date`.
  */
 export function toUIMessage(m: ChatHistoryMessage): ChatMessage {
   return {

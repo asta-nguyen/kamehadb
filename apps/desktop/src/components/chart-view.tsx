@@ -119,7 +119,8 @@ export function ChartView({ result }: { result: QueryResult }) {
           <span className="text-xs text-muted-foreground font-medium">Chart:</span>
           <Select value={chartKind} onValueChange={(v) => setChartKind(v as ChartKind)}>
             <SelectTrigger className="w-24 h-7 text-xs">
-              <SelectValue />
+              {/* Base UI leaks the raw value until the popup mounts; resolve the label ourselves. (Why) */}
+              <SelectValue>{chartKind.charAt(0).toUpperCase() + chartKind.slice(1)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="bar" className="text-xs">

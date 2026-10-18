@@ -2,18 +2,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { appendFrontendLog } from '@/lib/app-logs';
-import { loadMonacoEditor } from '@/lib/monaco-loader';
+import { CodeEditor, schemaCompletionSource, schemaCompletions } from '@/lib/code-editor';
 import { useRunQuery } from '@/hooks/use-query';
 import { useSaveQueryHistory } from '@/hooks/use-query-history';
 import { useTableColumns } from '@/hooks/use-schema';
 import { QueryHistoryPanel } from '@/components/query-history-panel';
 import { api } from '@/lib/api';
 import { buildRowUpdateQuery, getQueryResultEditabilityState, inferSimpleSelectTableId } from '@/lib/table-editability';
-import type { OnMount } from '@monaco-editor/react';
-import type { editor as monacoEditor } from 'monaco-editor';
+import { EditorView } from '@codemirror/view';
+import { sql as sqlLang } from '@codemirror/lang-sql';
+import { setDiagnostics } from '@codemirror/lint';
 import { useQuery } from '@tanstack/react-query';
-import { lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-const Editor = lazy(loadMonacoEditor);
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // SQL keywords that can begin a new statement. Used to detect blank-line-separated
 // multi-statement SQL (e.g. "SELECT 1\n\nSELECT 2") where no semicolons exist.
@@ -263,8 +263,136 @@ export function normalizeSqlForSafety(sql: string): string {
   return sql.trim().replace(/;+$/, '');
 }
 
+// Strip leading single-line (--) and multi-line (/* */) comments to locate the
+// actual executable statement keyword. (How / Why / What)
+export function stripLeadingComments(sql: string): string {
+  let s = sql.trimStart();
+  while (s.startsWith('--') || s.startsWith('/*')) {
+    if (s.startsWith('--')) {
+      const newlineIdx = s.indexOf('\n');
+      if (newlineIdx === -1) return '';
+      s = s.slice(newlineIdx + 1).trimStart();
+    } else if (s.startsWith('/*')) {
+      const closeIdx = s.indexOf('*/');
+      if (closeIdx === -1) return '';
+      s = s.slice(closeIdx + 2).trimStart();
+    }
+  }
+  return s;
+}
+
+// Detect an ORDER BY that belongs to the outermost query. Skips comments,
+// string literals and quoted identifiers, and ignores anything inside
+// parentheses (window expressions, subqueries), because T-SQL OFFSET...FETCH
+// only accepts an ORDER BY at the same query level. (How / Why / What)
+export function hasTopLevelOrderBy(sql: string): boolean {
+  let depth = 0;
+  // Sticky matching allows arbitrary whitespace without allocating each suffix.
+  const orderByPattern = /order\s+by\b/iy;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    if (ch === "'" || ch === '"' || ch === '[') {
+      const closer = ch === '[' ? ']' : ch;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === closer) {
+          // A doubled closer is an escaped character ('' , "" or ]]), not the
+          // terminator, so the quoted region continues past it.
+          if (sql[i + 1] === closer) {
+            i += 2;
+            continue;
+          }
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+    if (ch === '-' && sql[i + 1] === '-') {
+      const newlineIdx = sql.indexOf('\n', i);
+      if (newlineIdx === -1) return false;
+      i = newlineIdx;
+      continue;
+    }
+    if (ch === '/' && sql[i + 1] === '*') {
+      // T-SQL block comments nest, so track depth instead of stopping at the
+      // first */ — text after a nested close must not be read as SQL.
+      let commentDepth = 1;
+      i += 2;
+      while (i < sql.length && commentDepth > 0) {
+        if (sql[i] === '/' && sql[i + 1] === '*') {
+          commentDepth++;
+          i += 2;
+        } else if (sql[i] === '*' && sql[i + 1] === '/') {
+          commentDepth--;
+          i += 2;
+        } else {
+          i++;
+        }
+      }
+      if (commentDepth > 0) return false;
+      i--;
+      continue;
+    }
+    if (ch === '(') {
+      depth++;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0 && (ch === 'o' || ch === 'O') && !/[\w$#@]/.test(sql[i - 1] ?? '')) {
+      orderByPattern.lastIndex = i;
+      if (orderByPattern.test(sql)) return true;
+    }
+  }
+  return false;
+}
+
+// Append dialect-aware limit and offset clauses to read-only queries (SELECT / WITH / VALUES / TABLE).
+// Prevents syntax errors on T-SQL (OFFSET...FETCH instead of LIMIT) and Oracle (FETCH FIRST),
+// and respects leading comments without bypassing safety caps. (How / Why / What)
+export function applyQueryLimit(sql: string, limit: number, offsetVal?: number, kind?: DbKind): string {
+  if (limit <= 0) return sql;
+  if (containsMultipleStatements(sql)) return sql;
+
+  const stripped = stripLeadingComments(sql);
+  const upper = stripped.toUpperCase();
+  const supportsLimit =
+    upper.startsWith('SELECT') || upper.startsWith('WITH') || upper.startsWith('VALUES') || upper.startsWith('TABLE');
+  if (!supportsLimit) return sql;
+
+  const trimmed = sql.trimEnd().replace(/;+$/, '');
+
+  if (kind === KIND.SQLSERVER) {
+    // T-SQL does not support LIMIT. Avoid double-limiting if query already contains TOP, OFFSET, or FETCH.
+    if (/\b(TOP\s*\(?\s*\d+|OFFSET\s+\d+|FETCH\s+(NEXT|FIRST))\b/i.test(sql)) return sql;
+    const offset = offsetVal ?? 0;
+    // T-SQL requires an ORDER BY clause when using OFFSET...FETCH. Fall back to ORDER BY (SELECT NULL) if absent.
+    if (hasTopLevelOrderBy(sql)) {
+      return `${trimmed}\nOFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+    }
+    return `${trimmed}\nORDER BY (SELECT NULL) OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+  }
+
+  if (kind === KIND.ORACLE) {
+    // Oracle 12c+ supports OFFSET...FETCH. Avoid double-limiting if query already contains ROWNUM or FETCH.
+    if (/\b(ROWNUM\b|OFFSET\s+\d+|FETCH\s+(FIRST|NEXT)|LIMIT\b)\b/i.test(sql)) return sql;
+    const offset = offsetVal ?? 0;
+    return `${trimmed}\nOFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY`;
+  }
+
+  // Standard engines (Postgres, MySQL, SQLite, DuckDB, ClickHouse, MariaDB) support LIMIT...OFFSET
+  if (/\bLIMIT\b/i.test(sql)) return sql;
+  return offsetVal !== undefined ? `${trimmed} LIMIT ${limit} OFFSET ${offsetVal}` : `${trimmed} LIMIT ${limit}`;
+}
+
 import { DataTable, type ColumnDef } from '@/components/data-table';
+import { MiddleTruncate } from '@/components/middle-truncate';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
+import { ResultLimitNotice } from '@/components/result-limit-notice';
+import { NativeCSVExportButton } from '@/components/native-csv-export-button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -278,8 +406,9 @@ import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autoc
 import { updateTabAutoRun, updateTabSql } from '@/store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
-import { isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
+import { KIND, type DbKind, isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
 import { Spinner } from '@/components/ui/spinner';
+import { useConnections } from '@/hooks/use-connections';
 import {
   AlertCircle,
   BarChart3,
@@ -292,18 +421,26 @@ import {
   Eye,
   FileJson,
   History,
-  Loader2,
+  Info,
   Play,
+  Square,
   Table2,
 } from 'lucide-react';
 import { QUERY_KEYS } from '@/lib/query-keys';
 import { ChartView } from '@/components/chart-view';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+// Format query duration with sub-millisecond precision for fast queries (<1ms) or rounded integers otherwise. (How / Why / What)
+function formatDuration(ms: number | undefined): string {
+  if (ms === undefined || ms === null) return '<1ms';
+  if (ms < 1) return '<1ms';
+  return `${Math.round(ms)}ms`;
+}
+
 function useCompletionsSchema(connectionId: string | null) {
   return useQuery({
     queryKey: QUERY_KEYS.COMPLETIONS(connectionId),
-    queryFn: () => api.request<CompletionsData>('GET', `/sql/${connectionId}/autocomplete`),
+    queryFn: () => api.getCompletions(connectionId!) as Promise<CompletionsData>,
     enabled: !!connectionId,
     staleTime: 5 * 60 * 1000,
   });
@@ -463,16 +600,20 @@ function QueryResultTable({
       return (
         <span
           onDoubleClick={editability.canEditCells ? () => setEditingCell({ rowIndex, column: col.name }) : undefined}
-          className={editability.canEditCells ? 'flex-1 min-w-0 truncate cursor-pointer' : 'flex-1 min-w-0 truncate'}
+          className={
+            editability.canEditCells
+              ? 'flex-1 min-w-0 cursor-pointer flex items-center overflow-hidden'
+              : 'flex-1 min-w-0 flex items-center overflow-hidden'
+          }
         >
           {value === null ? (
             <span className="text-muted-foreground italic">null</span>
           ) : value === undefined ? (
             <span className="text-muted-foreground">-</span>
           ) : typeof value === 'object' ? (
-            <span className="text-primary">{JSON.stringify(value)}</span>
+            <MiddleTruncate text={JSON.stringify(value)} className="text-primary font-mono" />
           ) : (
-            <span>{String(value)}</span>
+            <MiddleTruncate text={String(value)} />
           )}
         </span>
       );
@@ -492,23 +633,32 @@ function QueryResultTable({
           {editability.warningMessage}
         </div>
       )}
-      <div className="min-h-0 overflow-hidden border border-border rounded-md">
-        <div className="overflow-auto max-h-full">
-          <DataTable
-            rows={result.rows}
-            columns={columns}
-            rowKey={(_, i) => String(i)}
-            showIndex
-            stickyHeader
-            onRowClick={editability.canEditCells ? undefined : (row) => onSelectRow(row)}
-            suffixHeader="Actions"
-            suffixWidth="64px"
-            suffix={(row) => (
+      <div className="min-h-0 flex-1 flex flex-col overflow-hidden border border-border rounded-md">
+        <DataTable
+          rows={result.rows}
+          columns={columns}
+          rowKey={(_, i) => String(i)}
+          showIndex
+          stickyHeader
+          onRowClick={editability.canEditCells ? undefined : (row) => onSelectRow(row)}
+          suffixHeader="Actions"
+          suffixWidth="64px"
+          suffix={(row) => (
+            <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
               <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Row actions"
+                    />
+                  }
+                >
                   <Ellipsis className="size-3.5" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuContent side="left" align="start" sideOffset={4} className="w-40">
                   <DropdownMenuItem onClick={() => onSelectRow(row)}>
                     <Eye className="size-3.5 mr-2" />
                     View details
@@ -519,17 +669,18 @@ function QueryResultTable({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-          />
-        </div>
+            </div>
+          )}
+        />
       </div>
+      <ResultLimitNotice result={result} />
       <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-3">
           <span>{result.rowCount} rows returned</span>
           {offset > 0 && <span className="text-muted-foreground/60">(offset {offset})</span>}
           <span className="flex items-center gap-1">
             <Clock className="size-3" />
-            {result.durationMs}ms
+            {formatDuration(result.durationMs)}
           </span>
           {result.truncated && (
             <Badge variant="outline" className="text-xs">
@@ -555,8 +706,8 @@ function QueryResultTable({
           </div>
           <div className="w-px h-4 bg-border mx-1" />
           <Select value={String(queryLimit)} onValueChange={(v) => onLimitChange(Number(v))}>
-            <SelectTrigger className="h-7 text-xs w-22 gap-1" title="Row limit">
-              <SelectValue />
+            <SelectTrigger className="h-7 text-xs w-26 gap-1" title="Row limit">
+              <SelectValue>{queryLimit === 0 ? 'No limit' : `${queryLimit} rows`}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="50">50 rows</SelectItem>
@@ -567,17 +718,19 @@ function QueryResultTable({
             </SelectContent>
           </Select>
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" title="Export" />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="sm" title="Export displayed rows" />}>
               <Download className="size-3.5" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigator.clipboard.writeText(exportToJSON(result))}>
                 Copy as JSON
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void downloadResult(result, 'csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void downloadResult(result, 'json')}>Export as JSON</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void downloadResult(result, 'sql')}>Export as SQL</DropdownMenuItem>
+              {/* Downloads of the displayed rows sit above the separator; the native full-query export sits below. (Why) */}
+              <DropdownMenuSeparator />
+              <NativeCSVExportButton connectionId={connectionId} query={executedSql} asMenuItem />
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -590,6 +743,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const [sql, setSql] = useState('sql' in tab ? (tab.sql ?? 'SELECT * FROM ') : 'SELECT * FROM ');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isCancelled, setIsCancelled] = useState(false);
+  const isCancellingRef = useRef(false);
   const [results, setResults] = useState<QueryResult[]>([]);
   const [executedStatements, setExecutedStatements] = useState<string[]>([]);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
@@ -606,9 +761,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   // so we can paginate by varying the offset while keeping the query intact.
   const baseSqlRef = useRef(sql);
 
-  // Monaco editor ref for selection-aware execution and error markers
-  const editorRef = useRef<monacoEditor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
+  // CodeMirror view ref for selection-aware execution and error markers
+  const editorViewRef = useRef<EditorView | null>(null);
 
   const { data: completions } = useCompletionsSchema(connectionId);
   const completionsRef = useRef(completions);
@@ -617,22 +771,38 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const runQuery = useRunQuery(connectionId);
   const saveHistory = useSaveQueryHistory(connectionId);
 
-  // Only append LIMIT for queries that support it (SELECT / WITH / VALUES / TABLE).
-  // Otherwise many engines error with "syntax error at or near 'LIMIT'".
+  const { data: connections } = useConnections();
+  const targetConn = useMemo(() => connections?.find((c) => c.id === connectionId), [connections, connectionId]);
+
+  const handleCancel = useCallback(() => {
+    isCancellingRef.current = true;
+    runQuery.cancel();
+  }, [runQuery.cancel]);
+
+  // Wire Escape key to cancel query while running. (How / Why / What)
+  useEffect(() => {
+    if (!runQuery.isPending && !isExecutingBatch) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [runQuery.isPending, isExecutingBatch, handleCancel]);
+
+  // The mutation hook cancels only its own jobs; clear displayed references on close.
+  useEffect(() => {
+    return () => {
+      setResult(null);
+      setResults([]);
+    };
+  }, [connectionId]);
+
+  // Only append dialect-aware limit/offset for queries that support it.
   function queryWithLimit(sql: string, limit: number, offsetVal?: number): string {
-    if (limit <= 0) return sql;
-    // Multi-statement SQL: each statement is executed individually after
-    // splitting. A global LIMIT at the end would become a standalone statement
-    // after the split, causing a syntax error on every engine.
-    if (containsMultipleStatements(sql)) return sql;
-    const upper = sql.trimStart().toUpperCase();
-    const supportsLimit =
-      upper.startsWith('SELECT') || upper.startsWith('WITH') || upper.startsWith('VALUES') || upper.startsWith('TABLE');
-    if (!supportsLimit) return sql;
-    // Don't double-append if the query already has a LIMIT clause
-    if (/\bLIMIT\b/i.test(sql)) return sql;
-    const trimmed = sql.trimEnd().replace(/;+$/, '');
-    return offsetVal !== undefined ? `${trimmed} LIMIT ${limit} OFFSET ${offsetVal}` : `${trimmed} LIMIT ${limit}`;
+    return applyQueryLimit(sql, limit, offsetVal, targetConn?.kind as DbKind | undefined);
   }
 
   // Build the full SQL with LIMIT / OFFSET and execute it.
@@ -644,16 +814,17 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     async (querySql: string) => {
       if (!querySql.trim()) return;
       setError(null);
+      setIsCancelled(false);
+      isCancellingRef.current = false;
       setResult(null);
       setResults([]);
       setExecutedStatements([]);
       setActiveResultIndex(0);
       setIsExecutingBatch(true);
       // Clear previous error markers before a new execution
-      const model = editorRef.current?.getModel();
-      const monaco = monacoRef.current;
-      if (model && monaco) {
-        monaco.editor.setModelMarkers(model, 'sql-error', []);
+      const editorView = editorViewRef.current;
+      if (editorView) {
+        editorView.dispatch(setDiagnostics(editorView.state, []));
       }
 
       // Validate the original input before splitting so a semicolon-delimited
@@ -711,22 +882,37 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         }
       } catch (err) {
         const message = safeErrorMessage(err, 'Query failed');
-        setError(message);
-        void appendFrontendLog({
-          level: 'error',
-          scope: 'sql-editor.query',
-          message: `Query execution failed: ${message}`,
-          details: err instanceof Error ? err.stack : String(err),
-        });
-        // Parse the error message for line number and add marker in Monaco
-        const editor = editorRef.current;
-        const m = monacoRef.current;
-        if (editor && m) {
-          const errModel = editor.getModel();
-          if (errModel) {
+        // Distinguish intentional user cancellations (Esc, Cancel button, Go context cancel)
+        // from actual query execution errors so cancellations aren't styled as failures. (How / Why / What)
+        const wasCancelled =
+          isCancellingRef.current ||
+          /context canceled|canceling statement due to user request|query canceled|query was cancelled|operation canceled|abort/i.test(
+            message,
+          ) ||
+          (err instanceof Error && err.name === 'AbortError');
+
+        if (wasCancelled) {
+          setIsCancelled(true);
+          setError(null);
+          void appendFrontendLog({
+            level: 'info',
+            scope: 'sql-editor.query',
+            message: 'Query cancelled by user',
+          });
+        } else {
+          setError(message);
+          void appendFrontendLog({
+            level: 'error',
+            scope: 'sql-editor.query',
+            message: `Query execution failed: ${message}`,
+            details: err instanceof Error ? err.stack : String(err),
+          });
+          // Parse the error message for line number and add a diagnostic marker
+          const view = editorViewRef.current;
+          if (view) {
+            const doc = view.state.doc;
             // Extract line/position from SQL error messages:
             //   PostgreSQL "LINE N:", MySQL "at line N", Postgres "at character N"
-            const lineCount = errModel.getLineCount();
             let errorLine = 1;
             const lineMatch = message.match(/LINE\s+(\d+)/i);
             if (lineMatch) {
@@ -741,8 +927,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                   // Convert 1-based character offset to line number by walking lines
                   const charOffset = parseInt(charMatch[1], 10);
                   let currentChar = 0;
-                  for (let ln = 1; ln <= lineCount; ln++) {
-                    currentChar += errModel.getLineLength(ln) + 1; // +1 for newline
+                  for (let ln = 1; ln <= doc.lines; ln++) {
+                    currentChar += doc.line(ln).length + 1; // +1 for newline
                     if (currentChar >= charOffset) {
                       errorLine = ln;
                       break;
@@ -752,17 +938,18 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
               }
             }
             // Clamp line number to valid range
-            errorLine = Math.min(errorLine, lineCount);
-            m.editor.setModelMarkers(errModel, 'sql-error', [
-              {
-                severity: m.MarkerSeverity.Error,
-                message,
-                startLineNumber: errorLine,
-                startColumn: 1,
-                endLineNumber: errorLine,
-                endColumn: errModel.getLineMaxColumn(errorLine),
-              },
-            ]);
+            errorLine = Math.min(errorLine, doc.lines);
+            const line = doc.line(errorLine);
+            view.dispatch(
+              setDiagnostics(view.state, [
+                {
+                  from: line.from,
+                  to: Math.max(line.to, line.from + 1),
+                  severity: 'error',
+                  message,
+                },
+              ]),
+            );
           }
         }
       } finally {
@@ -777,12 +964,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     setOffset(0);
     // If text is selected in the editor, execute only the selected text
     let sqlToExecute = sql.trim();
-    const editor = editorRef.current;
-    if (editor) {
-      const selection = editor.getSelection();
-      if (selection && !selection.isEmpty()) {
-        const selectedText = editor.getModel()?.getValueInRange(selection);
-        if (selectedText?.trim()) {
+    const view = editorViewRef.current;
+    if (view) {
+      const selection = view.state.selection.main;
+      if (!selection.empty) {
+        const selectedText = view.state.sliceDoc(selection.from, selection.to);
+        if (selectedText.trim()) {
           sqlToExecute = selectedText.trim();
         }
       }
@@ -811,15 +998,10 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     void executeQuery(fullQuery);
   }, [executeQuery, offset, queryLimit]);
 
-  // Ref to avoid stale closure in Monaco keybinding (registered once on mount)
-  const handleRunRef = useRef(handleRun);
-  handleRunRef.current = handleRun;
-
   const handleChange = useCallback(
-    (value: string | undefined) => {
-      const v = value ?? '';
-      setSql(v);
-      updateTabSql(tab.id, v);
+    (value: string) => {
+      setSql(value);
+      updateTabSql(tab.id, value);
     },
     [tab.id],
   );
@@ -832,64 +1014,18 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     [tab.id],
   );
 
-  const handleEditorDidMount: OnMount = useCallback(
-    (editor, monaco) => {
-      editorRef.current = editor;
-      monacoRef.current = monaco as unknown as typeof import('monaco-editor');
-      editor.focus();
-
-      editor.addAction({
-        id: 'run-query',
-        label: 'Run Query',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-        run: () => handleRunRef.current(),
-      });
-
-      const provider = monaco.languages.registerCompletionItemProvider('sql', {
-        triggerCharacters: ['.', ' ', '(', ',', '='],
-        provideCompletionItems: (model, position) => {
+  const editorExtensions = useMemo(
+    () => [
+      sqlLang(),
+      schemaCompletions(
+        schemaCompletionSource((_ctx, textUntil, fullSql) => {
           const data = completionsRef.current;
-          if (!data) return { suggestions: [] };
-
-          const word = model.getWordUntilPosition(position);
-          const fullSql = model.getValue();
-          const textUntil = model.getValueInRange({
-            startLineNumber: position.lineNumber,
-            startColumn: 1,
-            endLineNumber: position.lineNumber,
-            endColumn: position.column,
-          });
-
-          const suggestions = buildSqlCompletionEntries(fullSql, textUntil, data).map((item) => ({
-            label: item.label,
-            kind:
-              item.kind === 'table'
-                ? monaco.languages.CompletionItemKind.Struct
-                : item.kind === 'column'
-                  ? monaco.languages.CompletionItemKind.Field
-                  : item.kind === 'function'
-                    ? monaco.languages.CompletionItemKind.Function
-                    : item.kind === 'operator'
-                      ? monaco.languages.CompletionItemKind.Operator
-                      : monaco.languages.CompletionItemKind.Keyword,
-            insertText: item.insertText,
-            detail: item.detail,
-            sortText: item.sortText,
-            range: {
-              startLineNumber: position.lineNumber,
-              endLineNumber: position.lineNumber,
-              startColumn: word.startColumn,
-              endColumn: position.column,
-            },
-          }));
-
-          return { suggestions };
-        },
-      });
-
-      editor.onDidDispose(() => provider.dispose());
-    },
-    [handleRun],
+          if (!data) return [];
+          return buildSqlCompletionEntries(fullSql, textUntil, data);
+        }),
+      ),
+    ],
+    [],
   );
 
   useEffect(() => {
@@ -931,17 +1067,26 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border shrink-0">
-        <Button size="sm" onClick={handleRun} disabled={runQuery.isPending || isExecutingBatch} className="gap-1.5">
-          {runQuery.isPending || isExecutingBatch ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
+        {runQuery.isPending || isExecutingBatch ? (
+          <Button size="sm" variant="destructive" onClick={handleCancel} className="gap-1.5">
+            <Square className="size-3.5 fill-current" />
+            Cancel
+          </Button>
+        ) : (
+          <Button size="sm" onClick={handleRun} className="gap-1.5">
             <Play className="size-3.5" />
-          )}
-          Run
-        </Button>
-        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[10px] font-mono text-muted-foreground/50">
+            Run
+          </Button>
+        )}
+        <kbd className="inline-flex h-7 items-center rounded border border-border/60 bg-muted/30 px-2 font-mono text-xs text-muted-foreground/50">
           {runQuery.isPending || isExecutingBatch ? 'Esc' : 'Ctrl+Enter'}
         </kbd>
+        {targetConn && (
+          <Badge variant="outline" className="h-7 gap-1.5 px-2 text-xs font-normal">
+            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: targetConn.color || '#3b82f6' }} />
+            <span className="font-medium text-foreground">{targetConn.name}</span>
+          </Badge>
+        )}
         <div className="flex-1" />
         <div className="w-px h-4 bg-border mx-0.5" />
         {result && (
@@ -969,21 +1114,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       <div className="flex flex-1 min-h-0">
         <div className="flex flex-col flex-1 min-w-0">
           <div className="min-h-0 border-b border-border" style={{ flex: splitRatio }}>
-            <Editor
-              height="100%"
-              defaultLanguage="sql"
-              theme="vs-dark"
+            <CodeEditor
               value={sql}
               onChange={handleChange}
-              onMount={handleEditorDidMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 8 },
-              }}
+              onRun={handleRun}
+              viewRef={editorViewRef}
+              extensions={editorExtensions}
             />
           </div>
 
@@ -997,6 +1133,13 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
             {(runQuery.isPending || isExecutingBatch) && (
               <div className="flex items-center justify-center py-8">
                 <Spinner size="lg" />
+              </div>
+            )}
+
+            {isCancelled && (
+              <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                <Info className="size-4 shrink-0" />
+                <span>Query cancelled</span>
               </div>
             )}
 

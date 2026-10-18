@@ -17,6 +17,7 @@ function SchemaItem({
   schema,
   expanded,
   activeTableId,
+  searchFilter,
   onToggle,
   onSelectTable,
 }: {
@@ -24,22 +25,27 @@ function SchemaItem({
   schema: string;
   expanded: boolean;
   activeTableId: string | null;
+  searchFilter: string;
   onToggle: () => void;
   onSelectTable: (tableId: string) => void;
 }) {
   const { data: tables, isLoading } = useTables(connectionId, schema);
-  const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredTables = useMemo(() => {
+  // The sidebar search covers both levels: a schema stays when its own name
+  // matches and then keeps every table, or it stays with just the tables whose
+  // names match. A schema with nothing to show drops out of the tree. (Why)
+  const schemaMatches = !searchFilter || fuzzyMatch(searchFilter, schema);
+  const visibleTables = useMemo(() => {
     if (!tables) return [];
-    const q = searchQuery.trim();
-    if (!q) return tables;
-    return tables.filter((t) => fuzzyMatch(q, t.name));
-  }, [tables, searchQuery]);
+    if (schemaMatches) return tables;
+    return tables.filter((t) => fuzzyMatch(searchFilter, t.name));
+  }, [tables, searchFilter, schemaMatches]);
+
+  if (searchFilter && !schemaMatches && !isLoading && visibleTables.length === 0) return null;
 
   return (
     <div className="select-none">
-      <Button variant="ghost" size="sm" onClick={onToggle} className="justify-start px-2 w-full font-normal">
+      <Button variant="ghost" size="xs" onClick={onToggle} className="justify-start px-2 w-full font-normal">
         {expanded ? (
           <ChevronDown className="text-muted-foreground/60 shrink-0 size-3" />
         ) : (
@@ -48,34 +54,22 @@ function SchemaItem({
         <Database className="text-muted-foreground/60 shrink-0 size-3.5" />
         <span className="text-foreground/80 font-medium">{schema}</span>
         {expanded && tables && (
-          <span className="ml-auto text-muted-foreground/50 text-xs tabular-nums">{tables.length}</span>
+          <span className="ml-auto text-muted-foreground/50 text-xs tabular-nums">{visibleTables.length}</span>
         )}
       </Button>
       {expanded && (
-        <div className="pl-2 ml-3 mt-0.5 border-border/60 border-l">
-          <div className="px-2 py-1">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
-              <Input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter..."
-                className="pl-6 pr-2 h-6 text-xs"
-              />
-            </div>
-          </div>
-          <div className="space-y-0.5">
+        <div className="pl-2 ml-1.5 mt-0.5 border-border/60 border-l">
+          <div className="pt-0.5 space-y-0.5">
             {isLoading ? (
               <div className="flex justify-center py-2">
                 <Spinner size="sm" className="text-muted-foreground/60" />
               </div>
-            ) : filteredTables.length === 0 ? (
+            ) : visibleTables.length === 0 ? (
               <p className="pl-2 py-1 text-muted-foreground/60 text-xs italic">
                 {tables?.length === 0 ? 'No tables' : 'No matches'}
               </p>
             ) : (
-              filteredTables.map((table) => (
+              visibleTables.map((table) => (
                 <TableItem
                   key={table.id}
                   connectionId={connectionId}
@@ -126,7 +120,7 @@ function TableItem({
         <ContextMenuTrigger>
           <Button
             variant="ghost"
-            size="sm"
+            size="xs"
             onClick={() => onSelect(table.id)}
             onDoubleClick={() => setExpanded(!expanded)}
             className={`justify-start px-2 w-full font-normal ${isActive ? 'bg-muted/50' : ''}`}
@@ -151,7 +145,7 @@ function TableItem({
         </ContextMenuContent>
       </ContextMenu>
       {expanded && (
-        <div className="pl-2 ml-4 mt-0.5 space-y-0">
+        <div className="pl-2 ml-2 mt-0.5 space-y-0">
           {isLoading ? (
             <div className="flex justify-center py-1.5">
               <Spinner size="sm" className="text-muted-foreground/50 size-2.5" />
@@ -170,7 +164,7 @@ function TableItem({
                 {col.isVector && (
                   <Badge
                     variant="secondary"
-                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-[10px] bg-muted/30 border-muted shrink-0"
+                    className="px-1 py-0 h-3.5 text-muted-foreground/80 text-xs bg-muted/30 border-muted shrink-0"
                   >
                     vector{col.vectorDimensions ? `(${col.vectorDimensions})` : ''}
                   </Badge>
@@ -202,7 +196,8 @@ export function SchemaTree({
   const { data: schemas, isLoading } = useSchemas(connectionId);
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const hasSearch = searchQuery.trim().length > 0;
+  const searchFilter = searchQuery.trim();
+  const hasSearch = searchFilter.length > 0;
 
   const toggleSchema = useCallback((schema: string) => {
     setExpandedSchemas((prev) => {
@@ -215,14 +210,6 @@ export function SchemaTree({
       return next;
     });
   }, []);
-
-  // Show matching schemas with all tables expanded when searching
-  const visibleSchemas = useMemo(() => {
-    if (!schemas) return [];
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return schemas;
-    return schemas.filter((s) => fuzzyMatch(q, s.name));
-  }, [schemas, searchQuery]);
 
   if (isLoading) {
     return (
@@ -244,15 +231,17 @@ export function SchemaTree({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search schemas & tables..."
+          placeholder="Search tables..."
           className="pl-6 pr-2 h-7 text-xs"
         />
       </div>
-      {visibleSchemas.map((schema) => (
+      {schemas.map((schema) => (
         <SchemaItem
           key={schema.name}
           connectionId={connectionId}
           schema={schema.name}
+          searchFilter={searchFilter}
+          // While a search is active every surviving schema opens itself, so the matching tables are on screen.
           expanded={hasSearch || expandedSchemas.has(schema.name)}
           activeTableId={activeTableId}
           onToggle={() => toggleSchema(schema.name)}

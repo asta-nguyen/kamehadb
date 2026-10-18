@@ -12,17 +12,26 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       tag_name: ${{ steps.release_tag.outputs.value }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - name: Resolve release tag
         id: release_tag
-        run: echo "value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+        run: bash .github/scripts/resolve-release-tag.sh
 
       - name: Create Release
         id: create_release
@@ -30,32 +39,29 @@ jobs:
         with:
           tag_name: ${{ steps.release_tag.outputs.value }}
           name: KamehaDB ${{ steps.release_tag.outputs.value }}
+          body: |
+            Linux RPM targets Fedora 40+ (`gtk3`, `webkit2gtk4.1`).
+            The AppImage requires WebKit2GTK 4.1 on the host; this workflow does not bundle WebKit helper processes.
           draft: true
-          prerelease: ${{ contains(steps.release_tag.outputs.value, 'alpha') || contains(steps.release_tag.outputs.value, 'beta') || contains(steps.release_tag.outputs.value, 'rc') }}
+          prerelease: ${{ contains(steps.release_tag.outputs.value, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-tauri:
+  build-wails:
     needs: create-release
-    env:
-      CARGO_NET_RETRY: 10
-      CARGO_HTTP_TIMEOUT: 600
-      CARGO_HTTP_MULTIPLEXING: false
-      CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
+            wails_platform: 'darwin/universal'
+            artifact_name: 'macos-universal'
           - platform: 'ubuntu-22.04'
-            # AppImage is intentionally disabled for now because linuxdeploy
-            # fails intermittently on GitHub runners; keep Linux on deb/rpm.
-            args: '--bundles deb,rpm'
+            wails_platform: 'linux/amd64'
+            artifact_name: 'linux-amd64'
           - platform: 'windows-latest'
-            args: ''
+            wails_platform: 'windows/amd64'
+            artifact_name: 'windows-amd64'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -63,6 +69,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -75,61 +82,142 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/desktop/src-tauri -> target
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
 
       - name: Install Dependencies (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev gcc
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.16.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri app
-        run: pnpm --filter @kamehadb/desktop tauri build ${{ matrix.args }}
-
-      - name: Upload macOS artifact
-        if: matrix.platform == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.platform }}-${{ matrix.args == '--target aarch64-apple-darwin' && 'aarch64' || 'x64' }}
-          if-no-files-found: error
-          path: apps/desktop/src-tauri/target/*/release/bundle/dmg/*.dmg
-
-      - name: Upload Linux artifacts
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-linux
-          if-no-files-found: error
-          path: |
-            apps/desktop/src-tauri/target/release/bundle/deb/*.deb
-            apps/desktop/src-tauri/target/release/bundle/rpm/*.rpm
-
-      - name: Upload Windows artifacts
+      # The matching helper is a separate asset, never part of the app bundle.
+      # Its exact SHA/protocol version is baked into this platform's desktop.
+      - name: Build optional DuckDB driver
+        env:
+          RELEASE_TAG: ${{ needs.create-release.outputs.tag_name }}
+          DRIVER_PLATFORM: ${{ matrix.artifact_name }}
+        run: node scripts/build-duckdb-driver.mjs --version "$env:RELEASE_TAG" --platform "$env:DRIVER_PLATFORM"
         if: matrix.platform == 'windows-latest'
+
+      - name: Build optional DuckDB driver (Unix)
+        if: matrix.platform != 'windows-latest'
+        env:
+          RELEASE_TAG: ${{ needs.create-release.outputs.tag_name }}
+          DRIVER_PLATFORM: ${{ matrix.artifact_name }}
+        run: node scripts/build-duckdb-driver.mjs --version "$RELEASE_TAG" --platform "$DRIVER_PLATFORM"
+
+      - name: Build Wails app (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: wails build -platform ${{ matrix.wails_platform }} -ldflags "$DUCKDB_LDFLAGS"
+
+      - name: Build Wails app (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: wails build -platform ${{ matrix.wails_platform }} -tags webkit2_41 -ldflags "$DUCKDB_LDFLAGS"
+
+      - name: Ensure NSIS (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            choco install nsis -y --no-progress
+          }
+
+      - name: Install WiX (Windows)
+        if: ${{ matrix.platform == 'windows-latest' && !contains(needs.create-release.outputs.tag_name, '-') }}
+        run: dotnet tool install --global wix --version 6.0.2
+
+      - name: Build Wails app (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: wails build -platform ${{ matrix.wails_platform }} -nsis -ldflags "$env:DUCKDB_LDFLAGS"
+
+      - name: Package macOS bundle
+        if: matrix.platform == 'macos-latest'
+        run: |
+          cd build/bin
+          ditto -c -k --sequesterRsrc --keepParent kamehadb.app ../../kamehadb-${{ matrix.artifact_name }}.zip
+          hdiutil create -volname KamehaDB -srcfolder kamehadb.app -ov -format UDZO ../../kamehadb-${{ matrix.artifact_name }}.dmg
+
+      - name: Package Linux binary
+        if: matrix.platform == 'ubuntu-22.04'
+        run: tar -czf kamehadb-${{ matrix.artifact_name }}.tar.gz -C build/bin kamehadb
+
+      - name: Package Linux packages (deb/rpm)
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          VERSION: ${{ needs.create-release.outputs.tag_name }}
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
+          NFPM="$(go env GOPATH)/bin/nfpm"
+          VERSION="${VERSION#v}" "$NFPM" package --config build/linux/nfpm.yaml --packager deb --target .
+          mkdir -p rpm-output
+          VERSION="${VERSION#v}" "$NFPM" package --config build/linux/nfpm.yaml --packager rpm --target rpm-output
+          mv rpm-output/*.rpm "kamehadb-${{ matrix.artifact_name }}-fedora40.rpm"
+
+      - name: Package AppImage
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp build/bin/kamehadb AppDir/usr/bin/kamehadb
+          cp build/linux/kamehadb.desktop AppDir/usr/share/applications/kamehadb.desktop
+          cp apps/desktop/public/logo.png AppDir/usr/share/icons/hicolor/256x256/apps/kamehadb.png
+          curl -fsSL -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage
+          curl -fsSL -o linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/7a3fbc31a9e5075073ff8790f26effbac5f84453/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy linuxdeploy-plugin-gtk.sh
+          export DEPLOY_GTK_VERSION=3
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          export OUTPUT=kamehadb-${{ matrix.artifact_name }}.AppImage
+          ./linuxdeploy --appdir AppDir --plugin gtk --output appimage
+
+      - name: Package Windows binary
+        if: matrix.platform == 'windows-latest'
+        run: |
+          copy "build\bin\kamehadb.exe" "kamehadb-${{ matrix.artifact_name }}.exe"
+          copy "build\bin\kamehadb-amd64-installer.exe" "kamehadb-${{ matrix.artifact_name }}-installer.exe"
+        shell: cmd
+
+      - name: Package Windows MSI
+        if: ${{ matrix.platform == 'windows-latest' && !contains(needs.create-release.outputs.tag_name, '-') }}
+        shell: pwsh
+        env:
+          TAG: ${{ needs.create-release.outputs.tag_name }}
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+          $version = (($env:TAG -replace '^v','') -replace '\+.*$','')
+          wix build -arch x64 -d Version=$version -d ExePath=build\bin\kamehadb.exe -o "kamehadb-${{ matrix.artifact_name }}.msi" build\windows\kamehadb.wxs
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-windows
+          name: release-${{ matrix.artifact_name }}
           if-no-files-found: error
           path: |
-            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
-            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+            kamehadb-*.zip
+            kamehadb-*.dmg
+            kamehadb-*.tar.gz
+            kamehadb*.deb
+            kamehadb*.rpm
+            kamehadb-*.AppImage
+            kamehadb-*.exe
+            kamehadb-*.msi
+            build/duckdb-driver/kamehadb-duckdb-driver-*.gz
 
   publish-release-assets:
     needs:
       - create-release
-      - build-tauri
+      - build-wails
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -146,10 +234,14 @@ jobs:
         with:
           tag_name: ${{ needs.create-release.outputs.tag_name }}
           files: |
+            release-assets/**/*.zip
             release-assets/**/*.dmg
-            release-assets/**/*.exe
-            release-assets/**/*.msi
+            release-assets/**/*.tar.gz
             release-assets/**/*.deb
             release-assets/**/*.rpm
+            release-assets/**/*.AppImage
+            release-assets/**/*.exe
+            release-assets/**/*.msi
+            release-assets/**/kamehadb-duckdb-driver-*.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -5,6 +5,12 @@ description: Use when a user asks to review the diff, check the work, run or ver
 
 # review-and-verify
 
+This skill reports findings; it does not fix them. A `Status: fail` returns to
+`implement-task`'s `## After implementation` fix loop (or to
+`systematic-debugging` for a bug). The only edits made here are the archive move
+and link rewrites in `## Archive a change` and `Execution: complete` on a
+legacy plan; never edit code, wiki, or `Progress`.
+
 ## Iron Law
 
 ```
@@ -12,89 +18,76 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
 If you have not performed a fresh verification check in this message, you
-cannot claim it passes. "Should work" is not evidence. "Looks correct" is not
-evidence. Previous runs are not evidence.
+cannot claim it passes. Previous runs are not evidence.
 
 ## Verification gate
 
-Before claiming any status or expressing satisfaction:
+Before claiming any status: **identify** the command or repeatable procedure that
+proves the claim; **run** it fresh and complete; **read** the full output,
+including failures; **verify** it confirms the claim, stating the actual status
+with evidence either way; only then make the claim.
 
-1. **Identify** — what command or repeatable manual procedure proves this claim?
-2. **Run** — execute the command or perform the procedure (fresh, complete)
-3. **Read** — check the full output or observed result, including failures
-4. **Verify** — does the result confirm the claim?
-   - If no: state actual status with evidence
-   - If yes: state claim with evidence
-5. **Only then** — make the claim
+Before final completion, run every repository-mandated full verification command
+in `AGENTS.md`, manifests, or CI configuration; targeted checks do not replace
+it. If none is established, report that limitation.
 
-Before final completion, run every repository-mandated full verification
-command documented in `AGENTS.md`, manifests, or CI configuration. Targeted
-checks are useful during implementation but do not replace this final gate. If
-no full command is established, report that limitation explicitly.
+Before reviewing requirements, read the active design and plan, the change's
+`decisions.md`, and the other sources in `implement-task`'s
+`## Decision sources`. A persisted decision is requirement evidence but does not
+override a pending approval gate; conversation recall is not review evidence.
+Mark completion only when this is the final review, every task is implemented
+(`Progress: done` with a `Result:` this review confirms with fresh evidence), and
+every required verification passes. A task with no `Progress` line is not
+complete: report a blocker so `implement-task` backfills it
+(`../using-devkit/references/legacy.md`). Approval status alone is not
+completion evidence.
 
-Before reviewing requirements, read the active spec and plan, including its
-`## Decision Log`, plus any task-linked decision file. A persisted decision is
-requirement evidence, but it does not override a pending approval gate;
-conversation recall alone is not review evidence.
-Only mark completion when this is the final review, every task is implemented
-(each plan task is `Progress: done` with a `Result:` that this review confirms
-with fresh evidence), and every required verification passes. A task with no
-`Progress` line is not yet complete: apply the backfill rule in
-`implement-task` first, then judge completion. Do not mark an old plan
-complete merely because it was read.
-
-- For a **legacy plan**, a passing final review adds or sets
-  `Execution: complete` in `## Approval Gate`, or adds `## Completion` with
-  `Execution: complete` when the plan has no `## Approval Gate`.
-- For a **change folder**, a passing final review runs the archive procedure
-  below: verify documentation is complete, then move the folder under
-  `changes/archive/`. Delta merging happens during implementation's
-  documentation update, before final review. A change has no `Execution` field.
+A passing final review marks a legacy plan complete as
+`../using-devkit/references/legacy.md` describes, and runs
+`## Archive a change` for a change folder.
 
 Verify the edit or the archive before reporting `Status: pass`. If work or
 required verification remains, leave the plan or change open and report the gap
-under `Spec gaps`. Approval status alone is not completion evidence.
+under `Spec gaps`.
 
 ## Archive a change
 
-Run this inside the change's branch, after the code checks pass and before any
-commit. Archive never merges or edits wiki requirements. With a delta,
-confirm every block is in the after-merge state defined by `document-wiki`'s
-`## Merge a task delta`, including Sources, retired IDs, and the merge marker.
-If documentation is unfinished, call `document-wiki`'s Task updates procedure
-and rerun final review; do not move the folder yet. The change is complete only
-when the moved folder, index, and every rewritten link are verified.
+Run this in the change's branch, after the code checks pass and before any
+commit. Archive never merges or edits wiki requirements. With a delta, confirm
+every block is in the after-merge state `document-wiki`'s `## Merge a task delta`
+defines, including Sources, retired IDs, and the merge marker. If
+documentation is unfinished, report a blocker (`Status: fail`, `Next:
+implement-task`, which calls `document-wiki`'s `## Task updates`); do not move
+the folder yet.
 
-1. **Move and relink.** Before moving, compute every link that will change:
-   relative links inside the folder's files that point outside it, and links
-   anywhere in the repository that point into it, found by searching all files,
-   including ignored `docs/` paths. Rewrite links in `docs/agent-devkit/`
-   (including the `docs/agent-devkit/INDEX.md` entry, which moves from
-   `## Changes` to `## Archived changes`) and links in files this change already
-   modifies. A link from `docs/llm/` into a change folder breaks the wiki
-   boundary and fails the review. For any other file, stop before moving and
-   report the file and link for the user to decide. Confirm every new target will
-   exist after the move. Then move the folder to `changes/archive/<same name>/`,
-   rewrite those links, and verify they resolve. If any link check fails, move
-   the folder back to `changes/`, undo only this archive's link edits, keep
-   `Status: fail`, and report the broken links.
+**Move and relink.** Before moving, compute every link that will change: relative
+links in the folder's files that point outside it, and links anywhere in the
+repository that point into it (search all files, including ignored `docs/`
+paths). Rewrite links in `docs/agent-devkit/` (the index entry moves from
+`## Changes` to `## Archived changes`) and in files this change already
+modifies. A link from `docs/llm/` into a change folder breaks the wiki boundary
+and fails the review. For any other file, stop before moving and report the file
+and link for the user to decide. Confirm every new target will exist, move the
+folder to `changes/archive/<same name>/`, rewrite the links, and verify they
+resolve. If any check fails, move the folder back, undo only this archive's link
+edits, keep `Status: fail`, and report the broken links. The change is complete
+only when the moved folder, index, and every rewritten link are verified.
 
-After a rebase that touches `docs/llm/` or the change folder, run
-`review-and-verify` again; an earlier pass does not count.
+After a rebase that touches `docs/llm/` or the change folder, review again; an
+earlier pass does not count.
 
 ## Git safety invariants
 
-- Treat existing working-tree changes as user-owned. Inspect `git status
---short` and the relevant diff before changing or discarding anything.
+- Treat existing working-tree changes as user-owned: inspect `git status --short`
+  and the diff before changing or discarding anything.
 - Never run `git reset --hard`, `git clean -fd`/`-xdf`, `git checkout -- <path>`,
   `git restore` that overwrites work, or broad delete commands to remove user
   changes unless the user explicitly authorizes the exact target and command.
 - Never force-push or rewrite remote history without an explicit request naming
   the remote, branch, and intended rewrite. A request to finish, clean up, or
   fix the branch is not authorization.
-- Prefer recoverable actions: inspect first, edit with the repository's normal
-  tools, and leave commits and remote operations to the user unless explicitly
-  requested.
+- Prefer recoverable actions; leave commits, pushes, and other remote operations
+  to the user unless explicitly requested.
 
 ## Claims vs evidence
 
@@ -104,129 +97,94 @@ After a rebase that touches `docs/llm/` or the change folder, run
 | Build succeeds   | Build command: exit 0                                         | Linter passing, logs look good |
 | Bug fixed        | Repeat original symptom check: passes                         | Code changed, assumed fixed    |
 | Requirements met | Line-by-line checklist vs spec, plan, and persisted decisions | Tests passing alone            |
-| Wiki updated     | Source paths exist, links resolve                             | "Page edited"                  |
+| Wiki updated     | Validator passes, claims match source                         | "Page edited"                  |
 
 ## Diff review
 
 ### Trace changed callers
 
-With OpenEZ, call `diff_context` using `staged: true` to isolate staged changes,
-`ref` to compare a selected ref, or neither option for the working-tree view;
-record changed symbols and callers. A temporary sample run observed that
-`staged: true` reported staged changes, while the default working-tree view
-included staged and unstaged tracked changes. It did not list untracked files
-as changed-file entries, although its graph did surface an indexed untracked
-caller. Treat this as observed coverage, not a guarantee for other hosts.
-
-Always run `git status --short` and search changed symbols plus string, route,
-config-key, and case variants with FFF multi-pattern grep or `rg`; include new
-and untracked paths. This closes gaps when `diff_context` omits untracked files
-or graph edges. Without OpenEZ, when `HEAD` exists derive tracked symbols from
-`git diff HEAD` (staged and unstaged changes); when no commit exists, use both
-`git diff --cached` and `git diff`. For a branch review, also include
-`git diff <target-branch>...HEAD` so committed branch changes are reviewed.
-Use the PR's target branch, or the branch the task is intended to merge into;
-the three-dot comparison uses its merge-base with `HEAD`. If that target cannot
-be established from repository or PR evidence, ask instead of assuming it. Read
-untracked files listed by `git status --short` directly, then find callers with
-FFF multi-pattern grep or `rg`. Read every listed caller. For large diffs, call
-OpenEZ `index_workspace` (`mode: "incremental"`) only on the current
-repository's already-registered workspace before querying.
+With OpenEZ, call `diff_context` (`staged: true`, a `ref`, or neither for the
+working tree) and record changed symbols and callers. It may omit untracked
+files, so always run `git status --short` and search changed symbols plus string,
+route, config-key, and case variants with FFF multi-pattern grep or `rg`,
+including untracked paths. Without OpenEZ, derive tracked symbols from
+`git diff HEAD` (no commit: `git diff --cached` plus `git diff`). A branch review
+adds `git diff <target-branch>...HEAD` (the PR's target, or the merge branch; ask
+if unknown). Read untracked files and every listed caller. For a large diff, run
+OpenEZ `index_workspace` (`mode: "incremental"`) on the registered workspace
+first.
 
 Review the diff for:
 
 - **Correctness** — logic matches the approved design and persisted decisions
-- **Stale documentation** — wiki pages or comments that contradict new behavior
+- **Stale documentation** — wiki pages or comments contradicting new behavior
 - **Accidental scope** — changes outside the approved plan
 - **Missing error handling** — edge cases, error paths, cleanup
-- **Protected boundaries** — trust-boundary validation, security,
-  accessibility, and data-loss prevention remain intact
-- **Conventions** — changed code follows the recorded rules in `AGENTS.md` or
-  `CONVENTIONS.md` whose scope matches the changed files; the most specific
-  matching scope wins. Cite `path:line` for a violation and why it matters.
-  When no conventions are recorded, report this item as `not-applicable` and do
-  not fail the review.
+- **Protected boundaries** — trust-boundary validation, security, accessibility,
+  and data-loss prevention stay intact
+- **Conventions** — changed code follows the rules in `AGENTS.md` or
+  `CONVENTIONS.md` whose scope matches the changed files (most specific wins);
+  cite `path:line`. With none recorded, report `not-applicable`; do not fail.
 
-Compare implementation and fresh evidence with every approved edge case in the
-spec and plan. Report every blocker, non-blocker, spec gap, and complexity
-finding with `path:line` when relevant source exists, the observed problem, and
-why it matters. A bare filename is not actionable evidence.
-
-When required behavior cannot be established from the diff, source, tests, or
-fresh command output, record it under `Spec gaps` as:
+Compare the implementation and fresh evidence with every approved edge case.
+Report every blocker, non-blocker, spec gap, and complexity finding with
+`path:line`, the problem, and why it matters (a bare filename is not
+actionable). Required behavior that diff, source, tests, or fresh output cannot
+establish goes under `Spec gaps`:
 
 ```text
 cannot verify <requirement> — needs <specific evidence or command>
 ```
 
-An unverifiable required behavior keeps the review status at `fail`.
+An unverifiable required behavior keeps the status at `fail`.
 
-For any task whose implementation or review changes `docs/llm/`, locate the installed
-`document-wiki/SKILL.md` in the same skill set and run
+For a task that changes `docs/llm/`, run the validator from the installed
+`document-wiki` skill:
 `node "<document-wiki-skill-directory>/scripts/validate-llm-wiki.mjs" "<target-repository-root>"`
-using absolute paths. If the script is missing, cannot run, or reports errors,
-keep `Status: fail`; never substitute a run against the devkit source repository.
-For wiki changes, also verify: source paths exist, `## Sources` entries are
-real, internal relative Markdown links resolve from their containing files,
-`INDEX.md` links resolve, and no placeholder text remains. Also scan
-`docs/llm/` for legacy `[[...]]` links. If a task updates the wiki, completion
-requires the full `document-wiki` migration; report missing or ambiguous
-targets, and fail the wiki check while any legacy wikilink remains.
+with absolute paths. If it is missing, cannot run, or reports errors, keep
+`Status: fail`; never run it against the devkit source repository instead. It
+covers paths, links, legacy `[[...]]` links, and requirement syntax; also check
+yourself for duplicate behavior within one prefix, placeholder text, and whether
+each `Evidence:` supports its statement.
 
-For changed pages with `## Requirements`, name the requirement format owned by
-`document-wiki` and fail on: an ID that appears elsewhere in `docs/llm/`; a page
-using more than one prefix; a prefix missing from `## Requirement prefixes` or
-repeated in it; an `Evidence:` path that does not exist or is missing from
-`## Sources`; a requirement anchor link that does not resolve; or two
-requirements of one prefix describing the same behavior. Internal link checks
-include anchors for requirement links.
-
-Before the final result, classify wiki impact even for a bug fix. If the change
-alters documented behavior or leaves a relevant page incomplete, use `yes` and
-list the pages updated or still requiring an in-scope update. Use `no` only after inspecting
-the relevant page and source evidence. Use `not-applicable` when the repository
-does not maintain `docs/llm/`, or `unknown` when the impact cannot be
-established. An existing page that contradicts the changed behavior is a
-blocker: keep `Status: fail` until that page is refreshed and verified. Missing
-coverage for behavior affected by the task is a blocker when the repository
-maintains `docs/llm/`: call `document-wiki`'s Task updates procedure, then rerun
-review. Coverage gaps in unrelated features are optional findings, not work to
-perform in this task. A skeleton wiki counts as existing wiki coverage to
-update; no wiki means `not-applicable`, without silently creating one. In the result
-block's `Evidence`, name the check for every listed caller. If a caller has no
-check, state `Verification limit: <caller> — <reason>` there.
+Before the final result, classify wiki impact, even for a bug fix: `yes` when the
+change alters documented behavior or leaves a relevant page incomplete (list the
+pages), `no` only after inspecting the page and source, `not-applicable` when the
+repository has no `docs/llm/` (never create one), `unknown` when it cannot be
+established. A page that contradicts the change, or missing coverage for affected
+behavior when `docs/llm/` exists, is a blocker: report it, and `implement-task`
+calls `document-wiki`'s `## Task updates` before the next review. Unrelated gaps
+are optional findings. In the result block's `Evidence`, name the check for every
+listed caller, or state `Verification limit: <caller> — <reason>`.
 
 ## Complexity pass
 
-Review the diff for behavior-preserving simplifications. Report each finding
-with a file reference and one of these labels:
-
-- `delete:` dead code or flexibility with no approved requirement
-- `reuse:` duplicated behavior already present in the repository
-- `stdlib:` custom code replaced by a named standard-library feature
-- `native:` dependency or custom code replaced by the platform
-- `yagni:` abstraction, configuration, or extension point with no current use
-- `shrink:` a smaller clear implementation with the same behavior and checks
-
-Fix an in-scope finding before completion; otherwise report it as remaining
-work. If none exist, state that the pass found none. Do not produce a line-count
-score: fewer lines are useful only when approved behavior, readability, and
-protected boundaries remain intact.
+Report each behavior-preserving simplification with a file reference and one
+label: `delete:` (dead code or flexibility with no approved requirement),
+`reuse:` (duplicates existing repository behavior), `stdlib:` or `native:` (a
+named standard-library or platform feature replaces custom code or a
+dependency), `yagni:` (abstraction with no current use), or `shrink:` (a smaller
+clear implementation, same behavior and checks). An in-scope finding is a
+blocker: `Status: fail` until `implement-task` fixes it; report an out-of-scope
+one as a non-blocker. If none exist, say the pass found none. Give no line-count
+score.
 
 ## Review result
 
-Start the final response with three short lines in the user's language: result
-(what is done and whether final review passed, including task progress when
-available), checks and documentation updated (with missing checks, if any), and
-next action (who does what, how, and what result would pass; or none).
-The agent first attempts setup and checks available from the repository. If
-only the user can run a required check, give app-level steps and the expected
-result; ask for access or assets only after identifying what the agent cannot
-obtain. If the change is still open, state plainly that it moves to
-`changes/archive/` only after final review passes. Keep supporting details in
-the result block below; do not repeat the same finding in extra prose.
+Start the final response with these three lines, in the user's language and the
+format from `using-devkit`:
 
-End every review with this exact result block:
+```text
+Next: <skill or action, or none>
+Waiting on: agent | user — <exact approval, answer, or action needed>
+Done when: <observable result that completes the next step>
+```
+
+On `fail`, `Next` is `implement-task` (or `systematic-debugging` for a bug) to
+fix the blockers. Attempt the available setup and checks first; if only the user
+can run a required check, give app-level steps and the expected result. Then add
+one or two sentences on what is done and which checks and documentation were
+updated, and end with this exact result block, repeating no finding in prose:
 
 ```md
 Status: pass | fail
@@ -239,21 +197,19 @@ Wiki pages: <paths, or none>
 Wiki action: <updated and verified / no update needed / required update or limitation>
 ```
 
-Use `fail` when any blocker or spec gap remains. A passing verification command
-does not override a failed requirements or diff review.
+Use `fail` when any blocker or spec gap remains; a passing check does not
+override a failed requirements or diff review. Report remaining limitations. A
+task is complete only when the result says `Status: pass` and code,
+documentation, and verification output agree. Never turn a failed blocker into a
+non-blocker. Leave the verified tree to the user; commit only as `using-devkit`
+allows, never failing or unverified work. For external review feedback, read
+`references/receiving-code-review.md` first.
 
-## Receiving code review
+## Red flags
 
-When reviewing external feedback, read `references/receiving-code-review.md`
-before continuing.
-
-## Report
-
-Report any remaining limitation explicitly. A task is complete only when the
-result block says `Status: pass` and code, documentation, and verification
-output agree. Leave failed blockers for the implementer to fix; do not silently
-turn them into non-blockers.
-
-Leave the verified working tree for the user to review and commit. If the user
-explicitly requests a commit, create it only after this final verification gate
-passes; never commit known failing or unverified work.
+| Thought                                 | Reality                                                                                                               |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| "Review can fix it while it is here"    | Report it; the fix goes through `implement-task`'s loop and a new review.                                             |
+| "One more fix attempt before reporting" | Three failed attempts on one blocker end the loop.                                                                    |
+| "It should pass" / "it looks correct"   | Neither is evidence; run it.                                                                                          |
+| "Approval is in the chat history"       | Only this conversation, an `Approved:` line, a handoff's `Approval:` line, or `tasks.md`'s `Status: approved` counts. |

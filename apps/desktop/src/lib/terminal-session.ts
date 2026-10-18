@@ -1,4 +1,6 @@
-import { invokeTauri } from '@/lib/tauri';
+import { EventsOn } from '../../wailsjs/runtime/runtime';
+import { ResizeTerminalSession, StopTerminalSession, WriteTerminalSession } from '../../wailsjs/go/api/TerminalService';
+import type { TerminalSessionEvent } from './terminal-session-state';
 
 export const TERMINAL_SESSION_EVENT = 'terminal-session-event';
 
@@ -11,14 +13,18 @@ export type TerminalSessionStarted = {
   readonly sessionId: string;
 };
 
+export function onTerminalSessionEvent(handler: (event: TerminalSessionEvent) => void): () => void {
+  return EventsOn(TERMINAL_SESSION_EVENT, handler as (data: unknown) => void);
+}
+
 export async function writeTerminalSession(sessionId: string, data: string): Promise<void> {
-  await invokeTauri('write_terminal_session', { sessionId, data });
+  await WriteTerminalSession(sessionId, data);
 }
 
 export async function resizeTerminalSession(sessionId: string, size: TerminalSize): Promise<void> {
-  await invokeTauri('resize_terminal_session', { sessionId, size });
+  await ResizeTerminalSession(sessionId, size);
 }
 
 export async function stopTerminalSession(sessionId: string): Promise<void> {
-  await invokeTauri('stop_terminal_session', { sessionId });
+  await StopTerminalSession(sessionId);
 }

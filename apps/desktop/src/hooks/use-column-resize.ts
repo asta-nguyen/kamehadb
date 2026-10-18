@@ -54,7 +54,7 @@ function computeMinWidths(
 }
 
 export function useColumnResize(columnCount: number, options: Options = {}) {
-  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 50, columnIds, headers } = options;
+  const { prefix = '', suffix = '', sampleValues, maxAutoWidth = 420, minAutoWidth = 64, columnIds, headers } = options;
 
   const colIdsStr = columnIds ? columnIds.join(',') : '';
   const lastColIdsRef = useRef(colIdsStr);
@@ -142,10 +142,13 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
       const startX = e.clientX;
       const startW = head.getBoundingClientRect().width;
       const table = row.closest('[data-slot="table"]') as HTMLElement | null;
-      const allRows = table ? Array.from(table.querySelectorAll<HTMLElement>('[data-slot="table-row"]')) : [row];
-      // The DataTable wraps the table in a div with overflow-x-auto, which is the
-      // primary scroll container for horizontal column resize scrolling.
-      const scrollContainer = table?.parentElement as HTMLElement | null;
+      // The header sits in its own table above the scrollport, so collect rows from the
+      // whole table component and auto-scroll the body scrollport, not the header. (How / Why)
+      const root = table?.closest('[data-slot="data-table"]') ?? table;
+      const allRows = root ? Array.from(root.querySelectorAll<HTMLElement>('[data-slot="table-row"]')) : [row];
+      const scrollContainer =
+        (root?.querySelector('[data-slot="data-table-scrollport"]') as HTMLElement | null) ??
+        (table?.parentElement as HTMLElement | null);
 
       dragRef.current = { idx: index, startX, startW, allRows, moved: false, finalW: startW };
       // Snapshot widths so onMove can rebuild the full template
@@ -157,8 +160,27 @@ export function useColumnResize(columnCount: number, options: Options = {}) {
         if (!dragRef.current) return;
         dragRef.current.moved = true;
         const diff = me.clientX - dragRef.current.startX;
-        const w = Math.max(40, dragRef.current.startW + diff);
+        let w = Math.max(40, dragRef.current.startW + diff);
         dragRef.current.finalW = w;
+
+        // Cap the dragged width so the grid can never exceed the pane: the sum of all
+        // other columns' minimums (fixed or minmax floors) must leave room for it, or
+        // the table overflows and a horizontal scrollbar appears. (Why)
+        if (scrollContainer) {
+          const pxSum = (s?: string) =>
+            s ? [...s.matchAll(/(\d+(?:\.\d+)?)px/g)].reduce((n, m) => n + parseFloat(m[1]), 0) : 0;
+          const idx = dragRef.current.idx;
+          let minSum = pxSum(prefix) + pxSum(suffix);
+          widthsAtDragStartRef.current.forEach((cw, ci) => {
+            if (ci === idx || cw == null) return; // null cols are minmax(0,1fr) and can shrink to 0
+            minSum += cw;
+          });
+          const maxW = scrollContainer.clientWidth - minSum;
+          if (w > maxW) {
+            w = Math.max(40, maxW);
+            dragRef.current.finalW = w;
+          }
+        }
 
         // Rebuild the grid template from the widths snapshot, replacing only
         // the dragged column's width. This keeps previously-resized columns intact.

@@ -136,7 +136,8 @@ export function PostgresBackupDialog({ connection, open, onOpenChange }: Postgre
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  {/* Base UI leaks the raw value until the popup mounts; resolve the label ourselves. (Why) */}
+                  <SelectValue>{scopeKind.charAt(0).toUpperCase() + scopeKind.slice(1)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="database">Database</SelectItem>
@@ -157,7 +158,10 @@ export function PostgresBackupDialog({ connection, open, onOpenChange }: Postgre
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  {/* Base UI leaks the raw value until the popup mounts; resolve the label ourselves. (Why) */}
+                  <SelectValue>
+                    {format === 'custom' ? 'Custom (.dump)' : format === 'plain' ? 'Plain SQL (.sql)' : 'Tar (.tar)'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="custom">Custom (.dump)</SelectItem>

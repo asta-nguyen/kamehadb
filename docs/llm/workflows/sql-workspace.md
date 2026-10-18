@@ -1,6 +1,64 @@
 # SQL Workspace
 
-Verification: [x] Query safety, table/schema views, and result export paths were checked against current source and the listed tests.
+Verification: [~] Confirmed content gap: the sidecar descriptions and pre-change requirements below are historical baselines, not current behavior. Whole-row byte budgets, exact paging, native PostgreSQL/SQLite CSV and smaller SQLite caches are implemented; verified requirement replacement and narrative refresh remain unfinished. This checkpoint does not mark the page current.
+
+## Requirements
+
+### SQL-gui-result-bounds
+
+The system SHALL cap unpaginated GUI SQL results at 50,000 rows.
+
+#### Scenario: row ceiling
+
+- GIVEN a SQLite query producing 60,000 rows
+- WHEN it runs through the GUI adapter
+- THEN 50,000 rows are returned with truncation indicated
+
+Evidence: `internal/engines/types.go`, `internal/engines/sqlite/sqlite.go`, `internal/engines/sqlite/sqlite_test.go`
+
+### SQL-preview-paging
+
+The system SHALL browse SQL table previews through limit/offset requests.
+
+#### Scenario: sorted preview
+
+- GIVEN a SQLite table with more than two rows
+- WHEN a descending name preview requests two rows
+- THEN two sorted rows are returned with further rows indicated
+
+Evidence: `internal/engines/sqlite/sqlite.go`, `internal/engines/sqlite/sqlite_test.go`, `apps/desktop/src/components/table-view.tsx`
+
+### SQL-result-export
+
+The system SHALL export the displayed SQL result through frontend CSV, JSON, or SQL serialization.
+
+#### Scenario: current result export
+
+- GIVEN a displayed query result
+- WHEN CSV export is selected
+- THEN the frontend serializes those rows into a downloaded file
+
+Evidence: `apps/desktop/src/lib/export.ts`
+
+### SQL-sqlite-memory
+
+The system SHALL configure SQLite with an approximately 64 MiB cache, a 256 MiB mmap allowance, and in-memory temporary storage.
+
+#### Scenario: opening SQLite
+
+- GIVEN a configured SQLite file
+- WHEN the normal or MCP adapter opens it
+- THEN the adapter applies the current cache, mmap, and temporary-storage PRAGMAs
+
+Evidence: `internal/engines/sqlite/sqlite.go`
+
+## Sources
+
+- `internal/engines/types.go`
+- `internal/engines/sqlite/sqlite.go`
+- `internal/engines/sqlite/sqlite_test.go`
+- `apps/desktop/src/components/table-view.tsx`
+- `apps/desktop/src/lib/export.ts`
 
 ## SQL execution and results
 
@@ -54,6 +112,9 @@ Verification: [x] Query safety, table/schema views, and result export paths were
 
 ### Sources
 
+- internal/engines/types.go
+- internal/engines/sqlite/sqlite.go
+- internal/engines/sqlite/sqlite_test.go
 - apps/desktop/src/components/sql-editor.tsx
 - apps/desktop/src/hooks/use-query.ts
 - apps/desktop/src/lib/export.ts

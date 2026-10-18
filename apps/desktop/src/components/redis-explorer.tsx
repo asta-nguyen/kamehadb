@@ -1,12 +1,14 @@
 import { useState, useMemo, type ReactNode } from 'react';
 import { useRedisKeys, useRedisKeyDetails, useRedisStats } from '@/hooks/use-redis';
-import { Box, Hash, List, Type, Clock, X, BarChart3, Cpu, HardDrive, Users } from 'lucide-react';
+import { Box, Hash, List, Type, Clock, X, BarChart3, Cpu, Copy, HardDrive, Users } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/ui/loading-state';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
 import { JsonValue } from '@/components/ui/json-value';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { toastError, toastSuccess } from '@/lib/toast';
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   string: Type,
@@ -76,6 +78,18 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
     setSelectedKey(key === selectedKey ? null : key);
   };
 
+  // Shared copy handler for the key context menu: clipboard write plus toast feedback. (What)
+  const copyToClipboard = (value: string, label: string) => {
+    void navigator.clipboard
+      .writeText(value)
+      .then(() => toastSuccess(`${label} copied`))
+      .catch(() => toastError(`Failed to copy ${label}`));
+  };
+
+  // Raw text for "Copy value": strings copy verbatim, structured types as pretty JSON. (What)
+  const copyValueText =
+    keyDetails && typeof keyDetails.value === 'string' ? keyDetails.value : JSON.stringify(keyDetails?.value, null, 2);
+
   return (
     <div className="flex h-full">
       {/* Key list */}
@@ -111,18 +125,33 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
               const Icon = typeIcons[entry.type] || Box;
               const isSelected = selectedKey === entry.key;
               return (
-                <Button
-                  key={entry.key}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleKeyClick(entry.key)}
-                  className={`w-full font-normal ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                  title={`${entry.key} (${entry.type})`}
-                >
-                  <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
-                  <span className="truncate flex-1 text-left">{entry.key}</span>
-                  <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
-                </Button>
+                <ContextMenu key={entry.key}>
+                  <ContextMenuTrigger>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleKeyClick(entry.key)}
+                      className={`w-full font-normal ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                      title={`${entry.key} (${entry.type})`}
+                    >
+                      <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
+                      <span className="truncate flex-1 text-left">{entry.key}</span>
+                      <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
+                    </Button>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => copyToClipboard(entry.key, 'Key')}>
+                      <Copy className="mr-2 size-3.5" />
+                      Copy key
+                    </ContextMenuItem>
+                    {isSelected && keyDetails ? (
+                      <ContextMenuItem onClick={() => copyToClipboard(copyValueText, 'Value')}>
+                        <Copy className="mr-2 size-3.5" />
+                        Copy value
+                      </ContextMenuItem>
+                    ) : null}
+                  </ContextMenuContent>
+                </ContextMenu>
               );
             })
           )}
@@ -175,9 +204,23 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
                   const Icon = typeIcons[keyDetails.type] || Box;
                   return <Icon className={`size-4 shrink-0 ${typeColors[keyDetails.type] || ''}`} />;
                 })()}
-                <span className="font-mono text-sm truncate" title={keyDetails.key}>
-                  {keyDetails.key}
-                </span>
+                <ContextMenu>
+                  <ContextMenuTrigger className="min-w-0">
+                    <span className="font-mono text-sm truncate" title={keyDetails.key}>
+                      {keyDetails.key}
+                    </span>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={() => copyToClipboard(keyDetails.key, 'Key')}>
+                      <Copy className="mr-2 size-3.5" />
+                      Copy key
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => copyToClipboard(copyValueText, 'Value')}>
+                      <Copy className="mr-2 size-3.5" />
+                      Copy value
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
                 <span className="text-xs uppercase bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                   {keyDetails.type}
                 </span>

@@ -1,0 +1,25 @@
+name: kamehadb
+arch: amd64
+version: ${VERSION}
+maintainer: asta-nguyen
+description: |
+  Local-first database GUI for PostgreSQL, MySQL, MariaDB, SQLite, SQL Server,
+  Oracle, ClickHouse, DuckDB, MongoDB, and Redis.
+vendor: KamehaDB
+homepage: https://github.com/asta-nguyen/kamehadb
+license: Apache-2.0
+contents:
+  - src: build/bin/kamehadb
+    dst: /usr/bin/kamehadb
+  - src: build/linux/kamehadb.desktop
+    dst: /usr/share/applications/kamehadb.desktop
+  - src: apps/desktop/public/logo.png
+    dst: /usr/share/icons/hicolor/256x256/apps/kamehadb.png
+depends:
+  - libgtk-3-0
+  - libwebkit2gtk-4.1-0
+overrides:
+  rpm:
+    depends:
+      - gtk3
+      - webkit2gtk4.1

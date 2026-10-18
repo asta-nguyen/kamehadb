@@ -1,0 +1,968 @@
+{
+  "date": "2026-10-14",
+  "status": "interim; not a matched-baseline comparison",
+  "source": "b72923b94e73edc9576cc92ee79003a4a60740ea plus the pre-pull optimization/UI worktree",
+  "binarySHA256": "01ac6c3131d015f94a12a9ec950fe404d68573100b3676b449a27c1db29eb3cc",
+  "units": {
+    "memory": "MiB",
+    "timing": "ms"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "pass": true,
+      "memorySamples": 261,
+      "sampledPeakPSSMiB": 463.267578125,
+      "phases": {
+        "idle_one_connection": {
+          "samples": 16,
+          "PssMedianMiB": 301.61572265625,
+          "RssMedianMiB": 721.8125,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 305.7236328125,
+          "goHeapAllocMiB": 1.5521926879882812,
+          "goSysMiB": 14.181907653808594,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 116.1357421875,
+            "WebKitWebProcess": 152.8193359375,
+            "WebKitNetworkProcess": 32.6611328125,
+            "otherChildren": 0.0
+          }
+        },
+        "million_first_page": {
+          "samples": 15,
+          "PssMedianMiB": 340.1396484375,
+          "RssMedianMiB": 766.3359375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 340.2841796875,
+          "goHeapAllocMiB": 1.562469482421875,
+          "goSysMiB": 14.447532653808594,
+          "retainedPreviewRows": 50,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 117.1767578125,
+            "WebKitWebProcess": 190.3291015625,
+            "WebKitNetworkProcess": 32.6337890625,
+            "otherChildren": 0
+          }
+        },
+        "five_small_tabs": {
+          "samples": 17,
+          "PssMedianMiB": 399.146484375,
+          "RssMedianMiB": 825.7265625,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 433.025390625,
+          "goHeapAllocMiB": 2.16583251953125,
+          "goSysMiB": 14.463157653808594,
+          "retainedPreviewRows": 250,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 134.0693359375,
+            "WebKitWebProcess": 232.4169921875,
+            "WebKitNetworkProcess": 32.66015625,
+            "otherChildren": 0
+          }
+        },
+        "wide_preview_plus_five_tabs": {
+          "samples": 18,
+          "PssMedianMiB": 421.541015625,
+          "RssMedianMiB": 848.5,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 463.267578125,
+          "goHeapAllocMiB": 7.375274658203125,
+          "goSysMiB": 30.463157653808594,
+          "retainedPreviewRows": 282,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 145.8837890625,
+            "WebKitWebProcess": 242.9970703125,
+            "WebKitNetworkProcess": 32.66015625,
+            "otherChildren": 0.0
+          }
+        },
+        "wide_query_100_rows": {
+          "samples": 16,
+          "PssMedianMiB": 435.4423828125,
+          "RssMedianMiB": 862.40625,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 461.251953125,
+          "goHeapAllocMiB": 13.714797973632812,
+          "goSysMiB": 54.463157653808594,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 100,
+          "rolePssMedianMiB": {
+            "main": 162.3837890625,
+            "WebKitWebProcess": 240.40869140625,
+            "WebKitNetworkProcess": 32.65234375,
+            "otherChildren": 0.0
+          }
+        },
+        "closed_short": {
+          "samples": 124,
+          "PssMedianMiB": 418.3994140625,
+          "RssMedianMiB": 845.94140625,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 433.283203125,
+          "goHeapAllocMiB": 13.728424072265625,
+          "goSysMiB": 54.463157653808594,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 161.9072265625,
+            "WebKitWebProcess": 223.59765625,
+            "WebKitNetworkProcess": 32.484375,
+            "otherChildren": 0.0
+          }
+        },
+        "closed_long": {
+          "samples": 14,
+          "PssMedianMiB": 418.525390625,
+          "RssMedianMiB": 846.0703125,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 418.537109375,
+          "goHeapAllocMiB": 13.745231628417969,
+          "goSysMiB": 54.463157653808594,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 162.43359375,
+            "WebKitWebProcess": 223.6083984375,
+            "WebKitNetworkProcess": 32.4833984375,
+            "otherChildren": 0.0
+          }
+        }
+      },
+      "sorts": {
+        "id": [
+          {
+            "ms": 80,
+            "durationMs": 0.478,
+            "clickToPaintMs": 157,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 14.000000000003638,
+            "durationMs": 2.5,
+            "clickToPaintMs": 91,
+            "rows": 50,
+            "encodedBytes": 3964,
+            "direction": "desc"
+          },
+          {
+            "ms": 5,
+            "durationMs": 1.467,
+            "clickToPaintMs": 81.00000000000364,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 13.999999999996362,
+            "durationMs": 1.062,
+            "clickToPaintMs": 89,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          },
+          {
+            "ms": 2,
+            "durationMs": 0.687,
+            "clickToPaintMs": 68.00000000000364,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 13.000000000003638,
+            "durationMs": 1.064,
+            "clickToPaintMs": 82,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          }
+        ],
+        "indexed_key": [
+          {
+            "ms": 49,
+            "durationMs": 47.988,
+            "clickToPaintMs": 132,
+            "rows": 50,
+            "encodedBytes": 3594,
+            "direction": "asc"
+          },
+          {
+            "ms": 43.00000000000364,
+            "durationMs": 40.061,
+            "clickToPaintMs": 138,
+            "rows": 50,
+            "encodedBytes": 3808,
+            "direction": "desc"
+          },
+          {
+            "ms": 3.999999999996362,
+            "durationMs": 1.711,
+            "clickToPaintMs": 82.00000000000364,
+            "rows": 50,
+            "encodedBytes": 3593,
+            "direction": "asc"
+          },
+          {
+            "ms": 12,
+            "durationMs": 0.794,
+            "clickToPaintMs": 81,
+            "rows": 50,
+            "encodedBytes": 3807,
+            "direction": "desc"
+          },
+          {
+            "ms": 17.999999999992724,
+            "durationMs": 1.39,
+            "clickToPaintMs": 94,
+            "rows": 50,
+            "encodedBytes": 3592,
+            "direction": "asc"
+          },
+          {
+            "ms": 7,
+            "durationMs": 1.064,
+            "clickToPaintMs": 51,
+            "rows": 50,
+            "encodedBytes": 3807,
+            "direction": "desc"
+          }
+        ],
+        "label": [
+          {
+            "ms": 316,
+            "durationMs": 314.547,
+            "clickToPaintMs": 358,
+            "rows": 50,
+            "encodedBytes": 3595,
+            "direction": "asc"
+          },
+          {
+            "ms": 299,
+            "durationMs": 296.611,
+            "clickToPaintMs": 353,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          },
+          {
+            "ms": 278,
+            "durationMs": 276.284,
+            "clickToPaintMs": 334,
+            "rows": 50,
+            "encodedBytes": 3595,
+            "direction": "asc"
+          },
+          {
+            "ms": 314,
+            "durationMs": 311.866,
+            "clickToPaintMs": 355,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          },
+          {
+            "ms": 350,
+            "durationMs": 347.699,
+            "clickToPaintMs": 409.0000000000073,
+            "rows": 50,
+            "encodedBytes": 3595,
+            "direction": "asc"
+          },
+          {
+            "ms": 336,
+            "durationMs": 333.776,
+            "clickToPaintMs": 402,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          }
+        ]
+      },
+      "widePreview": {
+        "durationMs": 26.662,
+        "encodedBytes": 2049106,
+        "input": {
+          "limit": 50,
+          "matchCase": false,
+          "offset": 0,
+          "paginationMode": "auto",
+          "tableId": "wide"
+        },
+        "ms": 74.99999999999272,
+        "rows": 32
+      }
+    },
+    {
+      "run": 2,
+      "pass": true,
+      "memorySamples": 262,
+      "sampledPeakPSSMiB": 482.841796875,
+      "phases": {
+        "idle_one_connection": {
+          "samples": 16,
+          "PssMedianMiB": 321.5244140625,
+          "RssMedianMiB": 787.42578125,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 329.033203125,
+          "goHeapAllocMiB": 1.5552825927734375,
+          "goSysMiB": 13.849861145019531,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 121.5615234375,
+            "WebKitWebProcess": 162.3720703125,
+            "WebKitNetworkProcess": 37.59033203125,
+            "otherChildren": 0.0
+          }
+        },
+        "million_first_page": {
+          "samples": 15,
+          "PssMedianMiB": 357.3701171875,
+          "RssMedianMiB": 830.90625,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 358.640625,
+          "goHeapAllocMiB": 1.5557098388671875,
+          "goSysMiB": 14.115486145019531,
+          "retainedPreviewRows": 50,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 122.3623046875,
+            "WebKitWebProcess": 197.6630859375,
+            "WebKitNetworkProcess": 37.3466796875,
+            "otherChildren": 0
+          }
+        },
+        "five_small_tabs": {
+          "samples": 18,
+          "PssMedianMiB": 424.4365234375,
+          "RssMedianMiB": 898.44921875,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 459.302734375,
+          "goHeapAllocMiB": 2.1874160766601562,
+          "goSysMiB": 18.38892364501953,
+          "retainedPreviewRows": 250,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 139.515625,
+            "WebKitWebProcess": 247.5458984375,
+            "WebKitNetworkProcess": 37.375,
+            "otherChildren": 0.0
+          }
+        },
+        "wide_preview_plus_five_tabs": {
+          "samples": 18,
+          "PssMedianMiB": 429.369140625,
+          "RssMedianMiB": 903.734375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 482.841796875,
+          "goHeapAllocMiB": 7.36236572265625,
+          "goSysMiB": 30.39673614501953,
+          "retainedPreviewRows": 282,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 152.625,
+            "WebKitWebProcess": 239.3662109375,
+            "WebKitNetworkProcess": 37.3779296875,
+            "otherChildren": 0.0
+          }
+        },
+        "wide_query_100_rows": {
+          "samples": 16,
+          "PssMedianMiB": 443.986328125,
+          "RssMedianMiB": 918.35546875,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 465.810546875,
+          "goHeapAllocMiB": 19.824310302734375,
+          "goSysMiB": 50.39673614501953,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 100,
+          "rolePssMedianMiB": {
+            "main": 162.345703125,
+            "WebKitWebProcess": 244.271484375,
+            "WebKitNetworkProcess": 37.369140625,
+            "otherChildren": 0.0
+          }
+        },
+        "closed_short": {
+          "samples": 123,
+          "PssMedianMiB": 428.7001953125,
+          "RssMedianMiB": 903.12109375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 442.9228515625,
+          "goHeapAllocMiB": 19.83289337158203,
+          "goSysMiB": 50.39673614501953,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 161.876953125,
+            "WebKitWebProcess": 229.0400390625,
+            "WebKitNetworkProcess": 37.369140625,
+            "otherChildren": 0
+          }
+        },
+        "closed_long": {
+          "samples": 14,
+          "PssMedianMiB": 428.6650390625,
+          "RssMedianMiB": 903.09375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 428.6708984375,
+          "goHeapAllocMiB": 19.855926513671875,
+          "goSysMiB": 50.39673614501953,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 162.4384765625,
+            "WebKitWebProcess": 228.8603515625,
+            "WebKitNetworkProcess": 37.369140625,
+            "otherChildren": 0.0
+          }
+        }
+      },
+      "sorts": {
+        "id": [
+          {
+            "ms": 91,
+            "durationMs": 0.615,
+            "clickToPaintMs": 184,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 9,
+            "durationMs": 1.274,
+            "clickToPaintMs": 88.00000000000364,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          },
+          {
+            "ms": 5,
+            "durationMs": 1.164,
+            "clickToPaintMs": 75.00000000000364,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 8,
+            "durationMs": 0.546,
+            "clickToPaintMs": 72,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          },
+          {
+            "ms": 3,
+            "durationMs": 0.635,
+            "clickToPaintMs": 72,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 6.999999999996362,
+            "durationMs": 1.063,
+            "clickToPaintMs": 58,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          }
+        ],
+        "indexed_key": [
+          {
+            "ms": 34,
+            "durationMs": 7.857,
+            "clickToPaintMs": 112.99999999999636,
+            "rows": 50,
+            "encodedBytes": 3593,
+            "direction": "asc"
+          },
+          {
+            "ms": 19,
+            "durationMs": 3.71,
+            "clickToPaintMs": 110,
+            "rows": 50,
+            "encodedBytes": 3806,
+            "direction": "desc"
+          },
+          {
+            "ms": 4,
+            "durationMs": 1.402,
+            "clickToPaintMs": 104,
+            "rows": 50,
+            "encodedBytes": 3593,
+            "direction": "asc"
+          },
+          {
+            "ms": 9,
+            "durationMs": 1.145,
+            "clickToPaintMs": 70,
+            "rows": 50,
+            "encodedBytes": 3807,
+            "direction": "desc"
+          },
+          {
+            "ms": 3.000000000007276,
+            "durationMs": 0.574,
+            "clickToPaintMs": 73,
+            "rows": 50,
+            "encodedBytes": 3593,
+            "direction": "asc"
+          },
+          {
+            "ms": 18,
+            "durationMs": 0.773,
+            "clickToPaintMs": 92,
+            "rows": 50,
+            "encodedBytes": 3807,
+            "direction": "desc"
+          }
+        ],
+        "label": [
+          {
+            "ms": 345,
+            "durationMs": 342.89,
+            "clickToPaintMs": 408,
+            "rows": 50,
+            "encodedBytes": 3594,
+            "direction": "asc"
+          },
+          {
+            "ms": 303,
+            "durationMs": 301.052,
+            "clickToPaintMs": 357.9999999999927,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          },
+          {
+            "ms": 297,
+            "durationMs": 295.422,
+            "clickToPaintMs": 349,
+            "rows": 50,
+            "encodedBytes": 3595,
+            "direction": "asc"
+          },
+          {
+            "ms": 289.9999999999927,
+            "durationMs": 288.292,
+            "clickToPaintMs": 346,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          },
+          {
+            "ms": 307,
+            "durationMs": 305.857,
+            "clickToPaintMs": 374,
+            "rows": 50,
+            "encodedBytes": 3595,
+            "direction": "asc"
+          },
+          {
+            "ms": 292,
+            "durationMs": 289.827,
+            "clickToPaintMs": 340,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          }
+        ]
+      },
+      "widePreview": {
+        "durationMs": 31.255,
+        "encodedBytes": 2049106,
+        "input": {
+          "limit": 50,
+          "matchCase": false,
+          "offset": 0,
+          "paginationMode": "auto",
+          "tableId": "wide"
+        },
+        "ms": 68,
+        "rows": 32
+      }
+    },
+    {
+      "run": 3,
+      "pass": true,
+      "memorySamples": 261,
+      "sampledPeakPSSMiB": 505.1328125,
+      "phases": {
+        "idle_one_connection": {
+          "samples": 16,
+          "PssMedianMiB": 332.3603515625,
+          "RssMedianMiB": 799.09375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 346.880859375,
+          "goHeapAllocMiB": 1.444122314453125,
+          "goSysMiB": 13.623298645019531,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 120.9912109375,
+            "WebKitWebProcess": 173.8564453125,
+            "WebKitNetworkProcess": 37.5126953125,
+            "otherChildren": 0.0
+          }
+        },
+        "million_first_page": {
+          "samples": 14,
+          "PssMedianMiB": 367.533203125,
+          "RssMedianMiB": 840.78515625,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 367.533203125,
+          "goHeapAllocMiB": 1.4813995361328125,
+          "goSysMiB": 13.873298645019531,
+          "retainedPreviewRows": 50,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 122.0419921875,
+            "WebKitWebProcess": 208.0068359375,
+            "WebKitNetworkProcess": 37.484375,
+            "otherChildren": 0.0
+          }
+        },
+        "five_small_tabs": {
+          "samples": 18,
+          "PssMedianMiB": 428.6630859375,
+          "RssMedianMiB": 902.677734375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 458.7099609375,
+          "goHeapAllocMiB": 2.2962799072265625,
+          "goSysMiB": 14.138923645019531,
+          "retainedPreviewRows": 250,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 139.2998046875,
+            "WebKitWebProcess": 251.8515625,
+            "WebKitNetworkProcess": 37.5146484375,
+            "otherChildren": 0.0
+          }
+        },
+        "wide_preview_plus_five_tabs": {
+          "samples": 18,
+          "PssMedianMiB": 445.38427734375,
+          "RssMedianMiB": 919.7734375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 505.1328125,
+          "goHeapAllocMiB": 5.4063262939453125,
+          "goSysMiB": 26.14673614501953,
+          "retainedPreviewRows": 282,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 146.0263671875,
+            "WebKitWebProcess": 261.84619140625,
+            "WebKitNetworkProcess": 37.513671875,
+            "otherChildren": 0.0
+          }
+        },
+        "wide_query_100_rows": {
+          "samples": 16,
+          "PssMedianMiB": 486.9765625,
+          "RssMedianMiB": 961.6015625,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 490.357421875,
+          "goHeapAllocMiB": 13.726608276367188,
+          "goSysMiB": 66.2131576538086,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 100,
+          "rolePssMedianMiB": {
+            "main": 168.3935546875,
+            "WebKitWebProcess": 281.0771484375,
+            "WebKitNetworkProcess": 37.5068359375,
+            "otherChildren": 0.0
+          }
+        },
+        "closed_short": {
+          "samples": 123,
+          "PssMedianMiB": 447.4765625,
+          "RssMedianMiB": 922.3359375,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 472.8466796875,
+          "goHeapAllocMiB": 13.740234375,
+          "goSysMiB": 66.2131576538086,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 167.98046875,
+            "WebKitWebProcess": 242.1064453125,
+            "WebKitNetworkProcess": 37.505859375,
+            "otherChildren": 0
+          }
+        },
+        "closed_long": {
+          "samples": 14,
+          "PssMedianMiB": 446.65869140625,
+          "RssMedianMiB": 921.671875,
+          "SwapPssMedianMiB": 0.0,
+          "PssPeakMiB": 446.67578125,
+          "goHeapAllocMiB": 13.757301330566406,
+          "goSysMiB": 66.2131576538086,
+          "retainedPreviewRows": 0,
+          "retainedMutationRows": 0,
+          "rolePssMedianMiB": {
+            "main": 168.49951171875,
+            "WebKitWebProcess": 240.6572265625,
+            "WebKitNetworkProcess": 37.50537109375,
+            "otherChildren": 0.0
+          }
+        }
+      },
+      "sorts": {
+        "id": [
+          {
+            "ms": 144,
+            "durationMs": 0.774,
+            "clickToPaintMs": 288,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 8.000000000003638,
+            "durationMs": 0.744,
+            "clickToPaintMs": 92,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          },
+          {
+            "ms": 3,
+            "durationMs": 0.8,
+            "clickToPaintMs": 76.99999999999636,
+            "rows": 50,
+            "encodedBytes": 3741,
+            "direction": "asc"
+          },
+          {
+            "ms": 6.999999999996362,
+            "durationMs": 1.298,
+            "clickToPaintMs": 75.00000000000364,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          },
+          {
+            "ms": 3.999999999996362,
+            "durationMs": 0.919,
+            "clickToPaintMs": 56,
+            "rows": 50,
+            "encodedBytes": 3743,
+            "direction": "asc"
+          },
+          {
+            "ms": 8.999999999996362,
+            "durationMs": 0.754,
+            "clickToPaintMs": 66,
+            "rows": 50,
+            "encodedBytes": 3966,
+            "direction": "desc"
+          }
+        ],
+        "indexed_key": [
+          {
+            "ms": 33,
+            "durationMs": 11.78,
+            "clickToPaintMs": 163,
+            "rows": 50,
+            "encodedBytes": 3593,
+            "direction": "asc"
+          },
+          {
+            "ms": 9.999999999996362,
+            "durationMs": 2.906,
+            "clickToPaintMs": 64,
+            "rows": 50,
+            "encodedBytes": 3807,
+            "direction": "desc"
+          },
+          {
+            "ms": 3,
+            "durationMs": 0.864,
+            "clickToPaintMs": 77.99999999999272,
+            "rows": 50,
+            "encodedBytes": 3593,
+            "direction": "asc"
+          },
+          {
+            "ms": 11,
+            "durationMs": 1.275,
+            "clickToPaintMs": 86,
+            "rows": 50,
+            "encodedBytes": 3807,
+            "direction": "desc"
+          },
+          {
+            "ms": 20,
+            "durationMs": 1.161,
+            "clickToPaintMs": 83.99999999999272,
+            "rows": 50,
+            "encodedBytes": 3593,
+            "direction": "asc"
+          },
+          {
+            "ms": 14.999999999992724,
+            "durationMs": 0.812,
+            "clickToPaintMs": 101,
+            "rows": 50,
+            "encodedBytes": 3807,
+            "direction": "desc"
+          }
+        ],
+        "label": [
+          {
+            "ms": 319,
+            "durationMs": 317.084,
+            "clickToPaintMs": 374,
+            "rows": 50,
+            "encodedBytes": 3595,
+            "direction": "asc"
+          },
+          {
+            "ms": 316,
+            "durationMs": 314.151,
+            "clickToPaintMs": 384,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          },
+          {
+            "ms": 339.9999999999927,
+            "durationMs": 337.95,
+            "clickToPaintMs": 409,
+            "rows": 50,
+            "encodedBytes": 3594,
+            "direction": "asc"
+          },
+          {
+            "ms": 315,
+            "durationMs": 313.658,
+            "clickToPaintMs": 376,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          },
+          {
+            "ms": 327,
+            "durationMs": 325.539,
+            "clickToPaintMs": 394,
+            "rows": 50,
+            "encodedBytes": 3595,
+            "direction": "asc"
+          },
+          {
+            "ms": 360.9999999999927,
+            "durationMs": 359.132,
+            "clickToPaintMs": 427,
+            "rows": 50,
+            "encodedBytes": 3809,
+            "direction": "desc"
+          }
+        ]
+      },
+      "widePreview": {
+        "durationMs": 22.742,
+        "encodedBytes": 2049106,
+        "input": {
+          "limit": 50,
+          "matchCase": false,
+          "offset": 0,
+          "paginationMode": "auto",
+          "tableId": "wide"
+        },
+        "ms": 70,
+        "rows": 32
+      }
+    }
+  ],
+  "sorts": {
+    "id": {
+      "samples": 18,
+      "instrumentedInteractionMedianMs": 79.0,
+      "bindingRoundTripMedianMs": 8.000000000001819,
+      "instrumentedInteractionRangeMs": [
+        56,
+        288
+      ]
+    },
+    "indexed_key": {
+      "samples": 18,
+      "instrumentedInteractionMedianMs": 89.0,
+      "bindingRoundTripMedianMs": 13.499999999996362,
+      "instrumentedInteractionRangeMs": [
+        51,
+        163
+      ]
+    },
+    "label": {
+      "samples": 18,
+      "instrumentedInteractionMedianMs": 374.0,
+      "bindingRoundTripMedianMs": 315.5,
+      "instrumentedInteractionRangeMs": [
+        334,
+        427
+      ]
+    }
+  },
+  "memory": {
+    "idle_one_connection": {
+      "PssMedianMiB": 321.5244140625,
+      "RssMedianMiB": 787.42578125,
+      "SwapPssMedianMiB": 0.0,
+      "goHeapAllocMiB": 1.5521926879882812,
+      "goSysMiB": 13.849861145019531
+    },
+    "million_first_page": {
+      "PssMedianMiB": 357.3701171875,
+      "RssMedianMiB": 830.90625,
+      "SwapPssMedianMiB": 0.0,
+      "goHeapAllocMiB": 1.5557098388671875,
+      "goSysMiB": 14.115486145019531
+    },
+    "five_small_tabs": {
+      "PssMedianMiB": 424.4365234375,
+      "RssMedianMiB": 898.44921875,
+      "SwapPssMedianMiB": 0.0,
+      "goHeapAllocMiB": 2.1874160766601562,
+      "goSysMiB": 14.463157653808594
+    },
+    "wide_preview_plus_five_tabs": {
+      "PssMedianMiB": 429.369140625,
+      "RssMedianMiB": 903.734375,
+      "SwapPssMedianMiB": 0.0,
+      "goHeapAllocMiB": 7.36236572265625,
+      "goSysMiB": 30.39673614501953
+    },
+    "wide_query_100_rows": {
+      "PssMedianMiB": 443.986328125,
+      "RssMedianMiB": 918.35546875,
+      "SwapPssMedianMiB": 0.0,
+      "goHeapAllocMiB": 13.726608276367188,
+      "goSysMiB": 54.463157653808594
+    },
+    "closed_short": {
+      "PssMedianMiB": 428.7001953125,
+      "RssMedianMiB": 903.12109375,
+      "SwapPssMedianMiB": 0.0,
+      "goHeapAllocMiB": 13.740234375,
+      "goSysMiB": 54.463157653808594
+    },
+    "closed_long": {
+      "PssMedianMiB": 428.6650390625,
+      "RssMedianMiB": 903.09375,
+      "SwapPssMedianMiB": 0.0,
+      "goHeapAllocMiB": 13.757301330566406,
+      "goSysMiB": 54.463157653808594
+    }
+  }
+}

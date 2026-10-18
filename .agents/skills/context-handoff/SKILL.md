@@ -21,14 +21,15 @@ Do not create handoffs for short tasks that are already complete.
 ## Write the checkpoint
 
 1. Read `AGENTS.md`, then inspect `git status --short`, the relevant diff, the
-   active spec/plan `## Decision Log`, any task-linked decision file, and the
+   change's `decisions.md` and the other decision sources in
+   `implement-task`'s `## Decision sources`, and the
    relevant wiki page or test output. Source and fresh command output are
    authoritative; conversation memory is not.
-2. For a change, create `handoff.md` in its change folder. For work that belongs
+2. For a change, create `handoff.md` in its change folder; if one already
+   exists, overwrite it with the current state. For work that belongs
    to no change, create the handoff at
-   `docs/agent-devkit/handoffs/YYYY-MM-DD-<slug>.md`. Follow the shared
-   artifact naming rule in `using-devkit` (read it if it is not loaded). Use
-   this structure:
+   `docs/agent-devkit/handoffs/YYYY-MM-DD-<slug>.md`, named per `using-devkit`'s
+   `## Shared rules`. Use this structure:
 
    ```md
    # Handoff: <task>
@@ -39,8 +40,9 @@ Do not create handoffs for short tasks that are already complete.
 
    ## State
 
-   - Phase: <brainstorm | plan | implement | verify | document>
+   - Phase: <brainstorm | plan | implement | debug | verify | document>
    - Current task: <first `tasks.md` task not `done`, or none>
+   - Approval: <`tasks.md` gate status | Bounded design approved YYYY-MM-DD — <one-line design> | none>
    - Status: <what is complete and what is in progress>
 
    ## Decisions
@@ -73,17 +75,25 @@ Do not create handoffs for short tasks that are already complete.
    logs; record the command and relevant result instead.
 4. For a standalone handoff, if `docs/agent-devkit/INDEX.md` exists, add it
    under a `## Handoffs` section. A change's `handoff.md` needs no separate
-   entry because the folder is already under `## Changes`. Follow the shared
-   process-artifact link and wiki-boundary rules in `using-devkit` (read them
-   if they are not loaded). Do not create a second index.
+   entry; the change folder's own index entry covers it. Do not create a second
+   index.
 5. Run `git diff --check` and read the created checkpoint before stopping.
+
+## Git safety
+
+Working-tree changes and untracked notes are user-owned. A request to clean up,
+reset, or "discard whatever is lying around" does not authorize `git reset
+--hard`, `git clean`, `git checkout -- <path>`, `git stash`, or deleting files.
+A copy or stash first does not change that. List what would be lost, ask which
+exact paths and command the user approves, and stop until they answer.
 
 ## Resume
 
-At the start of the next session, `memory_recall` with 1–3 task keywords may
-locate a decision or handoff file; pass `maxTokens` when its schema supports
-it, and treat memory only as a pointer. Read the newest
-relevant handoff and every linked decision source, verify `git status --short`,
-re-check claimed source paths and commands, and continue from `## Next action`.
-If source or working tree disagrees, trust the current repository and update
-the handoff before proceeding.
+At the start of the next session, find the handoff in `docs/agent-devkit/changes/*/handoff.md`
+and `docs/agent-devkit/handoffs/`, excluding `changes/archive/`; `memory_recall`
+(1–3 keywords, `maxTokens` when supported) may point to it, but memory is only a
+pointer. Read the newest relevant handoff and every linked decision source, verify
+`git status --short`, re-check claimed source paths and commands, and continue
+from `## Next action`. If source or the working tree disagrees, trust the
+repository and update the handoff before proceeding. When the resume stops for the
+user, end with the `Next:` block from `using-devkit`.

@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { safeErrorMessage } from '@kamehadb/shared';
 import type { ChatMessage } from '@/lib/ai-chat-helpers';
-import { getApiHeaders, getApiBase } from '@/lib/api-client';
+import { api } from '@/lib/api';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 type UseChatOptions = {
@@ -25,22 +25,26 @@ export function appendAssistantDelta(messages: ChatMessage[], assistantId: strin
 export function useChat(options: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRef = useRef<{ cancel: () => void } | null>(null);
   const requestSeqRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>([]);
   messagesRef.current = messages;
 
-  // Shared SSE-streaming logic used by both sendMessage and resendFrom.
-  // Builds the payload, POSTs to the chat endpoint, reads NDJSON lines from
-  // the response body, and calls onDelta for each content delta. The single
-  // implementation prevents divergence between the two call sites.
+  // Shared streaming logic used by both sendMessage and resendFrom: start a
+  // backend chat, consume `chat:<id>` events, append deltas to the assistant
+  // bubble. The single implementation prevents divergence between call sites.
   async function streamChat(
     messagesPayload: Record<string, unknown>,
     assistantId: string,
     requestSeq: number,
   ): Promise<void> {
-    const ac = new AbortController();
-    abortRef.current = ac;
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    abortRef.current = {
+      cancel: () => {
+        cancelled = true;
+      },
+    };
 
     try {
       const payload: Record<string, unknown> = { ...messagesPayload };
@@ -48,52 +52,32 @@ export function useChat(options: UseChatOptions) {
         Object.assign(payload, options.forwardedProps);
       }
 
-      const res = await fetch(`${getApiBase()}${options.url}`, {
-        method: 'POST',
-        headers: getApiHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify(payload),
-        signal: ac.signal,
-      });
+      const requestId = await api.startChat(payload as never);
+      abortRef.current = {
+        cancel: () => {
+          cancelled = true;
+          void api.cancelChat(requestId);
+        },
+      };
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ message: 'Chat request failed' }));
-        throw new Error(err.message || `HTTP ${res.status}`);
-      }
-
-      if (!res.body) throw new Error('Chat response stream was empty');
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith('data: ')) continue;
-
-          let data: { type?: unknown; delta?: unknown; message?: unknown };
-          try {
-            data = JSON.parse(trimmed.slice(6)) as typeof data;
-          } catch {
-            continue;
+      await new Promise<void>((resolve, reject) => {
+        unsubscribe = api.onChatEvent(requestId, (data) => {
+          if (cancelled) {
+            resolve();
+            return;
           }
-
           if (data.type === 'content' && typeof data.delta === 'string') {
             const delta = data.delta;
             setMessages((prev) => appendAssistantDelta(prev, assistantId, delta));
           } else if (data.type === 'error') {
-            throw new Error(typeof data.message === 'string' ? data.message : 'Chat stream failed');
+            reject(new Error(typeof data.message === 'string' ? data.message : 'Chat stream failed'));
+          } else if (data.type === 'done') {
+            resolve();
           }
-        }
-      }
+        });
+      });
     } catch (err) {
-      if ((err as Error).name !== 'AbortError') {
+      if (!cancelled) {
         const message = safeErrorMessage(err, String(err));
         if (requestSeqRef.current === requestSeq) {
           // Keep partial output visible and attach the failure where the empty
@@ -117,6 +101,7 @@ export function useChat(options: UseChatOptions) {
         });
       }
     } finally {
+      unsubscribe?.();
       if (requestSeqRef.current === requestSeq) {
         setIsLoading(false);
         abortRef.current = null;
@@ -140,7 +125,7 @@ export function useChat(options: UseChatOptions) {
         createdAt: new Date(),
       };
 
-      abortRef.current?.abort();
+      abortRef.current?.cancel();
       const requestSeq = ++requestSeqRef.current;
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setIsLoading(true);
@@ -160,7 +145,7 @@ export function useChat(options: UseChatOptions) {
   );
 
   const stop = useCallback(() => {
-    abortRef.current?.abort();
+    abortRef.current?.cancel();
   }, []);
 
   const resendFrom = useCallback(
@@ -184,7 +169,7 @@ export function useChat(options: UseChatOptions) {
       };
 
       const baseMessages = [...prevMessages.slice(0, msgIndex), updatedUserMsg];
-      abortRef.current?.abort();
+      abortRef.current?.cancel();
       const requestSeq = ++requestSeqRef.current;
       setMessages([...baseMessages, assistantMsg]);
       setIsLoading(true);
@@ -204,7 +189,7 @@ export function useChat(options: UseChatOptions) {
   );
 
   const reset = useCallback(() => {
-    abortRef.current?.abort();
+    abortRef.current?.cancel();
     requestSeqRef.current++;
     setIsLoading(false);
     messagesRef.current = [];

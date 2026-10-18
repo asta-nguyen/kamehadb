@@ -1,6 +1,6 @@
 // @ts-check
 
-import { parse, pattern, Lang } from "@ast-grep/napi";
+import { parse, pattern, Lang } from '@ast-grep/napi';
 
 /**
  * Shared ast-grep rule that bans configurable syntax patterns.
@@ -13,19 +13,19 @@ import { parse, pattern, Lang } from "@ast-grep/napi";
  */
 const noRestrictedSyntax = {
   meta: {
-    type: "suggestion",
+    type: 'suggestion',
     schema: {
-      type: "array",
+      type: 'array',
       items: {
         oneOf: [
-          { type: "string" },
+          { type: 'string' },
           {
-            type: "object",
+            type: 'object',
             properties: {
-              pattern: { type: "string" },
-              message: { type: "string" },
+              pattern: { type: 'string' },
+              message: { type: 'string' },
             },
-            required: ["pattern"],
+            required: ['pattern'],
             additionalProperties: false,
           },
         ],
@@ -34,18 +34,14 @@ const noRestrictedSyntax = {
       minItems: 0,
     },
     messages: {
-      restrictedSyntax: "{{message}}",
+      restrictedSyntax: '{{message}}',
     },
   },
   create(context) {
     /** @type {Array<{ pattern: string, message: string } | string>} */
     const patterns = context.options;
-    const filename = context.filename ?? context.physicalFilename ?? "";
-    const sgLang = filename.endsWith(".tsx")
-      ? Lang.Tsx
-      : filename.endsWith(".ts")
-        ? Lang.TypeScript
-        : Lang.JavaScript;
+    const filename = context.filename ?? context.physicalFilename ?? '';
+    const sgLang = filename.endsWith('.tsx') ? Lang.Tsx : filename.endsWith('.ts') ? Lang.TypeScript : Lang.JavaScript;
 
     return {
       Program() {
@@ -53,12 +49,9 @@ const noRestrictedSyntax = {
         const root = parse(sgLang, sourceCode);
 
         patterns.forEach((entry) => {
-          const patternStr =
-            typeof entry === "string" ? entry : entry.pattern;
+          const patternStr = typeof entry === 'string' ? entry : entry.pattern;
           const message =
-            typeof entry === "string"
-              ? "Restricted syntax found."
-              : entry.message ?? "Restricted syntax found.";
+            typeof entry === 'string' ? 'Restricted syntax found.' : (entry.message ?? 'Restricted syntax found.');
 
           try {
             const patternNode = pattern(sgLang, patternStr);
@@ -74,7 +67,7 @@ const noRestrictedSyntax = {
                     start: range.start,
                     end: range.end,
                   },
-                  messageId: "restrictedSyntax",
+                  messageId: 'restrictedSyntax',
                   data: { message },
                 });
               });
@@ -92,5 +85,5 @@ const noRestrictedSyntax = {
 
 /** @type {import("eslint").ESLint.Plugin} */
 export const localPlugin = {
-  rules: { "no-restricted-syntax": noRestrictedSyntax },
+  rules: { 'no-restricted-syntax': noRestrictedSyntax },
 };

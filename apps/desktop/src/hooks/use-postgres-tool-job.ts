@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   cancelPostgresToolJob,
-  POSTGRES_TOOL_EVENT,
+  onPostgresToolEvent,
   type PostgresBackupRequest,
   type PostgresRestoreRequest,
   type PostgresToolEvent,
@@ -9,7 +9,6 @@ import {
   startPostgresBackup,
   startPostgresRestore,
 } from '@/lib/postgres-maintenance';
-import { listenTauri } from '@/lib/tauri';
 import { appendFrontendLog } from '@/lib/app-logs';
 
 type PostgresToolLog = {
@@ -127,7 +126,7 @@ export function usePostgresToolJob() {
       pendingEventsRef.current = [];
       let unlisten: () => void;
       try {
-        unlisten = await listenTauri<PostgresToolEvent>(POSTGRES_TOOL_EVENT, handleEvent);
+        unlisten = onPostgresToolEvent(handleEvent);
       } catch (error) {
         busyRef.current = false;
         setState({

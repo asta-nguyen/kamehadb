@@ -176,7 +176,7 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
   ];
 
   return (
-    <div className="p-4 h-full overflow-y-auto space-y-4">
+    <div className="p-4 h-full overflow-y-auto space-y-2">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Database Analytics</h2>
         <div className="flex gap-2">
@@ -195,7 +195,7 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
           <TabsTrigger value="connections">Connections</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="sizes" className="mt-4 space-y-4">
+        <TabsContent value="sizes" className="space-y-2">
           {/* Summary Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -267,7 +267,7 @@ function SqlDatabaseStats({ connectionId }: DatabaseStatsProps) {
           )}
         </TabsContent>
 
-        <TabsContent value="connections" className="mt-4 space-y-4">
+        <TabsContent value="connections" className="space-y-2">
           {/* Summary Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -325,7 +325,7 @@ function RedisDatabaseStats({ connectionId }: DatabaseStatsProps) {
   const peakPercent = stats?.usedMemoryPeak ? Math.min((stats.usedMemory / stats.usedMemoryPeak) * 100, 100) : 0;
 
   return (
-    <div className="p-4 h-full overflow-y-auto space-y-4">
+    <div className="p-4 h-full overflow-y-auto space-y-2">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Redis Analytics</h2>

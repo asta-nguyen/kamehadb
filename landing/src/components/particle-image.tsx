@@ -132,7 +132,7 @@ export function ParticleImage({
           }
         }
         started = true;
-      } catch (e) {
+      } catch {
         // fallback: nothing
       }
     }

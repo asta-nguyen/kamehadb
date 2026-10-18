@@ -80,7 +80,7 @@ function WelcomePage({ greeting, prompt }: { readonly greeting: string; readonly
             return (
               <div
                 key={kind}
-                className={`relative flex min-w-[72px] flex-col items-center gap-1.5 rounded-lg border p-3 transition-all ${connected ? 'border-emerald-500/30 bg-muted/50 shadow-[0_0_12px_-2px_rgba(34,197,94,0.4)]' : 'border-red-500/20 bg-muted/10 opacity-50 shadow-[0_0_8px_-2px_rgba(239,68,68,0.2)]'}`}
+                className={`relative flex min-w-[72px] flex-col items-center gap-1.5 rounded-lg border p-3 transition-all ${connected ? 'border-success/30 bg-muted/50' : 'border-destructive/20 bg-muted/10 opacity-50'}`}
               >
                 <span className="flex size-8 items-center justify-center rounded-full bg-background/60">
                   <DbIcon kind={kind} className="size-5" />
@@ -122,7 +122,7 @@ function Workspace() {
   }
   if (!activeConnectionId || !activeConnection) return <WelcomePage greeting={greeting[0]} prompt={greeting[1]} />;
   if (openedTabs.length === 0) {
-    if (activeConnection.kind === 'mongodb' || activeConnection.kind === 'qdrant') {
+    if (activeConnection.kind === 'mongodb') {
       return (
         <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
           Select a collection from the sidebar

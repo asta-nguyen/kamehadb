@@ -1,8 +1,8 @@
-import { lazy, Suspense, useCallback, useMemo, useReducer, useRef, useState } from 'react';
-import type { OnMount } from '@monaco-editor/react';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
+import { javascript } from '@codemirror/lang-javascript';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { get, post } from '@/lib/api-client';
+import { useGUIRequests } from '@/hooks/use-gui-requests';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,9 +21,7 @@ import type { DocumentResult, CollectionInfo, DatabaseInfo, QueryResult } from '
 import { safeErrorMessage } from '@kamehadb/shared';
 import { updateTabPipeline } from '@/store';
 import { buildMongoCompletionEntries, type MongoCompletionsData } from '@/lib/mongo-autocomplete';
-import { loadMonacoEditor } from '@/lib/monaco-loader';
-
-const Editor = lazy(loadMonacoEditor);
+import { CodeEditor, schemaCompletionSource, schemaCompletions } from '@/lib/code-editor';
 
 type MongoQueryProps = {
   tab: WorkspaceTab & { pipeline?: string };
@@ -57,11 +55,11 @@ const DEFAULT_PIPELINE = '[\n  { $match: {} }\n]';
 function mongoQueryReducer(state: MongoQueryState, action: MongoQueryAction): MongoQueryState {
   switch (action.type) {
     case 'setPipeline':
-      return { ...state, pipeline: action.value };
+      return { ...state, pipeline: action.value, running: false };
     case 'setDb':
-      return { ...state, db: action.value, collection: action.resetCollection ? '' : state.collection };
+      return { ...state, db: action.value, collection: action.resetCollection ? '' : state.collection, running: false };
     case 'setCollection':
-      return { ...state, collection: action.value };
+      return { ...state, collection: action.value, running: false };
     case 'startRun':
       return { ...state, error: null, result: null, running: true, page: action.page };
     case 'finishRun':
@@ -191,7 +189,7 @@ function MongoQueryToolbar({
             Running
           </span>
         )}
-        <kbd className="px-1.5 py-0.5 rounded border border-border/60 bg-muted/30 text-[10px] font-mono text-muted-foreground/50">
+        <kbd className="inline-flex h-7 items-center rounded border border-border/60 bg-muted/30 px-2 font-mono text-xs text-muted-foreground/50">
           {running ? 'Esc' : 'Ctrl+Enter'}
         </kbd>
       </div>
@@ -212,7 +210,9 @@ function AggregationResult({
   page: number;
   onPageChange: (page: number) => void;
 }) {
-  const totalPages = Math.max(1, Math.ceil(result.totalCount / PAGE_LIMIT));
+  // Without a server-reported total the page count is unknowable; the footer
+  // then shows only the current page and navigation stays Prev/Next.
+  const totalPages = result.totalCount != null ? Math.max(1, Math.ceil(result.totalCount / PAGE_LIMIT)) : null;
   const columns = Array.from(new Set(result.documents.flatMap((doc) => Object.keys(doc))));
   const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(
     () =>
@@ -268,7 +268,11 @@ function AggregationResult({
         </div>
       )}
       <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-        <span>{result.totalCount} documents</span>
+        <span>
+          {result.totalCount != null
+            ? `${result.totalCount} documents`
+            : `${page * PAGE_LIMIT + result.documents.length}${result.hasMore ? '+' : ''} documents`}
+        </span>
         {result.hasMore && (
           <Badge variant="outline" className="text-xs">
             Truncated
@@ -278,25 +282,29 @@ function AggregationResult({
       <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
         <div className="text-xs text-muted-foreground">
           {result.documents.length > 0
-            ? `${page * PAGE_LIMIT + 1}–${page * PAGE_LIMIT + result.documents.length} of ${result.totalCount}`
+            ? `${page * PAGE_LIMIT + 1}–${page * PAGE_LIMIT + result.documents.length}${result.totalCount != null ? ` of ${result.totalCount}` : ''}`
             : '0 results'}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span>Page</span>
-            <Input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={page + 1}
-              onChange={(e) => {
-                const p = parseInt(e.target.value, 10);
-                if (!isNaN(p) && p >= 1) onPageChange(p - 1);
-              }}
-              className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span>of {totalPages}</span>
-          </div>
+          {totalPages != null ? (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span>Page</span>
+              <Input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={page + 1}
+                onChange={(e) => {
+                  const p = parseInt(e.target.value, 10);
+                  if (!isNaN(p) && p >= 1 && p <= totalPages) onPageChange(p - 1);
+                }}
+                className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span>of {totalPages}</span>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">Page {page + 1}</span>
+          )}
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
@@ -389,8 +397,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
   );
 
   const handlePipelineChange = useCallback(
-    (v: string | undefined) => {
-      const value = v ?? '';
+    (value: string) => {
       dispatch({ type: 'setPipeline', value });
       updateTabPipeline(tab.id, value);
     },
@@ -399,13 +406,13 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
 
   const { data: databases, isLoading: databasesLoading } = useQuery({
     queryKey: ['mongo-databases', connectionId],
-    queryFn: () => get<DatabaseInfo[]>(`/mongo/${connectionId}/databases`),
+    queryFn: () => api.listMongoDatabases(connectionId),
     enabled: !!connectionId,
   });
 
   const { data: collections, isLoading: collectionsLoading } = useQuery({
     queryKey: QUERY_KEYS.MONGO_COLLECTIONS(connectionId, state.db),
-    queryFn: () => get<CollectionInfo[]>(`/mongo/${connectionId}/collections?database=${encodeURIComponent(state.db)}`),
+    queryFn: () => api.listMongoCollections(connectionId, state.db),
     enabled: !!connectionId && !!state.db,
   });
 
@@ -416,6 +423,10 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Context changes own a new cancellation scope. A run sequence also rejects
+  // late completions when the keyboard starts another run in the same context.
+  const requests = useGUIRequests(JSON.stringify([connectionId, state.db, state.collection, state.pipeline]));
+  const runSequence = useRef(0);
   const runRef = useRef<() => Promise<void>>(async () => {});
   const completionsRef = useRef<MongoCompletionsData | null>(null);
   completionsRef.current = completionsData ?? null;
@@ -423,6 +434,8 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     async (p?: number) => {
       if (!state.collection || !state.db) return;
       const currentPage = p ?? 0;
+      const sequence = ++runSequence.current;
+      requests.cancel();
       dispatch({ type: 'startRun', page: currentPage });
 
       try {
@@ -434,15 +447,23 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
           throw new Error('Invalid aggregation pipeline — check syntax');
         }
 
-        const res = await post<DocumentResult>(`/mongo/${connectionId}/aggregate`, {
-          collection: state.collection,
-          database: state.db,
-          pipeline: parsed,
-          skip: currentPage * PAGE_LIMIT,
-          limit: PAGE_LIMIT,
-        });
+        const res = await requests.run((signal) =>
+          api.aggregateMongoDocuments(
+            connectionId,
+            {
+              collection: state.collection,
+              database: state.db,
+              pipeline: parsed,
+              skip: currentPage * PAGE_LIMIT,
+              limit: PAGE_LIMIT,
+            },
+            signal,
+          ),
+        );
+        if (!requests.isCurrent() || sequence !== runSequence.current) return;
         dispatch({ type: 'finishRun', result: res, page: currentPage });
       } catch (err) {
+        if (!requests.isCurrent() || sequence !== runSequence.current) return;
         const message = safeErrorMessage(err, 'Aggregation failed');
         dispatch({ type: 'failRun', error: message });
         void appendFrontendLog({
@@ -453,63 +474,25 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         });
       }
     },
-    [state.collection, state.db, state.pipeline, connectionId],
+    [state.collection, state.db, state.pipeline, connectionId, requests.run, requests.cancel, requests.isCurrent],
   );
   runRef.current = handleRun;
 
-  const handleEditorDidMount: OnMount = useCallback((editor, monaco) => {
-    editor.focus();
-    editor.addAction({
-      id: 'run-aggregation',
-      label: 'Run Aggregation',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-      run: () => {
-        runRef.current();
-      },
-    });
-
-    const provider = monaco.languages.registerCompletionItemProvider('javascript', {
-      triggerCharacters: ['.', ' ', '$', '{', '[', '"', ':'],
-      provideCompletionItems: (model, position) => {
-        const data = completionsRef.current;
-        if (!data) return { suggestions: [] };
-
-        const textUntil = model.getValueInRange({
-          startLineNumber: 1,
-          startColumn: 1,
-          endLineNumber: position.lineNumber,
-          endColumn: position.column,
-        });
-
-        const suggestions = buildMongoCompletionEntries(textUntil, data).map((item) => ({
-          label: item.label,
-          kind:
-            item.kind === 'stage'
-              ? monaco.languages.CompletionItemKind.Function
-              : item.kind === 'operator'
-                ? monaco.languages.CompletionItemKind.Operator
-                : item.kind === 'field'
-                  ? monaco.languages.CompletionItemKind.Field
-                  : item.kind === 'collection'
-                    ? monaco.languages.CompletionItemKind.Struct
-                    : monaco.languages.CompletionItemKind.Keyword,
-          insertText: item.insertText,
-          detail: item.detail,
-          sortText: item.sortText,
-          range: {
-            startLineNumber: position.lineNumber,
-            endLineNumber: position.lineNumber,
-            startColumn: Math.max(1, position.column - 20),
-            endColumn: position.column,
-          },
-        }));
-
-        return { suggestions };
-      },
-    });
-
-    editor.onDidDispose(() => provider.dispose());
-  }, []);
+  const editorExtensions = useMemo(
+    () => [
+      javascript({ typescript: false }),
+      schemaCompletions(
+        schemaCompletionSource((ctx, _textUntil, _fullText) => {
+          const data = completionsRef.current;
+          if (!data) return [];
+          // The mongo builder needs the whole doc prefix (pipeline depth is
+          // context-sensitive), not just the current line.
+          return buildMongoCompletionEntries(ctx.state.sliceDoc(0, ctx.pos), data);
+        }),
+      ),
+    ],
+    [],
+  );
 
   const handleDbChange = useCallback((value: string | null) => {
     if (value) dispatch({ type: 'setDb', value, resetCollection: true });
@@ -547,30 +530,12 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
 
       <div className="flex flex-col min-h-0 flex-1">
         <div className="min-h-0 border-b border-border" style={{ flex: editorRatio }}>
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center h-full">
-                <Spinner size="md" />
-              </div>
-            }
-          >
-            <Editor
-              height="100%"
-              defaultLanguage="javascript"
-              theme="vs-dark"
-              value={state.pipeline}
-              onChange={handlePipelineChange}
-              onMount={handleEditorDidMount}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 8 },
-              }}
-            />
-          </Suspense>
+          <CodeEditor
+            value={state.pipeline}
+            onChange={handlePipelineChange}
+            onRun={() => runRef.current()}
+            extensions={editorExtensions}
+          />
         </div>
 
         <div
@@ -594,7 +559,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
                 result={{
                   columns: deriveColumns(state.result.documents),
                   rows: state.result.documents,
-                  rowCount: state.result.totalCount,
+                  rowCount: state.result.totalCount ?? state.result.documents.length,
                   durationMs: state.result.durationMs,
                   truncated: state.result.hasMore,
                 }}

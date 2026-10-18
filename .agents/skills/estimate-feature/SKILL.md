@@ -1,6 +1,6 @@
 ---
 name: estimate-feature
-description: Use when a user, BA, PM, or delivery team requests an effort estimate for a completed feature implementation plan.
+description: Use when a user, BA, PM, or delivery team asks for an effort estimate of a written feature plan or tasks.md.
 ---
 
 # Estimate Feature
@@ -10,20 +10,20 @@ Never run this optional skill unless the user requests an estimate.
 
 ## Process
 
-1. Require a completed plan under `docs/agent-devkit/plans/`, or a change's
-   `tasks.md` under `docs/agent-devkit/changes/<folder>/`. If neither exists,
-   call `plan-feature` as a repair handoff only when the user also requested a
-   plan and a written `design.md` exists, then resume this estimate; otherwise
-   stop and request a plan. Never
-   estimate directly from a feature request.
+1. Require a written plan under `docs/agent-devkit/plans/`, or a change's
+   `tasks.md` under `docs/agent-devkit/changes/<folder>/`. If neither exists
+   and the user also requested a plan with a written `design.md`, call
+   `plan-feature` as a route handoff: it writes the plan, calls this skill
+   before its approval gate, and presents both together. Otherwise stop and
+   request a plan. Use a repair handoff to `plan-feature` only to fix missing
+   detail in an existing plan. Never estimate directly from a feature request.
 2. Read `AGENTS.md`, the plan or `tasks.md`, the linked design, `delta.md`
    (when present), relevant wiki, source, and tests.
    Call the available Skill entry whose local name is `read-codebase-context`
-   when source exists. If the plan has an `## Impact map`, follow its map-refresh
-   rule: validate the recorded commit, find tracked and untracked paths changed
-   since then, and confirm every mapped entry-point and implementation symbol
-   across the repository. If the baseline is missing, unavailable, or no longer
-   an ancestor, trace existing source from scratch. Do not try to trace planned
+   when source exists. If the plan has an `## Impact map`, follow
+   `read-codebase-context`'s `## Refresh an impact map`; if its baseline is
+   missing, unavailable, or no longer an ancestor, trace existing source from
+   scratch. Do not try to trace planned
    entry points, callers, or tests that do not exist yet; use planned files,
    interfaces, behavior, and verification only from the written design and
    plan. Pending approval does not block estimation: label planned assumptions
@@ -92,9 +92,8 @@ Never run this optional skill unless the user requests an estimate.
 6. For a legacy plan, add `## Estimate` with a link to the estimate in the plan,
    and add the estimate to `docs/agent-devkit/INDEX.md` under `## Estimates`.
    For a change, link `estimate.md` from `tasks.md`; no separate index entry is
-   needed; `plan-feature` indexes the folder after joint approval. Follow the shared
-   process-artifact link and wiki-boundary rules in `using-devkit` (read them if
-   they are not loaded).
+   needed; the change folder's own entry covers it (`using-devkit`'s
+   `## Change lifecycle`).
 7. Treat the estimate as stale when the linked plan's tasks, files, behavior,
    verification, or assumptions change. On refresh, compare the whole current
    plan with the estimate, then update the same estimate file and totals.
@@ -104,7 +103,7 @@ Never run this optional skill unless the user requests an estimate.
    blocked, verify the total and confidence follow step 4. Verify all links
    resolve and `git diff --check` passes. Do not repeat task rows in `Open
 unknowns`; list only the unresolved information there. Do not edit
-   application code, start implementation, or create a commit.
+   application code or start implementation (no commits: `using-devkit`).
 9. When `plan-feature` called this skill, return the estimate to it so it
    presents the estimate with the plan and approval gate. When the user called
    this skill directly, present the estimate yourself with the plan's current

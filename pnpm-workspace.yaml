@@ -2,11 +2,6 @@ packages:
   - 'apps/*'
   - 'packages/*'
 allowBuilds:
-  better-sqlite3: true
-  duckdb: true
   esbuild: true
-  msw: true
-  node-pty: true
-  oracledb: true
   sharp: true
   unrs-resolver: true

@@ -12,7 +12,6 @@ const ENGINES_ROW1 = [
   { name: 'MySQL', color: '#00758F' },
   { name: 'MongoDB', color: '#4DB33D' },
   { name: 'Redis', color: '#DC382D' },
-  { name: 'Qdrant', color: '#19CCA3' },
   { name: 'SQLite', color: '#fbbf24' },
 ];
 
@@ -22,7 +21,6 @@ const ENGINES_ROW2 = [
   { name: 'ClickHouse', color: '#FCC624' },
   { name: 'DuckDB', color: '#FFF000' },
   { name: 'MariaDB', color: '#C0765A' },
-  { name: 'TigerBeetle', color: '#f59e0b' },
 ];
 
 function Pill({ name, color }: { name: string; color: string }) {
@@ -155,7 +153,7 @@ export default async function Image() {
                 overflow: 'hidden',
               }}
             >
-              <img src={logoSrc} width={100} height={100} />
+              <img src={logoSrc} width={100} height={100} alt="KamehaDB logo" />
             </div>
           </div>
         </div>
@@ -197,7 +195,7 @@ export default async function Image() {
         <div style={{ display: 'flex', flexDirection: 'row', gap: 24, marginTop: 32 }}>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#f59e0b' }} />
-            <span style={{ fontSize: 17, fontWeight: 400, color: '#71717a' }}>SQL, document, cache &amp; vector</span>
+            <span style={{ fontSize: 17, fontWeight: 400, color: '#71717a' }}>SQL, document &amp; cache</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#f59e0b' }} />
@@ -226,7 +224,7 @@ export default async function Image() {
         {/* Subtitle + GitHub stars */}
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 24, marginTop: 16 }}>
           <span style={{ fontSize: 13, fontWeight: 400, color: '#52525b', letterSpacing: 0.3 }}>
-            12 database engines — all in one local-first app
+            10 database engines — all in one local-first app
           </span>
           <span style={{ fontSize: 13, fontWeight: 500, color: '#71717a', letterSpacing: 0.3 }}>
             {'\u2b50'} {stars.toLocaleString()} stars on GitHub

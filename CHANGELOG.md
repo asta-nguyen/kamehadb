@@ -9,6 +9,71 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v2.0.0] — 2026-10-18
+
+### Changed
+
+- **Balanced table workspace** — give the table tabs and panels consistent spacing, keep sorting on column headers, place search options beside the search field, and keep row count and query duration together.
+- **MCP credential vault key** — store the AES-256-GCM key in the OS keychain where available; migrate an existing key file on first use and keep an owner-only file fallback when no keychain is available.
+- **Desktop runtime** — replace the Tauri/Rust shell and Node sidecar with one Wails/Go app; backend services now run in-process.
+- **Desktop bundle size** — the local macOS ARM64 Wails app bundle is about 80% smaller than the previously installed app.
+- **Query editor** — use CodeMirror 6 for SQL, MongoDB, Redis, and federated query editors.
+- **Release packages** — add macOS DMG, Linux DEB/RPM/AppImage, and Windows NSIS/MSI packages. AppImage requires the host WebKit2GTK 4.1 runtime.
+- **Sidebar and navigation** — make the schema search cover table names, tighten connection and schema rows, and keep the API Settings entry and page navigation consistent.
+- **Encrypted credential storage** — encrypt connection passwords, connection strings, and AI provider keys before storing them in metadata SQLite. Migrate existing values once; failed migration preserves existing data, and decryption errors never fall back to plaintext.
+- **AI chat SQL display** — show generated SQL for review instead of executing it in the chat flow; do not send query result rows back to the provider.
+- **PostgreSQL TLS** — keep SSL profiles encrypted; a supplied Root CA verifies the certificate chain and hostname, while connections without one remain encrypted without server-certificate verification.
+- **Atomic file-database backup and restore** — stage SQLite and DuckDB changes before promotion, preserve the existing file on failure, and retain and report recovery copies if rollback fails.
+- **Controls and menus** — standardize control sizing, clarify active AI providers, use app-owned context menus, and show the Ctrl+Enter run shortcut across query toolbars.
+
+### Added
+
+- **Root CA certificates** — optionally verify certificates and hostnames for PostgreSQL, MySQL, MariaDB, and SQL Server. Without a supplied CA, connections stay encrypted but do not verify the server certificate. PostgreSQL's bundled psql, backup, and restore tools continue encrypted without certificate verification.
+- **Native full CSV export** — export read-only PostgreSQL/SQLite queries or whole tables directly to disk; cancel an export without replacing an existing destination.
+- **Column-specific table search** — search all fields or a selected column with an optional case-sensitive match; engine-native filtering measured up to 3x–5x faster on million-row tables.
+- **Table loading indicator** — show progress when sorting or paging takes long enough to look like a stalled view.
+
+### Performance
+
+- **Interim sorting and RAM benchmark** — across three private Wails/SQLite runs over one million rows, median instrumented sorts were 79 ms by primary key, 89 ms by indexed column, and 374 ms by unindexed text while displaying 50 rows. Whole-app PSS medians were 321.5 MiB idle and 424.4 MiB with five small tabs. RAM targets remain unmet; no matched-baseline improvement is claimed. See the [method and remaining evidence](docs/agent-devkit/changes/2026-10-13-footprint-and-large-tables/benchmark.md).
+- **Exact SQL paging** — use primary-key paging for eligible tables on MySQL/MariaDB, SQL Server, Oracle, and DuckDB; unsupported keys and arbitrary sorts retain offset paging, and ClickHouse keeps bounded offset paging.
+- **Request-scoped cancellation** — cancel a SQL, MongoDB, or Redis request without cancelling unrelated work; exports have independent cancellation, and cancellation does not claim to roll back database work.
+- **Optional DuckDB driver** — install and verify the app-managed driver only when needed instead of linking its native library into the desktop.
+- **MongoDB browse pages** — avoid compulsory count queries and report when more results may follow; reject a first document that exceeds the 2 MiB browse cap.
+- **Go/Wails runtime comparison** — synthetic PostgreSQL runs measured medians of about 8 ms in both builds for 1,000 rows, and about 15 ms for Tauri/Node versus 13 ms for Wails/Go for 10,000 rows. One macOS ARM64 snapshot measured about 179 MB versus 206 MB across app processes; the apps had different UI states, so treat the RAM figures as indicative.
+- **Virtual table scrolling** — window large table results so the UI renders visible rows instead of building a large DOM tree.
+- **Go runtime memory limits** — cap the heap target at 128 MB and use GOGC=50 to return unused memory more eagerly.
+- **Query cache and schema indexing** — shorten frontend cache retention and defer startup schema indexing until it is needed.
+- **SQL result allocation and row cap** — reduce per-row allocations across SQL engines and cap unpaginated GUI results at 50,000 rows with a Truncated badge.
+- **SQLite search and cache tuning** — tune SQLite scan/sort settings and skip blobs when filtering text fields.
+
+### Fixed
+
+- **Pane scrollbars** — stop hover in one pane from revealing another pane's scrollbar, keep the table scrollbar below its pinned header, and make tab-strip/sidebar scrollbars usable on Linux.
+- **Empty workspace and table states** — show a stable empty connection list on fresh installs and center the table's no-data state.
+- **Query history and cached results** — preserve precise query timings in results while saving integer milliseconds to history, and clear stale table previews after a tab closes.
+- **SQL dialect-aware row limits** — use valid SQL Server and Oracle pagination and ignore ORDER BY text inside comments, strings, and window expressions.
+- **ClickHouse search safety** — escape search values correctly and stop with an error if search-column metadata cannot be loaded.
+- **AI schema context** — reuse cache entries at the table or connection scope where they were stored.
+- **Workspace navigation** — keep tab actions visible, prevent tooltips from blocking menu clicks, and show each query tab's target database.
+- **CodeMirror themes** — switch editor themes when the app changes between light and dark mode.
+- **Removed-engine profiles** — export and remove old Qdrant and TigerBeetle profiles during migration.
+- **Read-only SQL screening** — reject a second statement hidden after a quote or comment for AI auto-run, MCP, and full-table CSV export.
+- **Redis views** — fix Redis statistics and return raw command replies such as HGETALL, CONFIG GET, and XINFO in a form the UI can display.
+- **MCP reliability** — apply per-query timeouts for MySQL/MariaDB, fix managed PostgreSQL and MongoDB account setup, and reuse one adapter for concurrent calls to the same connection.
+- **Stable SQL pages** — include primary-key columns in sort order so rows with repeated values do not disappear or repeat between pages; composite keys use every key column.
+- **MongoDB sorting and commands** — preserve field order in compound sorts, pipelines, and commands, and keep empty arrays intact.
+- **PostgreSQL table statistics** — calculate bloat from dead tuples relative to heap size and restore index counts.
+- **Native exports** — make displayed-row CSV/JSON/SQL exports work through the app save dialog and keep whole-table export cancellation reachable.
+- **MongoDB pagination** — show exact totals when available and prevent page jumps beyond the known result range.
+- **MongoDB document list** — keep long lists scrollable while the pagination footer stays visible.
+- **Linux table scrolling** — improve scrollbar visibility and keep table scrolling responsive for larger result pages.
+- **Menus and controls** — clarify export menu wording, use select labels instead of raw values, and apply success/error theme tokens to connection tiles.
+
+### Removed
+
+- **Qdrant and TigerBeetle** — remove their explorers and support. KamehaDB supports PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, DuckDB, MongoDB, and Redis.
+
 ## [v1.6.2] — 2026-10-11
 
 ### Added
@@ -100,6 +165,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **pnpm v10 compatibility** — added `force-legacy-deploy=true` to `.npmrc` so `pnpm deploy` works without `--legacy` flag.
 - **Node 24 compatibility** — `rmSync` now uses `recursive: true` for symlink-to-directory removal; `prebuild-install` failure is non-fatal.
 - **Max supported Node.js** — raised from 22 to 24 for dev fallback.
+
+### Fixed
+
+- **Sidecar "Connection refused" on launch** — the bundled Node.js runtime was rejected by a hardcoded `MAX_SUPPORTED_NODE_MAJOR = 22` check even when the ABI matched, preventing the sidecar from starting on any build using Node 23+. The major-version gate now only applies when the `node-abi.txt` ABI check is unavailable (sanity floor at 24); the ABI check remains the real compatibility gate. Affects all platforms (Linux, macOS, Windows).
+- **`tauri build` failure on pnpm v10** — restored the `--legacy` flag on `pnpm deploy` in the bundle script. pnpm v10 rejects `deploy` from workspaces without `inject-workspace-packages=true` or `--legacy`; removing it (v1.4.3) broke CI and local builds on pnpm 10+.
+- **`better-sqlite3` native binding for new Node ABIs** — `prebuild-install` now falls back to `node-gyp rebuild --release` when no prebuilt binary exists for the current Node.js ABI (e.g. Node 25). Uses `shell: true` so Windows resolves `node-gyp.cmd` automatically.
+- **Sidecar root resolution for ad-hoc binary installs** — `resolve_sidecar_root` now falls back to searching relative to the running executable when Tauri's `resource_dir()` is unavailable, fixing sidecar startup for binary copies outside a bundle layout (e.g. `~/.local/bin/kamehadb`).
 
 ---
 

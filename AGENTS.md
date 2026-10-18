@@ -4,20 +4,21 @@ This file provides guidance for coding agents working in this repository.
 
 ## Project Overview
 
-KamehaDB is a local-first database GUI centered on a Tauri desktop app plus a local Node sidecar. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, Redis, Qdrant, SQL Server, Oracle, ClickHouse, DuckDB, MariaDB, and TigerBeetle. It includes schema browsing, a Monaco SQL editor, query history, PostgreSQL stats views, schema timeline/diff workflows, Redis/Mongo/Qdrant/TigerBeetle explorers, embedded PostgreSQL and Mongo shells, PostgreSQL backup/restore flows, pgvector exploration tools, an in-app logs viewer, and an AI chat panel with schema-aware context.
+KamehaDB is a local-first database GUI built as a single Wails v2 desktop app: a Go backend embedded in the executable plus a React 19 + Vite frontend. The current app supports PostgreSQL, MySQL, SQLite, MongoDB, Redis, SQL Server, Oracle, ClickHouse, DuckDB, and MariaDB. It includes schema browsing, a CodeMirror SQL editor, query history, PostgreSQL stats views, schema timeline/diff workflows, Redis/Mongo explorers, embedded PostgreSQL and Mongo shells, PostgreSQL backup/restore flows, an in-app logs viewer, a read-only MCP server, and an AI chat panel with schema-aware context.
 
-There is also a separate marketing/docs site in `landing/`, but it is not part of the pnpm workspace used by the desktop app and sidecar.
+There is also a separate marketing/docs site in `landing/`, but it is not part of the pnpm workspace used by the desktop app.
 
 ## Repository Layout
 
 ```text
 ├── apps/
-│   ├── desktop/          # Tauri v2 + React 19 desktop app
-│   └── sidecar/          # Hono HTTP server + DB adapters + metadata SQLite
+│   └── desktop/          # React 19 + Vite 7 frontend (Wails webview)
+├── internal/             # Go backend: adapters, services, store, MCP, terminal
 ├── packages/
-│   ├── shared/           # Shared Zod schemas, app state types, adapter contracts
-│   └── ui/               # Shared UI utilities/components
+│   └── shared/           # Shared Zod schemas and frontend-facing types
 ├── landing/              # Separate Next.js marketing site (not in pnpm workspace)
+├── main.go / app.go      # Wails entrypoint and bound app methods
+├── wails.json            # Wails project config (frontend dir, build hooks)
 ├── docker-compose.yml    # Local dev databases
 └── docker-init/          # Seed SQL for Postgres/MySQL/MariaDB
 ```
@@ -27,8 +28,7 @@ There is also a separate marketing/docs site in `landing/`, but it is not part o
 - The pnpm workspace includes only `apps/*` and `packages/*`.
 - `landing/` has its own `package-lock.json` and is managed separately with npm.
 - Most root scripts target the pnpm workspace only. Do not assume they affect `landing/` unless they explicitly use `npm --prefix landing`.
-- Landing site image generation: use `node scripts/capture-images.mjs` to update the AI Compare panel screenshots in `public/images/`.
-- Landing animated OG image: use `npm --prefix landing run render:og` to regenerate `public/og-animated.gif` (requires `ffmpeg-static`, runs locally — not a Vercel runtime route).
+- The Go module lives at the repo root (`go.mod`); `internal/` is not part of the pnpm workspace.
 
 ## Commands
 
@@ -41,19 +41,16 @@ pnpm install
 # Start dev databases
 docker compose up -d
 
-# Run sidecar + desktop together
+# Run the full app in Wails dev mode (frontend watcher + Go backend)
 pnpm dev
 
-# Run only the desktop app
+# Run only the frontend dev server (no backend bindings)
 pnpm dev:desktop
 
-# Run only the sidecar
-pnpm dev:sidecar
-
-# Build shared -> sidecar -> desktop
+# Build the production desktop binary into build/bin/
 pnpm build
 
-# Typecheck all workspace packages
+# Typecheck all workspace packages (desktop: pnpm --dir apps/desktop exec tsc --noEmit)
 pnpm typecheck
 
 # Lint all workspace packages that expose a lint script
@@ -62,8 +59,14 @@ pnpm lint
 # Run all workspace package tests that expose a test script
 pnpm test
 
-# Run Tauri CLI in the desktop package
-pnpm tauri
+# Run the Go backend tests
+pnpm test:go
+
+# Lint the Go backend with golangci-lint (resolved via `go tool` from go.mod — no separate install)
+pnpm lint:go
+
+# Format Go source with gofumpt + goimports
+pnpm format:go
 ```
 
 ### Important package-level scripts
@@ -73,12 +76,6 @@ pnpm tauri
 pnpm --filter @kamehadb/desktop dev
 pnpm --filter @kamehadb/desktop build
 pnpm --filter @kamehadb/desktop test
-pnpm --filter @kamehadb/desktop tauri build
-
-# Sidecar
-pnpm --filter @kamehadb/sidecar dev
-pnpm --filter @kamehadb/sidecar build
-pnpm --filter @kamehadb/sidecar start
 
 # Landing site
 npm --prefix landing run dev
@@ -89,48 +86,37 @@ node landing/scripts/capture-images.mjs # Regenerate AI compare panels
 
 ## Current Architecture
 
+### Go backend (`internal/`)
+
+The backend is embedded in the Wails binary — there is no external process or IPC.
+
+- `internal/store/` — SQLite metadata store (`kamehadb.db`): profiles, query history, AI settings, chat history, MCP state, and the AES-256-GCM credential vault
+- `internal/engines/` — `SQLAdapter` contract plus the adapter registry; `internal/engines/<name>/` holds each driver adapter (postgres via pgx, mysql/mariadb, sqlite, sqlserver, oracle, clickhouse, duckdb)
+- `internal/mongo/`, `internal/redis/` — dedicated non-SQL adapters
+- `internal/api/` — Wails-bound services (`ConnectionsService`, `SqlService`, `SchemaService`, `MongoService`, `RedisService`, `AiService`, `QueryHistoryService`, `McpService`, `MaintenanceService`, `TerminalService`, `LogsService`) constructed by `NewServices` in `internal/api/connections.go`
+- `internal/schema/` — snapshots, diffing, watcher, migration generation
+- `internal/terminal/` — shared PTY manager used by the mongosh and psql shells
+- `internal/maintenance/` — file-database backup/restore and pg tool resolution
+- `internal/mcp/` — read-only MCP server: loopback JSON-RPC listener, tool handlers, adapter manager, managed-account provisioning
+- `internal/ai/` — provider client, schema-context indexing, embeddings store
+- `internal/logs/` — JSON-lines app log writer and bounded tail reader
+
+### Frontend ↔ backend bindings
+
+- Bound Go methods are exposed through generated bindings in `apps/desktop/wailsjs/` (regenerate with `wails generate module` or `wails build`).
+- `apps/desktop/src/lib/api.ts` wraps the generated bindings — all frontend calls go through it. There is no HTTP API, auth token, or sidecar port.
+- Backend → frontend notifications use `runtime.EventsEmit`/`EventsOn` (connection health, terminal output, AI chat streaming, tool-job progress).
+
 ### Shared contract
 
-`packages/shared/src/index.ts` is the source of truth for:
+`packages/shared/src/index.ts` holds the frontend-facing contract:
 
-- Connection profile schemas and validation
-- SQL, Redis, MongoDB, and AI-related types
-- App store state and workspace tab types
-- `SqlAdapter` and related contracts
+- `KIND`/`DbKind`, kind lists, default ports, and helpers for the 10 supported engines
+- Connection profile and input Zod schemas used by the connection dialog
+- SQL, Redis, MongoDB, AI, and MCP-related TypeScript types
+- `isQuerySafe`/`safeErrorMessage` and other small shared utilities
 
-If frontend and backend disagree on data shape, fix `packages/shared` first.
-
-### Sidecar
-
-`apps/sidecar/src/index.ts` starts a Hono server on `127.0.0.1`, default port `3170`.
-
-Key details:
-
-- Metadata is stored in a local SQLite database via `better-sqlite3`
-- Default metadata DB path is `./kamehadb.db`
-- If `KAMEHADB_DATA_DIR` is set, the DB path becomes `${KAMEHADB_DATA_DIR}/kamehadb.db`
-- Runtime logs are also written under `${KAMEHADB_DATA_DIR}/logs/` when the app data dir is available
-- The sidecar prints `KAMEHADB_SIDECAR_PORT=<port>` on startup
-
-Current route groups:
-
-- `/connections` for saved connection profiles and connection health checks
-- `/sql` for SQL metadata, query execution, preview rows, autocomplete, and PostgreSQL stats
-- `/query-history` for saved SQL history and favorites
-- `/mongo` for MongoDB databases, collections, documents, stats, update/delete
-- `/redis` for key scanning, value lookup, TTL lookup, and connection testing
-- `/qdrant` for vector collections, point browsing, search, recommend, and stats
-- `/tigerbeetle` for accounts, balances, and transfers
-- `/ai` for provider settings, chat, schema cache, and chat history
-
-Important sidecar internals:
-
-- `apps/sidecar/src/db/metadata-store.ts` persists connections, AI settings, and chat history
-- `apps/sidecar/src/lib/cache.ts` caches schema and metadata results
-- `apps/sidecar/src/lib/sql-safety.ts` contains SQL safety helpers used by the backend
-- `apps/sidecar/src/lib/mongosh.ts` resolves a local `mongosh` binary or installs an app-managed copy under the app data directory
-- `apps/sidecar/src/lib/logger.ts` exports the shared pino logger (`log`) for the entire sidecar. All sidecar code must import `log` from this module instead of using `console.log`.
-- `apps/sidecar/src/ai/` contains provider abstraction and schema-context generation
+The runtime source of truth is the Go models in `wailsjs/go/models.ts`; keep `packages/shared` shapes aligned with them.
 
 ### Desktop app
 
@@ -142,26 +128,24 @@ Main areas:
 
 - `components/sidebar.tsx` for connection and schema navigation
 - `components/workspace-screen.tsx`, `components/workspace-tab-bar.tsx`, and `components/workspace-content.tsx` for tab orchestration
-- `components/sql-editor.tsx` for Monaco query editing and execution
+- `components/sql-editor.tsx` for CodeMirror query editing and execution
 - `components/table-view.tsx` for SQL table browsing
 - `components/schema-graph.tsx` for ER diagrams
 - `components/schema-timeline.tsx`, `components/schema-diff-view.tsx`, and `components/migration-assistant.tsx` for schema change workflows
 - `components/database-stats.tsx` and `components/table-stats.tsx` for PostgreSQL metrics
 - `components/postgres-psql-tab.tsx`, `components/postgres-backup-dialog.tsx`, and `components/postgres-restore-dialog.tsx` for PostgreSQL maintenance workflows
-- `components/postgres-vector-query.tsx` and `components/postgres-vector-map.tsx` for pgvector search and map views
-- `components/mongo-view.tsx`, `components/mongo-shell.tsx`, `components/redis-view.tsx`, `components/qdrant-view.tsx`, `components/qdrant-query.tsx`, `components/qdrant-vector-map.tsx`, `components/qdrant-stats.tsx`, and `components/tigerbeetle-explorer.tsx` for non-SQL engines
+- `components/mongo-view.tsx`, `components/mongo-shell.tsx`, and `components/redis-view.tsx` for non-SQL engines
 - `components/query-history-panel.tsx` for saved SQL history/favorites
-- `components/logs-page.tsx` for viewing frontend, Tauri, and sidecar logs inside the app
-- `components/ai-chat-panel.tsx` and `components/api-settings-page.tsx` for AI
+- `components/logs-page.tsx` for viewing frontend and backend logs inside the app
+- `components/ai-chat-panel.tsx`, `components/api-settings-page.tsx`, and `components/mcp-settings-section.tsx` for AI and MCP
 
 State and data flow:
 
 - `apps/desktop/src/store/index.ts` uses TanStack Store for workspace state
 - `apps/desktop/src/hooks/` contains TanStack Query-based data hooks
-- `apps/desktop/src/lib/api.ts` talks to the sidecar at `http://127.0.0.1:3170` by default
-- `apps/desktop/src/lib/sql-autocomplete.ts` contains client-side SQL completion logic
-- `apps/desktop/src/lib/app-logs.ts` sends frontend errors to Tauri and reads the combined log snapshot for the Logs page
-- `apps/desktop/src-tauri/src/` contains native commands for app logs, PostgreSQL `psql`, and PostgreSQL backup/restore jobs
+- `apps/desktop/src/lib/code-editor.tsx` is the shared CodeMirror 6 wrapper (SQL/Mongo/Redis editors)
+- `apps/desktop/src/lib/sql-autocomplete.ts` and `lib/mongo-autocomplete.ts` contain client-side completion logic feeding the editors
+- `apps/desktop/src/lib/app-logs.ts` sends frontend errors to the Go log store and reads the combined snapshot for the Logs page
 
 ## Database Support
 
@@ -172,86 +156,52 @@ Supported now:
 - SQLite
 - MongoDB
 - Redis
-- Qdrant
 - SQL Server
 - Oracle
 - ClickHouse
 - DuckDB
-- TigerBeetle
 - MariaDB
 
 Notes:
 
 - PostgreSQL has the richest stats support.
 - PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, Oracle, ClickHouse, and DuckDB use the SQL adapter path.
-- MongoDB uses a dedicated route and adapter flow.
-- Redis uses a dedicated route and adapter flow, not the SQL route.
-- Qdrant uses a dedicated route and adapter flow for collections, points, similarity search, recommend, and stats.
+- MongoDB uses a dedicated service and adapter flow.
+- Redis uses a dedicated service and adapter flow, not the SQL path.
 - DuckDB connects to local .duckdb files (file-based).
-- TigerBeetle uses a dedicated adapter and connects to a local or remote TigerBeetle cluster.
-- PostgreSQL also has app-managed `psql`, backup, restore, schema diff/timeline, and pgvector workflows on the desktop side.
-- MongoDB can open an embedded `mongosh` session; if `mongosh` is missing locally, the sidecar can install an app-managed copy without modifying the user's global installation.
+- PostgreSQL also has app-managed `psql`, backup, restore, and schema diff/timeline workflows on the desktop side.
+- MongoDB can open an embedded `mongosh` session; if `mongosh` is missing locally, the backend can install an app-managed copy without modifying the user's global installation.
 
 ## Connection Defaults For Docker
 
-| Engine      | Port | User    | Password | Database |
-| ----------- | ---- | ------- | -------- | -------- |
-| PostgreSQL  | 5432 | kameha  | kameha   | kamehadb |
-| MySQL       | 3306 | kameha  | kameha   | kamehadb |
-| MariaDB     | 3307 | kameha  | kameha   | kamehadb |
-| Redis       | 6379 | —       | —        | —        |
-| SQL Server  | 1433 | sa      | Kameha1! | kamehadb |
-| Oracle      | 1521 | SYS     | oracle   | ORCLPDB1 |
-| ClickHouse  | 8123 | default | default  | kamehadb |
-| DuckDB      | 5432 | —       | —        | —        |
-| TigerBeetle | 3001 | —       | —        | —        |
-
-### TigerBeetle Initialization
-
-TigerBeetle requires a one-time `format` step before first start. The docker-compose entrypoint auto-detects missing data files and runs format automatically.
-
-To seed sample data (accounts + transfers):
-
-```bash
-docker compose up -d tigerbeetle     # Start (auto-formats if first run)
-pnpm seed:tigerbeetle                # Create sample accounts + transfers
-```
-
-Or from the sidecar package:
-
-```bash
-pnpm --filter @kamehadb/sidecar seed:tigerbeetle
-```
-
-Override connection with env vars: `TB_HOST`, `TB_PORT`, `TB_CLUSTER_ID`.
+| Engine     | Port  | User    | Password | Database |
+| ---------- | ----- | ------- | -------- | -------- |
+| PostgreSQL | 5432  | kameha  | kameha   | kamehadb |
+| MySQL      | 3306  | kameha  | kameha   | kamehadb |
+| MariaDB    | 3307  | kameha  | kameha   | kamehadb |
+| Redis      | 6379  | —       | —        | —        |
+| MongoDB    | 27017 | —       | —        | —        |
+| SQL Server | 1433  | sa      | Kameha1! | kamehadb |
+| Oracle     | 1521  | SYS     | oracle   | ORCLPDB1 |
+| ClickHouse | 8123  | default | default  | kamehadb |
+| DuckDB     | 5433  | —       | —        | —        |
 
 ## Testing And Verification
 
-- `pnpm test` currently depends mainly on workspace packages that expose a `test` script
-- The desktop package uses `vitest run`
-- Native desktop changes should also be verified with `cargo test --quiet` in `apps/desktop/src-tauri` when they touch Tauri commands or Rust-side process management
-- CI currently runs `pnpm typecheck`, `pnpm --filter @kamehadb/desktop test`, `pnpm build`, and a full `tauri build`
-- When changing sidecar contracts, verify both `packages/shared` types and desktop usage
-- When changing desktop UI behavior, prefer running the desktop tests and a targeted app build
+- `pnpm test` runs workspace package tests; the desktop package uses `vitest run`
+- `pnpm test:go` runs the Go backend suite (`go test ./...`)
+- `pnpm lint:go` runs golangci-lint and `pnpm format:go` runs gofumpt+goimports; both resolve the tool from the `go.mod` `tool` directive, so no machine-level install is needed. `.golangci.yml` holds the config. The pre-commit hook formats staged `.go` files, then runs the repository-wide lint because golangci-lint cannot lint named files from multiple directories in one invocation; lint-staged runs task groups serially to limit resource contention. The pre-push hook also runs `pnpm lint:go` across the whole repo.
+- Backend changes should also be verified with `go build ./...` and, when bindings change, `wails generate module`
+- CI runs `pnpm typecheck`, desktop `tsc --noEmit`, `pnpm lint`, desktop tests, `go test ./...`, and a full `wails build`
+- When changing bound service signatures, regenerate bindings and verify the desktop `tsc` pass — shape drift surfaces as type errors in `wailsjs/`
+- When changing desktop UI behavior, prefer running the desktop tests and a targeted `wails build`
 
 ## Logs And Diagnostics
 
-- The desktop app exposes a built-in Logs page that reads frontend, Tauri, and sidecar logs from one place.
-- Frontend runtime errors are forwarded through `apps/desktop/src/lib/app-logs.ts` into the Tauri log store.
-- Sidecar logs are produced by pino via `apps/sidecar/src/lib/logger.ts` and persisted to `${KAMEHADB_DATA_DIR}/logs/sidecar.log` (or `<workspace>/logs/sidecar.log` in dev mode when `KAMEHADB_DATA_DIR` is unset).
-- Tauri logs are written by Rust code via `append_tauri_log()` in `apps/desktop/src-tauri/src/app_logs.rs` to `${app_data_dir}/logs/tauri.log`.
-- The Tauri command `read_app_logs` in `app_logs.rs` reads all three log files (`frontend.log`, `tauri.log`, `sidecar.log`) from `${app_data_dir}/logs/` and merges them into a single snapshot.
-- In dev mode (`pnpm dev`, Vite browser without Tauri runtime), `readAppLogs()` falls back to localStorage and only frontend logs are visible. Tauri and sidecar logs require the built Tauri app.
+- The desktop app exposes a built-in Logs page that reads frontend and backend logs from one place.
+- Frontend runtime errors are forwarded through `apps/desktop/src/lib/app-logs.ts` into the Go log store via `LogsService.AppendFrontendLog`.
+- Backend logs are written by `internal/logs` to `${app_data_dir}/logs/app.log` as JSON lines; `internal/logs` also tails `frontend.log` and merges legacy `tauri.log`/`sidecar.log` files when present.
 - If a bundled workflow fails only in the built app, check the in-app Logs page first, then inspect `${KAMEHADB_DATA_DIR}/logs/` if you need the raw files.
-
-### Sidecar Logger Usage
-
-- **Never use `console.log` in sidecar code.** ESLint enforces this via `local/no-restricted-syntax`.
-- Import the shared pino logger: `import { log } from '../lib/logger.js';`
-- Use `log.info()`, `log.warn()`, `log.error()`, `log.debug()` instead of `console.log()` / `console.warn()` / `console.error()`.
-- The only exception is `console.log('KAMEHADB_SIDECAR_PORT=...')` in `index.ts` which is intentionally stdout for Tauri to parse the port — it has an inline `eslint-disable` comment.
-- Pino writes to both stdout and `${KAMEHADB_DATA_DIR}/logs/sidecar.log` via multistream.
-- The Tauri Rust side parses pino's JSON output from `sidecar.log` (see `parse_sidecar_log_line` in `app_logs.rs`).
 
 ## Release Workflow
 
@@ -261,8 +211,7 @@ Key facts:
 
 - Releases are triggered by tags matching `v*`
 - `workflow_dispatch` expects an existing tag input
-- The workflow creates a draft GitHub release, then builds platform bundles, then uploads assets
-- Expected uploaded assets are `.dmg`, `.exe`, `.msi`, `.deb`, `.AppImage`, and `.rpm`
+- The workflow creates a draft GitHub release, builds per-OS binaries via `wails build` (macOS universal `.app` zip, Linux amd64 tarball, Windows amd64 `.exe`), then uploads assets
 - GitHub still adds source archives automatically; those are not the installable app bundles
 
 Typical release flow:
@@ -322,7 +271,7 @@ These guidelines prioritize caution and precision over speed.
 - **Rule**: Never hardcode database kind strings (e.g. `'postgres'`, `'mysql'`), port numbers, timeout values, or cache durations as literals in application code. Always use the shared constants.
 - **Use `KIND` from `@kamehadb/shared`**: All database kind comparisons must use `KIND.POSTGRES`, `KIND.MYSQL`, etc. — never raw string literals.
 - **Use `DEFAULT_PORTS`**: All port numbers must come from `DEFAULT_PORTS[KIND.X]` — never hardcode `5432`, `3306`, etc.
-- **Use timeout constants**: All timeouts, cache durations, and intervals must use named constants from `apps/sidecar/src/lib/constants.ts` or `apps/desktop/src/lib/constants.ts` — never inline `5000`, `30000`, etc.
+- **Use timeout constants**: All timeouts, cache durations, and intervals must use named constants from `apps/desktop/src/lib/constants.ts` (frontend) or the `internal/` package that owns the behavior — never inline `5000`, `30000`, etc.
 - **Use `ALL_KINDS`, `SQL_KINDS`, `NOSQL_KINDS`**: When iterating over or validating database kinds, use these arrays — never inline a list of kind strings.
 - **Use helper functions**: `isSqlKind()`, `isNoSqlKind()`, `isPasswordRequired()`, `isFileDatabaseKind()` — never write manual `kind === 'postgres' || kind === 'mysql'` chains.
 - **Use `PROTOCOL_ALIASES`**: For URL protocol parsing, use the shared `PROTOCOL_ALIASES` map — never hardcode `'postgresql'` or `'rediss'`.
@@ -375,8 +324,9 @@ These rules apply to all TypeScript code in `apps/`, `packages/`, and `landing/`
 ### No Code Duplication
 
 - Search for an existing schema, type, helper, or adapter contract before adding another one; reuse the existing source of truth when it fits.
-- Reuse Zod schemas and inferred types from `packages/shared/src/index.ts` for data shared by the desktop and sidecar.
-- If the same shape or behavior has multiple consumers, extract one shared definition at the narrowest scope that serves them all: co-locate it for one package, or use `packages/shared` across package boundaries.
+- Reuse Zod schemas and types from `packages/shared/src/index.ts` — it is the source of truth
+- If the same shape appears in two places, extract it into a shared type or helper
+- For logic duplicated across frontend and backend, keep the Go side authoritative and mirror only the shape in `packages/shared`
 - Do not add a general abstraction for a single use or remove a few clear lines only to reduce repetition.
 
 ### Use Types

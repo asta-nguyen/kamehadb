@@ -90,13 +90,14 @@ All colors use OKLCH color space and are defined as CSS custom properties in `sr
 
 Fonts: **Geist Variable** (sans) + **Geist Mono Variable** (mono)
 
-| Utility     | Size | Weight          | Usage                        |
-| ----------- | ---- | --------------- | ---------------------------- |
-| `text-xs`   | 12px | `font-medium`   | Table cells, badges, labels  |
-| `text-sm`   | 14px | `font-normal`   | Body text, inputs, buttons   |
-| `text-base` | 16px | `font-normal`   | Emphasis text, dialog titles |
-| `text-lg`   | 18px | `font-semibold` | Section headings             |
-| `text-2xl`  | 24px | `font-semibold` | Page titles, empty states    |
+| Utility       | Size | Weight          | Usage                                      |
+| ------------- | ---- | --------------- | ------------------------------------------ |
+| `text-[11px]` | 11px | `font-normal`   | Micro labels: badges, kbd hints, footnotes |
+| `text-xs`     | 12px | `font-medium`   | Table cells, badges, labels                |
+| `text-sm`     | 14px | `font-normal`   | Body text, inputs, buttons                 |
+| `text-base`   | 16px | `font-normal`   | Emphasis text, dialog titles               |
+| `text-lg`     | 18px | `font-semibold` | Section headings                           |
+| `text-2xl`    | 24px | `font-semibold` | Page titles, empty states                  |
 
 **Font Weights:**
 
@@ -116,7 +117,7 @@ Fonts: **Geist Variable** (sans) + **Geist Mono Variable** (mono)
 - Use `text-xs` for data-dense tables and badges
 - Use `text-sm` for body text and form inputs
 - Use `font-mono` for SQL, JSON, IDs, and code snippets
-- Never use arbitrary font sizes like `text-[13px]`
+- Use `text-[11px]` only for micro labels (badges, `kbd` hints, footnotes); no other arbitrary font sizes
 
 ---
 

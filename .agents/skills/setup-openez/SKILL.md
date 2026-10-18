@@ -1,6 +1,6 @@
 ---
 name: setup-openez
-description: Use when a project needs code intelligence (semantic search, graph traversal, caller analysis) and OpenEZ is not yet set up or the index is stale.
+description: Use when the user asks to set up OpenEZ, or when semantic code search is needed and its workspace index is missing or stale.
 ---
 
 # Setup OpenEZ
@@ -22,48 +22,36 @@ memory recall. This skill bootstraps it for a repository.
 ## Process
 
 **Resume after client wiring:** If a previous session completed client wiring, skip
-steps 1–4 and go to step 5. Re-index only if the index is missing or stale.
+steps 1–4 and go to step 5. Re-index only if the index is missing or stale, and only after the user approves it (step 2).
 
-1. **Initialize the workspace index.** Before initialization, ensure
-   `.gitignore` contains `.openez/`; append it only when missing and preserve
-   existing content. Never untrack an existing `.openez/` path automatically;
-   report it to the user instead. If `.openez/` does not exist, run:
+1. **Initialize the workspace index.** Ask the user before running `openez init`
+   (it creates a `.openez/` directory of derived index data) and wait for
+   approval. Ensure `.gitignore` contains `.openez/`; append it only when missing
+   and preserve existing content. Never untrack an existing `.openez/` path
+   automatically; report it instead. If `.openez/` does not exist and the user
+   approved, run:
 
    ```bash
    openez init .
    ```
 
-   This creates a `.openez/` directory with derived index data.
-
-2. **Index the repository when needed:**
+2. **Index the repository when needed.** Ask the user first and wait for
+   approval; indexing a large repository can take a while. Then run:
 
    ```bash
    openez index .
    ```
 
-   Run this for initial setup or when the index is missing or stale. For large
-   repositories, this may take a while. Report progress to the user and check
-   the command result: a nonzero exit means indexing failed; do not report the
+   Use it for initial setup or when the index is missing or stale. Report
+   progress and check the command result: a nonzero exit means indexing failed; do not report the
    index as created. A successful CLI run confirms that command completed, not
    that the MCP query works.
 
 3. **Record in `AGENTS.md`:**
 
-   If `AGENTS.md` exists and does not mention OpenEZ, present the exact section
-   below and wait for the user's approval before adding it:
-
-   ```md
-   ## Code intelligence
-
-   Locate concepts with OpenEZ `code_query`, approximate filenames with FFF
-   fuzzy file find, identifiers or literals with FFF grep (fallback: `rg`),
-   and regex with `rg`. Expand callers and callees with OpenEZ `code_context`
-   (1–2 hops); confirm string, route, config-key, and case variants with FFF
-   multi-pattern grep (fallback: `rg`). Use OpenEZ `code_outline` before
-   reading a large file. Search results are navigation; read current source as
-   evidence. Query OpenEZ directly with the repository path; if unavailable,
-   unindexed, or irrelevant, continue with FFF or `rg` and direct reads.
-   ```
+   If `AGENTS.md` exists and does not mention OpenEZ, present the exact block in
+   `## Code intelligence block` below and wait for the user's approval before
+   adding it.
 
    If the user declines, leave `AGENTS.md` unchanged and report that the
    guidance was not added. If `AGENTS.md` does not exist, skip this step;
@@ -114,6 +102,24 @@ steps 1–4 and go to step 5. Re-index only if the index is missing or stale.
    succeeded, report that separately as CLI indexing completed; if it failed or
    was not run, report the index as failed or unverified. Continue with direct
    file reads and `rg`.
+
+## Code intelligence block
+
+This is the only definition of the `AGENTS.md` section; `setup-codebase` uses it
+too.
+
+```md
+## Code intelligence
+
+Locate concepts with OpenEZ `code_query`, approximate filenames with FFF
+fuzzy file find, identifiers or literals with FFF grep (fallback: `rg`),
+and regex with `rg`. Expand callers and callees with OpenEZ `code_context`
+(1–2 hops); confirm string, route, config-key, and case variants with FFF
+multi-pattern grep (fallback: `rg`). Use OpenEZ `code_outline` before
+reading a large file. Search results are navigation; read current source as
+evidence. Query OpenEZ directly with the repository path; if unavailable,
+unindexed, or irrelevant, continue with FFF or `rg` and direct reads.
+```
 
 ## When to re-index
 

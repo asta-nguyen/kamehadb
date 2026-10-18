@@ -18,7 +18,7 @@ export async function loadContributors(revalidate: number): Promise<Contributor[
         ...options,
         signal: AbortSignal.timeout(timeoutMs),
       });
-    } catch (err) {
+    } catch {
       return null;
     }
   };

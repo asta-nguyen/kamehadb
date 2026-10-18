@@ -1,12 +1,12 @@
 import { useReducer, useMemo, useState, type ReactNode } from 'react';
-import { ArrowLeft, Bot, Cloud, RefreshCw, Save, ServerCog, Sparkles } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Router, Save } from 'lucide-react';
+import { DeepSeek, Google, OpenAI } from 'developer-icons';
+import { OllamaLogo } from '@/components/ollama-logo';
 import { Spinner } from '@/components/ui/spinner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { navigateTo } from '@/store';
 import { api } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,14 @@ import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared'
 
 const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini'];
 
+// developer-icons marks ship with baked brand fills; recolor them to the surrounding
+// text color so they read in both themes and the selected tile state. (Why)
+function tintedBrandIcon(Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>) {
+  return function TintedBrandIcon(props: React.SVGProps<SVGSVGElement>) {
+    return <Icon {...props} className={`[&_path]:fill-current ${props.className ?? ''}`} />;
+  };
+}
+
 const PROVIDER_META: Record<
   AIProvider,
   {
@@ -23,7 +31,7 @@ const PROVIDER_META: Record<
     description: string;
     modelPlaceholder: string;
     baseUrlPlaceholder: string;
-    icon: typeof Bot;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   }
 > = {
   'ollama-local': {
@@ -31,42 +39,42 @@ const PROVIDER_META: Record<
     description: 'Run models on this machine with the local Ollama daemon.',
     modelPlaceholder: 'llama3.1',
     baseUrlPlaceholder: 'http://localhost:11434/v1',
-    icon: ServerCog,
+    icon: OllamaLogo,
   },
   'ollama-cloud': {
     label: 'Ollama Cloud',
     description: 'Use a remote Ollama-compatible endpoint with your API token.',
     modelPlaceholder: 'llama3.1:70b',
     baseUrlPlaceholder: 'https://your-ollama-endpoint/v1',
-    icon: Cloud,
+    icon: OllamaLogo,
   },
   openai: {
     label: 'OpenAI',
     description: 'Direct OpenAI API access for GPT models.',
     modelPlaceholder: 'gpt-4o',
     baseUrlPlaceholder: 'https://api.openai.com/v1',
-    icon: Sparkles,
+    icon: tintedBrandIcon(OpenAI),
   },
   '9router': {
     label: '9Router',
     description: 'Self-hosted or remote OpenAI-compatible 9Router endpoint for model routing.',
     modelPlaceholder: 'openai/gpt-4o',
     baseUrlPlaceholder: 'https://router.example.com/v1',
-    icon: Bot,
+    icon: Router,
   },
   deepseek: {
     label: 'DeepSeek',
     description: 'Direct DeepSeek API access for DeepSeek-V3 and DeepSeek-R1 models.',
     modelPlaceholder: 'deepseek-chat',
     baseUrlPlaceholder: 'https://api.deepseek.com/v1',
-    icon: Sparkles,
+    icon: tintedBrandIcon(DeepSeek),
   },
   gemini: {
     label: 'Gemini',
     description: 'Google AI Studio API access for Gemini models.',
     modelPlaceholder: 'gemini-2.5-flash',
     baseUrlPlaceholder: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    icon: Sparkles,
+    icon: tintedBrandIcon(Google),
   },
 };
 
@@ -145,20 +153,19 @@ function getProviderStatus(provider: AIProvider, config: AIProviderConfig) {
   return 'Configured';
 }
 
+// Problems always surface; a healthy tile reads simply Active or Inactive. (Why)
 function getProviderAvailabilityStatus(provider: AIProvider, config: AIProviderConfig, isActive: boolean): string {
-  if (isActive) return 'Active';
   const status = getProviderStatus(provider, config);
-  return status === 'Configured' ? 'Inactive' : status;
+  if (status !== 'Configured') return status;
+  return isActive ? 'Active' : 'Inactive';
 }
 
 function Field({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
   return (
-    <div className="space-y-2">
-      <div className="space-y-0.5">
-        <Label className="text-sm font-medium">{label}</Label>
-        {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
-      </div>
+    <div className="space-y-1">
+      <Label className="text-sm font-medium">{label}</Label>
       {children}
+      {description ? <p className="text-xs leading-snug text-muted-foreground">{description}</p> : null}
     </div>
   );
 }
@@ -252,134 +259,35 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
   }
 }
 
-function ApiSettingsHeader({ draft }: { draft: AISettings }) {
-  const activeConfig = draft.providers[draft.activeProvider];
-  const activeStatus = getProviderAvailabilityStatus(draft.activeProvider, activeConfig, true);
+function ApiSettingsHeader() {
   return (
-    <div className="border-b border-border">
-      <div className="flex flex-wrap items-start gap-3 px-5 py-4">
-        <Button variant="ghost" size="icon-sm" onClick={() => navigateTo('workspace')} title="Back to workspace">
-          <ArrowLeft className="size-4" />
-        </Button>
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-lg font-semibold tracking-tight">API Settings</h1>
-            <Badge variant="outline" className="bg-background/70 text-xs">
-              Local user profile
-            </Badge>
-            <Badge variant="secondary" className="text-xs font-mono">
-              {__APP_VERSION__}
-            </Badge>
-          </div>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            Configure AI providers and the local read-only MCP server for this desktop user.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/80 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="size-2 rounded-full bg-primary" />
-            <span className="text-sm font-medium">{PROVIDER_META[draft.activeProvider].label}</span>
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {activeStatus}
-          </Badge>
-          <span className="text-xs text-muted-foreground">{activeConfig?.model || 'No model'}</span>
-        </div>
-      </div>
+    <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
+      <Button variant="ghost" size="icon-sm" onClick={() => navigateTo('workspace')} title="Back to workspace">
+        <ArrowLeft className="size-4" />
+      </Button>
+      <span className="text-sm font-semibold">API Settings</span>
     </div>
-  );
-}
-
-function ProviderSidebar({
-  draft,
-  selectedProvider,
-  onSelect,
-}: {
-  draft: AISettings;
-  selectedProvider: AIProvider;
-  onSelect: (p: AIProvider) => void;
-}) {
-  return (
-    <aside className="w-full shrink-0 border-b border-border bg-muted/5 lg:w-55 lg:border-r lg:border-b-0">
-      <div className="space-y-1 p-3">
-        {PROVIDER_ORDER.map((provider) => {
-          const meta = PROVIDER_META[provider];
-          const isActive = provider === draft.activeProvider;
-          const status = getProviderAvailabilityStatus(provider, draft.providers[provider], isActive);
-          const Icon = meta.icon;
-          const isSelected = provider === selectedProvider;
-
-          return (
-            <Button
-              key={provider}
-              variant="ghost"
-              onClick={() => onSelect(provider)}
-              className={`group w-full h-auto justify-start font-normal gap-3 py-2 ${
-                isSelected ? 'bg-background shadow-sm ring-1 ring-inset ring-border' : 'hover:bg-muted/50'
-              }`}
-            >
-              <div
-                className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  isSelected
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground group-hover:bg-muted'
-                }`}
-              >
-                <Icon className="size-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium" title={meta.label}>
-                    {meta.label}
-                  </span>
-                  {isActive ? (
-                    <Badge variant="default" className="h-5 px-1.5 text-[10px]">
-                      Active
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="truncate text-xs text-muted-foreground" title={status}>
-                  {status}
-                </div>
-              </div>
-            </Button>
-          );
-        })}
-      </div>
-    </aside>
   );
 }
 
 function ProviderHeader({
   selectedProvider,
-  config,
   isActive,
   onSetActive,
 }: {
   selectedProvider: AIProvider;
-  config: AIProviderConfig;
   isActive: boolean;
   onSetActive: () => void;
 }) {
   const SelectedIcon = PROVIDER_META[selectedProvider].icon;
-  const status = getProviderAvailabilityStatus(selectedProvider, config, isActive);
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <SelectedIcon className="size-4" />
-        </div>
-        <div>
-          <h2 className="text-base font-semibold">{PROVIDER_META[selectedProvider].label}</h2>
-          <p className="text-xs text-muted-foreground">{status}</p>
-        </div>
+    <div className="mb-3 flex items-center gap-2">
+      {/* The selected tile above already shows the provider name, so the panel header keeps only the icon. (Why) */}
+      <div className="flex size-7 items-center justify-center rounded-sm bg-primary/10 text-primary">
+        <SelectedIcon className="size-3.5" />
       </div>
-      {isActive ? (
-        <Badge variant="default" className="text-xs">
-          Active
-        </Badge>
-      ) : (
-        <Button variant="outline" size="sm" onClick={onSetActive}>
+      {isActive ? null : (
+        <Button variant="outline" size="xs" className="ml-auto" onClick={onSetActive}>
           Set active
         </Button>
       )}
@@ -407,7 +315,7 @@ function ProviderForm({
   canFetchModels: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-4 space-y-4">
+    <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
       <Field
         label="Model"
         description="The default model for AI chat. Select from available models or type a custom name."
@@ -420,7 +328,7 @@ function ProviderForm({
                 if (v && v !== '__custom') onModelChange(v);
               }}
             >
-              <SelectTrigger className="h-9 flex-1">
+              <SelectTrigger className="h-7 flex-1">
                 <SelectValue placeholder="Select a model..." />
               </SelectTrigger>
               <SelectContent>
@@ -437,13 +345,13 @@ function ProviderForm({
               value={config.model}
               onChange={(e) => onUpdateField({ model: e.target.value })}
               placeholder={PROVIDER_META[selectedProvider].modelPlaceholder}
-              className="h-9 flex-1"
+              className="h-7 flex-1"
             />
           )}
           <Button
             variant="outline"
-            size="icon"
-            className="shrink-0 size-9"
+            size="icon-sm"
+            className="shrink-0"
             onClick={onFetchModels}
             disabled={modelsLoading || !canFetchModels}
             title="Fetch available models"
@@ -469,7 +377,7 @@ function ProviderForm({
           value={config.baseUrl ?? ''}
           onChange={(e) => onUpdateField({ baseUrl: e.target.value })}
           placeholder={PROVIDER_META[selectedProvider].baseUrlPlaceholder}
-          className="h-9"
+          className="h-7"
         />
       </Field>
 
@@ -480,46 +388,10 @@ function ProviderForm({
             value={config.apiKey ?? ''}
             onChange={(e) => onUpdateField({ apiKey: e.target.value })}
             placeholder="sk-..."
-            className="h-9"
+            className="h-7"
           />
         </Field>
       ) : null}
-    </div>
-  );
-}
-
-function SettingsFooter({
-  hasUnsavedChanges,
-  isSaving,
-  onReset,
-  onDiscard,
-  onSave,
-}: {
-  hasUnsavedChanges: boolean;
-  isSaving: boolean;
-  onReset: () => void;
-  onDiscard: () => void;
-  onSave: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-card px-4 py-3">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onReset}>
-          Reset
-        </Button>
-        <span className={`text-xs ${hasUnsavedChanges ? 'text-muted-foreground' : 'text-primary'}`}>
-          {hasUnsavedChanges ? 'Unsaved changes' : 'Saved'}
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={onDiscard} disabled={!hasUnsavedChanges || isSaving}>
-          Discard
-        </Button>
-        <Button size="sm" onClick={onSave} disabled={!hasUnsavedChanges || isSaving}>
-          {isSaving ? <Spinner size="sm" className="size-3.5" /> : <Save className="size-3.5" />}
-          Save
-        </Button>
-      </div>
     </div>
   );
 }
@@ -545,7 +417,8 @@ export function ApiSettingsPage() {
     }
   }
 
-  const selectedConfig = state.draft.providers[state.selectedProvider];
+  const selectedProvider = state.selectedProvider;
+  const selectedConfig = state.draft.providers[selectedProvider];
   const hasUnsavedChanges = useMemo(
     () => JSON.stringify(state.draft) !== JSON.stringify(state.savedSnapshot),
     [state.draft, state.savedSnapshot],
@@ -564,8 +437,7 @@ export function ApiSettingsPage() {
         signal,
       ),
     enabled:
-      !!selectedConfig.baseUrl?.trim() &&
-      (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim()),
+      !!selectedConfig.baseUrl?.trim() && (!providerNeedsApiKey(selectedProvider) || !!selectedConfig.apiKey?.trim()),
     staleTime: 0,
     gcTime: 0,
   });
@@ -587,75 +459,111 @@ export function ApiSettingsPage() {
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col bg-background overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent hover:scrollbar-thumb-border/80">
-      <ApiSettingsHeader draft={state.draft} />
+    <div className="flex h-full min-w-0 flex-1 flex-col bg-background">
+      <ApiSettingsHeader />
 
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center">
           <Spinner size="lg" />
         </div>
       ) : (
-        <Tabs defaultValue="providers" className="flex min-h-0 flex-1 flex-col">
-          <TabsList className="mx-5 mt-4 w-fit">
-            <TabsTrigger value="providers">AI Providers</TabsTrigger>
-            <TabsTrigger value="mcp">MCP Server</TabsTrigger>
-          </TabsList>
+        <>
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-6 px-4 py-4">
+              <section className="space-y-2">
+                <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">AI Providers</h2>
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+                  {PROVIDER_ORDER.map((provider) => {
+                    const meta = PROVIDER_META[provider];
+                    const ProviderIcon = meta.icon;
+                    const isActive = provider === state.draft.activeProvider;
+                    const isSelected = provider === selectedProvider;
+                    return (
+                      <Button
+                        key={provider}
+                        variant="ghost"
+                        onClick={() => dispatch({ type: 'selectProvider', provider })}
+                        className={`h-auto w-full justify-start gap-2 border px-2 py-1.5 font-normal ${
+                          isSelected ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-muted/40'
+                        }`}
+                      >
+                        <span
+                          className={`flex size-7 shrink-0 items-center justify-center rounded-sm ${
+                            isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          <ProviderIcon className="size-3.5" />
+                        </span>
+                        <span className="min-w-0 flex-1 text-left">
+                          <span className="block truncate text-xs font-medium">{meta.label}</span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {getProviderAvailabilityStatus(provider, state.draft.providers[provider], isActive)}
+                          </span>
+                        </span>
+                      </Button>
+                    );
+                  })}
+                </div>
 
-          <TabsContent value="providers" className="flex min-h-0 flex-1 flex-col outline-none">
-            <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-              <ProviderSidebar
-                draft={state.draft}
-                selectedProvider={state.selectedProvider}
-                onSelect={(p) => dispatch({ type: 'selectProvider', provider: p })}
-              />
-
-              <section className="flex min-h-0 flex-1 flex-col">
-                <div className="flex-1 px-5 py-5">
-                  <div className="space-y-4">
-                    <ProviderHeader
-                      selectedProvider={state.selectedProvider}
-                      config={selectedConfig}
-                      isActive={state.selectedProvider === state.draft.activeProvider}
-                      onSetActive={() => dispatch({ type: 'setActiveProvider', provider: state.selectedProvider })}
-                    />
-
-                    <ProviderForm
-                      selectedProvider={state.selectedProvider}
-                      config={selectedConfig}
-                      modelsWithCustom={modelsWithCustom}
-                      modelsLoading={modelsLoading}
-                      onModelChange={(v) =>
-                        dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates: { model: v } })
-                      }
-                      onUpdateField={(updates) =>
-                        dispatch({ type: 'updateProvider', provider: state.selectedProvider, updates })
-                      }
-                      onFetchModels={() => refetchModels()}
-                      canFetchModels={
-                        !!selectedConfig.baseUrl?.trim() &&
-                        (!providerNeedsApiKey(state.selectedProvider) || !!selectedConfig.apiKey?.trim())
-                      }
-                    />
-
-                    <SettingsFooter
-                      hasUnsavedChanges={hasUnsavedChanges}
-                      isSaving={saveSettings.isPending}
-                      onReset={() => dispatch({ type: 'resetSelected', savedSnapshot: state.savedSnapshot })}
-                      onDiscard={() => dispatch({ type: 'discard', savedSnapshot: state.savedSnapshot })}
-                      onSave={handleSave}
-                    />
-                  </div>
+                <div className="rounded-sm border border-border p-3">
+                  <ProviderHeader
+                    selectedProvider={selectedProvider}
+                    isActive={selectedProvider === state.draft.activeProvider}
+                    onSetActive={() => dispatch({ type: 'setActiveProvider', provider: selectedProvider })}
+                  />
+                  <ProviderForm
+                    selectedProvider={selectedProvider}
+                    config={selectedConfig}
+                    modelsWithCustom={modelsWithCustom}
+                    modelsLoading={modelsLoading}
+                    onModelChange={(v) =>
+                      dispatch({ type: 'updateProvider', provider: selectedProvider, updates: { model: v } })
+                    }
+                    onUpdateField={(updates) =>
+                      dispatch({ type: 'updateProvider', provider: selectedProvider, updates })
+                    }
+                    onFetchModels={() => refetchModels()}
+                    canFetchModels={
+                      !!selectedConfig.baseUrl?.trim() &&
+                      (!providerNeedsApiKey(selectedProvider) || !!selectedConfig.apiKey?.trim())
+                    }
+                  />
                 </div>
               </section>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="mcp" className="min-h-0 flex-1 overflow-y-auto px-5 py-5 outline-none">
-            <div className="mx-auto w-full max-w-6xl">
-              <McpSettingsSection />
+              <section className="space-y-2">
+                <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">MCP Server</h2>
+                <McpSettingsSection />
+              </section>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+
+          {hasUnsavedChanges && (
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border bg-background/95 px-4 py-1.5 backdrop-blur">
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => dispatch({ type: 'resetSelected', savedSnapshot: state.savedSnapshot })}
+              >
+                Reset
+              </Button>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Unsaved changes</span>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={() => dispatch({ type: 'discard', savedSnapshot: state.savedSnapshot })}
+                >
+                  Discard
+                </Button>
+                <Button size="xs" onClick={handleSave} disabled={saveSettings.isPending}>
+                  {saveSettings.isPending ? <Spinner size="sm" className="size-3" /> : <Save className="size-3" />}
+                  Save
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
