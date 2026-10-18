@@ -9,6 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v2.0.1] — 2026-10-18
+
+### Fixed
+
+- **Windows release installer** — ensure the release build can find NSIS and include its installer asset.
+
+---
+
 ## [v2.0.0] — 2026-10-18
 
 ### Changed
