@@ -1,0 +1,159 @@
+internal/acp/process_unix.go
+  s_bc55ed72ac75ff::t_f36921bd42f14e 1-27
+docs/llm/INDEX.md
+  s_4bd50dc2836902::t_0c65ac149e7433 5
+internal/api/connections.go
+  s_bc55ed72ac75ff::t_f3ace60b0434c2 121-127
+  s_bc55ed72ac75ff::t_de6e7caaf5c5bf 17
+internal/acp/runtime.go
+  s_bc55ed72ac75ff::t_a8e7c9c902c29a 485
+  s_bc55ed72ac75ff::t_ef8e4973f5c8ab 1-133,136-137,139-241,243-245,247-249,251-252,254-255,257-390,392-394,396-398,400-402,404-406,408-410,412-414,416-484,486-533
+  s_bc55ed72ac75ff::t_85a37863906fb4 242,246,250,253,256
+  s_bc55ed72ac75ff::t_453bff832d2818 391,395,399,403,407,411,415
+  s_bc55ed72ac75ff::t_0c0ed879314744 134-135,138
+internal/mcp/tools.go
+  s_bc55ed72ac75ff::t_8080641fee1ac8 183-185,189-191
+apps/desktop/wailsjs/go/api/AiService.d.ts
+  s_bc55ed72ac75ff::t_b90ef7c98900da 12-13,22
+  s_bc55ed72ac75ff::t_167297c66816b2 23
+packages/shared/src/types.ts
+  s_bc55ed72ac75ff::t_58300b4beb88e9 1-2
+  s_bc55ed72ac75ff::t_1c557a21eed33c 358-359
+apps/desktop/src/lib/ai-chat-helpers.test.ts
+  s_bc55ed72ac75ff::t_d940373a7201a8 1-13,16-18
+  s_bc55ed72ac75ff::t_e81346ab37d1c4 14-15
+internal/acp/process_windows.go
+  s_bc55ed72ac75ff::t_108c244946257a 34
+  s_bc55ed72ac75ff::t_c8b4d0cf7d5cb2 14-19
+  s_bc55ed72ac75ff::t_cc4bbdfd7c2ccb 1-6,8-13,20-33,35-44
+  s_bc55ed72ac75ff::t_d26ef56eb58cdd 7
+apps/desktop/src/hooks/use-chat.ts
+  s_bc55ed72ac75ff::t_3f41109775d8d3 167
+  s_bc55ed72ac75ff::t_71ef52e82608c9 25-34
+  s_bc55ed72ac75ff::t_82a73f320f143e 268
+  s_bc55ed72ac75ff::t_fe7540631c8ffd 41-42
+  s_bc55ed72ac75ff::t_2918540bc959c4 3
+  s_bc55ed72ac75ff::t_331fd17c88da5d 152,157-166,168-179
+  s_bc55ed72ac75ff::t_36746a99c97a64 68,85-115
+  s_bc55ed72ac75ff::t_50fe1ec615f0e3 180
+internal/acp/catalog.go
+  s_bc55ed72ac75ff::t_8db5b7c74d1ffe 1-55
+apps/desktop/src/components/api-settings-page.tsx
+  s_bc55ed72ac75ff::t_b6dbd013796bf7 485-523
+  s_bc55ed72ac75ff::t_9b2a3412ee14ae 213-214
+  s_bc55ed72ac75ff::t_f2ce50902e5123 193
+  s_bc55ed72ac75ff::t_0d5053f4a1db7e 16-17,21-23
+  s_bc55ed72ac75ff::t_d14a42fc0fce52 128
+  s_bc55ed72ac75ff::t_94469dd8a07e66 144
+  s_bc55ed72ac75ff::t_cf193c31bbb972 24
+  s_bc55ed72ac75ff::t_68f3a5240a74a8 484
+internal/acp/runtime_test.go
+  s_bc55ed72ac75ff::t_3d5cd4b5def586 1-296
+main.go
+  s_bc55ed72ac75ff::t_81f1218e7d519a 92-94
+internal/api/ai_test.go
+  s_bc55ed72ac75ff::t_798f5d5f432dd3 31-75
+  s_bc55ed72ac75ff::t_75928c4e1e52db 174-537
+  s_bc55ed72ac75ff::t_290af86db4e1e4 10,12,14
+internal/api/ai.go
+  s_bc55ed72ac75ff::t_0381ae2d19d518 27-40,49-50,56
+  s_bc55ed72ac75ff::t_4b03257082faa6 101,299-303,324-327,329-332,334-335,337,339-388,390,392-412,414,416-417,419-426,428,431-435,437-443,446-474,476,478-483,487-488,499-506,514-517,519-522,526-624
+  s_bc55ed72ac75ff::t_9f8f8e69e61dc5 70-72,80-81,92-100
+  s_bc55ed72ac75ff::t_95afa688d89f16 57-60
+  s_bc55ed72ac75ff::t_510e1f980ec78c 18
+  s_bc55ed72ac75ff::t_70b19b522f8909 475,477
+  s_bc55ed72ac75ff::t_47893aa63affe6 518
+  s_bc55ed72ac75ff::t_d7090588c44bf3 74-79
+  s_bc55ed72ac75ff::t_8b0883889fbfe6 254-255,260
+  s_bc55ed72ac75ff::t_7d6a210b4c5cfc 256-259
+  s_bc55ed72ac75ff::t_6e238059e1bb84 102
+  s_bc55ed72ac75ff::t_02cff5842ada38 625
+internal/mcp/jsonrpc.go
+  s_bc55ed72ac75ff::t_bd74679e2ba077 148-155
+apps/desktop/src/lib/ai-chat-helpers.ts
+  s_bc55ed72ac75ff::t_42867fd0074dae 40-44,47-58,60-66
+  s_bc55ed72ac75ff::t_b227a1e208cc6d 59
+  s_bc55ed72ac75ff::t_69f6d7cd14e65b 67
+apps/desktop/wailsjs/go/models.ts
+  s_bc55ed72ac75ff::t_b90ef7c98900da 1757,1767
+apps/desktop/src/components/ai-chat-panel.tsx
+  s_bc55ed72ac75ff::t_c71c3aeea12b0b 725-727
+  s_bc55ed72ac75ff::t_b317a273ca0d29 51
+  s_bc55ed72ac75ff::t_3853dee32c82f2 835
+  s_bc55ed72ac75ff::t_aa6229d1697bde 38,42
+  s_bc55ed72ac75ff::t_0335db75725067 302,305-376,383-396
+  s_bc55ed72ac75ff::t_9b5f51547c464b 23
+  s_bc55ed72ac75ff::t_c2094919b59106 487
+  s_bc55ed72ac75ff::t_62253e6cf83e65 573
+apps/desktop/src/lib/api.ts
+  s_bc55ed72ac75ff::t_15a46c308583a3 79
+  s_bc55ed72ac75ff::t_773b7ffa0f7edb 182-199
+internal/store/ai.go
+  s_bc55ed72ac75ff::t_dcd65c24113192 243-256
+  s_bc55ed72ac75ff::t_4efefa811695d7 25-26,28-30
+  s_bc55ed72ac75ff::t_7ca1afc5c6db6c 172-181
+  s_bc55ed72ac75ff::t_abbb03c092c242 135-141
+docs/llm/integrations/read-only-mcp.md
+  s_4bd50dc2836902::t_0c65ac149e7433 3-4
+  s_4bd50dc2836902::t_33bc3fac54510a 9-10,12-20,104-113,115-163,293
+  s_4bd50dc2836902::t_590428b008f853 75-81,84-103
+  s_4bd50dc2836902::t_acd25293b091c3 11,82-83,174
+  s_4bd50dc2836902::t_5a08ccf6a7a02c 271
+  s_4bd50dc2836902::t_8df1a0c2559c7a 175
+CHANGELOG.md
+  s_bc55ed72ac75ff::t_164ecbc4f68dc9 12
+internal/mcp/mcp_test.go
+  s_bc55ed72ac75ff::t_49bddedfb3cde8 263-341
+internal/mcp/runtime.go
+  s_bc55ed72ac75ff::t_1948e7bc4916af 5,7
+  s_bc55ed72ac75ff::t_9a0cf1d5ccdb99 246-307,310,312
+  s_bc55ed72ac75ff::t_3c4c3f4b6e258e 313,315-326
+  s_bc55ed72ac75ff::t_ba2531ea631878 345-350,354-355
+  s_bc55ed72ac75ff::t_adcea996cc8209 4
+  s_bc55ed72ac75ff::t_614a8a780e7946 67-71
+  s_bc55ed72ac75ff::t_daf81ad320044d 314
+  s_bc55ed72ac75ff::t_f78b1e0872022d 356
+apps/desktop/wailsjs/go/api/AiService.js
+  s_bc55ed72ac75ff::t_b90ef7c98900da 17-20,37-39
+  s_bc55ed72ac75ff::t_8e79c304cef911 40
+packages/shared/src/constants.ts
+  s_bc55ed72ac75ff::t_2ed0e357860e05 3-11
+  s_bc55ed72ac75ff::t_4eaba456881ce9 12-20
+internal/store/entities_test.go
+  s_bc55ed72ac75ff::t_7d367d59c0a846 156-158
+  s_bc55ed72ac75ff::t_2598417dcca213 187-230
+apps/desktop/src/components/ai-chat-panel.test.tsx
+  s_bc55ed72ac75ff::t_2f9e5585070c1b 1-125
+go.mod
+  s_bc55ed72ac75ff::t_abc2df0e04ec64 81
+README.md
+  s_bc55ed72ac75ff::t_415d3a415bfb24 17
+landing/src/components/home-view.tsx
+  s_bc55ed72ac75ff::t_5fc4e098eb341b 74
+go.sum
+  s_bc55ed72ac75ff::t_6314ce86d531f4 191-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "24665dc1fe5ff1cfa625edde3478c63dc9639a5a",
+  "prompts": {},
+  "sessions": {
+    "s_4bd50dc2836902": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a152e8-46b6-7f53-aff0-ca1987e9cbf1",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_bc55ed72ac75ff": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eacf0a33effek5K5vpRDlxG6wH",
+        "model": "deepseek-v4.1-flash-free"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
