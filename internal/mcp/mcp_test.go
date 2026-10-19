@@ -260,6 +260,85 @@ func TestToolCallsOverHTTP(t *testing.T) {
 	}
 }
 
+// Session tokens scope MCP access to one profile for one turn: list filtering,
+// cross-profile rejection before adapters, global-token compatibility, and
+// revocation. (What / Why)
+func TestSessionTokens(t *testing.T) {
+	r, st := newTestRuntime(t)
+	p1 := createSQLiteProfile(t, st, sqliteDBFile(t), true)
+	p2 := createSQLiteProfile(t, st, sqliteDBFile(t), true)
+	disabled := createSQLiteProfile(t, st, sqliteDBFile(t), false)
+	r.bind(0)
+
+	endpoint, token, eligible := r.IssueSessionToken(p1.ID)
+	if !eligible || token == "" || endpoint == "" {
+		t.Fatalf("eligible profile should issue a token: %q %v", token, eligible)
+	}
+	if _, _, ok := r.IssueSessionToken(disabled.ID); ok {
+		t.Fatal("disabled profile must not be eligible")
+	}
+
+	callWith := func(authToken, payload string) (int, map[string]any) {
+		base := fmt.Sprintf("http://127.0.0.1:%d/mcp", r.GetStatus().Port)
+		req, _ := http.NewRequest("POST", base, strings.NewReader(payload))
+		if authToken != "" {
+			req.Header.Set("Authorization", "Bearer "+authToken)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		var out map[string]any
+		_ = json.Unmarshal(body, &out)
+		return resp.StatusCode, out
+	}
+
+	// Scoped list shows only the token's profile.
+	status, resp := callWith(token, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_mcp_profiles","arguments":{}}}`)
+	if status != 200 {
+		t.Fatalf("scoped list status %d", status)
+	}
+	text := resp["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, p1.ID) || strings.Contains(text, p2.ID) {
+		t.Fatalf("scoped list leaked profiles: %s", text)
+	}
+
+	// Cross-profile call is rejected before adapter access.
+	call := fmt.Sprintf(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sql_list_databases","arguments":{"connection_id":%q}}}`, p2.ID)
+	_, resp = callWith(token, call)
+	result := resp["result"].(map[string]any)
+	if result["isError"] != true {
+		t.Fatalf("cross-profile call must be an error: %v", resp)
+	}
+	text = result["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, "limited to the configured profile") {
+		t.Fatalf("unexpected cross-profile error: %s", text)
+	}
+
+	// Scoped call to its own profile succeeds.
+	call = fmt.Sprintf(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sql_list_databases","arguments":{"connection_id":%q}}}`, p1.ID)
+	_, resp = callWith(token, call)
+	if resp["result"] == nil {
+		t.Fatalf("scoped own-profile call failed: %v", resp)
+	}
+
+	// The persisted global token stays unscoped and sees every profile.
+	_, resp = callWith(r.Token(), `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_mcp_profiles","arguments":{}}}`)
+	text = resp["result"].(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, p1.ID) || !strings.Contains(text, p2.ID) {
+		t.Fatalf("global token must see all profiles: %s", text)
+	}
+
+	// A revoked scoped token is rejected with 401.
+	r.RevokeSessionToken(token)
+	status, _ = callWith(token, `{"jsonrpc":"2.0","id":5,"method":"ping"}`)
+	if status != 401 {
+		t.Fatalf("revoked token should be 401, got %d", status)
+	}
+}
+
 func TestManagerGuards(t *testing.T) {
 	st := openTestStore(t)
 	m := NewAdapterManager(st)

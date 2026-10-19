@@ -1,8 +1,22 @@
 # Read-only MCP Server
 
+Verification: [x] MCP listener, profile scope, managed-account permissions, tool limits, call history, and error paths were checked against current Go source and tests.
+
 KamehaDB exposes a local Model Context Protocol (MCP) endpoint so supported AI clients can inspect opted-in database profiles. The endpoint is separate from the Wails-bound management service and listens only on loopback.
 
 ## Requirements
+
+### MCP-account-provisioning
+
+The system SHALL use generated managed-account credentials for server-backed MCP reads, use saved profile credentials only for explicit provisioning and Revoke, and scope engine-specific read grants to the configured database: PostgreSQL CONNECT/USAGE/SELECT, MySQL/MariaDB SELECT, SQL Server `db_datareader`, or MongoDB `read`.
+
+#### Scenario: managed account serves a database profile
+
+- GIVEN a supported server-backed profile has a ready managed MCP account
+- WHEN an MCP database tool opens that profile
+- THEN the adapter uses the generated credential and the database account has only the engine-specific read grants for the configured database
+
+Evidence: `internal/api/mcp.go`, `internal/mcp/manager.go`, `internal/mcp/provisioner.go`
 
 ### MCP-call-history-capture
 
@@ -58,16 +72,95 @@ The desktop SHALL show recorded inputs and summaries with a plain-text storage w
 
 Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/src/components/mcp-settings-section.test.tsx`, `internal/api/mcp.go`
 
-## Business rules
+### MCP-database-scope
 
-- The MCP listener binds to `127.0.0.1` at `/mcp`. Its default port is `13979`; the port is configurable and does not fall back if binding fails.
-- MCP access is a per-profile allowlist. Profiles default to disabled. PostgreSQL, MySQL, MariaDB, SQL Server, and MongoDB require a KamehaDB-managed account before enablement; SQLite uses a dedicated read-only file adapter.
-- The server registers ten read-oriented tools: `list_mcp_profiles`; SQL database/schema/table/column discovery and `sql_query`; MongoDB database/collection discovery, `mongo_find`, and `mongo_aggregate`.
-- `sql_query` uses the shared `isQuerySafe` heuristic. It rejects statement chains, destructive keywords, and statements that do not begin with `SELECT`, `WITH`, `SHOW`, `DESCRIBE`, or `EXPLAIN`. This is keyword screening, not a SQL parser. Database permissions remain the write-prevention boundary. MongoDB exposes only read methods and rejects aggregation stages `$out` and `$merge`.
-- SQL metadata database arguments and MongoDB database arguments are restricted to the database configured in the profile. SQL and MongoDB database-list tools expose only that configured database. MySQL/MariaDB treat database and schema names as equivalents; SQLite metadata is limited to `main`.
-- Server database query adapters use only the generated account credential. Saved profile credentials are used only for explicit account provisioning and Revoke. KamehaDB provisions PostgreSQL CONNECT/USAGE/SELECT grants, MySQL/MariaDB SELECT, SQL Server `db_datareader`, or the MongoDB `read` role, scoped to the selected database.
-- MongoDB account setup requires access control to be enabled. A credential-free `listCollections` probe must return MongoDB Unauthorized (code 13); unauthenticated success and inconclusive errors stop provisioning.
-- SQL query results contain `columns`, positional `rows`, `duration_ms`, and `truncated`. The default row limit is 100 and the maximum is 1,000. Queries have a 30-second budget and each profile allows at most four concurrent database-backed calls. MongoDB `skip` is capped at 100,000.
+The system SHALL restrict SQL metadata arguments and database-list results, MongoDB database arguments and database-list results, and SQLite metadata to the selected profile's configured database or `main`.
+
+#### Scenario: MCP requests data outside the selected profile
+
+- GIVEN an MCP-enabled server profile is configured for database `app`
+- WHEN a client lists databases or requests SQL or MongoDB metadata or data for another database
+- THEN the MCP server exposes only `app` in SQL and MongoDB database lists and rejects requests for another database before querying it
+
+#### Scenario: SQLite metadata names another database
+
+- GIVEN an MCP-enabled SQLite profile uses a local file
+- WHEN a metadata tool names a database or schema other than `main`
+- THEN the tool rejects the request before querying the file
+
+Evidence: `internal/mcp/manager.go`, `internal/mcp/tools.go`, `internal/mcp/mcp_test.go`
+
+### MCP-listener-loopback
+
+The system SHALL bind its MCP endpoint to `127.0.0.1/mcp` on the configured port, defaulting to `13979`, and leave the ordinary workspace available when binding fails without choosing another port.
+
+#### Scenario: configured port is unavailable
+
+- GIVEN another process owns the configured MCP port
+- WHEN the MCP listener starts
+- THEN MCP reports `unavailable`, keeps the configured port, and the Wails workspace continues running
+
+Evidence: `internal/mcp/runtime.go`, `internal/store/mcp.go`, `internal/mcp/mcp_test.go`, `main.go`
+
+### MCP-mongodb-auth-probe
+
+The system SHALL stop MongoDB managed-account provisioning unless an unauthenticated `listCollections` probe proves access control is enabled.
+
+#### Scenario: MongoDB permits unauthenticated reads
+
+- GIVEN a MongoDB profile can list collections without credentials
+- WHEN the user prepares a managed MCP account
+- THEN provisioning stops before creating an account
+
+Evidence: `internal/mcp/provisioner.go`
+
+### MCP-profile-allowlist
+
+The system SHALL serve only supported profiles explicitly enabled for MCP, requiring a ready managed account for server-backed engines and using a dedicated read-only file adapter for SQLite.
+
+#### Scenario: a disabled or unprovisioned profile is requested
+
+- GIVEN a profile is disabled for MCP or its required managed account is not ready
+- WHEN a client calls a database-backed tool for that profile
+- THEN the call is rejected before an adapter serves the database
+
+Evidence: `internal/store/migrate.go`, `internal/store/profiles.go`, `internal/mcp/manager.go`, `internal/mcp/mcp_test.go`
+
+### MCP-query-bounds
+
+The system SHALL bound MCP database work to 1,000 SQL rows, 1,000 MongoDB results, a 30-second query budget, four concurrent calls per profile, and a MongoDB `skip` of at most 100,000, with a default result limit of 100.
+
+#### Scenario: requested result exceeds MCP limits
+
+- GIVEN a client requests more than the default result count or MongoDB skip cap
+- WHEN the tool executes the request
+- THEN it clamps results to the configured maximum and reports whether SQL or MongoDB results were truncated
+
+Evidence: `internal/mcp/manager.go`, `internal/mcp/tools.go`, `internal/mcp/errors.go`, `internal/mongo/mongo.go`
+
+### MCP-read-only-tool-surface
+
+The system SHALL register only ten read-oriented tools for profile discovery, SQL metadata and queries, and MongoDB metadata and reads.
+
+#### Scenario: a client lists MCP tools
+
+- GIVEN the MCP listener is running
+- WHEN a client calls `tools/list`
+- THEN it receives the ten supported tools and no database write tool
+
+Evidence: `internal/mcp/tools.go`, `internal/mcp/jsonrpc.go`, `internal/mcp/mcp_test.go`
+
+### MCP-sql-mongo-read-only
+
+The system SHALL reject unsafe SQL statements and MongoDB aggregation pipelines containing `$out` or `$merge`, while leaving database permissions as the SQL write-prevention boundary.
+
+#### Scenario: a client submits a write operation
+
+- GIVEN a profile is enabled for MCP
+- WHEN `sql_query` receives a chained, destructive, or unsupported-leading SQL statement, or `mongo_aggregate` receives `$out` or `$merge`
+- THEN the operation is rejected before it can write through the MCP adapter
+
+Evidence: `internal/mcp/tools.go`, `internal/sqlsafety/sqlsafety.go`, `internal/mongo/mongo.go`, `internal/mcp/mcp_test.go`
 
 ## Flow
 
@@ -77,6 +170,8 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 4. The desktop provides copyable snippets for Codex, Claude Code, Devin CLI, and OpenCode; it does not edit client config files. Token rotation requires updating the snippets.
 5. MCP clients send stateless Streamable HTTP JSON-RPC `POST` requests to `http://127.0.0.1:<port>/mcp` with `Authorization: Bearer <token>`.
 6. Every database tool asks the `mcp.Manager` to re-read the profile and check its allowlist. Server database calls require a ready managed-account record and an in-memory credential restored from encrypted local storage. Missing credentials fail closed with no fallback to saved profile credentials. SQLite calls use the dedicated read-only adapter.
+
+For MongoDB, the MCP `mongoScoped` adapter returns only the configured profile database from its database-list tool; it does not call the general adapter's broader database-list method. Requests for another database are rejected before the adapter call. The generated user's `read` role is an additional database-level boundary.
 
 ## State changes
 
@@ -173,6 +268,7 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 - `internal/api/mcp.go`
 - `internal/api/mcp_test.go`
 - `internal/store/vault.go`
+- `internal/store/migrate.go`
 - `internal/store/profiles.go`
 - `internal/store/mcp.go`
 - `internal/mcp/runtime.go`
@@ -194,4 +290,5 @@ Evidence: `apps/desktop/src/components/mcp-settings-section.tsx`, `apps/desktop/
 - `internal/store/store_test.go`
 - `internal/store/vault_test.go`
 - `internal/mcp/mcp_test.go`
+- `internal/sqlsafety/sqlsafety.go`
 - `apps/desktop/src/lib/mcp-managed-account.test.ts`

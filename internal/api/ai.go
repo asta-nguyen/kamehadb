@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/asta-nguyen/kamehadb/internal/acp"
 	"github.com/asta-nguyen/kamehadb/internal/ai"
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/engines/postgres"
@@ -22,6 +23,20 @@ import (
 	"github.com/asta-nguyen/kamehadb/internal/store"
 	"github.com/asta-nguyen/kamehadb/internal/terminal"
 )
+
+// acpRunner is the ACP runtime surface AiService drives. It is an interface so
+// tests can substitute a scripted agent for the real process.
+type acpRunner interface {
+	RunTurn(ctx context.Context, in acp.TurnInput) (acp.TurnResult, error)
+	RespondPermission(id, optionID string) error
+	CloseAll()
+}
+
+// mcpTuner issues volatile per-turn, profile-scoped MCP tokens.
+type mcpTuner interface {
+	IssueSessionToken(profileID string) (endpoint, token string, eligible bool)
+	RevokeSessionToken(token string)
+}
 
 // AiService replaces routes/ai.ts. Chat streams over `chat:<requestId>`
 // events instead of an SSE response; each payload is {type, delta|message}.
@@ -31,13 +46,18 @@ type AiService struct {
 	mongo *MongoService
 	cache *ttlCache
 	emit  terminal.EmitFunc
+	acp   acpRunner
+	mcp   mcpTuner
 
 	chatsMu sync.Mutex
 	chats   map[string]context.CancelFunc
 }
 
-func NewAiService(st *store.Store, reg *engines.Registry, mongoSvc *MongoService, _ *SqlService, cache *ttlCache, emit terminal.EmitFunc) *AiService {
-	return &AiService{st: st, reg: reg, mongo: mongoSvc, cache: cache, emit: emit, chats: map[string]context.CancelFunc{}}
+func NewAiService(st *store.Store, reg *engines.Registry, mongoSvc *MongoService, _ *SqlService, cache *ttlCache, emit terminal.EmitFunc, acpRuntime acpRunner, mcpRuntime mcpTuner) *AiService {
+	return &AiService{
+		st: st, reg: reg, mongo: mongoSvc, cache: cache, emit: emit,
+		acp: acpRuntime, mcp: mcpRuntime, chats: map[string]context.CancelFunc{},
+	}
 }
 
 // --- settings -------------------------------------------------------------
@@ -47,8 +67,18 @@ func (s *AiService) GetAISettings() (*store.AISettings, error) {
 }
 
 // SaveAISettings mirrors POST /ai/settings including the active-provider
-// validation.
+// validation. When a fixed ACP agent is selected, provider credentials are not
+// required: the agent supplies its own model backend, so only the preset id is
+// validated.
 func (s *AiService) SaveAISettings(input store.AISettings) error {
+	if err := validateChatAgent(input.ActiveChatAgent); err != nil {
+		return err
+	}
+	// ACP selected: the preset id is validated and the agent supplies its own
+	// model backend, so provider credentials are not required.
+	if input.ActiveChatAgent != nil && *input.ActiveChatAgent != "" {
+		return s.st.SaveAISettings(input)
+	}
 	active, ok := input.Providers[input.ActiveProvider]
 	if !ok || !active.Enabled {
 		return errors.New("Active provider must be enabled")
@@ -57,6 +87,17 @@ func (s *AiService) SaveAISettings(input store.AISettings) error {
 		return errors.New(msg)
 	}
 	return s.st.SaveAISettings(input)
+}
+
+// validateChatAgent rejects an unknown preset id before any save or turn.
+func validateChatAgent(agent *string) error {
+	if agent == nil || *agent == "" {
+		return nil
+	}
+	if !acp.IsValidID(*agent) {
+		return fmt.Errorf("Unknown ACP agent: %s", *agent)
+	}
+	return nil
 }
 
 // --- models proxy ---------------------------------------------------------
@@ -210,6 +251,13 @@ type chatEvent struct {
 	Type    string `json:"type"`
 	Delta   string `json:"delta,omitempty"`
 	Message string `json:"message,omitempty"`
+
+	// ACP-only fields: tool activity, permission prompts, and their options.
+	ToolID       string                 `json:"toolId,omitempty"`
+	Title        string                 `json:"title,omitempty"`
+	Status       string                 `json:"status,omitempty"`
+	PermissionID string                 `json:"permissionId,omitempty"`
+	Options      []acp.PermissionOption `json:"options,omitempty"`
 }
 
 func newRequestID() string {
@@ -248,6 +296,11 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// ACP mode: a fixed local agent is the chat backend, so provider
+	// credentials and provider-backed embedding are not used for the turn. (Why)
+	if settings.ActiveChatAgent != nil && *settings.ActiveChatAgent != "" {
+		return s.startAcpChat(input, latestUserMsg, *settings.ActiveChatAgent)
+	}
 	providerName := input.Provider
 	if providerName == "" {
 		providerName = settings.ActiveProvider
@@ -268,90 +321,9 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 	}
 
 	ctx := context.Background()
-	var ddl, mongoSchema, vectorPrompt, connectionKind string
-	var profile *store.Profile
-
-	if input.ConnectionID != "" {
-		p, err := s.st.GetProfile(input.ConnectionID)
-		if err != nil {
-			return "", err
-		}
-		profile = p
-		if profile != nil {
-			connectionKind = profile.Kind
-		}
-
-		// Reads and writes share schemaCacheKey so a cached entry is always read
-		// back under the key it was written with; a table-scoped chat reads the
-		// table key, so a connection-level entry cannot shadow the selected
-		// table's context. (Why)
-		cacheKey := schemaCacheKey(input.ConnectionID, input.TableID, input.MongoDatabase)
-		if cached := s.cache.get(cacheKey, aiSchemaCacheTime); cached != nil {
-			if input.MongoDatabase != "" {
-				mongoSchema = cached.(string)
-			} else {
-				ddl = cached.(string)
-			}
-		}
-
-		if ddl == "" && mongoSchema == "" && profile != nil {
-			switch profile.Kind {
-			case engines.KindMongoDB:
-				adapter, err := s.mongo.getAdapter(input.ConnectionID)
-				if err != nil {
-					return "", errors.New("Schema context is unavailable due to an error")
-				}
-				mongoSchema, err = s.buildMongoSchemaContext(ctx, adapter, input.MongoDatabase)
-				if err != nil {
-					return "", errors.New("Schema context is unavailable due to an error")
-				}
-				s.cache.set(cacheKey, mongoSchema)
-			case engines.KindRedis:
-				// No schema context for redis, same as the route.
-			default:
-				adapter, err := s.reg.Get(ctx, input.ConnectionID)
-				if err != nil {
-					return "", errors.New("Schema context is unavailable due to an error")
-				}
-				if input.TableID != "" {
-					ddl, err = ai.BuildTableSchemaContext(ctx, adapter, input.TableID)
-					if err != nil {
-						return "", errors.New("Schema context is unavailable due to an error")
-					}
-					if ddl != "" {
-						s.cache.set(schemaCacheKey(input.ConnectionID, input.TableID, ""), ddl)
-					}
-				}
-				if ddl == "" {
-					if latestUserMsg != "" {
-						hits, err := ai.SearchRelevantSchema(ctx, s.st, input.ConnectionID, latestUserMsg, providerName, ai.ProviderConfig(config), 5)
-						if err == nil && len(hits) > 0 {
-							var parts []string
-							for _, h := range hits {
-								parts = append(parts, h.DDL)
-							}
-							ddl = strings.Join(parts, "\n\n")
-						}
-					}
-					if ddl == "" {
-						ddl, err = ai.BuildSchemaContext(ctx, adapter)
-						if err != nil {
-							return "", errors.New("Schema context is unavailable due to an error")
-						}
-					}
-					// Full-schema fallbacks always cache at connection scope, so a
-					// table-scoped chat cannot pin a full-schema entry under its
-					// table key. (Why)
-					s.cache.set(schemaCacheKey(input.ConnectionID, "", ""), ddl)
-				}
-				if profile.Kind == engines.KindPostgres {
-					vectorPrompt = s.resolvePostgresVectorPrompt(ctx, input.ConnectionID, profile)
-				}
-			}
-		}
-		if profile != nil && profile.Kind == engines.KindPostgres && vectorPrompt == "" {
-			vectorPrompt = s.resolvePostgresVectorPrompt(ctx, input.ConnectionID, profile)
-		}
+	cc, err := s.buildChatContext(ctx, input, providerName, config, latestUserMsg, true)
+	if err != nil {
+		return "", err
 	}
 
 	if input.ConnectionID != "" && latestUserMsg != "" {
@@ -364,7 +336,7 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 		}
 	}
 
-	systemPrompt := buildSystemPrompt(ddl, mongoSchema, connectionKind, vectorPrompt)
+	systemPrompt := buildSystemPrompt(cc.ddl, cc.mongoSchema, cc.connectionKind, cc.vectorPrompt)
 	llmMessages := append([]ai.ChatMessage{{Role: "system", Content: systemPrompt}}, input.Messages...)
 
 	requestID := newRequestID()
@@ -375,6 +347,280 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 
 	go s.runChat(chatCtx, requestID, input, llmMessages, providerName, config)
 	return requestID, nil
+}
+
+// chatContext is the connection-derived context shared by the provider and ACP
+// paths. Provider-only fields stay empty on the ACP path.
+type chatContext struct {
+	ddl            string
+	mongoSchema    string
+	vectorPrompt   string
+	connectionKind string
+	profile        *store.Profile
+}
+
+// buildChatContext resolves the schema context for a turn. useProvider gates the
+// provider-backed steps (embedding search and the Postgres vector prompt) so an
+// ACP turn never contacts KamehaDB's provider or embedding endpoint. (Why)
+func (s *AiService) buildChatContext(ctx context.Context, input ChatInput, providerName string, config store.AIProviderConfig, latestUserMsg string, useProvider bool) (chatContext, error) {
+	var cc chatContext
+	if input.ConnectionID == "" {
+		return cc, nil
+	}
+	p, err := s.st.GetProfile(input.ConnectionID)
+	if err != nil {
+		return cc, err
+	}
+	cc.profile = p
+	if p != nil {
+		cc.connectionKind = p.Kind
+	}
+
+	// Reads and writes share schemaCacheKey so a cached entry is always read
+	// back under the key it was written with; a table-scoped chat reads the
+	// table key, so a connection-level entry cannot shadow the selected
+	// table's context. (Why)
+	cacheKey := schemaCacheKey(input.ConnectionID, input.TableID, input.MongoDatabase)
+	if cached := s.cache.get(cacheKey, aiSchemaCacheTime); cached != nil {
+		if input.MongoDatabase != "" {
+			cc.mongoSchema = cached.(string)
+		} else {
+			cc.ddl = cached.(string)
+		}
+	}
+
+	if cc.ddl == "" && cc.mongoSchema == "" && p != nil {
+		switch p.Kind {
+		case engines.KindMongoDB:
+			adapter, err := s.mongo.getAdapter(input.ConnectionID)
+			if err != nil {
+				return cc, errors.New("Schema context is unavailable due to an error")
+			}
+			cc.mongoSchema, err = s.buildMongoSchemaContext(ctx, adapter, input.MongoDatabase)
+			if err != nil {
+				return cc, errors.New("Schema context is unavailable due to an error")
+			}
+			s.cache.set(cacheKey, cc.mongoSchema)
+		case engines.KindRedis:
+			// No schema context for redis, same as the route.
+		default:
+			adapter, err := s.reg.Get(ctx, input.ConnectionID)
+			if err != nil {
+				return cc, errors.New("Schema context is unavailable due to an error")
+			}
+			if input.TableID != "" {
+				cc.ddl, err = ai.BuildTableSchemaContext(ctx, adapter, input.TableID)
+				if err != nil {
+					return cc, errors.New("Schema context is unavailable due to an error")
+				}
+				if cc.ddl != "" {
+					s.cache.set(schemaCacheKey(input.ConnectionID, input.TableID, ""), cc.ddl)
+				}
+			}
+			if cc.ddl == "" {
+				if useProvider && latestUserMsg != "" {
+					hits, err := ai.SearchRelevantSchema(ctx, s.st, input.ConnectionID, latestUserMsg, providerName, ai.ProviderConfig(config), 5)
+					if err == nil && len(hits) > 0 {
+						var parts []string
+						for _, h := range hits {
+							parts = append(parts, h.DDL)
+						}
+						cc.ddl = strings.Join(parts, "\n\n")
+					}
+				}
+				if cc.ddl == "" {
+					cc.ddl, err = ai.BuildSchemaContext(ctx, adapter)
+					if err != nil {
+						return cc, errors.New("Schema context is unavailable due to an error")
+					}
+				}
+				// Full-schema fallbacks always cache at connection scope, so a
+				// table-scoped chat cannot pin a full-schema entry under its
+				// table key. (Why)
+				s.cache.set(schemaCacheKey(input.ConnectionID, "", ""), cc.ddl)
+			}
+			if useProvider && p.Kind == engines.KindPostgres {
+				cc.vectorPrompt = s.resolvePostgresVectorPrompt(ctx, input.ConnectionID, p)
+			}
+		}
+	}
+	if useProvider && p != nil && p.Kind == engines.KindPostgres && cc.vectorPrompt == "" {
+		cc.vectorPrompt = s.resolvePostgresVectorPrompt(ctx, input.ConnectionID, p)
+	}
+	return cc, nil
+}
+
+// startAcpChat validates an ACP turn, optionally attaches the selected
+// profile's scoped MCP endpoint, and streams the agent's events. Returns the
+// request id.
+func (s *AiService) startAcpChat(input ChatInput, latestUserMsg, agentID string) (string, error) {
+	if s.acp == nil {
+		return "", errors.New("ACP runtime is unavailable")
+	}
+
+	ctx := context.Background()
+	cc, err := s.buildChatContext(ctx, input, "", store.AIProviderConfig{}, latestUserMsg, false)
+	if err != nil {
+		return "", err
+	}
+
+	// Attach MCP only for an already-enabled selected profile while the
+	// listener is up; the token is volatile and scoped to this turn. (Why)
+	var mcpCfg *acp.MCPConfig
+	var mcpToken string
+	var schemaOnlyNotice string
+	if input.ConnectionID != "" {
+		notice := "This connection has not enabled read-only MCP, so the agent works from the schema text only."
+		if s.mcp != nil {
+			endpoint, token, eligible := s.mcp.IssueSessionToken(input.ConnectionID)
+			if eligible {
+				mcpCfg = &acp.MCPConfig{Endpoint: endpoint, Token: token}
+				mcpToken = token
+			} else {
+				schemaOnlyNotice = notice
+			}
+		} else {
+			schemaOnlyNotice = notice
+		}
+	}
+
+	// Persist the user's message with the same connection-scoped history the
+	// provider path uses.
+	if input.ConnectionID != "" && latestUserMsg != "" {
+		var db *string
+		if input.MongoDatabase != "" {
+			db = &input.MongoDatabase
+		}
+		if _, err := s.st.SaveChatMessage(input.ConnectionID, "user", latestUserMsg, db); err != nil {
+			return "", err
+		}
+	}
+
+	messages := make([]acp.Message, 0, len(input.Messages))
+	for _, m := range input.Messages {
+		role := acp.RoleUser
+		if m.Role == "assistant" {
+			role = acp.RoleAssistant
+		}
+		messages = append(messages, acp.Message{Role: role, Content: m.Content})
+	}
+
+	requestID := newRequestID()
+	chatCtx, cancel := context.WithCancel(context.Background())
+	s.chatsMu.Lock()
+	s.chats[requestID] = cancel
+	s.chatsMu.Unlock()
+
+	turn := acp.TurnInput{
+		Agent:    acp.AgentID(agentID),
+		Messages: messages,
+		Context:  buildAcpContext(cc, mcpCfg != nil),
+		MCP:      mcpCfg,
+		OnNotice: func(msg string) { s.emitChat(requestID, chatEvent{Type: "notice", Message: msg}) },
+	}
+
+	go s.runAcpChat(chatCtx, requestID, input, turn, mcpToken, schemaOnlyNotice)
+	return requestID, nil
+}
+
+// buildAcpContext assembles the schema text sent as ACP context. Unlike the
+// provider path it never triggers embedding or vector lookups. (Why)
+func buildAcpContext(cc chatContext, mcpAttached bool) string {
+	var parts []string
+	if mcpAttached {
+		parts = append(parts, "You have read-only access to the selected database through an MCP server named \"kamehadb\". Use it to inspect the schema and run focused read-only queries. Never attempt writes.")
+	}
+	if cc.ddl != "" {
+		parts = append(parts, "Database schema:\n"+cc.ddl)
+	}
+	if cc.mongoSchema != "" {
+		parts = append(parts, cc.mongoSchema)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// runAcpChat drives one ACP turn, mapping agent callbacks to chat events and
+// persisting the completed answer through the existing history store.
+func (s *AiService) runAcpChat(ctx context.Context, requestID string, input ChatInput, turn acp.TurnInput, mcpToken, schemaOnlyNotice string) {
+	defer func() {
+		s.chatsMu.Lock()
+		delete(s.chats, requestID)
+		s.chatsMu.Unlock()
+		if mcpToken != "" && s.mcp != nil {
+			s.mcp.RevokeSessionToken(mcpToken)
+		}
+	}()
+
+	if schemaOnlyNotice != "" {
+		s.emitChat(requestID, chatEvent{Type: "notice", Message: schemaOnlyNotice})
+	}
+
+	var mu sync.Mutex
+	var answer strings.Builder
+	turn.OnText = func(delta string) {
+		mu.Lock()
+		answer.WriteString(delta)
+		mu.Unlock()
+		s.emitChat(requestID, chatEvent{Type: "content", Delta: delta})
+	}
+	turn.OnTool = func(a acp.ToolActivity) {
+		s.emitChat(requestID, chatEvent{Type: "tool", ToolID: a.ID, Title: a.Title, Status: a.Status})
+	}
+	turn.OnPermission = func(p acp.PermissionRequest) {
+		s.emitChat(requestID, chatEvent{Type: "permission", PermissionID: p.ID, Title: p.Title, Options: p.Options})
+	}
+
+	_, err := s.acp.RunTurn(ctx, turn)
+	if err != nil {
+		// A cancelled turn (user abort) is a normal stop, not an error.
+		if ctx.Err() != nil {
+			s.emitChat(requestID, chatEvent{Type: "done"})
+			return
+		}
+		s.emitChat(requestID, chatEvent{Type: "error", Message: err.Error()})
+		return
+	}
+
+	mu.Lock()
+	text := answer.String()
+	mu.Unlock()
+	if input.ConnectionID != "" && text != "" {
+		var db *string
+		if input.MongoDatabase != "" {
+			db = &input.MongoDatabase
+		}
+		_, _ = s.st.SaveChatMessage(input.ConnectionID, "assistant", text, db)
+	}
+	s.emitChat(requestID, chatEvent{Type: "done"})
+}
+
+// RespondPermission resolves a pending ACP permission prompt. It validates the
+// chat is still active, then delegates correlation-id and option validation to
+// the ACP runtime.
+func (s *AiService) RespondPermission(requestID, permissionID, optionID string) error {
+	s.chatsMu.Lock()
+	_, active := s.chats[requestID]
+	s.chatsMu.Unlock()
+	if !active {
+		return fmt.Errorf("chat %q is not active", requestID)
+	}
+	if s.acp == nil {
+		return errors.New("ACP runtime is unavailable")
+	}
+	return s.acp.RespondPermission(permissionID, optionID)
+}
+
+// Close aborts running turns and terminates ACP processes; called on shutdown
+// before the MCP listener stops so no agent outlives the app.
+func (s *AiService) Close() {
+	if s.acp != nil {
+		s.acp.CloseAll()
+	}
+	s.chatsMu.Lock()
+	for _, cancel := range s.chats {
+		cancel()
+	}
+	s.chatsMu.Unlock()
 }
 
 // CancelChat aborts a running stream — the AbortController.cancel port.

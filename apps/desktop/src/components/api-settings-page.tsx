@@ -13,9 +13,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useAISettings, useSaveAISettings } from '@/hooks/use-ai-chat';
 import { McpSettingsSection } from '@/components/mcp-settings-section';
 import { UpdateSettingsSection } from '@/components/update-settings-section';
-import type { AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
+import type { AcpAgentId, AIProvider, AIProviderConfig, AISettings } from '@kamehadb/shared';
+import { ACP_AGENT_LABELS, ACP_AGENTS } from '@kamehadb/shared';
 
 const PROVIDER_ORDER: AIProvider[] = ['ollama-local', 'ollama-cloud', 'openai', '9router', 'deepseek', 'gemini'];
+
+// Sentinel Select value meaning "use the KamehaDB model provider" (i.e. no ACP
+// agent). ACP ids are a closed union, so a sentinel cannot collide with one.
+const PROVIDER_BACKEND = '__provider__';
 
 // developer-icons marks ship with baked brand fills; recolor them to the surrounding
 // text color so they read in both themes and the selected tile state. (Why)
@@ -120,6 +125,7 @@ function createEmptySettings(): AISettings {
         apiKey: '',
       },
     },
+    activeChatAgent: null,
   };
 }
 
@@ -135,6 +141,7 @@ function normalizeSettings(settings: AISettings): AISettings {
     };
   }
   base.activeProvider = settings.activeProvider;
+  base.activeChatAgent = settings.activeChatAgent ?? null;
   return base;
 }
 
@@ -183,6 +190,7 @@ type SettingsAction =
   | { type: 'loadFromServer'; settings: AISettings }
   | { type: 'selectProvider'; provider: AIProvider }
   | { type: 'setActiveProvider'; provider: AIProvider }
+  | { type: 'setActiveChatAgent'; agent: AcpAgentId | null }
   | {
       type: 'updateProvider';
       provider: AIProvider;
@@ -202,6 +210,8 @@ function settingsReducer(state: SettingsState, action: SettingsAction): Settings
       };
     case 'selectProvider':
       return { ...state, selectedProvider: action.provider };
+    case 'setActiveChatAgent':
+      return { ...state, draft: { ...state.draft, activeChatAgent: action.agent } };
     case 'setActiveProvider':
       return {
         ...state,
@@ -471,6 +481,46 @@ export function ApiSettingsPage() {
         <>
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-6 px-4 py-4">
+              <section className="space-y-2">
+                <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Chat Backend</h2>
+                <div className="space-y-2 rounded-sm border border-border p-3">
+                  <Field
+                    label="Backend"
+                    description="Use the KamehaDB model provider, or run a fixed local ACP agent command as the chat backend."
+                  >
+                    <Select
+                      value={state.draft.activeChatAgent ?? PROVIDER_BACKEND}
+                      onValueChange={(value) =>
+                        dispatch({
+                          type: 'setActiveChatAgent',
+                          agent: value === PROVIDER_BACKEND ? null : (value as AcpAgentId),
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={PROVIDER_BACKEND}>KamehaDB provider</SelectItem>
+                        {ACP_AGENTS.map((agent) => (
+                          <SelectItem key={agent} value={agent}>
+                            {ACP_AGENT_LABELS[agent]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  {state.draft.activeChatAgent && (
+                    <p className="text-xs leading-snug text-muted-foreground">
+                      Codex and Claude launch through <code className="rounded bg-muted px-1">npx</code> (Node.js 22+)
+                      and may download their adapter on first use; OpenCode and Devin must already be installed locally.
+                      The CLI keeps its own OS access and configured tools. Only your chat and read-only database
+                      context are shared, and tool permissions appear in the chat.
+                    </p>
+                  )}
+                </div>
+              </section>
+
               <section className="space-y-2">
                 <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">AI Providers</h2>
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">

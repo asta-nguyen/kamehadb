@@ -22,9 +22,12 @@ type AIProviderConfig struct {
 }
 
 // AISettings mirrors the ai_settings + ai_provider_configs persistence.
+// ActiveChatAgent is nil for provider-based chat and otherwise holds one of
+// the fixed ACP preset ids (see internal/acp).
 type AISettings struct {
-	ActiveProvider string                      `json:"activeProvider"`
-	Providers      map[string]AIProviderConfig `json:"providers"`
+	ActiveProvider  string                      `json:"activeProvider"`
+	ActiveChatAgent *string                     `json:"activeChatAgent"`
+	Providers       map[string]AIProviderConfig `json:"providers"`
 }
 
 func defaultAISettings() AISettings {
@@ -129,6 +132,13 @@ func normalizeAISettings(in AISettings) AISettings {
 	} else {
 		normalized.ActiveProvider = in.ActiveProvider
 	}
+	// An empty or whitespace-only selection normalizes to nil (provider chat);
+	// unknown preset ids are preserved here and rejected by the API layer.
+	if in.ActiveChatAgent != nil {
+		if agent := strings.TrimSpace(*in.ActiveChatAgent); agent != "" {
+			normalized.ActiveChatAgent = &agent
+		}
+	}
 	return normalized
 }
 
@@ -157,6 +167,16 @@ func (s *Store) GetAISettings() (*AISettings, error) {
 	}
 	if _, ok := settings.Providers[active]; ok && active != "" {
 		settings.ActiveProvider = active
+	}
+
+	var chatAgent sql.NullString
+	err = s.db.QueryRow(`SELECT value FROM ai_settings WHERE key = 'activeChatAgent'`).Scan(&chatAgent)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if chatAgent.Valid && chatAgent.String != "" {
+		v := chatAgent.String
+		settings.ActiveChatAgent = &v
 	}
 
 	rows, err := s.db.Query(`SELECT provider, enabled, model, base_url, api_key FROM ai_provider_configs`)
@@ -219,6 +239,20 @@ func (s *Store) SaveAISettings(settings AISettings) error {
 		normalized.ActiveProvider); err != nil {
 		tx.Rollback()
 		return err
+	}
+	// Keep a single 'activeChatAgent' row: present for an ACP preset, absent for
+	// provider chat, so GetAISettings can treat a missing row as nil. (Why)
+	if normalized.ActiveChatAgent != nil {
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO ai_settings (key, value) VALUES ('activeChatAgent', ?)`,
+			*normalized.ActiveChatAgent); err != nil {
+			tx.Rollback()
+			return err
+		}
+	} else {
+		if _, err := tx.Exec(`DELETE FROM ai_settings WHERE key = 'activeChatAgent'`); err != nil {
+			tx.Rollback()
+			return err
+		}
 	}
 	for provider, cfg := range normalized.Providers {
 		enabled := 0

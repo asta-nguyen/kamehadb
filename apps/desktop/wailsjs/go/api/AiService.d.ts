@@ -9,6 +9,8 @@ export function ClearChatHistory(arg1:string,arg2:string):Promise<void>;
 
 export function ClearSchemaCache(arg1:string,arg2:string):Promise<void>;
 
+export function Close():Promise<void>;
+
 export function CreateEmbedding(arg1:string,arg2:string,arg3:string):Promise<Record<string, any>>;
 
 export function GetAISettings():Promise<store.AISettings>;
@@ -16,6 +18,8 @@ export function GetAISettings():Promise<store.AISettings>;
 export function GetChatHistory(arg1:string,arg2:number,arg3:string):Promise<Record<string, any>>;
 
 export function ListModels(arg1:string,arg2:string):Promise<Array<string>>;
+
+export function RespondPermission(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SaveAISettings(arg1:store.AISettings):Promise<void>;
 

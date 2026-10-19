@@ -14,6 +14,7 @@ import (
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"github.com/asta-nguyen/kamehadb/internal/acp"
 	"github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/engines/clickhouse"
 	"github.com/asta-nguyen/kamehadb/internal/engines/duckdb"
@@ -117,7 +118,13 @@ func NewServices(s *store.Store, reg *engines.Registry, emit terminal.EmitFunc, 
 	sv.Mongo.requests = sv.SQL.requests
 	sv.Redis.requests = sv.SQL.requests
 	sv.History = NewQueryHistoryService(s)
-	sv.AI = NewAiService(s, reg, sv.Mongo, sv.SQL, cache, emit)
+	// Only pass a non-nil MCP runtime; a typed nil would satisfy the interface
+	// and panic when a token is issued. (Why)
+	var mcpTuner mcpTuner
+	if mcpRuntime != nil {
+		mcpTuner = mcpRuntime
+	}
+	sv.AI = NewAiService(s, reg, sv.Mongo, sv.SQL, cache, emit, acp.NewRuntime(), mcpTuner)
 	sv.Terminal = NewTerminalService(s, term, emit)
 	sv.Maintenance = NewMaintenanceService(s, emit)
 	sv.Logs = NewLogsService()

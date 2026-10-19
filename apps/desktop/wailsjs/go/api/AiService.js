@@ -14,6 +14,10 @@ export function ClearSchemaCache(arg1, arg2) {
   return window['go']['api']['AiService']['ClearSchemaCache'](arg1, arg2);
 }
 
+export function Close() {
+  return window['go']['api']['AiService']['Close']();
+}
+
 export function CreateEmbedding(arg1, arg2, arg3) {
   return window['go']['api']['AiService']['CreateEmbedding'](arg1, arg2, arg3);
 }
@@ -28,6 +32,10 @@ export function GetChatHistory(arg1, arg2, arg3) {
 
 export function ListModels(arg1, arg2) {
   return window['go']['api']['AiService']['ListModels'](arg1, arg2);
+}
+
+export function RespondPermission(arg1, arg2, arg3) {
+  return window['go']['api']['AiService']['RespondPermission'](arg1, arg2, arg3);
 }
 
 export function SaveAISettings(arg1) {

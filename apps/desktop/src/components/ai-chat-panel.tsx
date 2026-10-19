@@ -20,6 +20,7 @@ import {
   normalizeCodeLanguage,
   toUIMessage,
   type ChatMessage,
+  type ChatPermission,
   type CodeLanguage,
   type SafeHighlightNode,
 } from '@/lib/ai-chat-helpers';
@@ -34,9 +35,11 @@ import {
   Play,
   RefreshCw,
   Settings2,
+  ShieldQuestion,
   Sparkles,
   Terminal,
   Trash2,
+  Wrench,
   X,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
@@ -45,7 +48,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '@tanstack/react-store';
-import { KIND } from '@kamehadb/shared';
+import { ACP_AGENT_LABELS, KIND } from '@kamehadb/shared';
 import type { PendingAiPrompt } from '@/lib/types';
 import { api } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/query-keys';
@@ -296,19 +299,101 @@ function UserMessage({ msg, onResend, disabled }: UserMessageProps) {
 
 type StreamingAssistantMessageProps = {
   msg: ChatMessage;
+  onPermission?: (permissionId: string, optionId: string) => void;
 };
 
-function StreamingAssistantMessage({ msg: _msg }: StreamingAssistantMessageProps) {
+// ACP permission prompt: one-time choices per correlation id. Once answered the
+// buttons collapse to the selected option so the decision is visible. (Why)
+function PermissionCard({
+  permission,
+  onRespond,
+}: {
+  permission: ChatPermission;
+  onRespond?: (permissionId: string, optionId: string) => void;
+}) {
+  const resolved = permission.resolvedOptionId;
+  return (
+    <div className="rounded-md border border-border bg-card p-2 shadow-sm">
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground">
+        <ShieldQuestion className="size-3.5 shrink-0 text-primary" />
+        <span className="truncate">{permission.title || 'Permission required'}</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {permission.options.map((option) => {
+          const isResolved = resolved === option.id;
+          return (
+            <Button
+              key={option.id}
+              variant={isResolved ? 'default' : 'outline'}
+              size="xs"
+              disabled={!!resolved || !onRespond}
+              onClick={() => onRespond?.(permission.id, option.id)}
+            >
+              {isResolved && <Check className="size-3" />}
+              {option.name}
+            </Button>
+          );
+        })}
+      </div>
+      {resolved && <p className="mt-1 text-xs text-muted-foreground/60">Choice sent to the agent.</p>}
+    </div>
+  );
+}
+
+// Transient ACP annotations attached to an assistant turn: tool activity, the
+// schema-only/MCP notice, and the permission prompt. (What)
+function AcpAnnotations({
+  msg,
+  onPermission,
+}: {
+  msg: ChatMessage;
+  onPermission?: (permissionId: string, optionId: string) => void;
+}) {
+  if (!msg.tools?.length && !msg.notices?.length && !msg.permission) return null;
+  return (
+    <div className="mt-1 space-y-1.5">
+      {msg.tools?.map((tool) => (
+        <div key={tool.id} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Wrench className="size-3 shrink-0" />
+          <span className="truncate">{tool.title || tool.id}</span>
+          {tool.status && <span className="shrink-0 text-muted-foreground/50">{tool.status}</span>}
+        </div>
+      ))}
+      {msg.notices?.map((notice, index) => (
+        <div
+          key={`${index}-${notice.slice(0, 20)}`}
+          className="rounded-md border border-border/70 bg-muted/30 px-2 py-1 text-xs text-muted-foreground"
+        >
+          {notice}
+        </div>
+      ))}
+      {msg.permission && <PermissionCard permission={msg.permission} onRespond={onPermission} />}
+    </div>
+  );
+}
+
+function StreamingAssistantMessage({ msg, onPermission }: StreamingAssistantMessageProps) {
+  const hasAnnotations = Boolean(msg.tools?.length || msg.notices?.length || msg.permission);
   return (
     <div className="group mb-3 flex gap-2">
       <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/10">
         <Bot className="size-3.5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
-          <Spinner size="sm" />
-          Thinking...
-        </div>
+        {hasAnnotations ? (
+          <AcpAnnotations msg={msg} onPermission={onPermission} />
+        ) : (
+          <div className="flex h-7 items-center gap-1.5 text-sm text-muted-foreground">
+            <Spinner size="sm" />
+            Thinking...
+          </div>
+        )}
+        {msg.permission && !msg.permission.resolvedOptionId && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Spinner size="sm" />
+            Waiting for approval...
+          </div>
+        )}
       </div>
     </div>
   );
@@ -399,6 +484,7 @@ function AssistantMessage({ msg, connectionId }: AssistantMessageProps) {
             )
           ),
         )}
+        <AcpAnnotations msg={msg} />
       </div>
     </div>
   );
@@ -484,6 +570,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
     setMessages: setChatMessages,
     reset: resetChat,
     resendFrom,
+    respondToPermission,
   } = useChat({
     url: '/ai/chat',
     forwardedProps: connectionId ? { connectionId, mongoDatabase, tableId: pendingAiPrompt?.tableId } : undefined,
@@ -635,7 +722,9 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 <span className="truncate text-sm font-medium">AI Assistant</span>
                 {aiSettings && (
                   <Badge variant="outline" className="max-w-32 truncate text-xs font-normal text-muted-foreground">
-                    {aiSettings.activeProvider}
+                    {aiSettings.activeChatAgent
+                      ? ACP_AGENT_LABELS[aiSettings.activeChatAgent]
+                      : aiSettings.activeProvider}
                   </Badge>
                 )}
               </div>
@@ -743,7 +832,7 @@ export function AIChatPanel({ connectionId, onClose, width = 360 }: AIChatPanelP
                 return <UserMessage key={msg.id} msg={msg} onResend={resendFrom} disabled={chatIsLoading} />;
               }
               if (isLastAssistant) {
-                return <StreamingAssistantMessage key={msg.id} msg={msg} />;
+                return <StreamingAssistantMessage key={msg.id} msg={msg} onPermission={respondToPermission} />;
               }
               return <AssistantMessage key={msg.id} msg={msg} connectionId={connectionId} />;
             })}

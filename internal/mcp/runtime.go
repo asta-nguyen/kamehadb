@@ -1,7 +1,10 @@
 package mcp
 
 import (
+	"context"
+	"crypto/rand"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -61,6 +64,11 @@ type Runtime struct {
 	token   string
 	status  string
 	message string
+
+	// sessions maps a volatile, single-turn bearer token to the profile that
+	// token may access. It is runtime-only and never persisted, so a scoped
+	// token cannot outlive the turn or a restart. (Why)
+	sessions map[string]string
 }
 
 // NewRuntime loads settings and restores ready-account credentials from
@@ -235,17 +243,87 @@ func (r *Runtime) Close() {
 	r.Manager.CloseAll()
 }
 
-func (r *Runtime) authorized(req *http.Request) bool {
+// IssueSessionToken mints a volatile bearer token scoped to one profile for a
+// single ACP turn. It returns eligible=false unless the listener is up and the
+// selected profile is already MCP-enabled and serviceable; callers then send
+// schema-only context. The persisted global token is never handed to an agent.
+func (r *Runtime) IssueSessionToken(profileID string) (endpoint, token string, eligible bool) {
+	profile, err := r.st.GetProfile(profileID)
+	if err != nil || profile == nil {
+		return "", "", false
+	}
+	r.mu.Lock()
+	listening := r.status == "listening"
+	r.mu.Unlock()
+	if !listening || !r.Manager.CanServe(profile) {
+		return "", "", false
+	}
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", false
+	}
+	token = hex.EncodeToString(b)
+	r.mu.Lock()
+	if r.sessions == nil {
+		r.sessions = map[string]string{}
+	}
+	r.sessions[token] = profileID
+	endpoint = r.Endpoint()
+	r.mu.Unlock()
+	return endpoint, token, true
+}
+
+// RevokeSessionToken removes a scoped token so later requests get 401. Safe to
+// call more than once (turn completion, cancellation, and shutdown may race).
+func (r *Runtime) RevokeSessionToken(token string) {
+	if token == "" {
+		return
+	}
+	r.mu.Lock()
+	delete(r.sessions, token)
+	r.mu.Unlock()
+}
+
+// scopeForToken resolves a presented bearer token. It returns ok=false for an
+// unknown token, an empty profileID for the persisted global token (unscoped),
+// and the profile id for a scoped session token. (What / Why)
+func (r *Runtime) scopeForToken(token string) (profileID string, ok bool) {
+	if token == "" {
+		return "", false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.token != "" && len(token) == len(r.token) &&
+		subtle.ConstantTimeCompare([]byte(token), []byte(r.token)) == 1 {
+		return "", true
+	}
+	if profileID, exists := r.sessions[token]; exists {
+		return profileID, true
+	}
+	return "", false
+}
+
+// bearerToken extracts the bearer credential from the Authorization header.
+func bearerToken(req *http.Request) string {
 	header := req.Header.Get("Authorization")
 	if !strings.HasPrefix(header, "Bearer ") {
-		return false
+		return ""
 	}
-	provided := strings.TrimSpace(header[len("Bearer "):])
-	expected := r.Token()
-	if len(provided) != len(expected) {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) == 1
+	return strings.TrimSpace(header[len("Bearer "):])
+}
+
+// scopeKey carries a scoped session token's profile id through request
+// context. An absent/empty value means the unscoped global token.
+type scopeKey struct{}
+
+func withScope(ctx context.Context, profileID string) context.Context {
+	return context.WithValue(ctx, scopeKey{}, profileID)
+}
+
+// scopeFromContext returns the scoped profile id, or "" for unscoped requests.
+func scopeFromContext(ctx context.Context) string {
+	profileID, _ := ctx.Value(scopeKey{}).(string)
+	return profileID
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
@@ -264,9 +342,17 @@ func (r *Runtime) handler(state *serverState) http.Handler {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "METHOD_NOT_ALLOWED"})
 			return
 		}
-		if !r.authorized(req) {
+		// Resolve the credential before dispatch. A scoped session token binds
+		// the request to one profile through context; the global token leaves
+		// the request unscoped. The identity is per request, never on the
+		// shared serverState. (Why / How)
+		scope, ok := r.scopeForToken(bearerToken(req))
+		if !ok {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "UNAUTHORIZED"})
 			return
+		}
+		if scope != "" {
+			req = req.WithContext(withScope(req.Context(), scope))
 		}
 		body, err := io.ReadAll(io.LimitReader(req.Body, maxRequestBytes+1))
 		if err != nil || len(body) > maxRequestBytes {

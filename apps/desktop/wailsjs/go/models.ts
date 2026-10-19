@@ -1754,6 +1754,7 @@ export namespace store {
 	}
 	export class AISettings {
 	    activeProvider: string;
+	    activeChatAgent?: string;
 	    providers: Record<string, AIProviderConfig>;
 	
 	    static createFrom(source: any = {}) {
@@ -1763,6 +1764,7 @@ export namespace store {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.activeProvider = source["activeProvider"];
+	        this.activeChatAgent = source["activeChatAgent"];
 	        this.providers = this.convertValues(source["providers"], AIProviderConfig, true);
 	    }
 	

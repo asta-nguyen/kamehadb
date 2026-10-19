@@ -76,6 +76,7 @@ import {
   GetAISettings,
   GetChatHistory,
   ListModels,
+  RespondPermission,
   SaveAISettings,
   StartChat,
 } from '../../wailsjs/go/api/AiService';
@@ -178,8 +179,24 @@ export const api = {
 
   cancelChat: (requestId: string) => CancelChat(requestId),
 
-  onChatEvent: (requestId: string, handler: (ev: { type: string; delta?: string; message?: string }) => void) =>
-    EventsOn(`chat:${requestId}`, handler as (data: unknown) => void),
+  // Resolve an ACP permission prompt; the backend validates the active chat,
+  // the permission correlation id, and the chosen option. (Why)
+  respondPermission: (requestId: string, permissionId: string, optionId: string) =>
+    RespondPermission(requestId, permissionId, optionId) as Promise<void>,
+
+  onChatEvent: (
+    requestId: string,
+    handler: (ev: {
+      type: string;
+      delta?: string;
+      message?: string;
+      toolId?: string;
+      title?: string;
+      status?: string;
+      permissionId?: string;
+      options?: { id: string; name: string; kind?: string }[];
+    }) => void,
+  ) => EventsOn(`chat:${requestId}`, handler as (data: unknown) => void),
 
   // Query history (bound QueryHistoryService — replaces /query-history/*)
   getQueryHistory: (connectionId: string, limit: number, favoritesOnly: boolean) =>

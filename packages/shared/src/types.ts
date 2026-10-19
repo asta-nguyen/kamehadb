@@ -1,3 +1,5 @@
+import type { AcpAgentId } from './constants.js';
+
 // Query result
 export type QueryColumn = {
   name: string;
@@ -353,6 +355,8 @@ export type AIProviderConfig = {
 
 export type AISettings = {
   activeProvider: AIProvider;
+  /** Null/absent keeps provider-based chat; otherwise one fixed ACP preset. */
+  activeChatAgent?: AcpAgentId | null;
   providers: Record<AIProvider, AIProviderConfig>;
 };
 

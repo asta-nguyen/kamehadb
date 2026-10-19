@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **ACP agent chat backend** — choose a fixed local Agent Client Protocol agent (Codex, Claude, OpenCode, or Devin) in API Settings to run the AI chat through your own CLI, or keep the KamehaDB model provider. Agents get read-only database access only through an already-enabled connection's MCP server, using a per-turn scoped token; tool permission prompts appear in the chat.
 - **Boolean dropdown editing** — editing boolean fields in MongoDB documents and SQL tables now renders an accessible dropdown (`true`/`false`) instead of a text input.
 
 ### Fixed

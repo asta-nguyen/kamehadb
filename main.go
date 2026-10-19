@@ -89,6 +89,9 @@ func main() {
 		},
 		OnShutdown: func(ctx context.Context) {
 			services.CloseRequests()
+			// Stop ACP agents before the MCP listener so no agent is left
+			// calling a closed endpoint.
+			services.AI.Close()
 			if mcpRuntime != nil {
 				mcpRuntime.Close()
 			}

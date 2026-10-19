@@ -180,9 +180,15 @@ func (s *serverState) toolListProfiles(ctx context.Context, _ map[string]any) (a
 	if err != nil {
 		return nil, err
 	}
+	// A scoped (ACP) token sees only its own profile, so the agent cannot
+	// enumerate other enabled profiles. (Why)
+	scope := scopeFromContext(ctx)
 	out := []map[string]any{}
 	for i := range profiles {
 		p := &profiles[i]
+		if scope != "" && p.ID != scope {
+			continue
+		}
 		if !s.manager.CanServe(p) || !engines.IsMCPSupportedKind(p.Kind) {
 			continue
 		}

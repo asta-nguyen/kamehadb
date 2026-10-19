@@ -153,6 +153,9 @@ func TestAISettings(t *testing.T) {
 	if settings.ActiveProvider != "openai" || len(settings.Providers) != 6 {
 		t.Fatalf("defaults: %+v", settings)
 	}
+	if settings.ActiveChatAgent != nil {
+		t.Fatalf("default chat agent should be nil, got %q", *settings.ActiveChatAgent)
+	}
 
 	custom := *settings
 	cfg := custom.Providers["openai"]
@@ -180,6 +183,50 @@ func TestAISettings(t *testing.T) {
 	}
 	if !g.Enabled {
 		t.Error("enabled flag lost")
+	}
+
+	// Chat-agent selection round-trips: an ACP preset persists, clearing it
+	// removes the row so the next read normalizes back to provider chat.
+	agent := "codex"
+	withAgent := *got
+	withAgent.ActiveChatAgent = &agent
+	if err := s.SaveAISettings(withAgent); err != nil {
+		t.Fatal(err)
+	}
+	gotAgent, err := s.GetAISettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotAgent.ActiveChatAgent == nil || *gotAgent.ActiveChatAgent != "codex" {
+		t.Fatalf("agent not persisted: %+v", gotAgent.ActiveChatAgent)
+	}
+
+	noAgent := *gotAgent
+	noAgent.ActiveChatAgent = nil
+	if err := s.SaveAISettings(noAgent); err != nil {
+		t.Fatal(err)
+	}
+	gotNone, err := s.GetAISettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotNone.ActiveChatAgent != nil {
+		t.Fatalf("agent not cleared: %q", *gotNone.ActiveChatAgent)
+	}
+
+	// A whitespace-only selection normalizes to nil.
+	blank := "   "
+	blankSettings := *gotNone
+	blankSettings.ActiveChatAgent = &blank
+	if err := s.SaveAISettings(blankSettings); err != nil {
+		t.Fatal(err)
+	}
+	gotBlank, err := s.GetAISettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotBlank.ActiveChatAgent != nil {
+		t.Fatalf("blank agent should normalize to nil, got %q", *gotBlank.ActiveChatAgent)
 	}
 }
 

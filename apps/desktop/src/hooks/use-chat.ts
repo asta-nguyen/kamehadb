@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { safeErrorMessage } from '@kamehadb/shared';
-import type { ChatMessage } from '@/lib/ai-chat-helpers';
+import { mergeToolActivity, type ChatMessage, type ChatPermission } from '@/lib/ai-chat-helpers';
 import { api } from '@/lib/api';
 import { appendFrontendLog } from '@/lib/app-logs';
 
@@ -22,12 +22,24 @@ export function appendAssistantDelta(messages: ChatMessage[], assistantId: strin
   });
 }
 
+// Apply an update to one assistant message by id, preserving the rest. Shared
+// by the ACP tool/notice/permission event handlers so they stay one-liners.
+function updateAssistant(
+  messages: ChatMessage[],
+  assistantId: string,
+  updater: (message: ChatMessage) => ChatMessage,
+): ChatMessage[] {
+  return messages.map((message) => (message.id === assistantId ? updater(message) : message));
+}
+
 export function useChat(options: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<{ cancel: () => void } | null>(null);
   const requestSeqRef = useRef(0);
   const messagesRef = useRef<ChatMessage[]>([]);
+  // The in-flight request id, needed to answer ACP permission prompts. (Why)
+  const activeRequestIdRef = useRef<string | null>(null);
   messagesRef.current = messages;
 
   // Shared streaming logic used by both sendMessage and resendFrom: start a
@@ -53,6 +65,7 @@ export function useChat(options: UseChatOptions) {
       }
 
       const requestId = await api.startChat(payload as never);
+      activeRequestIdRef.current = requestId;
       abortRef.current = {
         cancel: () => {
           cancelled = true;
@@ -69,6 +82,37 @@ export function useChat(options: UseChatOptions) {
           if (data.type === 'content' && typeof data.delta === 'string') {
             const delta = data.delta;
             setMessages((prev) => appendAssistantDelta(prev, assistantId, delta));
+          } else if (data.type === 'tool' && typeof data.toolId === 'string') {
+            const activity = {
+              id: data.toolId,
+              title: typeof data.title === 'string' ? data.title : '',
+              status: typeof data.status === 'string' ? data.status : '',
+            };
+            setMessages((prev) =>
+              updateAssistant(prev, assistantId, (message) => ({
+                ...message,
+                tools: mergeToolActivity(message.tools, activity),
+              })),
+            );
+          } else if (data.type === 'notice' && typeof data.message === 'string') {
+            const notice = data.message;
+            setMessages((prev) =>
+              updateAssistant(prev, assistantId, (message) => ({
+                ...message,
+                notices: [...(message.notices ?? []), notice],
+              })),
+            );
+          } else if (data.type === 'permission' && typeof data.permissionId === 'string') {
+            const permission: ChatPermission = {
+              id: data.permissionId,
+              title: typeof data.title === 'string' ? data.title : '',
+              options: (data.options ?? []).map((option) => ({
+                id: option.id,
+                name: option.name,
+                kind: option.kind,
+              })),
+            };
+            setMessages((prev) => updateAssistant(prev, assistantId, (message) => ({ ...message, permission })));
           } else if (data.type === 'error') {
             reject(new Error(typeof data.message === 'string' ? data.message : 'Chat stream failed'));
           } else if (data.type === 'done') {
@@ -105,9 +149,34 @@ export function useChat(options: UseChatOptions) {
       if (requestSeqRef.current === requestSeq) {
         setIsLoading(false);
         abortRef.current = null;
+        activeRequestIdRef.current = null;
       }
     }
   }
+
+  // Answer an ACP permission prompt and mark the choice on the message so the
+  // buttons collapse to the selected option. (Why)
+  const respondToPermission = useCallback(async (permissionId: string, optionId: string) => {
+    const requestId = activeRequestIdRef.current;
+    if (!requestId) return;
+    try {
+      await api.respondPermission(requestId, permissionId, optionId);
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.permission?.id === permissionId
+            ? { ...message, permission: { ...message.permission!, resolvedOptionId: optionId } }
+            : message,
+        ),
+      );
+    } catch (err) {
+      const message = safeErrorMessage(err, String(err));
+      void appendFrontendLog({
+        level: 'error',
+        scope: 'use-chat',
+        message: `ACP permission response failed: ${message}`,
+      });
+    }
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -196,5 +265,5 @@ export function useChat(options: UseChatOptions) {
     setMessages([]);
   }, []);
 
-  return { messages, isLoading, sendMessage, stop, setMessages, reset, resendFrom };
+  return { messages, isLoading, sendMessage, stop, setMessages, reset, resendFrom, respondToPermission };
 }

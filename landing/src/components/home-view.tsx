@@ -71,7 +71,7 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     icon: MessageSquare,
     title: 'Contextual AI chat',
     description:
-      'Persistent history per connection, streamed responses, and generated SQL shown for review so you run it yourself in the editor. Bring your own OpenAI, Ollama, 9Router, DeepSeek, or Gemini.',
+      'Persistent history per connection, streamed responses, and generated SQL shown for review so you run it yourself in the editor. Bring your own OpenAI, Ollama, 9Router, DeepSeek, or Gemini — or run a fixed local ACP agent (Codex, Claude, OpenCode, Devin) with read-only database access and in-chat tool approvals.',
   },
   {
     icon: Cable,

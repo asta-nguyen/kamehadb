@@ -37,7 +37,33 @@ export type ChatMessage = {
   role: 'user' | 'assistant';
   parts: Array<ChatTextPart>;
   createdAt?: Date;
+  // ACP-only annotations. They are transient (not persisted): tool activity,
+  // schema-only notices, and a pending permission prompt per assistant turn.
+  tools?: ChatToolActivity[];
+  notices?: string[];
+  permission?: ChatPermission;
 };
+
+export type ChatToolActivity = { id: string; title: string; status: string };
+
+export type ChatPermissionOption = { id: string; name: string; kind?: string };
+
+export type ChatPermission = {
+  id: string;
+  title: string;
+  options: ChatPermissionOption[];
+  resolvedOptionId?: string;
+};
+
+/** Upsert a tool-activity entry by id so repeated updates merge into one row. */
+export function mergeToolActivity(tools: ChatToolActivity[] | undefined, next: ChatToolActivity): ChatToolActivity[] {
+  const list = tools ?? [];
+  const index = list.findIndex((tool) => tool.id === next.id);
+  if (index === -1) return [...list, next];
+  const merged = [...list];
+  merged[index] = { ...list[index], ...next, title: next.title || list[index].title };
+  return merged;
+}
 
 /**
  * Extract visible text content from a chat message by joining its text parts.

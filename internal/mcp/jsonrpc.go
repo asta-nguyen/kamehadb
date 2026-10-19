@@ -145,6 +145,14 @@ func (r *Runtime) callMethod(ctx context.Context, method string, params json.Raw
 		if handler == nil {
 			return nil, &rpcError{Code: rpcInvalidParams, Message: "Unknown tool: " + p.Name}
 		}
+		// A scoped (ACP) token may touch only its profile. Reject any other
+		// connection_id before the adapter manager runs, so a cross-profile
+		// call never reaches an adapter. (Why / How)
+		if scope := scopeFromContext(ctx); scope != "" && p.Name != "list_mcp_profiles" {
+			if connID := strArg(p.Arguments, "connection_id"); connID != scope {
+				return errorContent(newToolError(ErrInvalidArguments, "MCP access is limited to the configured profile")), nil
+			}
+		}
 		start := time.Now()
 		executedAt := start.UTC().Format(time.RFC3339)
 		payload, err := handler(ctx, p.Arguments)
