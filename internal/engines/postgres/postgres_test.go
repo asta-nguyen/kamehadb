@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -89,8 +90,8 @@ func TestSplitTableID(t *testing.T) {
 	if s, tb := splitTableID("a.b.c"); s != "a" || tb != "b" {
 		t.Errorf("three-part: %s.%s", s, tb)
 	}
-	if s, tb := splitTableID("noschema"); s != "noschema" || tb != "" {
-		t.Errorf("single: %s.%s", s, tb)
+	if s, tb := splitTableID("noschema"); s != "public" || tb != "noschema" {
+		t.Errorf("single: want public.noschema, got %s.%s", s, tb)
 	}
 }
 
@@ -144,6 +145,56 @@ func TestFactoryRegistered(t *testing.T) {
 		t.Fatalf("expected *Adapter, got %T", a)
 	}
 	reg.Close()
+}
+
+func TestParseIndexStatsRowsAndUsage(t *testing.T) {
+	// Verify the SQL query explicitly joins pg_stat_all_indexes and selects telemetry columns
+	// to prevent regressions where scans/reads are dropped from the query. (How / Why / What)
+	for _, expectedToken := range []string{"pg_stat_all_indexes", "COALESCE(s.idx_scan, 0)", "COALESCE(s.idx_tup_read, 0)"} {
+		if !strings.Contains(indexStatsSQL, expectedToken) {
+			t.Errorf("indexStatsSQL missing required token %q", expectedToken)
+		}
+	}
+
+	// Mock query result rows with multi-column index and telemetry values:
+	// row: name, table_name, column_name, unique, primary, method, size_bytes, scans, reads
+	rows := [][]any{
+		{"large_pkey", "large", "id", true, true, "btree", int64(16384), int64(29), int64(58)},
+		{"large_idx_ab", "large", "col_a", false, false, "btree", int64(8192), int64(0), int64(0)},
+		{"large_idx_ab", "large", "col_b", false, false, "btree", int64(8192), int64(0), int64(0)}, // composite column
+	}
+
+	stats := parseIndexStatsRows(rows)
+	if len(stats) != 2 {
+		t.Fatalf("expected 2 index entries (composite collapsed), got %d", len(stats))
+	}
+
+	// large_pkey check
+	pk := stats[0]
+	if pk.Name != "large_pkey" || !pk.Primary || !pk.Unique {
+		t.Errorf("unexpected pk attributes: %+v", pk)
+	}
+	if pk.Scans != 29 || pk.Reads != 58 || pk.SizeBytes != 16384 {
+		t.Errorf("unexpected pk telemetry: Scans=%d Reads=%d SizeBytes=%d", pk.Scans, pk.Reads, pk.SizeBytes)
+	}
+	if pk.UsagePercent != 100.0 {
+		t.Errorf("pk UsagePercent = %v, want 100.0", pk.UsagePercent)
+	}
+	if len(pk.Columns) != 1 || pk.Columns[0] != "id" {
+		t.Errorf("pk Columns = %v, want ['id']", pk.Columns)
+	}
+
+	// composite large_idx_ab check
+	comp := stats[1]
+	if comp.Name != "large_idx_ab" || comp.Primary || comp.Unique {
+		t.Errorf("unexpected composite index attributes: %+v", comp)
+	}
+	if comp.Scans != 0 || comp.UsagePercent != 0.0 {
+		t.Errorf("composite Scans=%d UsagePercent=%v", comp.Scans, comp.UsagePercent)
+	}
+	if len(comp.Columns) != 2 || comp.Columns[0] != "col_a" || comp.Columns[1] != "col_b" {
+		t.Errorf("composite Columns = %v, want ['col_a', 'col_b']", comp.Columns)
+	}
 }
 
 type fakeLoader struct{ cp engines.ConnProfile }

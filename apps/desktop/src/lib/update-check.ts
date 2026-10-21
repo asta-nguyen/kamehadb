@@ -8,6 +8,8 @@ import {
   DEMO_PREVIEW_STORAGE_KEY,
 } from './constants';
 
+import packageJson from '../../package.json';
+
 export type ReleaseInfo = {
   version: string;
   tagName: string;
@@ -31,7 +33,7 @@ export type SemVer = {
   prerelease?: string;
 };
 
-export const DEFAULT_APP_VERSION = '2.0.3';
+export const DEFAULT_APP_VERSION = packageJson.version;
 
 // Parse a semantic version string (e.g. "v2.0.1", "2.0.3", "v2.0.1-7-g5707e50") into
 // numeric major, minor, patch and optional prerelease identifier. (How / Why / What)

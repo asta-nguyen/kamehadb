@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/sqlsafety"
 )
 
 // CompletionsResult wraps the tables list the autocomplete endpoint returns.
@@ -239,9 +238,6 @@ func (s *SqlService) RunQuery(connectionID string, input engines.RunQueryInput) 
 		return nil, err
 	}
 	defer s.requests.finish(job)
-	if safe, reason := sqlsafety.Check(input.Query); !safe {
-		return nil, errors.New(reason)
-	}
 	adapter, err := s.registry.Get(job.ctx, connectionID)
 	if err != nil {
 		return nil, err
@@ -317,12 +313,33 @@ func (s *SqlService) GetIndexStats(connectionID, tableID string) ([]engines.Inde
 		return nil, err
 	}
 	statser, ok := adapter.(engines.IndexStatser)
-	if !ok {
+	if ok {
+		stats, err := statser.GetIndexStats(context.Background(), tableID)
+		if err == nil {
+			s.cache.set(key, stats)
+			return stats, nil
+		}
+	}
+
+	// For engines without dedicated index telemetry (ClickHouse, etc.),
+	// populate IndexStats from adapter.GetTableIndexes so index lists and counts are not falsely reported as 0. (How / Why / What)
+	indexes, err := adapter.GetTableIndexes(context.Background(), tableID)
+	if err != nil {
 		return []engines.IndexStats{}, nil
 	}
-	stats, err := statser.GetIndexStats(context.Background(), tableID)
-	if err != nil {
-		return nil, err
+	stats := make([]engines.IndexStats, len(indexes))
+	for i, idx := range indexes {
+		stats[i] = engines.IndexStats{
+			Name:    idx.Name,
+			Columns: idx.Columns,
+			Primary: idx.Primary,
+			Unique:  idx.Unique,
+		}
+	}
+	if len(stats) == 1 && stats[0].SizeBytes == 0 {
+		if tstats, err := s.GetTableStats(connectionID, tableID); err == nil && tstats.IndexesBytes > 0 {
+			stats[0].SizeBytes = tstats.IndexesBytes
+		}
 	}
 	s.cache.set(key, stats)
 	return stats, nil

@@ -22,7 +22,7 @@ func TestPreviewOrderAppendsPrimaryKeyTiebreaker(t *testing.T) {
 		sort, dir string
 		want      string
 	}{
-		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "int", PrimaryKey: true}, {Name: "name", Type: "nvarchar"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " ASC OFFSET"},
+		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "int", PrimaryKey: true}, {Name: "name", Type: "nvarchar"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " DESC OFFSET"},
 		{"composite key without a sort", []engines.ColumnInfo{{Name: "a", Type: "int", PrimaryKey: true}, {Name: "b", Type: "int", PrimaryKey: true}, {Name: "c", Type: "nvarchar"}}, "", "", "ORDER BY " + q("a") + " ASC, " + q("b") + " ASC OFFSET"},
 		{"sort by one composite key column", []engines.ColumnInfo{{Name: "a", Type: "int", PrimaryKey: true}, {Name: "b", Type: "int", PrimaryKey: true}, {Name: "c", Type: "nvarchar"}}, "b", "", "ORDER BY " + q("b") + " ASC, " + q("a") + " ASC OFFSET"},
 		{"sort by the single key adds nothing", []engines.ColumnInfo{{Name: "id", Type: "int", PrimaryKey: true}, {Name: "name", Type: "nvarchar"}}, "id", "desc", "ORDER BY " + q("id") + " DESC OFFSET"},

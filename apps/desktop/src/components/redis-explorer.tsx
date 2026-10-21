@@ -1,5 +1,8 @@
 import { useState, useMemo, type ReactNode } from 'react';
-import { useRedisKeys, useRedisKeyDetails, useRedisStats } from '@/hooks/use-redis';
+import { useRedisInfiniteKeys, useRedisKeyDetails, useRedisStats } from '@/hooks/use-redis';
+import { useQueryClient } from '@tanstack/react-query';
+import { debounce } from '@tanstack/pacer';
+import { QUERY_KEYS } from '@/lib/query-keys';
 import { Box, Hash, List, Type, Clock, X, BarChart3, Cpu, Copy, HardDrive, Users } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -9,6 +12,7 @@ import { ExplorerToolbar } from '@/components/ui/explorer-toolbar';
 import { JsonValue } from '@/components/ui/json-value';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { toastError, toastSuccess } from '@/lib/toast';
+import type { KeyEntry } from '@kamehadb/shared';
 
 const typeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   string: Type,
@@ -48,29 +52,81 @@ function formatValue(value: unknown, type: string): ReactNode {
   return <JsonValue value={value} />;
 }
 
+// Converts user input into a Redis MATCH glob pattern.
+// Wraps terms without wildcards in *...* for substring matching; preserves explicit glob patterns. (How / Why / What)
+function toRedisPattern(query: string): string {
+  const trimmed = query.trim();
+  if (!trimmed) return '*';
+  if (trimmed.includes('*') || trimmed.includes('?') || trimmed.includes('[')) {
+    return trimmed;
+  }
+  return `*${trimmed}*`;
+}
+
 interface RedisExplorerProps {
   connectionId: string;
 }
 
 export function RedisExplorer({ connectionId }: RedisExplorerProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showStats, setShowStats] = useState(false);
 
+  const queryClient = useQueryClient();
+
+  // Debounce the backend pattern parameter so rapid keystrokes don't fire
+  // unnecessary Redis SCAN requests while typing. (How / Why / What)
+  const debouncedSetPattern = useMemo(
+    () =>
+      debounce(
+        (q: string) => {
+          setDebouncedQuery(q);
+        },
+        { wait: 300 },
+      ),
+    [],
+  );
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    debouncedSetPattern(val);
+  };
+
+  const pattern = useMemo(() => toRedisPattern(debouncedQuery), [debouncedQuery]);
+
   const {
-    data: keysResult,
+    data,
     isLoading: loadingKeys,
     isFetching,
-    refetch,
-  } = useRedisKeys(connectionId, searchQuery || '*');
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useRedisInfiniteKeys(connectionId, pattern);
   const { data: stats, isLoading: loadingStats, error: statsError } = useRedisStats(connectionId, showStats);
 
+  // Flatten and deduplicate keys across all loaded cursor pages. (How / Why / What)
+  const allKeys = useMemo(() => {
+    if (!data?.pages) return [];
+    const seen = new Set<string>();
+    const list: KeyEntry[] = [];
+    for (const page of data.pages) {
+      for (const k of page.keys) {
+        if (!seen.has(k.key)) {
+          seen.add(k.key);
+          list.push(k);
+        }
+      }
+    }
+    return list;
+  }, [data?.pages]);
+
+  // Client-side filtering gives immediate feedback while the debounced scan catches up. (What / Why)
   const filteredKeys = useMemo(() => {
-    if (!keysResult?.keys) return [];
-    if (!searchQuery.trim()) return keysResult.keys;
+    if (!searchQuery.trim()) return allKeys;
     const query = searchQuery.toLowerCase();
-    return keysResult.keys.filter((k) => k.key.toLowerCase().includes(query));
-  }, [keysResult?.keys, searchQuery]);
+    return allKeys.filter((k) => k.key.toLowerCase().includes(query));
+  }, [allKeys, searchQuery]);
 
   const { data: keyDetails } = useRedisKeyDetails(selectedKey ? connectionId : null, selectedKey);
 
@@ -90,6 +146,10 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
   const copyValueText =
     keyDetails && typeof keyDetails.value === 'string' ? keyDetails.value : JSON.stringify(keyDetails?.value, null, 2);
 
+  const handleRefresh = async () => {
+    await queryClient.resetQueries({ queryKey: QUERY_KEYS.REDIS_KEYS_INFINITE(connectionId, pattern) });
+  };
+
   return (
     <div className="flex h-full">
       {/* Key list */}
@@ -98,9 +158,9 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
           title="Keys"
           count={filteredKeys.length}
           searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={handleSearchChange}
           searchPlaceholder="Filter keys..."
-          onRefresh={() => void refetch()}
+          onRefresh={() => void handleRefresh()}
           isRefreshing={isFetching}
           className="border-b border-border"
           actions={
@@ -119,41 +179,66 @@ export function RedisExplorer({ connectionId }: RedisExplorerProps) {
           {loadingKeys ? (
             <LoadingState compact />
           ) : filteredKeys.length === 0 ? (
-            <EmptyState compact title={keysResult?.keys?.length === 0 ? 'No keys found' : 'No matches'} />
+            <EmptyState compact title={allKeys.length === 0 ? 'No keys found' : 'No matches'} />
           ) : (
-            filteredKeys.map((entry) => {
-              const Icon = typeIcons[entry.type] || Box;
-              const isSelected = selectedKey === entry.key;
-              return (
-                <ContextMenu key={entry.key}>
-                  <ContextMenuTrigger>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleKeyClick(entry.key)}
-                      className={`w-full font-normal ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
-                      title={`${entry.key} (${entry.type})`}
-                    >
-                      <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
-                      <span className="truncate flex-1 text-left">{entry.key}</span>
-                      <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
-                    </Button>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    <ContextMenuItem onClick={() => copyToClipboard(entry.key, 'Key')}>
-                      <Copy className="mr-2 size-3.5" />
-                      Copy key
-                    </ContextMenuItem>
-                    {isSelected && keyDetails ? (
-                      <ContextMenuItem onClick={() => copyToClipboard(copyValueText, 'Value')}>
+            <>
+              {filteredKeys.map((entry) => {
+                const Icon = typeIcons[entry.type] || Box;
+                const isSelected = selectedKey === entry.key;
+                return (
+                  <ContextMenu key={entry.key}>
+                    <ContextMenuTrigger>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleKeyClick(entry.key)}
+                        className={`w-full font-normal ${isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}
+                        title={`${entry.key} (${entry.type})`}
+                      >
+                        <Icon className={`size-3 shrink-0 ${typeColors[entry.type] || ''}`} />
+                        <span className="truncate flex-1 text-left">{entry.key}</span>
+                        <span className="text-xs uppercase ml-auto text-muted-foreground/70">{entry.type}</span>
+                      </Button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem onClick={() => copyToClipboard(entry.key, 'Key')}>
                         <Copy className="mr-2 size-3.5" />
-                        Copy value
+                        Copy key
                       </ContextMenuItem>
-                    ) : null}
-                  </ContextMenuContent>
-                </ContextMenu>
-              );
-            })
+                      {isSelected && keyDetails ? (
+                        <ContextMenuItem onClick={() => copyToClipboard(copyValueText, 'Value')}>
+                          <Copy className="mr-2 size-3.5" />
+                          Copy value
+                        </ContextMenuItem>
+                      ) : null}
+                    </ContextMenuContent>
+                  </ContextMenu>
+                );
+              })}
+              {hasNextPage && (
+                <div className="pt-2 pb-1 px-1 flex flex-col items-center gap-1 border-t border-border/50">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => void fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                  >
+                    {isFetchingNextPage ? (
+                      <>
+                        <Spinner size="sm" className="mr-1.5" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Load more keys'
+                    )}
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground">
+                    Showing {filteredKeys.length} keys (more available)
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
         {showStats && (

@@ -6,7 +6,14 @@ import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine } f
 import { EditorState, Prec, Compartment, type Extension } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
-import { closeBrackets, autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+import {
+  closeBrackets,
+  autocompletion,
+  closeCompletion,
+  completionKeymap,
+  type CompletionContext,
+  type CompletionResult,
+} from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { useStore } from '@tanstack/react-store';
 import { appStore } from '@/store';
@@ -62,7 +69,8 @@ export function CodeEditor({
       keymap.of([
         {
           key: 'Mod-Enter',
-          run: () => {
+          run: (targetView) => {
+            closeCompletion(targetView);
             onRunRef.current?.();
             return true;
           },
@@ -84,7 +92,8 @@ export function CodeEditor({
           bracketMatching(),
           closeBrackets(),
           showLineNumbers ? lineNumbers() : [],
-          keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+          // completionKeymap handles Escape to close completion popup without propagating to global cancel handlers. (Why)
+          keymap.of([...completionKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab]),
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
           themeCompartmentRef.current.of(isDark ? oneDark : []),
           editorTheme,
@@ -159,7 +168,9 @@ export function schemaCompletionSource(
   getEntries: (ctx: CompletionContext, textUntil: string, fullText: string) => SchemaCompletionEntry[],
 ) {
   return (ctx: CompletionContext): CompletionResult | null => {
-    const word = ctx.matchBefore(/[\w."$]+/);
+    // Match only the identifier token immediately preceding the cursor (excluding dots)
+    // so property completions (e.g. table.col) replace only the column token rather than the qualifier. (How / Why / What)
+    const word = ctx.matchBefore(/[\w$]+/);
     const line = ctx.state.doc.lineAt(ctx.pos);
     const textUntil = ctx.state.sliceDoc(line.from, ctx.pos);
     const entries = getEntries(ctx, textUntil, ctx.state.doc.toString());

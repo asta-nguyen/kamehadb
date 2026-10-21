@@ -4,6 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 import { SpinningRefresh, isSqlLike } from './sidebar.helpers';
 import {
   appStore,
@@ -46,93 +47,103 @@ export function ConnectionDropdownMenu({
   );
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center justify-center rounded-md opacity-0 size-6 transition-colors hover:bg-muted/50 group-hover:opacity-100"
-      >
-        <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
-      </DropdownMenuTrigger>
-      {/* Open to the right into the spacious workspace canvas rather than crowding the narrow sidebar. (How / Why / What) */}
-      <DropdownMenuContent side="right" align="start" sideOffset={6} className="min-w-max whitespace-nowrap">
-        <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
-          <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
-          Reload
-        </DropdownMenuItem>
+    // Stop propagation of click and mousedown so opening the dropdown does not
+    // trigger row selection or tree expansion in the parent sidebar item. (How / Why / What)
+    <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className="shrink-0">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Connection actions"
+              className="size-6 p-0 opacity-0 transition-opacity hover:bg-muted/50 group-hover:opacity-100"
+            />
+          }
+        >
+          <MoreVertical className="text-muted-foreground/60 size-3.5 hover:text-muted-foreground" />
+        </DropdownMenuTrigger>
+        {/* Open to the right into the spacious workspace canvas rather than crowding the narrow sidebar. (How / Why / What) */}
+        <DropdownMenuContent side="right" align="start" sideOffset={6} className="min-w-max whitespace-nowrap">
+          <DropdownMenuItem onClick={() => refreshConnection.mutate(conn.id)} disabled={refreshConnection.isPending}>
+            <SpinningRefresh spinning={refreshConnection.isPending} className="mr-2" />
+            Reload
+          </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={() => togglePinnedConnection(conn.id)}>
-          {pinned ? <PinOff className="mr-2 size-3.5" /> : <Pin className="mr-2 size-3.5" />}
-          {pinned ? 'Unpin' : 'Pin to top'}
-        </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => togglePinnedConnection(conn.id)}>
+            {pinned ? <PinOff className="mr-2 size-3.5" /> : <Pin className="mr-2 size-3.5" />}
+            {pinned ? 'Unpin' : 'Pin to top'}
+          </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
-          <Sparkles className="mr-2 size-3.5" />
-          AI Chat
-        </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openAiChatPanel(conn.id)}>
+            <Sparkles className="mr-2 size-3.5" />
+            AI Chat
+          </DropdownMenuItem>
 
-        {conn.kind === 'postgres' && (
-          <>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onOpenPsql();
-              }}
-            >
-              <Terminal className="mr-2 size-3.5" />
-              Open PSQL
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onBackup();
-              }}
-            >
-              <Download className="mr-2 size-3.5" />
-              Backup
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setActiveConnection(conn.id);
-                onRestore();
-              }}
-            >
-              <Upload className="mr-2 size-3.5" />
-              Restore
-            </DropdownMenuItem>
-          </>
-        )}
+          {conn.kind === 'postgres' && (
+            <>
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  onOpenPsql();
+                }}
+              >
+                <Terminal className="mr-2 size-3.5" />
+                Open PSQL
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  onBackup();
+                }}
+              >
+                <Download className="mr-2 size-3.5" />
+                Backup
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveConnection(conn.id);
+                  onRestore();
+                }}
+              >
+                <Upload className="mr-2 size-3.5" />
+                Restore
+              </DropdownMenuItem>
+            </>
+          )}
 
-        {isSqlLike(conn.kind) &&
-          SQL_TAB_ACTIONS.map((action) => (
+          {isSqlLike(conn.kind) &&
+            SQL_TAB_ACTIONS.map((action) => (
+              <DropdownMenuItem key={action.label} onClick={() => activate(conn.id, action.open)}>
+                <action.icon className="mr-2 size-3.5" />
+                {action.label}
+              </DropdownMenuItem>
+            ))}
+
+          {ENGINE_TAB_ACTIONS[conn.kind]?.map((action) => (
             <DropdownMenuItem key={action.label} onClick={() => activate(conn.id, action.open)}>
               <action.icon className="mr-2 size-3.5" />
               {action.label}
             </DropdownMenuItem>
           ))}
 
-        {ENGINE_TAB_ACTIONS[conn.kind]?.map((action) => (
-          <DropdownMenuItem key={action.label} onClick={() => activate(conn.id, action.open)}>
-            <action.icon className="mr-2 size-3.5" />
-            {action.label}
-          </DropdownMenuItem>
-        ))}
+          {hasOpenTabs && (
+            <DropdownMenuItem onClick={() => closeTabsForConnection(conn.id)}>
+              <X className="mr-2 size-3.5" />
+              Close Tabs
+            </DropdownMenuItem>
+          )}
 
-        {hasOpenTabs && (
-          <DropdownMenuItem onClick={() => closeTabsForConnection(conn.id)}>
-            <X className="mr-2 size-3.5" />
-            Close Tabs
+          <DropdownMenuItem onClick={onEdit}>
+            <Settings2 className="mr-2 size-3.5" />
+            Edit
           </DropdownMenuItem>
-        )}
-
-        <DropdownMenuItem onClick={onEdit}>
-          <Settings2 className="mr-2 size-3.5" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem variant="destructive" onClick={onDelete}>
-          <Trash2 className="mr-2 size-3.5" />
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuItem variant="destructive" onClick={onDelete}>
+            <Trash2 className="mr-2 size-3.5" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

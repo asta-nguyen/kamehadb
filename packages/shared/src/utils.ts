@@ -3,5 +3,7 @@
  * Returns the fallback string when the error is not an Error instance.
  */
 export function safeErrorMessage(err: unknown, fallback = 'Unknown error'): string {
-  return err instanceof Error ? err.message : fallback;
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string' && err.trim().length > 0) return err;
+  return fallback;
 }

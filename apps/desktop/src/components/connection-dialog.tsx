@@ -52,7 +52,7 @@ function parseConnectionUrl(url: string): Partial<CreateConnectionProfileInput> 
       result.host = undefined;
       result.port = undefined;
     } else {
-      const db = parsed.pathname.replace(/^\//, '');
+      const db = parsed.pathname.replace(/^\//, '').replace(/\/$/, '');
       result.database = db || undefined;
     }
 
@@ -165,17 +165,19 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       if (!value.trim()) return;
       const parsed = parseConnectionUrl(value);
       if (!parsed) return;
-      if (parsed.kind) form.setValue('kind', parsed.kind);
-      if (parsed.host !== undefined) form.setValue('host', parsed.host);
+      // Mark fields dirty, touched, and re-validated so uncontrolled inputs update immediately on URL paste. (How / Why / What)
+      const setOpts = { shouldDirty: true, shouldTouch: true, shouldValidate: true };
+      if (parsed.kind) form.setValue('kind', parsed.kind, setOpts);
+      if (parsed.host !== undefined) form.setValue('host', parsed.host, setOpts);
       if (parsed.port !== undefined) {
-        form.setValue('port', parsed.port);
+        form.setValue('port', parsed.port, setOpts);
       } else if (parsed.kind) {
-        form.setValue('port', DEFAULT_PORTS[parsed.kind as DbKind]);
+        form.setValue('port', DEFAULT_PORTS[parsed.kind as DbKind], setOpts);
       }
-      if (parsed.database !== undefined) form.setValue('database', parsed.database);
-      if (parsed.username !== undefined) form.setValue('username', parsed.username);
-      if (parsed.password !== undefined) form.setValue('password', parsed.password);
-      if (parsed.filePath !== undefined) form.setValue('filePath', parsed.filePath);
+      if (parsed.database !== undefined) form.setValue('database', parsed.database, setOpts);
+      if (parsed.username !== undefined) form.setValue('username', parsed.username, setOpts);
+      if (parsed.password !== undefined) form.setValue('password', parsed.password, setOpts);
+      if (parsed.filePath !== undefined) form.setValue('filePath', parsed.filePath, setOpts);
     },
     [form],
   );

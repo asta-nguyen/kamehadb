@@ -26,17 +26,29 @@ const FederatedQueryCanvas = lazy(() =>
   import('@/components/federated-query-canvas').then((module) => ({ default: module.FederatedQueryCanvas })),
 );
 
-export function WorkspaceContent({ activeTab }: { readonly activeTab: WorkspaceTab }): ReactElement {
+export function WorkspaceContent({
+  activeTab,
+  isActive = true,
+}: {
+  readonly activeTab: WorkspaceTab;
+  readonly isActive?: boolean;
+}): ReactElement {
   return (
     <Suspense
       fallback={<div className="h-full flex items-center justify-center text-sm text-muted-foreground">Loading…</div>}
     >
-      <WorkspacePanel activeTab={activeTab} />
+      <WorkspacePanel activeTab={activeTab} isActive={isActive} />
     </Suspense>
   );
 }
 
-function WorkspacePanel({ activeTab }: { readonly activeTab: WorkspaceTab }): ReactElement {
+function WorkspacePanel({
+  activeTab,
+  isActive = true,
+}: {
+  readonly activeTab: WorkspaceTab;
+  readonly isActive?: boolean;
+}): ReactElement {
   if (activeTab.type === 'query') {
     return <SqlEditor key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
@@ -56,7 +68,7 @@ function WorkspacePanel({ activeTab }: { readonly activeTab: WorkspaceTab }): Re
     return <MongoShell key={activeTab.id} tab={activeTab} connectionId={activeTab.connectionId} />;
   }
   if (activeTab.type === 'postgres-psql') {
-    return <PostgresPsqlTab key={activeTab.id} active tab={activeTab} />;
+    return <PostgresPsqlTab key={activeTab.id} active={isActive} tab={activeTab} />;
   }
   if (activeTab.type === 'redis') {
     return <RedisView key={activeTab.id} connectionId={activeTab.connectionId} />;

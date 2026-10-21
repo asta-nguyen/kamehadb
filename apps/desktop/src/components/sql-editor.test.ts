@@ -12,6 +12,7 @@ import {
   containsMultipleStatements,
   hasTopLevelOrderBy,
   normalizeSqlForSafety,
+  splitSqlStatements,
   stripLeadingComments,
 } from './sql-editor';
 import { isQuerySafe, KIND } from '@kamehadb/shared';
@@ -133,5 +134,79 @@ describe('SQL editor dialect-aware query limiting', () => {
     expect(applyQueryLimit('INSERT INTO users VALUES (1)', 100)).toBe('INSERT INTO users VALUES (1)');
     expect(applyQueryLimit('SELECT 1; SELECT 2', 100)).toBe('SELECT 1; SELECT 2');
     expect(applyQueryLimit('SELECT 1', 0)).toBe('SELECT 1');
+  });
+});
+
+describe('SQL editor query history statement preservation', () => {
+  it('preserves the user-typed statement without synthesized limit clauses', () => {
+    const rawSql = 'SELECT * FROM large';
+    const stmts = splitSqlStatements(rawSql);
+    expect(stmts).toEqual(['SELECT * FROM large']);
+    // Applying the dialect limit rewrites the statement for execution
+    const executedStmt = applyQueryLimit(stmts[0], 100);
+    expect(executedStmt).toBe('SELECT * FROM large LIMIT 100');
+    // But the statement that gets recorded to query history must remain the user-typed form
+    expect(stmts[0]).toBe('SELECT * FROM large');
+    expect(stmts[0]).not.toContain('LIMIT');
+  });
+
+  it('separates executed SQL with limit/offset from history SQL across pagination cycles', () => {
+    // Simulates the executeQuery logic in sql-editor.tsx:
+    // User types: "SELECT * FROM large"
+    const userSql = 'SELECT * FROM large';
+    const limit = 100;
+    const historyEntries: string[] = [];
+    const executedQueries: string[] = [];
+
+    function simulateExecuteQuery(querySql: string, isPagination = false, pageOffset = 0) {
+      const statements = splitSqlStatements(querySql);
+      for (const stmt of statements) {
+        const executedStmt = applyQueryLimit(stmt, limit, pageOffset > 0 ? pageOffset : undefined);
+        executedQueries.push(executedStmt);
+        if (!isPagination) {
+          historyEntries.push(stmt);
+        }
+      }
+    }
+
+    // 1. Initial user run (isPagination = false, pageOffset = 0)
+    simulateExecuteQuery(userSql, false, 0);
+    expect(executedQueries[0]).toBe('SELECT * FROM large LIMIT 100');
+    expect(historyEntries[0]).toBe('SELECT * FROM large');
+    expect(historyEntries).toHaveLength(1);
+
+    // 2. Next page click (isPagination = true, pageOffset = 100)
+    simulateExecuteQuery(userSql, true, 100);
+    expect(executedQueries[1]).toBe('SELECT * FROM large LIMIT 100 OFFSET 100');
+    // History must NOT record pagination queries
+    expect(historyEntries).toHaveLength(1);
+
+    // 3. Next page click again (isPagination = true, pageOffset = 200)
+    simulateExecuteQuery(userSql, true, 200);
+    expect(executedQueries[2]).toBe('SELECT * FROM large LIMIT 100 OFFSET 200');
+    expect(historyEntries).toHaveLength(1);
+
+    // 4. Prev page click (isPagination = true, pageOffset = 100)
+    simulateExecuteQuery(userSql, true, 100);
+    expect(executedQueries[3]).toBe('SELECT * FROM large LIMIT 100 OFFSET 100');
+    expect(historyEntries).toHaveLength(1);
+  });
+
+  it('preserves multi-statement individual user queries in history while limiting each for execution', () => {
+    const multiSql = 'SELECT * FROM users;\nSELECT * FROM orders';
+    const limit = 50;
+    const historyEntries: string[] = [];
+    const executedQueries: string[] = [];
+
+    const statements = splitSqlStatements(multiSql);
+    expect(statements).toEqual(['SELECT * FROM users', 'SELECT * FROM orders']);
+
+    for (const stmt of statements) {
+      executedQueries.push(applyQueryLimit(stmt, limit));
+      historyEntries.push(stmt);
+    }
+
+    expect(executedQueries).toEqual(['SELECT * FROM users LIMIT 50', 'SELECT * FROM orders LIMIT 50']);
+    expect(historyEntries).toEqual(['SELECT * FROM users', 'SELECT * FROM orders']);
   });
 });

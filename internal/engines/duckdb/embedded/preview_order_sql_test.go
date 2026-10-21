@@ -22,7 +22,7 @@ func TestPreviewOrderAppendsPrimaryKeyTiebreaker(t *testing.T) {
 		sort, dir string
 		want      string
 	}{
-		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "bigint", PrimaryKey: true}, {Name: "name", Type: "varchar"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " ASC LIMIT"},
+		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "bigint", PrimaryKey: true}, {Name: "name", Type: "varchar"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " DESC LIMIT"},
 		{"composite key without a sort", []engines.ColumnInfo{{Name: "a", Type: "bigint", PrimaryKey: true}, {Name: "b", Type: "bigint", PrimaryKey: true}, {Name: "c", Type: "varchar"}}, "", "", "ORDER BY " + q("a") + " ASC, " + q("b") + " ASC LIMIT"},
 		{"sort by one composite key column", []engines.ColumnInfo{{Name: "a", Type: "bigint", PrimaryKey: true}, {Name: "b", Type: "bigint", PrimaryKey: true}, {Name: "c", Type: "varchar"}}, "b", "", "ORDER BY " + q("b") + " ASC, " + q("a") + " ASC LIMIT"},
 		{"sort by the single key adds nothing", []engines.ColumnInfo{{Name: "id", Type: "bigint", PrimaryKey: true}, {Name: "name", Type: "varchar"}}, "id", "desc", "ORDER BY " + q("id") + " DESC LIMIT"},

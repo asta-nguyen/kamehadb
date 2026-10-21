@@ -9,6 +9,8 @@ import {
   GROUP_ORDER,
   SIDEBAR_MAX_WIDTH as MAX_WIDTH,
   SIDEBAR_MIN_WIDTH as MIN_WIDTH,
+  CONNECTION_RETRY_INTERVAL_MS,
+  CONNECTION_RECONNECT_TIMEOUT_MS,
 } from '@/lib/constants';
 import { toastError } from '@/lib/toast';
 import {
@@ -127,7 +129,7 @@ const ConnectionItem = memo(function ConnectionItem({
           <span className="shrink-0 size-4" />
         )}
 
-        <Tooltip>
+        <Tooltip disableHoverablePopup>
           <TooltipTrigger className="flex min-w-0 flex-1 items-center justify-start gap-2 text-foreground/90 font-medium cursor-default text-left">
             <DbIcon kind={conn.kind} className="shrink-0 size-4" />
             <span className="min-w-0 flex-1 truncate">{conn.name}</span>
@@ -286,7 +288,10 @@ export function Sidebar() {
   useEffect(() => {
     const reconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-    const unsubscribe = api.onConnectionHealth((results) => {
+    // Applies received health result map to store state, updating latencies and status transitions. (What / Why / How)
+    const applyHealthResults = (
+      results: Record<string, { success: boolean; latencyMs?: number; message?: string }>,
+    ) => {
       for (const [id, r] of Object.entries(results)) {
         if (r.success) {
           clearTimeout(reconnectTimers.get(id));
@@ -302,28 +307,40 @@ export function Sidebar() {
                 setConnectionStatus(id, 'disconnected');
               }
               reconnectTimers.delete(id);
-            }, 5000);
+            }, CONNECTION_RECONNECT_TIMEOUT_MS);
             reconnectTimers.set(id, timer);
           } else if (prev !== 'reconnecting') {
             setConnectionStatus(id, 'disconnected');
           }
         }
       }
-    });
+    };
 
-    // First round immediately — the backend ticks every 60s; the SSE stream
-    // used to yield a round on connect too.
-    void api.checkAllConnectionHealth().then((results) => {
-      for (const [id, r] of Object.entries(results)) {
-        if (r.success) {
-          if (r.latencyMs !== undefined) setConnectionLatency(id, r.latencyMs);
-          else setConnectionStatus(id, 'connected');
-        }
+    const unsubscribe = api.onConnectionHealth(applyHealthResults);
+
+    // Initial probe on mount.
+    void api.checkAllConnectionHealth().then(applyHealthResults);
+
+    // Active retry polling when any connection is disconnected/reconnecting so recovery
+    // is detected within seconds instead of leaving stale red indicators. (What / Why / How)
+    const retryInterval = setInterval(() => {
+      const statuses = appStore.state.connectionStatus;
+      const hasDownConnections = Object.values(statuses).some((s) => s === 'disconnected' || s === 'reconnecting');
+      if (hasDownConnections) {
+        void api.checkAllConnectionHealth().then(applyHealthResults);
       }
-    });
+    }, CONNECTION_RETRY_INTERVAL_MS);
+
+    // Immediate re-check on window focus to catch external server restarts while app was unfocused. (Why)
+    const onFocus = () => {
+      void api.checkAllConnectionHealth().then(applyHealthResults);
+    };
+    window.addEventListener('focus', onFocus);
 
     return () => {
       unsubscribe();
+      clearInterval(retryInterval);
+      window.removeEventListener('focus', onFocus);
       for (const timer of reconnectTimers.values()) clearTimeout(timer);
     };
   }, []);

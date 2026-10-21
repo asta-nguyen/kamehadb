@@ -9,31 +9,32 @@ import (
 // IndexStats, TableStats, DatabaseSizes, ActiveConnections — the optional
 // SqlAdapter capabilities (Statser/SessionLister interfaces in engines).
 
-func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.IndexStats, error) {
-	schema, table := splitTableID(tableID)
-	const sql = `SELECT
-		i.relname as name,
-		t.relname as table_name,
-		a.attname as column_name,
-		ix.indisunique as unique_index,
-		ix.indisprimary as primary_index,
-		am.amname as method,
-		pg_relation_size(i.oid) as size_bytes
-	FROM pg_index ix
-	JOIN pg_class i ON i.oid = ix.indexrelid
-	JOIN pg_class t ON t.oid = ix.indrelid
-	JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
-	JOIN pg_namespace n ON n.oid = t.relnamespace
-	JOIN pg_am am ON am.oid = i.relam
-	WHERE n.nspname = $1 AND t.relname = $2
-	ORDER BY i.relname, a.attnum`
-	res, err := a.collect(ctx, sql, []any{schema, table}, 0)
-	if err != nil {
-		return nil, err
-	}
+const indexStatsSQL = `SELECT
+	i.relname as name,
+	t.relname as table_name,
+	a.attname as column_name,
+	ix.indisunique as unique_index,
+	ix.indisprimary as primary_index,
+	am.amname as method,
+	pg_relation_size(i.oid) as size_bytes,
+	COALESCE(s.idx_scan, 0) as scans,
+	COALESCE(s.idx_tup_read, 0) as reads
+FROM pg_index ix
+JOIN pg_class i ON i.oid = ix.indexrelid
+JOIN pg_class t ON t.oid = ix.indrelid
+JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
+JOIN pg_namespace n ON n.oid = t.relnamespace
+JOIN pg_am am ON am.oid = i.relam
+LEFT JOIN pg_stat_all_indexes s ON s.indexrelid = ix.indexrelid
+WHERE n.nspname = $1 AND t.relname = $2
+ORDER BY i.relname, a.attnum`
+
+// parseIndexStatsRows decodes collected pg query rows into IndexStats structs,
+// grouping multi-column index rows and computing normalized usage percent. (How / Why / What)
+func parseIndexStatsRows(rows [][]any) []engines.IndexStats {
 	idxMap := map[string]int{}
 	var out []engines.IndexStats
-	for _, r := range res.rows {
+	for _, r := range rows {
 		name := str(r, 0)
 		idx, ok := idxMap[name]
 		if !ok {
@@ -46,11 +47,31 @@ func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.
 				Primary:   boolv(r, 4),
 				Method:    str(r, 5),
 				SizeBytes: toInt64(r[6]),
+				Scans:     toInt64(r[7]),
+				Reads:     toInt64(r[8]),
 			})
 		}
 		out[idx].Columns = append(out[idx].Columns, str(r, 2))
 	}
-	return out, nil
+	var totalScans int64
+	for i := range out {
+		totalScans += out[i].Scans
+	}
+	if totalScans > 0 {
+		for i := range out {
+			out[i].UsagePercent = (float64(out[i].Scans) / float64(totalScans)) * 100.0
+		}
+	}
+	return out
+}
+
+func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.IndexStats, error) {
+	schema, table := splitTableID(tableID)
+	res, err := a.collect(ctx, indexStatsSQL, []any{schema, table}, 0)
+	if err != nil {
+		return nil, err
+	}
+	return parseIndexStatsRows(res.rows), nil
 }
 
 func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.TableStats, error) {

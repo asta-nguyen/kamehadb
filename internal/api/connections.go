@@ -34,8 +34,10 @@ import (
 const (
 	// CONNECTION_TEST_TIMEOUT_MS / CONNECTION_HEALTH_INTERVAL_MS from the
 	// sidecar constants.
+	// Health check timeout and periodic background interval. 15s keeps local database
+	// connection states reactive to restarts and recovery without excessive probing. (Why)
 	connTestTimeout    = 5 * time.Second
-	connHealthInterval = 60 * time.Second
+	connHealthInterval = 15 * time.Second
 
 	// HealthEvent carries the id→result map the SSE stream used to push.
 	HealthEvent = "connections:health"
@@ -391,7 +393,8 @@ func (s *ConnectionsService) testConnectionByKind(connectionID string, cp engine
 	case engines.KindRedis:
 		cfg := redis.Config{Host: cp.Host, Port: cp.Port, Password: cp.Password}
 		if cp.Database != "" {
-			if n, err := strconv.Atoi(cp.Database); err == nil && n >= 0 {
+			dbStr := strings.Trim(cp.Database, "/")
+			if n, err := strconv.Atoi(dbStr); err == nil && n >= 0 {
 				cfg.Database = n
 			}
 		}

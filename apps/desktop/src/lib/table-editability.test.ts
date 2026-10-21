@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { buildRowUpdateQuery } from './table-editability';
+import { buildRowUpdateQuery, getQueryResultEditabilityState } from './table-editability';
+
+describe('getQueryResultEditabilityState', () => {
+  it('marks results as read-only when isReadOnly is true', () => {
+    const state = getQueryResultEditabilityState({
+      querySql: 'SELECT * FROM users',
+      resultColumns: [{ name: 'id', type: 'integer' }],
+      tableColumns: [{ name: 'id', type: 'integer', primaryKey: true, nullable: false, default: null }],
+      isReadOnly: true,
+    });
+    expect(state.canEditCells).toBe(false);
+    expect(state.warningMessage).toBe('SQL query results are read-only.');
+    expect(state.warningTone).toBe('info');
+  });
+});
 
 describe('buildRowUpdateQuery', () => {
   it('generates standard SQL TRUE/FALSE for boolean columns', () => {

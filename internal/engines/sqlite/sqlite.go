@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -439,71 +440,106 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	if err != nil {
 		return nil, err
 	}
-	var sb strings.Builder
-	var params []any
-	sb.WriteString("SELECT * FROM ")
-	sb.WriteString(esc(input.TableID))
-
-	if input.Search != "" {
-		var targetCols []string
-		for _, col := range columns {
-			if input.SearchColumn != "" && col.Name != input.SearchColumn {
-				continue
-			}
-			if isSearchableColumn(col.Type, input.Search) {
-				targetCols = append(targetCols, col.Name)
-			}
-		}
-		if len(targetCols) > 0 {
-			clauses := make([]string, len(targetCols))
-			for i, name := range targetCols {
-				if input.MatchCase {
-					clauses[i] = "instr(" + esc(name) + ", ?) > 0"
-					params = append(params, input.Search)
-				} else {
-					clauses[i] = esc(name) + " LIKE ?"
-					params = append(params, "%"+input.Search+"%")
-				}
-			}
-			sb.WriteString(" WHERE (")
-			sb.WriteString(strings.Join(clauses, " OR "))
-			sb.WriteString(")")
-		} else {
-			sb.WriteString(" WHERE 1 = 0")
-		}
-	}
-
-	if seek && input.Cursor != "" {
-		value, err := engines.DecodePreviewCursor(input, *key)
-		if err != nil {
-			return nil, err
-		}
-		if input.Search != "" {
-			sb.WriteString(" AND ")
-		} else {
-			sb.WriteString(" WHERE ")
-		}
-		sb.WriteString(esc(key.Name))
-		if input.SortDirection == "desc" {
-			sb.WriteString(" < ?")
-		} else {
-			sb.WriteString(" > ?")
-		}
-		params = append(params, value)
-	}
 	orderColumn := input.SortColumn
 	if orderColumn == "" && key != nil {
 		orderColumn = key.Name
 	}
-	// The key follows the sort column so OFFSET pages stay exact when values tie.
-	if orderBy := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, esc); orderBy != "" {
-		sb.WriteString(" ORDER BY " + orderBy)
-	}
-	sb.WriteString(" LIMIT ?")
-	params = append(params, limit+1)
-	if !seek {
-		sb.WriteString(" OFFSET ?")
-		params = append(params, offset)
+
+	// For deep offset pagination with a single primary key and no full-table text search,
+	// use a deferred join (late row lookup). The subquery scans only the primary key index
+	// to skip the offset pages without deserializing full table row data from disk, then
+	// joins back to retrieve complete columns only for the selected page rows. (How / Why / What)
+	useDeferredJoin := !seek && offset > 0 && key != nil && input.Search == ""
+
+	var sb strings.Builder
+	var params []any
+
+	if useDeferredJoin {
+		innerOrder := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, esc)
+		outerOrder := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, func(name string) string {
+			return "_kameha_t." + esc(name)
+		})
+
+		sb.WriteString("SELECT _kameha_t.* FROM ")
+		sb.WriteString(esc(input.TableID))
+		sb.WriteString(" AS _kameha_t INNER JOIN (SELECT ")
+		sb.WriteString(esc(key.Name))
+		sb.WriteString(" AS _kameha_pk FROM ")
+		sb.WriteString(esc(input.TableID))
+		if innerOrder != "" {
+			sb.WriteString(" ORDER BY ")
+			sb.WriteString(innerOrder)
+		}
+		sb.WriteString(" LIMIT ? OFFSET ?) AS _kameha_sub ON _kameha_t.")
+		sb.WriteString(esc(key.Name))
+		sb.WriteString(" = _kameha_sub._kameha_pk")
+		if outerOrder != "" {
+			sb.WriteString(" ORDER BY ")
+			sb.WriteString(outerOrder)
+		}
+		params = append(params, limit+1, offset)
+	} else {
+		sb.WriteString("SELECT * FROM ")
+		sb.WriteString(esc(input.TableID))
+
+		if input.Search != "" {
+			var targetCols []string
+			for _, col := range columns {
+				if input.SearchColumn != "" && col.Name != input.SearchColumn {
+					continue
+				}
+				if isSearchableColumn(col.Type, input.Search) {
+					targetCols = append(targetCols, col.Name)
+				}
+			}
+			if len(targetCols) > 0 {
+				clauses := make([]string, len(targetCols))
+				for i, name := range targetCols {
+					if input.MatchCase {
+						clauses[i] = "instr(" + esc(name) + ", ?) > 0"
+						params = append(params, input.Search)
+					} else {
+						clauses[i] = esc(name) + " LIKE ?"
+						params = append(params, "%"+input.Search+"%")
+					}
+				}
+				sb.WriteString(" WHERE (")
+				sb.WriteString(strings.Join(clauses, " OR "))
+				sb.WriteString(")")
+			} else {
+				sb.WriteString(" WHERE 1 = 0")
+			}
+		}
+
+		if seek && input.Cursor != "" {
+			value, err := engines.DecodePreviewCursor(input, *key)
+			if err != nil {
+				return nil, err
+			}
+			if input.Search != "" {
+				sb.WriteString(" AND ")
+			} else {
+				sb.WriteString(" WHERE ")
+			}
+			sb.WriteString(esc(key.Name))
+			if input.SortDirection == "desc" {
+				sb.WriteString(" < ?")
+			} else {
+				sb.WriteString(" > ?")
+			}
+			params = append(params, value)
+		}
+
+		// The key follows the sort column so OFFSET pages stay exact when values tie.
+		if orderBy := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, esc); orderBy != "" {
+			sb.WriteString(" ORDER BY " + orderBy)
+		}
+		sb.WriteString(" LIMIT ?")
+		params = append(params, limit+1)
+		if !seek {
+			sb.WriteString(" OFFSET ?")
+			params = append(params, offset)
+		}
 	}
 
 	rows, err := a.db.QueryContext(ctx, sb.String(), params...)
@@ -633,16 +669,39 @@ func (a *Adapter) RunQueryBounded(ctx context.Context, input engines.BoundedQuer
 	}, nil
 }
 
+// diskSize calculates physical database file size including WAL and journal files on disk. (How / Why / What)
+func (a *Adapter) diskSize() int64 {
+	if a.path == "" || a.path == ":memory:" {
+		return 0
+	}
+	var total int64
+	for _, suffix := range []string{"", "-wal", "-shm", "-journal"} {
+		if fi, err := os.Stat(a.path + suffix); err == nil {
+			total += fi.Size()
+		}
+	}
+	return total
+}
+
 func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.TableStats, error) {
 	stats := &engines.TableStats{TableID: tableID, Name: tableID, Schema: "main"}
 	if err := a.db.QueryRowContext(ctx,
 		fmt.Sprintf("SELECT COUNT(*) FROM %s", esc(tableID))).Scan(&stats.RowEstimate); err != nil {
 		return nil, err
 	}
-	if err := a.db.QueryRowContext(ctx,
+	if disk := a.diskSize(); disk > 0 {
+		stats.TotalBytes = disk
+	} else if err := a.db.QueryRowContext(ctx,
 		"SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()").Scan(&stats.TotalBytes); err != nil {
 		return nil, err
 	}
+	// Query aggregate index sizes via dbstat virtual table when available. (How / Why / What)
+	var idxBytes int64
+	_ = a.db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(pgsize), 0) FROM dbstat WHERE name IN (
+			SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?
+		)`, tableID).Scan(&idxBytes)
+	stats.IndexesBytes = idxBytes
 	stats.NLiveTup = stats.RowEstimate
 	return stats, nil
 }
@@ -654,12 +713,16 @@ func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.
 	}
 	out := make([]engines.IndexStats, len(indexes))
 	for i, idx := range indexes {
+		var sz int64
+		_ = a.db.QueryRowContext(ctx,
+			"SELECT COALESCE(SUM(pgsize), 0) FROM dbstat WHERE name = ?", idx.Name).Scan(&sz)
 		out[i] = engines.IndexStats{
-			Name:    idx.Name,
-			Table:   tableID,
-			Columns: idx.Columns,
-			Unique:  idx.Unique,
-			Primary: idx.Primary,
+			Name:      idx.Name,
+			Table:     tableID,
+			Columns:   idx.Columns,
+			Unique:    idx.Unique,
+			Primary:   idx.Primary,
+			SizeBytes: sz,
 		}
 	}
 	return out, nil
@@ -686,7 +749,9 @@ func (a *Adapter) GetDatabaseSizes(ctx context.Context, _ *string) ([]engines.Da
 	}
 
 	var totalSize int64
-	if err := a.db.QueryRowContext(ctx,
+	if disk := a.diskSize(); disk > 0 {
+		totalSize = disk
+	} else if err := a.db.QueryRowContext(ctx,
 		"SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()").Scan(&totalSize); err != nil {
 		return nil, err
 	}

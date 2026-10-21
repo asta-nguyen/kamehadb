@@ -42,6 +42,8 @@ export const QUERY_KEYS = {
     ['chat-history', connectionId, mongoDatabase] as const,
   REDIS_KEYS: (connectionId: string | null, pattern: string | null, cursor?: number) =>
     ['redis-keys', connectionId, pattern, cursor] as const,
+  REDIS_KEYS_INFINITE: (connectionId: string | null, pattern: string | null) =>
+    ['redis-keys-infinite', connectionId, pattern] as const,
   REDIS_KEY: (connectionId: string | null, key: string | null) => ['redis-key', connectionId, key] as const,
   REDIS_STATS: (connectionId: string | null) => ['redis-stats', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,

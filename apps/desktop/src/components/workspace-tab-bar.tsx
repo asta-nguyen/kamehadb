@@ -59,7 +59,7 @@ import {
   Terminal,
   X,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function tabIcon(tabType: string) {
   if (tabType === 'query' || tabType === 'redis-query' || tabType === 'migration')
@@ -88,6 +88,13 @@ export function WorkspaceTabBar() {
   const [tabToRename, setTabToRename] = useState<WorkspaceTab | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const stripRef = useRef<HTMLDivElement>(null);
+
+  // Scroll the active tab into view when active tab changes so tabs off-screen become visible. (How / Why / What)
+  useEffect(() => {
+    if (!stripRef.current || !activeTabId) return;
+    const activeEl = stripRef.current.querySelector<HTMLElement>('[data-active="true"]');
+    activeEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [activeTabId]);
 
   // Commit a non-empty trimmed title, then close the dialog without changing tab state.
   function handleRenameSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -124,6 +131,7 @@ export function WorkspaceTabBar() {
                 <ContextMenuTrigger
                   role="button"
                   tabIndex={0}
+                  data-active={tab.id === activeTabId}
                   title={
                     connection
                       ? `${tab.title || 'Untitled'} (${connection.name})`

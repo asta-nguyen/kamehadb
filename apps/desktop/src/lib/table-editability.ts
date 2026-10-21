@@ -76,7 +76,9 @@ export function getQueryResultEditabilityState(input: {
 }): QueryResultEditabilityState {
   if (input.isReadOnly) {
     return {
-      ...getTableEditabilityState({ hasPrimaryKey: false, isReadOnly: true }),
+      canEditCells: false,
+      warningMessage: 'SQL query results are read-only.',
+      warningTone: 'info',
       tableId: null,
     };
   }

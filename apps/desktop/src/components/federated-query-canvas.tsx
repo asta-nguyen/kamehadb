@@ -18,7 +18,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Clock, Play, Loader2 } from 'lucide-react';
 
 export function FederatedQueryCanvas({ tab }: { readonly tab: Extract<WorkspaceTab, { type: 'federated-query' }> }) {
-  const [sql, setSql] = useState(tab.sql ?? 'SELECT * FROM ');
+  const [sql, setSql] = useState(tab.sql ?? '');
   const [selectedIds, setSelectedIds] = useState<readonly string[]>(tab.connectionIds);
   const [mergedResult, setMergedResult] = useState<QueryResult | null>(null);
   const [perConnectionErrors, setPerConnectionErrors] = useState<readonly PerConnectionResult[]>([]);

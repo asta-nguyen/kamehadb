@@ -76,7 +76,7 @@ const STATEMENT_STARTS = new Set([
  *    - "SELECT 1\n\n\nSELECT 2"              (blank lines, no semicolons)
  *    - Mixed: "SELECT 1;\n\nSELECT 2"
  */
-function splitSqlStatements(sql: string): string[] {
+export function splitSqlStatements(sql: string): string[] {
   const trimmed = sql.trim();
   if (!trimmed) return [];
 
@@ -403,10 +403,12 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { downloadResult, exportToJSON } from '@/lib/export';
 import { buildSqlCompletionEntries, type CompletionsData } from '@/lib/sql-autocomplete';
-import { updateTabAutoRun, updateTabSql } from '@/store';
+import { appStore, updateTabAutoRun, updateTabSql } from '@/store';
+import { useStore } from '@tanstack/react-store';
 import type { WorkspaceTab } from '@/lib/types';
 import type { QueryResult } from '@kamehadb/shared';
 import { KIND, type DbKind, isQuerySafe, safeErrorMessage } from '@kamehadb/shared';
+import { toastError } from '@/lib/toast';
 import { Spinner } from '@/components/ui/spinner';
 import { useConnections } from '@/hooks/use-connections';
 import {
@@ -484,7 +486,8 @@ function QueryResultTable({
     querySql: executedSql,
     resultColumns: result.columns,
     tableColumns,
-    isReadOnly: false,
+    // SQL editor query results stay read-only to match backend query safety rules. (Why)
+    isReadOnly: true,
   });
   const pkColumns = useMemo(
     () =>
@@ -540,6 +543,7 @@ function QueryResultTable({
           },
           onError: (error) => {
             console.error('Failed to update query result row:', error);
+            toastError(safeErrorMessage(error, 'Failed to update row'));
             onRefresh();
           },
         },
@@ -770,7 +774,7 @@ function QueryResultTable({
 }
 
 export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
-  const [sql, setSql] = useState('sql' in tab ? (tab.sql ?? 'SELECT * FROM ') : 'SELECT * FROM ');
+  const [sql, setSql] = useState('sql' in tab ? (tab.sql ?? '') : '');
   const [result, setResult] = useState<QueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCancelled, setIsCancelled] = useState(false);
@@ -804,15 +808,20 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
   const { data: connections } = useConnections();
   const targetConn = useMemo(() => connections?.find((c) => c.id === connectionId), [connections, connectionId]);
 
+  const activeTabId = useStore(appStore, (state) => state.activeTabId);
+  const isCurrentTab = activeTabId === tab.id;
+
   const handleCancel = useCallback(() => {
     isCancellingRef.current = true;
     runQuery.cancel();
   }, [runQuery.cancel]);
 
-  // Wire Escape key to cancel query while running. (How / Why / What)
+  // Wire Escape key to cancel query while running, but ignore if the tab is inactive
+  // or if an inner handler (like CodeMirror autocomplete dismissal) already handled Escape. (How / Why / What)
   useEffect(() => {
-    if (!runQuery.isPending && !isExecutingBatch) return;
+    if (!isCurrentTab || (!runQuery.isPending && !isExecutingBatch)) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         handleCancel();
@@ -820,7 +829,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [runQuery.isPending, isExecutingBatch, handleCancel]);
+  }, [isCurrentTab, runQuery.isPending, isExecutingBatch, handleCancel]);
 
   // The mutation hook cancels only its own jobs; clear displayed references on close.
   useEffect(() => {
@@ -835,13 +844,11 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
     return applyQueryLimit(sql, limit, offsetVal, targetConn?.kind as DbKind | undefined);
   }
 
-  // Build the full SQL with LIMIT / OFFSET and execute it.
-  // When the SQL contains multiple statements (separated by semicolons or
-  // blank-line keyword groups), each is executed individually and all results
-  // are shown in tabs. LIMIT is applied per individual statement so it never
-  // becomes a standalone "LIMIT N" query after splitting.
+  // Build and execute the SQL query batch, applying pagination and recording raw SQL in history.
+  // History logs the unadorned statement typed by the user rather than internal dialect LIMIT/OFFSET,
+  // and pagination navigations skip history recording to prevent noise. (How / Why / What)
   const executeQuery = useCallback(
-    async (querySql: string) => {
+    async (querySql: string, isPagination = false, pageOffset = 0, overrideLimit?: number) => {
       if (!querySql.trim()) return;
       setError(null);
       setIsCancelled(false);
@@ -872,12 +879,14 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         return;
       }
 
+      const activeLimit = overrideLimit ?? queryLimit;
+
       try {
         const allResults: QueryResult[] = [];
         for (let i = 0; i < statements.length; i++) {
-          // Apply LIMIT per individual statement so multi-statement SQL never
-          // produces a standalone "LIMIT N" after the split.
-          const stmt = queryWithLimit(statements[i], queryLimit);
+          // Apply LIMIT and optional OFFSET per individual statement so multi-statement SQL
+          // never produces a standalone "LIMIT N" after splitting. (How / Why / What)
+          const stmt = queryWithLimit(statements[i], activeLimit, pageOffset > 0 ? pageOffset : undefined);
           const safety = isQuerySafe(stmt);
           if (!safety.safe) {
             // Show results from statements that already executed before
@@ -897,8 +906,12 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
             setIsExecutingBatch(false);
             return;
           }
+          // Execute the rewritten query with dialect limit applied, but record the original
+          // user-typed statement in query history so history reflects what was actually typed. (How / Why / What)
           const res = await runQuery.mutateAsync({ query: stmt });
-          saveHistory.mutate({ query: stmt, durationMs: res.durationMs, rowCount: res.rowCount });
+          if (!isPagination) {
+            saveHistory.mutate({ query: statements[i], durationMs: res.durationMs, rowCount: res.rowCount });
+          }
           allResults.push(res);
         }
         resultKeyRef.current++;
@@ -1005,28 +1018,24 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       }
     }
     baseSqlRef.current = sqlToExecute;
-    const fullQuery = queryWithLimit(sqlToExecute, queryLimit);
-    void executeQuery(fullQuery);
-  }, [sql, executeQuery, queryLimit]);
+    void executeQuery(sqlToExecute, false, 0);
+  }, [sql, executeQuery]);
 
   const goNextPage = useCallback(() => {
     const newOffset = offset + queryLimit;
     setOffset(newOffset);
-    const fullQuery = queryWithLimit(baseSqlRef.current, queryLimit, newOffset);
-    void executeQuery(fullQuery);
+    void executeQuery(baseSqlRef.current, true, newOffset);
   }, [offset, queryLimit, executeQuery]);
 
   const goPrevPage = useCallback(() => {
     const newOffset = Math.max(0, offset - queryLimit);
     setOffset(newOffset);
-    const fullQuery = queryWithLimit(baseSqlRef.current, queryLimit, newOffset);
-    void executeQuery(fullQuery);
+    void executeQuery(baseSqlRef.current, true, newOffset);
   }, [offset, queryLimit, executeQuery]);
 
   const refreshCurrentResult = useCallback(() => {
-    const fullQuery = queryWithLimit(baseSqlRef.current, queryLimit, offset);
-    void executeQuery(fullQuery);
-  }, [executeQuery, offset, queryLimit]);
+    void executeQuery(baseSqlRef.current, true, offset);
+  }, [executeQuery, offset]);
 
   const handleChange = useCallback(
     (value: string) => {
@@ -1222,9 +1231,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                         setQueryLimit(newLimit);
                         setOffset(0);
                         const currentSql = sql.trim();
-                        if (currentSql) {
-                          const fullQuery = queryWithLimit(currentSql, newLimit);
-                          void executeQuery(fullQuery);
+                        if (baseSqlRef.current || currentSql) {
+                          void executeQuery(baseSqlRef.current || currentSql, true, 0, newLimit);
                         }
                       }}
                     />
@@ -1253,9 +1261,8 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                     setQueryLimit(newLimit);
                     setOffset(0);
                     const currentSql = sql.trim();
-                    if (currentSql) {
-                      const fullQuery = queryWithLimit(currentSql, newLimit);
-                      void executeQuery(fullQuery);
+                    if (baseSqlRef.current || currentSql) {
+                      void executeQuery(baseSqlRef.current || currentSql, true, 0, newLimit);
                     }
                   }}
                 />

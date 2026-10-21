@@ -178,7 +178,51 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 }
 
 func (a *Adapter) GetTableStats(ctx context.Context, table string) (*engines.TableStats, error) {
-	return request[*engines.TableStats](ctx, a, duckdriver.MethodStats, table)
+	stats, err := request[*engines.TableStats](ctx, a, duckdriver.MethodStats, table)
+	if err != nil {
+		return nil, err
+	}
+	if stats != nil && stats.TotalBytes == 0 && a.filePath != "" {
+		if fi, err := os.Stat(a.filePath); err == nil {
+			stats.TotalBytes = fi.Size()
+		}
+	}
+	return stats, nil
+}
+
+func (a *Adapter) GetDatabaseSizes(ctx context.Context, schema *string) ([]engines.DatabaseSize, error) {
+	var totalBytes int64
+	if a.filePath != "" {
+		if fi, err := os.Stat(a.filePath); err == nil {
+			totalBytes = fi.Size()
+		}
+	}
+	tables, err := a.ListTables(ctx, schema)
+	if err != nil || len(tables) == 0 {
+		return []engines.DatabaseSize{
+			{
+				Schema:     "main",
+				Table:      filepath.Base(a.filePath),
+				SizeBytes:  totalBytes,
+				TotalBytes: totalBytes,
+			},
+		}, nil
+	}
+	out := make([]engines.DatabaseSize, len(tables))
+	for i, t := range tables {
+		var rows int64
+		if t.RowEstimate != nil {
+			rows = *t.RowEstimate
+		}
+		out[i] = engines.DatabaseSize{
+			Schema:      t.Schema,
+			Table:       t.Name,
+			SizeBytes:   totalBytes,
+			TotalBytes:  totalBytes,
+			RowEstimate: rows,
+		}
+	}
+	return out, nil
 }
 
 // Background probes reuse only an already active child. They never install,

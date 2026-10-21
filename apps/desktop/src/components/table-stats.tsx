@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { BarChart3, Database, HardDrive, RefreshCw, Trash2, Activity, AlertTriangle } from 'lucide-react';
-import { useTableStats, useIndexStats } from '@/hooks/use-schema';
+import { useTableStats, useIndexStats, useTableIndexes } from '@/hooks/use-schema';
 
 type TableStatsProps = {
   connectionId: string;
@@ -13,6 +13,7 @@ type TableStatsProps = {
 export function TableStats({ connectionId, tableId }: TableStatsProps) {
   const { data: stats, isLoading, error } = useTableStats(connectionId, tableId);
   const { data: indexStats } = useIndexStats(connectionId, tableId);
+  const { data: indexes } = useTableIndexes(connectionId, tableId);
 
   if (isLoading) {
     return (
@@ -53,7 +54,9 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatBytes(stats.indexesBytes)}</div>
-            <p className="text-muted-foreground text-xs">{indexStats?.length || 0} indexes</p>
+            <p className="text-muted-foreground text-xs">
+              {indexStats && indexStats.length > 0 ? indexStats.length : (indexes?.length ?? 0)} indexes
+            </p>
           </CardContent>
         </Card>
 
@@ -164,9 +167,7 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow
-                  style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 100px 80px' }}
-                >
+                <TableRow className="grid-cols-[minmax(150px,2fr)_minmax(120px,2fr)_80px_60px_80px_100px_80px]">
                   <TableHead>Name</TableHead>
                   <TableHead>Columns</TableHead>
                   <TableHead>Size</TableHead>
@@ -177,54 +178,62 @@ export function TableStats({ connectionId, tableId }: TableStatsProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {indexStats.map((idx) => (
-                  <TableRow
-                    key={idx.name}
-                    style={{ gridTemplateColumns: 'minmax(150px, 2fr) minmax(120px, 2fr) 80px 60px 80px 100px 80px' }}
-                  >
-                    <TableCell className="min-w-0 text-sm font-mono truncate" title={idx.name}>
-                      {idx.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <div className="flex flex-wrap gap-1">
-                        {idx.columns.map((col) => (
-                          <Badge key={col} variant="outline" className="text-xs">
-                            {col}
+                {(() => {
+                  // Only label an index as "Unused" if other indexes on the table have telemetry;
+                  // if all scans are 0 (e.g. engine lacks telemetry or new table), display "—"
+                  // rather than misleading the user to drop valid indexes. (How / Why / What)
+                  const hasAnyScans = indexStats.some((i) => (i.scans ?? 0) > 0);
+                  return indexStats.map((idx) => (
+                    <TableRow
+                      key={idx.name}
+                      className="grid-cols-[minmax(150px,2fr)_minmax(120px,2fr)_80px_60px_80px_100px_80px]"
+                    >
+                      <TableCell className="min-w-0 text-sm font-mono truncate" title={idx.name}>
+                        {idx.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        <div className="flex flex-wrap gap-1">
+                          {idx.columns.map((col) => (
+                            <Badge key={col} variant="outline" className="text-xs">
+                              {col}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatBytes(idx.sizeBytes ?? 0)}</TableCell>
+                      <TableCell>{formatNumber(idx.scans ?? 0)}</TableCell>
+                      <TableCell>
+                        {(idx.scans ?? 0) > 0 ? (
+                          <span className={(idx.usagePercent ?? 0) < 10 ? 'text-destructive' : ''}>
+                            {(idx.usagePercent ?? 0).toFixed(1)}%
+                          </span>
+                        ) : hasAnyScans ? (
+                          <Badge variant="destructive" className="text-xs">
+                            Unused
                           </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatBytes(idx.sizeBytes ?? 0)}</TableCell>
-                    <TableCell>{formatNumber(idx.scans ?? 0)}</TableCell>
-                    <TableCell>
-                      {(idx.usagePercent ?? 0) > 0 ? (
-                        <span className={(idx.usagePercent ?? 0) < 10 ? 'text-destructive' : ''}>
-                          {(idx.usagePercent ?? 0).toFixed(1)}%
-                        </span>
-                      ) : (
-                        <Badge variant="destructive" className="text-xs">
-                          Unused
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {idx.method ? (
-                        <Badge variant="secondary">{idx.method}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {idx.primary ? (
-                        <Badge>PRIMARY</Badge>
-                      ) : idx.unique ? (
-                        <Badge variant="secondary">UNIQUE</Badge>
-                      ) : (
-                        <Badge variant="outline">INDEX</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {idx.method ? (
+                          <Badge variant="secondary">{idx.method}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {idx.primary ? (
+                          <Badge>PRIMARY</Badge>
+                        ) : idx.unique ? (
+                          <Badge variant="secondary">UNIQUE</Badge>
+                        ) : (
+                          <Badge variant="outline">INDEX</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ));
+                })()}
               </TableBody>
             </Table>
           </CardContent>

@@ -23,6 +23,27 @@ func TestRawMongoCommandsDisableAdaptiveReplay(t *testing.T) {
 	}
 }
 
+func TestNormalizeConnectionString(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"mongodb://localhost:27017", "mongodb://127.0.0.1:27017"},
+		{"mongodb://user:pass@localhost:27017/db", "mongodb://user:pass@127.0.0.1:27017/db"},
+		{"mongodb://localhost/test", "mongodb://127.0.0.1/test"},
+		{"mongodb://localhost", "mongodb://127.0.0.1"},
+		{"mongodb://localhost?authSource=admin", "mongodb://127.0.0.1?authSource=admin"},
+		{"mongodb://127.0.0.1:27017", "mongodb://127.0.0.1:27017"},
+		{"mongodb://remote-host.com:27017", "mongodb://remote-host.com:27017"},
+	}
+	for _, tc := range cases {
+		got := normalizeConnectionString(tc.input)
+		if got != tc.want {
+			t.Errorf("normalizeConnectionString(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
 func TestSanitizeFilterNormalizesID(t *testing.T) {
 	hexID := "661ef4b823e5a1b2c3d4e5f6"
 	sanitized := sanitizeFilter(map[string]any{"_id": hexID})

@@ -15,17 +15,22 @@ import type { WorkspaceTab } from '@/lib/types';
 /** Render the active tab from openedTabs via WorkspaceContent. Shared by the
  * federated-tab early return and the normal return path to avoid duplicating
  * the openedTabs.map → filter → WorkspaceContent markup. */
+// Keep opened tabs mounted so tab switching does not abort active queries or destroy editor state. (How / Why / What)
 function renderActiveTab(openedTabs: readonly WorkspaceTab[], activeTab: WorkspaceTab) {
   return (
     <div className="h-full">
-      {openedTabs.map(
-        (tab) =>
-          tab.id === activeTab.id && (
-            <div key={tab.id} className="h-full">
-              <WorkspaceContent activeTab={tab} />
-            </div>
-          ),
-      )}
+      {openedTabs.map((tab) => {
+        const isActive = tab.id === activeTab.id;
+        return (
+          <div
+            key={tab.id}
+            className={`h-full ${isActive ? '' : 'hidden'}`}
+            style={{ display: isActive ? undefined : 'none' }}
+          >
+            <WorkspaceContent activeTab={tab} isActive={isActive} />
+          </div>
+        );
+      })}
     </div>
   );
 }
