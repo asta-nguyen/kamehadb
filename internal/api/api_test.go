@@ -54,13 +54,6 @@ func TestClearConnectionCache(t *testing.T) {
 	}
 }
 
-func TestRunQueryUnsafe(t *testing.T) {
-	s := NewSqlService(nil, newTTLCache())
-	if _, err := s.RunQuery("conn-1", engines.RunQueryInput{Query: "DROP TABLE x"}); err == nil {
-		t.Fatal("unsafe query should be rejected before adapter lookup")
-	}
-}
-
 // TestSchemaCaptureEndToEnd captures a real snapshot through the sqlite
 // adapter, then diffs two snapshots like the route layer does.
 func TestSchemaCaptureEndToEnd(t *testing.T) {

@@ -338,6 +338,8 @@ EXECUTE FUNCTION notify_schema_change();`}</pre>
           {[...entries].reverse().map((entry: import('@kamehadb/shared').SchemaChangelogEntry, idx: number) => {
             const isLatest = idx === 0;
             const isFirst = idx === entries.length - 1;
+            // Default changes to empty array if null (initial snapshots serialized from Go have nil changes). (Why)
+            const changes = entry.changes ?? [];
             return (
               <Card key={entry.snapshotId} className={isLatest ? 'ring-1 ring-primary/20' : ''}>
                 <CardHeader>
@@ -349,21 +351,21 @@ EXECUTE FUNCTION notify_schema_change();`}</pre>
                         latest
                       </Badge>
                     )}
-                    {isFirst && entry.changes.length === 0 && (
+                    {isFirst && changes.length === 0 && (
                       <Badge variant="outline" className="text-[11px] h-4 px-1.5">
                         initial
                       </Badge>
                     )}
                     <SourceBadge source={snapshotSources.get(entry.snapshotId)} />
                     <span className="text-muted-foreground/60">
-                      {entry.changes.length} change{entry.changes.length !== 1 ? 's' : ''}
+                      {changes.length} change{changes.length !== 1 ? 's' : ''}
                     </span>
                   </CardTitle>
                 </CardHeader>
-                {entry.changes.length > 0 && (
+                {changes.length > 0 && (
                   <CardContent className="pt-0">
                     <div className="space-y-1">
-                      {entry.changes.map((change: import('@kamehadb/shared').SchemaChangeDescriptor, ci: number) => (
+                      {changes.map((change: import('@kamehadb/shared').SchemaChangeDescriptor, ci: number) => (
                         <div key={ci} className="flex items-start gap-2 text-sm py-0.5">
                           <ChangeIcon type={change.type} />
                           <span className="min-w-0 flex-1">

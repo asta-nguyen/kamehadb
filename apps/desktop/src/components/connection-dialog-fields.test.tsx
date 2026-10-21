@@ -89,4 +89,57 @@ describe('ConnectionDetailsSection Root CA', () => {
     await loadRootCACertificateFile({ text: async () => pem }, form);
     expect(setValue).toHaveBeenCalledWith('sslCaCert', pem, { shouldDirty: true });
   });
+
+  it('registers password field with name="password" so react-hook-form binds and autofills it', () => {
+    let formRef: UseFormReturn<CreateConnectionProfileInput> | undefined;
+    function Harness() {
+      const form = useForm<CreateConnectionProfileInput>({
+        defaultValues: { name: 'test', kind: KIND.POSTGRES, password: 'secretpassword' },
+      });
+      formRef = form;
+      const fileInputRef = useRef<HTMLInputElement>(null);
+      const rootCAInputRef = useRef<HTMLInputElement>(null);
+
+      return (
+        <ConnectionDetailsSection
+          form={form}
+          kind={KIND.POSTGRES}
+          onUrlChange={() => {}}
+          fileInputRef={fileInputRef}
+          rootCAInputRef={rootCAInputRef}
+          isEditing={false}
+        />
+      );
+    }
+    const html = renderToStaticMarkup(<Harness />);
+    expect(html).toContain('name="password"');
+    expect(formRef?.getValues('password')).toBe('secretpassword');
+  });
+
+  it('renders Database Index label and numeric placeholder 0 for Redis', () => {
+    let formRef: UseFormReturn<CreateConnectionProfileInput> | undefined;
+    function Harness() {
+      const form = useForm<CreateConnectionProfileInput>({
+        defaultValues: { name: 'redis-test', kind: KIND.REDIS, database: '1' },
+      });
+      formRef = form;
+      const fileInputRef = useRef<HTMLInputElement>(null);
+      const rootCAInputRef = useRef<HTMLInputElement>(null);
+
+      return (
+        <ConnectionDetailsSection
+          form={form}
+          kind={KIND.REDIS}
+          onUrlChange={() => {}}
+          fileInputRef={fileInputRef}
+          rootCAInputRef={rootCAInputRef}
+          isEditing={false}
+        />
+      );
+    }
+    const html = renderToStaticMarkup(<Harness />);
+    expect(html).toContain('Database Index');
+    expect(html).toContain('placeholder="0"');
+    expect(formRef?.getValues('database')).toBe('1');
+  });
 });

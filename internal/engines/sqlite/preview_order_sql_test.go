@@ -22,7 +22,7 @@ func TestPreviewOrderAppendsPrimaryKeyTiebreaker(t *testing.T) {
 		sort, dir string
 		want      string
 	}{
-		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "integer", PrimaryKey: true}, {Name: "name", Type: "text"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " ASC LIMIT"},
+		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "integer", PrimaryKey: true}, {Name: "name", Type: "text"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " DESC LIMIT"},
 		{"composite key without a sort", []engines.ColumnInfo{{Name: "a", Type: "integer", PrimaryKey: true}, {Name: "b", Type: "integer", PrimaryKey: true}, {Name: "c", Type: "text"}}, "", "", "ORDER BY " + q("a") + " ASC, " + q("b") + " ASC LIMIT"},
 		{"sort by one composite key column", []engines.ColumnInfo{{Name: "a", Type: "integer", PrimaryKey: true}, {Name: "b", Type: "integer", PrimaryKey: true}, {Name: "c", Type: "text"}}, "b", "", "ORDER BY " + q("b") + " ASC, " + q("a") + " ASC LIMIT"},
 		{"sort by the single key adds nothing", []engines.ColumnInfo{{Name: "id", Type: "integer", PrimaryKey: true}, {Name: "name", Type: "text"}}, "id", "desc", "ORDER BY " + q("id") + " DESC LIMIT"},
@@ -49,5 +49,32 @@ func TestPreviewOrderAppendsPrimaryKeyTiebreaker(t *testing.T) {
 				t.Fatalf("want %q in:\n%s", test.want, query)
 			}
 		})
+	}
+}
+
+func TestPreviewDeferredJoinLateRowLookup(t *testing.T) {
+	var query string
+	db := enginetest.DB(t, func(_ context.Context, sent string, _ []driver.NamedValue) (driver.Rows, error) {
+		query = sent
+		return &enginetest.Rows{Names: []string{"id", "name"}}, nil
+	})
+	a := &Adapter{db: db, previewScope: engines.NewPreviewScope(engines.KindSQLite)}
+	offset := int64(1000)
+	cols := []engines.ColumnInfo{
+		{Name: "id", Type: "integer", PrimaryKey: true},
+		{Name: "name", Type: "text"},
+	}
+	input := engines.PreviewRowsInput{
+		TableID: "users",
+		Offset:  &offset,
+	}
+	if _, err := a.PreviewRowsWithColumns(context.Background(), input, cols); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(query, "INNER JOIN") || !strings.Contains(query, "_kameha_sub") {
+		t.Fatalf("expected deferred join subquery, got: %s", query)
+	}
+	if !strings.Contains(query, "LIMIT ? OFFSET ?") {
+		t.Fatalf("expected LIMIT and OFFSET in subquery, got: %s", query)
 	}
 }

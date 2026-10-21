@@ -17,7 +17,7 @@ import (
 
 const (
 	testConnectTimeout = 5 * time.Second
-	defaultMemoryBytes = 64 << 20
+	defaultMemoryBytes = 512 << 20
 	defaultThreads     = 2
 	previewSourceAlias = "kameha_preview"
 )
@@ -32,6 +32,7 @@ func escVal(val string) string {
 
 type Adapter struct {
 	db           *sql.DB
+	filePath     string
 	ownedTempDir string
 	previewScope string
 }
@@ -51,7 +52,7 @@ func NewWithTempDir(ctx context.Context, filePath, tempDir string) (*Adapter, er
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	a := &Adapter{db: db, previewScope: engines.NewPreviewScope(engines.KindDuckDB)}
+	a := &Adapter{db: db, filePath: filePath, previewScope: engines.NewPreviewScope(engines.KindDuckDB)}
 	if tempDir == "" {
 		tempDir, err = os.MkdirTemp("", "kamehadb-duckdb-spill-*")
 		if err != nil {
@@ -443,9 +444,15 @@ func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.T
 		"SELECT COUNT(*) AS cnt FROM "+esc(schema)+"."+esc(table)).Scan(&cnt); err != nil {
 		return nil, err
 	}
+	var totalBytes int64
+	if a.filePath != "" {
+		if fi, err := os.Stat(a.filePath); err == nil {
+			totalBytes = fi.Size()
+		}
+	}
 	return &engines.TableStats{
 		TableID: tableID, Name: table, Schema: schema,
-		RowEstimate: cnt, NLiveTup: cnt,
+		RowEstimate: cnt, NLiveTup: cnt, TotalBytes: totalBytes,
 	}, nil
 }
 

@@ -12,8 +12,8 @@ func TestPreviewOrderBy(t *testing.T) {
 		sort, dir string
 		want      string
 	}{
-		{"non-key sort gets the key as tiebreaker", single, "name", "desc", `"name" DESC, "id" ASC`},
-		{"tiebreaker is always ascending", single, "name", "asc", `"name" ASC, "id" ASC`},
+		{"non-key sort gets the key as tiebreaker with matching direction", single, "name", "desc", `"name" DESC, "id" DESC`},
+		{"tiebreaker matches ascending direction", single, "name", "asc", `"name" ASC, "id" ASC`},
 		{"sorting by the only key adds nothing", single, "id", "desc", `"id" DESC`},
 		{"composite key orders by every key column", composite, "", "", `"a" ASC, "b" ASC`},
 		{"sorting by part of a composite key appends the rest", composite, "b", "", `"b" ASC, "a" ASC`},

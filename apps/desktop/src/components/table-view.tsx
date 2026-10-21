@@ -156,18 +156,53 @@ function formatDuration(ms: number | undefined): string {
   return `${Math.round(ms)}ms`;
 }
 
+// Retain table grid pagination, sort, search, and inner tab selection across
+// workspace tab switches so users don't lose page position or page size. (How / Why / What)
+type CachedTableState = {
+  grid?: DataGridState;
+  activeInnerTab?: string;
+};
+
+const tableStateCache = new Map<string, CachedTableState>();
+
+// Prune table state cache when tabs are closed.
+appStore.subscribe(() => {
+  const state = appStore.state;
+  const openKeys = new Set(
+    state.openedTabs.flatMap((tab) =>
+      tab.type === 'table' && 'connectionId' in tab ? [`${tab.connectionId}:${tab.title}`] : [],
+    ),
+  );
+  for (const key of tableStateCache.keys()) {
+    if (!openKeys.has(key)) {
+      tableStateCache.delete(key);
+    }
+  }
+});
+
 function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: string }) {
-  const [state, dispatch] = useReducer(dataGridReducer, {
-    navigation: INITIAL_PREVIEW_NAVIGATION,
-    pageSize: 50,
-    selectedRow: null,
-    searchText: '',
-    querySearch: '',
-    searchColumn: '',
-    matchCase: false,
-    sortColumn: '',
-    sortDirection: 'asc',
+  const cacheKey = `${connectionId}:${tableId}`;
+  const [state, dispatch] = useReducer(dataGridReducer, undefined, () => {
+    const cached = tableStateCache.get(cacheKey)?.grid;
+    return (
+      cached ?? {
+        navigation: INITIAL_PREVIEW_NAVIGATION,
+        pageSize: 50,
+        selectedRow: null,
+        searchText: '',
+        querySearch: '',
+        searchColumn: '',
+        matchCase: false,
+        sortColumn: '',
+        sortDirection: 'asc' as const,
+      }
+    );
   });
+
+  useEffect(() => {
+    const existing = tableStateCache.get(cacheKey);
+    tableStateCache.set(cacheKey, { ...existing, grid: state });
+  }, [cacheKey, state]);
   const debouncedSetSearch = useRef<ReturnType<typeof debounce<(v: string) => void>> | null>(null);
   if (debouncedSetSearch.current === null) {
     debouncedSetSearch.current = debounce(
@@ -220,6 +255,24 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
   const offset = state.navigation.position.offset;
   const page = state.navigation.pageIndex + 1;
   const pendingPage = isFetching || isPlaceholderData;
+
+  // Track the text in the jump-to-page input locally so typing multi-digit
+  // numbers doesn't jump prematurely on the first keystroke. (How / Why / What)
+  const [inputPage, setInputPage] = useState(String(page));
+  useEffect(() => {
+    setInputPage(String(page));
+  }, [page]);
+
+  const commitPage = () => {
+    const p = Number(inputPage);
+    const target = (p - 1) * state.pageSize;
+    if (Number.isSafeInteger(p) && p >= 1 && Number.isSafeInteger(target)) {
+      dispatch({ type: 'setOffset', value: target });
+    } else {
+      setInputPage(String(page));
+    }
+  };
+
   // Show the loading chip only when a fetch stays pending past a short delay,
   // so fast indexed sorts and cached pages never flash it. (Why)
   const [slowFetch, setSlowFetch] = useState(false);
@@ -281,6 +334,7 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
           },
           onError: (err) => {
             console.error('Failed to update row:', err);
+            toastError(err instanceof Error ? err.message : 'Failed to update row');
             queryClient.invalidateQueries({ queryKey: ['previewRows', connectionId, tableId] });
           },
         },
@@ -642,16 +696,16 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
                   <Input
                     type="number"
                     min={1}
-                    value={page}
+                    value={inputPage}
                     disabled={pendingPage}
                     aria-label="Jump to offset page"
-                    onChange={(e) => {
-                      const p = Number(e.target.value);
-                      const target = (p - 1) * state.pageSize;
-                      if (Number.isSafeInteger(p) && p >= 1 && Number.isSafeInteger(target)) {
-                        dispatch({ type: 'setOffset', value: target });
+                    onChange={(e) => setInputPage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        commitPage();
                       }
                     }}
+                    onBlur={commitPage}
                     className="h-7 w-14 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 )}
@@ -767,6 +821,15 @@ function DataGrid({ connectionId, tableId }: { connectionId: string; tableId: st
 }
 
 export function TableView({ connectionId, tableId }: TableViewProps) {
+  const cacheKey = `${connectionId}:${tableId}`;
+  const [innerTab, setInnerTab] = useState(() => tableStateCache.get(cacheKey)?.activeInnerTab ?? 'data');
+
+  const handleInnerTabChange = (val: string) => {
+    setInnerTab(val);
+    const existing = tableStateCache.get(cacheKey);
+    tableStateCache.set(cacheKey, { ...existing, activeInnerTab: val });
+  };
+
   const { data: connections, isLoading: isLoadingConnections } = useConnections();
   const connection = connections?.find((c) => c.id === connectionId);
   const { data: columns, error: columnsError, isError: isColumnsError } = useTableColumns(connectionId, tableId);
@@ -833,7 +896,11 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <Tabs defaultValue="data" className="flex-1 flex flex-col min-h-0 gap-0">
+      <Tabs
+        value={innerTab}
+        onValueChange={(val) => handleInnerTabChange(String(val))}
+        className="flex-1 flex flex-col min-h-0 gap-0"
+      >
         <div className="px-2 pt-2 shrink-0">
           <TabsList>
             <TabsTrigger value="data" className="text-xs">
@@ -865,18 +932,34 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
             <div className="border rounded-md">
               <Table className="text-xs">
                 <TableHeader>
-                  <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+                  <TableRow className="bg-muted/50 grid-cols-4 items-center">
                     <TableHead className="px-3 py-1.5">Name</TableHead>
                     <TableHead className="px-3 py-1.5">Type</TableHead>
                     <TableHead className="px-3 py-1.5">Nullable</TableHead>
                     <TableHead className="px-3 py-1.5">Default</TableHead>
-                    <TableHead className="px-3 py-1.5">Key</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {columns?.map((col) => (
-                    <TableRow key={col.name} style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
-                      <TableCell className="px-3 py-1.5 font-medium">{col.name}</TableCell>
+                    <TableRow key={col.name} className="grid-cols-4 items-center">
+                      <TableCell className="px-3 py-1.5 font-medium">
+                        <div className="flex items-center gap-1.5 leading-none">
+                          <span className="leading-none">{col.name}</span>
+                          {col.primaryKey && (
+                            <span
+                              title="Primary key"
+                              className="inline-flex items-center justify-center self-center leading-none"
+                            >
+                              <Key className="size-3 text-muted-foreground shrink-0" aria-label="Primary key" />
+                            </span>
+                          )}
+                          {col.foreignKey && (
+                            <span className="text-xs text-muted-foreground font-normal leading-none">
+                              &rarr; {col.foreignKey.table}({col.foreignKey.column})
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="px-3 py-1.5 text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                           <span>{col.type}</span>
@@ -890,16 +973,6 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
                       <TableCell className="px-3 py-1.5">{col.nullable ? 'YES' : 'NO'}</TableCell>
                       <TableCell className="px-3 py-1.5 text-muted-foreground font-mono text-xs">
                         {col.default ?? <span className="italic">null</span>}
-                      </TableCell>
-                      <TableCell className="px-3 py-1.5">
-                        <div className="flex items-center gap-1">
-                          {col.primaryKey && <Key className="size-3 text-muted-foreground" />}
-                          {col.foreignKey && (
-                            <span className="text-xs text-muted-foreground">
-                              &rarr; {col.foreignKey.table}({col.foreignKey.column})
-                            </span>
-                          )}
-                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -918,16 +991,16 @@ export function TableView({ connectionId, tableId }: TableViewProps) {
             <div className="border rounded-md">
               <Table className="text-xs">
                 <TableHeader>
-                  <TableRow className="bg-muted/50" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-                    <TableHead className="px-3 py-1.5">Name</TableHead>
-                    <TableHead className="px-3 py-1.5">Columns</TableHead>
-                    <TableHead className="px-3 py-1.5">Unique</TableHead>
-                    <TableHead className="px-3 py-1.5">Method</TableHead>
+                  <TableRow className="bg-muted/50 grid-cols-4">
+                    <TableHead className="px-3 py-1.5 whitespace-nowrap">Name</TableHead>
+                    <TableHead className="px-3 py-1.5 whitespace-nowrap">Columns</TableHead>
+                    <TableHead className="px-3 py-1.5 whitespace-nowrap">Unique</TableHead>
+                    <TableHead className="px-3 py-1.5 whitespace-nowrap">Method</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {indexes?.map((idx) => (
-                    <TableRow key={idx.name} style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+                    <TableRow key={idx.name} className="grid-cols-4">
                       <TableCell className="px-3 py-1.5 font-medium">
                         <div className="flex items-center gap-1">
                           {idx.primary && <Hash className="size-3 text-muted-foreground" />}

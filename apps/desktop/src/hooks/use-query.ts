@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 import { useGUIRequests } from './use-gui-requests';
 import { SQL_RESULT_GC_TIME_MS } from '@/lib/constants';
+import { appStore, setConnectionStatus } from '@/store';
 import type { QueryResult, RunQueryInput } from '@kamehadb/shared';
 import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 
@@ -28,6 +29,12 @@ export function useRunQuery(connectionId: string | null): RunQueryMutation {
       return requests.run((signal) => api.runQuery(connectionId, query, params, signal));
     },
     onSuccess: (_data, variables) => {
+      // If the connection was marked disconnected/reconnecting, a successful query proves
+      // the server is reachable and active; immediately recover the UI connection status. (Why / What)
+      if (connectionId && appStore.state.connectionStatus[connectionId] !== 'connected') {
+        setConnectionStatus(connectionId, 'connected');
+      }
+
       // Read-only queries (SELECT, WITH, etc.) don't change schema — skip invalidating metadata
       if (isReadOnlyQuery(variables.query)) return;
 

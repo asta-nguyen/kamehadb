@@ -36,11 +36,19 @@ type Adapter struct {
 	client *mongo.Client
 }
 
+var localhostRe = regexp.MustCompile(`(?i)(@|//)localhost([:/?,]|$)`)
+
+// normalizeConnectionString replaces localhost with 127.0.0.1 to avoid IPv6 (::1)
+// driver connection failures when MongoDB only listens on IPv4. (How / Why / What)
+func normalizeConnectionString(uri string) string {
+	return localhostRe.ReplaceAllString(uri, "${1}127.0.0.1${2}")
+}
+
 // RunCommand has no ordinary retry mode, but driver v2 also retries Atlas
 // overload labels. Override URI adaptive retries so an arbitrary write is not
 // replayed; ordinary safe-read retry behavior remains unchanged.
 func clientOptions(cfg Config) *options.ClientOptions {
-	return options.Client().ApplyURI(cfg.ConnectionString).
+	return options.Client().ApplyURI(normalizeConnectionString(cfg.ConnectionString)).
 		SetServerSelectionTimeout(serverSelectionTimeout).
 		SetMaxAdaptiveRetries(disabledAdaptiveRetries)
 }
@@ -49,6 +57,7 @@ func New(cfg Config) (*Adapter, error) {
 	if cfg.ConnectionString == "" {
 		return nil, errors.New("MongoDB connection string is required")
 	}
+	cfg.ConnectionString = normalizeConnectionString(cfg.ConnectionString)
 	client, err := mongo.Connect(clientOptions(cfg))
 	if err != nil {
 		return nil, err

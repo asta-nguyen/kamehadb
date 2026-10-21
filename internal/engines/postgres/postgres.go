@@ -55,16 +55,14 @@ func pgTypeName(oid uint32) string {
 	return "unknown"
 }
 
-// splitTableID takes the first two dot-separated parts, like TS split('.').
+// splitTableID separates schema and table name, defaulting schema to "public"
+// for unqualified table identifiers so queries return matching metadata. (How / Why / What)
 func splitTableID(tableID string) (schema, table string) {
 	parts := strings.Split(tableID, ".")
-	if len(parts) > 0 {
-		schema = parts[0]
-	}
 	if len(parts) > 1 {
-		table = parts[1]
+		return parts[0], parts[1]
 	}
-	return schema, table
+	return "public", tableID
 }
 
 func init() {
@@ -687,73 +685,101 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 		return nil, err
 	}
 	q := `"` + strings.ReplaceAll(schema, `"`, `""`) + `"."` + strings.ReplaceAll(table, `"`, `""`) + `"`
-	sql := `SELECT * FROM ` + q
-	var params []any
-
-	if input.Search != "" {
-		// Only search text-like columns — casting ints/dates/bools to text
-		// forces seq-scans (same filter list as the sidecar).
-		colRes, err := a.collect(ctx,
-			`SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND (data_type IN ('text', 'character varying', 'character', 'varchar', 'char', 'name', 'uuid') OR udt_name = 'citext') ORDER BY ordinal_position`,
-			[]any{schema, table}, 0)
-		if err != nil {
-			return nil, err
-		}
-		var targetCols []string
-		for _, r := range colRes.rows {
-			col := str(r, 0)
-			if input.SearchColumn != "" && col != input.SearchColumn {
-				continue
-			}
-			targetCols = append(targetCols, col)
-		}
-		if len(targetCols) > 0 {
-			clauses := make([]string, len(targetCols))
-			op := `::text ILIKE $`
-			if input.MatchCase {
-				op = `::text LIKE $`
-			}
-			for i, col := range targetCols {
-				clauses[i] = engines.QuoteIdentifier(engines.KindPostgres, col) + op + fmt.Sprint(len(params)+1)
-				params = append(params, "%"+input.Search+"%")
-			}
-			sql += ` WHERE (` + strings.Join(clauses, ` OR `) + `)`
-		} else {
-			sql += ` WHERE 1 = 0`
-		}
-	}
-
-	if seek && input.Cursor != "" {
-		value, err := engines.DecodePreviewCursor(input, *key)
-		if err != nil {
-			return nil, err
-		}
-		params = append(params, value)
-		op := ">"
-		if input.SortDirection == "desc" {
-			op = "<"
-		}
-		clause := engines.QuoteIdentifier(engines.KindPostgres, key.Name) + " " + op + fmt.Sprintf(" $%d", len(params))
-		if input.Search != "" {
-			sql += " AND " + clause
-		} else {
-			sql += " WHERE " + clause
-		}
-	}
 	orderColumn := input.SortColumn
 	if orderColumn == "" && key != nil {
 		orderColumn = key.Name
 	}
 	// The key follows the sort column so OFFSET pages stay exact when values tie.
 	quote := func(name string) string { return engines.QuoteIdentifier(engines.KindPostgres, name) }
-	if orderBy := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, quote); orderBy != "" {
-		sql += ` ORDER BY ` + orderBy
-	}
-	params = append(params, limit+1)
-	sql += fmt.Sprintf(` LIMIT $%d`, len(params))
-	if !seek {
-		params = append(params, offset)
-		sql += fmt.Sprintf(` OFFSET $%d`, len(params))
+
+	// For deep offset pagination with a single primary key and no full-table text search,
+	// use a deferred join (late row lookup). The subquery scans only the primary key index
+	// to skip the offset pages without deserializing full table row data from disk, then
+	// joins back to retrieve complete columns only for the selected page rows. (How / Why / What)
+	useDeferredJoin := !seek && offset > 0 && key != nil && input.Search == ""
+
+	var sql string
+	var params []any
+
+	if useDeferredJoin {
+		innerOrder := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, quote)
+		outerOrder := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, func(name string) string {
+			return `_kameha_t.` + quote(name)
+		})
+
+		pkCol := quote(key.Name)
+		sql = `SELECT _kameha_t.* FROM ` + q + ` AS _kameha_t JOIN (SELECT ` + pkCol + ` AS _kameha_pk FROM ` + q
+		if innerOrder != "" {
+			sql += ` ORDER BY ` + innerOrder
+		}
+		params = append(params, limit+1, offset)
+		sql += fmt.Sprintf(` LIMIT $1 OFFSET $2) AS _kameha_sub ON _kameha_t.%s = _kameha_sub._kameha_pk`, pkCol)
+		if outerOrder != "" {
+			sql += ` ORDER BY ` + outerOrder
+		}
+	} else {
+		sql = `SELECT * FROM ` + q
+
+		if input.Search != "" {
+			// Only search text-like columns — casting ints/dates/bools to text
+			// forces seq-scans (same filter list as the sidecar).
+			colRes, err := a.collect(ctx,
+				`SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND (data_type IN ('text', 'character varying', 'character', 'varchar', 'char', 'name', 'uuid') OR udt_name = 'citext') ORDER BY ordinal_position`,
+				[]any{schema, table}, 0)
+			if err != nil {
+				return nil, err
+			}
+			var targetCols []string
+			for _, r := range colRes.rows {
+				col := str(r, 0)
+				if input.SearchColumn != "" && col != input.SearchColumn {
+					continue
+				}
+				targetCols = append(targetCols, col)
+			}
+			if len(targetCols) > 0 {
+				clauses := make([]string, len(targetCols))
+				op := `::text ILIKE $`
+				if input.MatchCase {
+					op = `::text LIKE $`
+				}
+				for i, col := range targetCols {
+					clauses[i] = engines.QuoteIdentifier(engines.KindPostgres, col) + op + fmt.Sprint(len(params)+1)
+					params = append(params, "%"+input.Search+"%")
+				}
+				sql += ` WHERE (` + strings.Join(clauses, ` OR `) + `)`
+			} else {
+				sql += ` WHERE 1 = 0`
+			}
+		}
+
+		if seek && input.Cursor != "" {
+			value, err := engines.DecodePreviewCursor(input, *key)
+			if err != nil {
+				return nil, err
+			}
+			params = append(params, value)
+			op := ">"
+			if input.SortDirection == "desc" {
+				op = "<"
+			}
+			clause := engines.QuoteIdentifier(engines.KindPostgres, key.Name) + " " + op + fmt.Sprintf(" $%d", len(params))
+			if input.Search != "" {
+				sql += " AND " + clause
+			} else {
+				sql += " WHERE " + clause
+			}
+		}
+
+		if orderBy := engines.PreviewOrderBy(columns, orderColumn, input.SortDirection, quote); orderBy != "" {
+			sql += ` ORDER BY ` + orderBy
+		}
+		params = append(params, limit+1)
+		sql += fmt.Sprintf(` LIMIT $%d`, len(params))
+		if !seek {
+			params = append(params, offset)
+			sql += fmt.Sprintf(` OFFSET $%d`, len(params))
+		}
 	}
 
 	res, err := a.collect(ctx, sql, params, limit, budget)

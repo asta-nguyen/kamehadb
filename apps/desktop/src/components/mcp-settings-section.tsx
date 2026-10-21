@@ -7,6 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { isMcpSupportedKind, KIND, MCP_MANAGED_ACCOUNT_STATE, type McpManagedAccountStatus } from '@kamehadb/shared';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useConnections } from '@/hooks/use-connections';
@@ -120,6 +129,13 @@ export function McpSettingsSection() {
   const [portDraft, setPortDraft] = useState('');
   const [view, setView] = useState<McpView>('settings');
   const [clientLabel, setClientLabel] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    variant?: 'default' | 'destructive';
+    onConfirm: () => void;
+  } | null>(null);
 
   // Keep the editable port in sync with the persisted value without clobbering
   // in-progress typing after an unrelated refetch.
@@ -276,7 +292,13 @@ export function McpSettingsSection() {
                               const message = cleanupPending
                                 ? `Retry local cleanup for “${profile.database ?? profile.name}”? Its database account is already revoked.`
                                 : `Revoke the managed database account for “${profile.database ?? profile.name}”?`;
-                              if (window.confirm(message)) revokeAccount.mutate(profile.id);
+                              setConfirmDialog({
+                                title: cleanupPending ? 'Retry Cleanup' : 'Revoke Account',
+                                description: message,
+                                confirmLabel: cleanupPending ? 'Retry cleanup' : 'Revoke',
+                                variant: 'destructive',
+                                onConfirm: () => revokeAccount.mutate(profile.id),
+                              });
                             }}
                             disabled={revokeAccount.isPending}
                           >
@@ -290,13 +312,12 @@ export function McpSettingsSection() {
                             size="sm"
                             onClick={() => {
                               const database = profile.database ?? 'the selected database';
-                              if (
-                                window.confirm(
-                                  `Create a dedicated read-only account with access to ${database}? KamehaDB will use this profile’s saved credentials only to create and revoke that account.`,
-                                )
-                              ) {
-                                createAccount.mutate(profile.id);
-                              }
+                              setConfirmDialog({
+                                title: 'Create Read-Only Account',
+                                description: `Create a dedicated read-only account with access to ${database}? KamehaDB will use this profile’s saved credentials only to create and revoke that account.`,
+                                confirmLabel: 'Create Account',
+                                onConfirm: () => createAccount.mutate(profile.id),
+                              });
                             }}
                             disabled={createAccount.isPending || !profile.database}
                           >
@@ -373,7 +394,13 @@ export function McpSettingsSection() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    if (window.confirm('Clear all saved MCP call history?')) clearHistory.mutate();
+                    setConfirmDialog({
+                      title: 'Clear History',
+                      description: 'Clear all saved MCP call history?',
+                      confirmLabel: 'Clear history',
+                      variant: 'destructive',
+                      onConfirm: () => clearHistory.mutate(),
+                    });
                   }}
                   disabled={clearHistory.isPending || historyEntries.length === 0}
                 >
@@ -420,6 +447,29 @@ export function McpSettingsSection() {
           </div>
         </>
       )}
+
+      <Dialog open={confirmDialog !== null} onOpenChange={(open) => !open && setConfirmDialog(null)}>
+        {confirmDialog && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{confirmDialog.title}</DialogTitle>
+              <DialogDescription>{confirmDialog.description}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+              <Button
+                variant={confirmDialog.variant ?? 'default'}
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(null);
+                }}
+              >
+                {confirmDialog.confirmLabel ?? 'Confirm'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }

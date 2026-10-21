@@ -4,6 +4,7 @@ import {
 } from '@kamehadb/shared';
 
 export const PAGE_LIMIT = 20;
+export const REDIS_SCAN_BATCH_SIZE = 100;
 
 export const SCHEMA_CACHE_TIME = SHARED_SCHEMA_CACHE_TIME;
 export const STATS_CACHE_TIME = SHARED_STATS_CACHE_TIME;
@@ -22,6 +23,8 @@ export const PREVIEW_HEAP_BYTES_PER_ROW = 128;
 
 export const TOAST_AUTO_HIDE_MS = 5 * 1000;
 export const AUTO_TEST_DEBOUNCE_MS = 500;
+export const CONNECTION_RETRY_INTERVAL_MS = 5 * 1000;
+export const CONNECTION_RECONNECT_TIMEOUT_MS = 5 * 1000;
 // Native-style overlay bars fade when idle; this is that idle delay. (Why)
 export const SCROLLBAR_AUTO_HIDE_MS = 2 * 1000;
 // Delay before the table view shows its refetch spinner, so fast sorts and

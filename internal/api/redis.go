@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/asta-nguyen/kamehadb/internal/engines"
@@ -64,7 +65,7 @@ func (s *RedisService) adapterForContext(ctx context.Context, connectionID strin
 		Port:     int64Of(p.Port),
 		Password: password,
 	}
-	if db := strOf(p.Database); db != "" {
+	if db := strings.Trim(strOf(p.Database), "/"); db != "" {
 		if n, err := strconv.Atoi(db); err == nil && n >= 0 {
 			cfg.Database = n
 		}

@@ -482,27 +482,87 @@ func (a *Adapter) RunQuery(ctx context.Context, input engines.RunQueryInput) (*e
 
 func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.TableStats, error) {
 	owner, table := splitTableID(a.username, tableID)
-	var numRows, tableBytes, indexBytes sql.NullInt64
+	var numRows, tableBytes, indexBytes, lobBytes sql.NullInt64
 	err := a.db.QueryRowContext(ctx,
 		`SELECT
 		  (SELECT num_rows FROM all_tables WHERE owner = :owner AND table_name = :tbl) AS num_rows,
-		  (SELECT NVL(SUM(bytes), 0) FROM user_segments WHERE segment_name = :tbl AND segment_type = 'TABLE') AS table_bytes,
+		  (SELECT NVL(SUM(bytes), 0) FROM user_segments WHERE segment_name = :tbl AND segment_type LIKE 'TABLE%') AS table_bytes,
 		  (SELECT NVL(SUM(s.bytes), 0) FROM user_segments s
 		   JOIN user_indexes ix ON s.segment_name = ix.index_name
-		   WHERE ix.table_name = :tbl) AS index_bytes
+		   WHERE ix.table_name = :tbl) AS index_bytes,
+		  (SELECT NVL(SUM(s.bytes), 0) FROM user_segments s
+		   JOIN user_lobs l ON s.segment_name = l.segment_name OR s.segment_name = l.index_name
+		   WHERE l.table_name = :tbl) AS lob_bytes
 		FROM dual`,
-		sql.Named("owner", owner), sql.Named("tbl", table)).Scan(&numRows, &tableBytes, &indexBytes)
+		sql.Named("owner", owner), sql.Named("tbl", table)).Scan(&numRows, &tableBytes, &indexBytes, &lobBytes)
 	if err != nil {
 		return nil, err
 	}
+	rowCount := numRows.Int64
+	if !numRows.Valid {
+		// When DBMS_STATS has never been gathered on an Oracle table, all_tables.num_rows is NULL.
+		// Fall back to a COUNT(1) query so fresh tables report live rows before analysis. (How / Why / What)
+		quote := func(name string) string { return engines.QuoteIdentifier(engines.KindOracle, name) }
+		tblRef := quote(owner) + "." + quote(table)
+		var cnt int64
+		if err := a.db.QueryRowContext(ctx, "SELECT COUNT(1) FROM "+tblRef).Scan(&cnt); err == nil {
+			rowCount = cnt
+		}
+	}
+	// TotalBytes sums data, index, and LOB segment allocations matching Postgres and MySQL conventions. (How / Why / What)
+	totalBytes := tableBytes.Int64 + indexBytes.Int64 + lobBytes.Int64
 	return &engines.TableStats{
 		TableID: tableID, Name: table, Schema: owner,
-		RowEstimate:  numRows.Int64,
-		TotalBytes:   tableBytes.Int64,
+		RowEstimate:  rowCount,
+		TotalBytes:   totalBytes,
 		IndexesBytes: indexBytes.Int64,
-		NLiveTup:     numRows.Int64,
+		NLiveTup:     rowCount,
 	}, nil
 }
+
+// GetIndexStats queries user_segments to retrieve per-index byte sizes. (How / Why / What)
+func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.IndexStats, error) {
+	_, table := splitTableID(a.username, tableID)
+	indexes, err := a.GetTableIndexes(ctx, tableID)
+	if err != nil {
+		return nil, err
+	}
+	sizes := map[string]int64{}
+	rows, err := a.db.QueryContext(ctx, `
+		SELECT ix.index_name, NVL(SUM(s.bytes), 0)
+		FROM user_indexes ix
+		LEFT JOIN user_segments s ON s.segment_name = ix.index_name
+		WHERE ix.table_name = :tbl
+		GROUP BY ix.index_name`, sql.Named("tbl", table))
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			var sz int64
+			if err := rows.Scan(&name, &sz); err == nil {
+				sizes[name] = sz
+			}
+		}
+	}
+	out := make([]engines.IndexStats, len(indexes))
+	for i, idx := range indexes {
+		out[i] = engines.IndexStats{
+			Name:      idx.Name,
+			Table:     tableID,
+			Columns:   idx.Columns,
+			Unique:    idx.Unique,
+			Primary:   idx.Primary,
+			SizeBytes: sizes[idx.Name],
+		}
+	}
+	return out, nil
+}
+
+var (
+	_ engines.SQLAdapter   = (*Adapter)(nil)
+	_ engines.TableStatser = (*Adapter)(nil)
+	_ engines.IndexStatser = (*Adapter)(nil)
+)
 
 func (a *Adapter) Close() error {
 	return a.db.Close()

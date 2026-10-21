@@ -65,7 +65,7 @@ function mongoQueryReducer(state: MongoQueryState, action: MongoQueryAction): Mo
     case 'finishRun':
       return { ...state, result: action.result, page: action.page, running: false };
     case 'failRun':
-      return { ...state, error: action.error, running: false };
+      return { ...state, error: action.error, result: null, running: false };
     case 'endRun':
       return { ...state, running: false };
     case 'setPage':
@@ -252,7 +252,13 @@ function AggregationResult({
 
   return (
     <>
-      {columns.length > 0 && (
+      {result.documents.length === 0 ? (
+        <div className="py-12 text-center text-sm text-muted-foreground border border-dashed border-border rounded-md">
+          {result.hasMore || result.limitReason === 'bytes'
+            ? 'First document exceeds preview size limit (2 MB). Project fewer fields or use a more specific filter.'
+            : 'No documents matched the pipeline'}
+        </div>
+      ) : (
         <div className="flex-1 min-h-0 flex flex-col border bg-background">
           <div className="flex-1 min-h-0 overflow-auto">
             <DataTable
@@ -274,8 +280,8 @@ function AggregationResult({
             : `${page * PAGE_LIMIT + result.documents.length}${result.hasMore ? '+' : ''} documents`}
         </span>
         {result.hasMore && (
-          <Badge variant="outline" className="text-xs">
-            Truncated
+          <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 dark:text-amber-400">
+            {result.limitReason === 'bytes' ? 'Truncated (2MB budget)' : 'Truncated'}
           </Badge>
         )}
       </div>
@@ -417,9 +423,9 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
   });
 
   const { data: completionsData } = useQuery({
-    queryKey: QUERY_KEYS.MONGO_COMPLETIONS(connectionId),
-    queryFn: () => api.getMongoCompletions(connectionId),
-    enabled: !!connectionId,
+    queryKey: [...QUERY_KEYS.MONGO_COMPLETIONS(connectionId), state.db],
+    queryFn: () => api.getMongoCompletions(connectionId, state.db),
+    enabled: !!connectionId && !!state.db,
     staleTime: 5 * 60 * 1000,
   });
 

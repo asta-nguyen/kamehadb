@@ -34,7 +34,7 @@ export function openNewQueryTab(connectionId: string, sql?: string, shouldAutoRu
     type: 'query',
     title: `Query ${tabCount + 1}`,
     connectionId,
-    sql: sql ?? 'SELECT * FROM ',
+    sql: sql ?? '',
     autoRun: shouldAutoRun,
   });
 }

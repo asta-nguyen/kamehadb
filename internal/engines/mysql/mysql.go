@@ -456,59 +456,85 @@ func (a *Adapter) PreviewRowsWithColumns(ctx context.Context, input engines.Prev
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	budget := engines.NewResultBudget(parent, cancel, limit, engines.MaxPreviewResultBytes)
-	var sb strings.Builder
-	var params []any
-	sb.WriteString("SELECT * FROM " + a.esc(schema) + "." + a.esc(table))
-	if input.Search != "" {
-		var clauses []string
-		for _, col := range columns {
-			if input.SearchColumn != "" && col.Name != input.SearchColumn {
-				continue
-			}
-			clause := a.esc(col.Name) + " LIKE ?"
-			if input.MatchCase {
-				clause = "BINARY " + clause
-			}
-			clauses = append(clauses, clause)
-			params = append(params, "%"+input.Search+"%")
-		}
-		if len(clauses) > 0 {
-			sb.WriteString(" WHERE (" + strings.Join(clauses, " OR ") + ")")
-		} else {
-			sb.WriteString(" WHERE 1 = 0")
-		}
-	}
-	if seek && input.Cursor != "" {
-		value, err := engines.DecodePreviewCursor(input, *key)
-		if err != nil {
-			return nil, err
-		}
-		if input.Search != "" {
-			sb.WriteString(" AND ")
-		} else {
-			sb.WriteString(" WHERE ")
-		}
-		sb.WriteString(a.esc(key.Name))
-		if input.SortDirection == "desc" {
-			sb.WriteString(" < ?")
-		} else {
-			sb.WriteString(" > ?")
-		}
-		params = append(params, value)
-	}
 	order := input.SortColumn
 	if order == "" && key != nil {
 		order = key.Name
 	}
-	// The key follows the sort column so OFFSET pages stay exact when values tie.
-	if orderBy := engines.PreviewOrderBy(columns, order, input.SortDirection, a.esc); orderBy != "" {
-		sb.WriteString(" ORDER BY " + orderBy)
-	}
-	sb.WriteString(" LIMIT ?")
-	params = append(params, limit+1)
-	if !seek {
-		sb.WriteString(" OFFSET ?")
-		params = append(params, offset)
+
+	// For deep offset pagination with a single primary key and no full-table text search,
+	// use a deferred join (late row lookup). The subquery scans only the primary key index
+	// to skip the offset pages without deserializing full table row data from disk, then
+	// joins back to retrieve complete columns only for the selected page rows. (How / Why / What)
+	useDeferredJoin := !seek && offset > 0 && key != nil && input.Search == ""
+
+	var sb strings.Builder
+	var params []any
+
+	if useDeferredJoin {
+		tbl := a.esc(schema) + "." + a.esc(table)
+		innerOrder := engines.PreviewOrderBy(columns, order, input.SortDirection, a.esc)
+		outerOrder := engines.PreviewOrderBy(columns, order, input.SortDirection, func(name string) string {
+			return "_kameha_t." + a.esc(name)
+		})
+
+		sb.WriteString("SELECT _kameha_t.* FROM " + tbl + " AS _kameha_t INNER JOIN (SELECT " + a.esc(key.Name) + " AS _kameha_pk FROM " + tbl)
+		if innerOrder != "" {
+			sb.WriteString(" ORDER BY " + innerOrder)
+		}
+		sb.WriteString(" LIMIT ? OFFSET ?) AS _kameha_sub ON _kameha_t." + a.esc(key.Name) + " = _kameha_sub._kameha_pk")
+		if outerOrder != "" {
+			sb.WriteString(" ORDER BY " + outerOrder)
+		}
+		params = append(params, limit+1, offset)
+	} else {
+		sb.WriteString("SELECT * FROM " + a.esc(schema) + "." + a.esc(table))
+		if input.Search != "" {
+			var clauses []string
+			for _, col := range columns {
+				if input.SearchColumn != "" && col.Name != input.SearchColumn {
+					continue
+				}
+				clause := a.esc(col.Name) + " LIKE ?"
+				if input.MatchCase {
+					clause = "BINARY " + clause
+				}
+				clauses = append(clauses, clause)
+				params = append(params, "%"+input.Search+"%")
+			}
+			if len(clauses) > 0 {
+				sb.WriteString(" WHERE (" + strings.Join(clauses, " OR ") + ")")
+			} else {
+				sb.WriteString(" WHERE 1 = 0")
+			}
+		}
+		if seek && input.Cursor != "" {
+			value, err := engines.DecodePreviewCursor(input, *key)
+			if err != nil {
+				return nil, err
+			}
+			if input.Search != "" {
+				sb.WriteString(" AND ")
+			} else {
+				sb.WriteString(" WHERE ")
+			}
+			sb.WriteString(a.esc(key.Name))
+			if input.SortDirection == "desc" {
+				sb.WriteString(" < ?")
+			} else {
+				sb.WriteString(" > ?")
+			}
+			params = append(params, value)
+		}
+		// The key follows the sort column so OFFSET pages stay exact when values tie.
+		if orderBy := engines.PreviewOrderBy(columns, order, input.SortDirection, a.esc); orderBy != "" {
+			sb.WriteString(" ORDER BY " + orderBy)
+		}
+		sb.WriteString(" LIMIT ?")
+		params = append(params, limit+1)
+		if !seek {
+			sb.WriteString(" OFFSET ?")
+			params = append(params, offset)
+		}
 	}
 	rows, err := a.db.QueryContext(ctx, sb.String(), params...)
 	if err != nil {
@@ -760,7 +786,86 @@ func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.
 		}
 		idx.Columns = append(idx.Columns, col)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Enrich with index scan stats from performance_schema when enabled and permitted.
+	// We run this as a best-effort query; if performance_schema is disabled or inaccessible,
+	// we silently proceed so index metadata remains available. (How / Why / What)
+	pRows, pErr := a.db.QueryContext(ctx,
+		`SELECT
+		  INDEX_NAME,
+		  COUNT_STAR,
+		  COUNT_READ
+		FROM performance_schema.table_io_waits_summary_by_index_usage
+		WHERE OBJECT_SCHEMA = ? AND OBJECT_NAME = ? AND INDEX_NAME IS NOT NULL`,
+		schema, table)
+	if pErr == nil {
+		defer pRows.Close()
+		var totalScans int64
+		for pRows.Next() {
+			var idxName string
+			var countStar, countRead int64
+			if err := pRows.Scan(&idxName, &countStar, &countRead); err == nil {
+				if idx, ok := byName[idxName]; ok {
+					idx.Scans = countStar
+					idx.Reads = countRead
+					totalScans += countStar
+				}
+			}
+		}
+		if totalScans > 0 {
+			for i := range out {
+				out[i].UsagePercent = (float64(out[i].Scans) / float64(totalScans)) * 100.0
+			}
+		}
+	}
+
+	// In MySQL/InnoDB, per-index physical byte sizes are tracked in mysql.innodb_index_stats.
+	// We query it best-effort; if inaccessible or absent, we fall back to information_schema.TABLES
+	// so the primary clustered index size reflects the table's DATA_LENGTH. (How / Why / What)
+	sRows, sErr := a.db.QueryContext(ctx,
+		`SELECT index_name, stat_value * @@innodb_page_size
+		FROM mysql.innodb_index_stats
+		WHERE database_name = ? AND table_name = ? AND stat_name = 'size'`,
+		schema, table)
+	hasInnoDBIndexSizes := false
+	if sErr == nil {
+		defer sRows.Close()
+		for sRows.Next() {
+			var idxName string
+			var sizeBytes int64
+			if err := sRows.Scan(&idxName, &sizeBytes); err == nil {
+				if idx, ok := byName[idxName]; ok {
+					idx.SizeBytes = sizeBytes
+					hasInnoDBIndexSizes = true
+				}
+			}
+		}
+	}
+	if !hasInnoDBIndexSizes {
+		var dataLength, indexLength sql.NullInt64
+		if err := a.db.QueryRowContext(ctx,
+			`SELECT DATA_LENGTH, INDEX_LENGTH
+			FROM information_schema.TABLES
+			WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`,
+			schema, table).Scan(&dataLength, &indexLength); err == nil {
+			if pk, ok := byName["PRIMARY"]; ok && dataLength.Valid {
+				pk.SizeBytes = dataLength.Int64
+			}
+			// If there is exactly one secondary index, its size equals INDEX_LENGTH.
+			if len(out) == 2 && indexLength.Valid {
+				for i := range out {
+					if !out[i].Primary {
+						out[i].SizeBytes = indexLength.Int64
+					}
+				}
+			}
+		}
+	}
+
+	return out, nil
 }
 
 func (a *Adapter) GetDatabaseSizes(ctx context.Context, schema *string) ([]engines.DatabaseSize, error) {

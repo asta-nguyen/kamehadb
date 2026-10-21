@@ -5,6 +5,7 @@ package sqlserver
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -548,7 +549,97 @@ func (a *Adapter) RunQueryBounded(ctx context.Context, input engines.BoundedQuer
 	}, nil
 }
 
-var _ engines.BoundedReader = (*Adapter)(nil)
+// GetTableStats queries sys.tables, sys.partitions, and sys.allocation_units
+// to calculate row estimate, total bytes, and index bytes. (How / Why / What)
+func (a *Adapter) GetTableStats(ctx context.Context, tableID string) (*engines.TableStats, error) {
+	schema, table := splitTableID(tableID)
+	ctx2, cancel := a.queryCtx(ctx)
+	defer cancel()
+
+	row := a.db.QueryRowContext(ctx2, `
+		SELECT
+		  COALESCE(SUM(CASE WHEN i.index_id IN (0, 1) THEN p.rows ELSE 0 END), 0) AS row_count,
+		  COALESCE(SUM(a.total_pages), 0) * 8192 AS total_bytes,
+		  COALESCE(SUM(CASE WHEN i.index_id > 1 THEN a.used_pages ELSE 0 END), 0) * 8192 AS index_bytes
+		FROM sys.tables t
+		JOIN sys.schemas s ON t.schema_id = s.schema_id
+		JOIN sys.indexes i ON t.object_id = i.object_id
+		JOIN sys.partitions p ON i.object_id = p.object_id AND i.index_id = p.index_id
+		JOIN sys.allocation_units a ON p.partition_id = a.container_id
+		WHERE s.name = @p1 AND t.name = @p2`, schema, table)
+
+	var rowCount, totalBytes, indexBytes int64
+	if err := row.Scan(&rowCount, &totalBytes, &indexBytes); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &engines.TableStats{TableID: tableID, Name: table, Schema: schema}, nil
+		}
+		return nil, err
+	}
+
+	return &engines.TableStats{
+		TableID:      tableID,
+		Name:         table,
+		Schema:       schema,
+		RowEstimate:  rowCount,
+		TotalBytes:   totalBytes,
+		IndexesBytes: indexBytes,
+		NLiveTup:     rowCount,
+	}, nil
+}
+
+// GetIndexStats queries sys.allocation_units to retrieve per-index byte sizes. (How / Why / What)
+func (a *Adapter) GetIndexStats(ctx context.Context, tableID string) ([]engines.IndexStats, error) {
+	schema, table := splitTableID(tableID)
+	indexes, err := a.GetTableIndexes(ctx, tableID)
+	if err != nil {
+		return nil, err
+	}
+	ctx2, cancel := a.queryCtx(ctx)
+	defer cancel()
+
+	sizes := map[string]int64{}
+	rows, err := a.db.QueryContext(ctx2, `
+		SELECT
+		  i.name,
+		  COALESCE(SUM(a.used_pages), 0) * 8192 AS size_bytes
+		FROM sys.tables t
+		JOIN sys.schemas s ON t.schema_id = s.schema_id
+		JOIN sys.indexes i ON t.object_id = i.object_id
+		JOIN sys.partitions p ON i.object_id = p.object_id AND i.index_id = p.index_id
+		JOIN sys.allocation_units a ON p.partition_id = a.container_id
+		WHERE s.name = @p1 AND t.name = @p2 AND i.name IS NOT NULL
+		GROUP BY i.name`, schema, table)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			var sz int64
+			if err := rows.Scan(&name, &sz); err == nil {
+				sizes[name] = sz
+			}
+		}
+	}
+
+	out := make([]engines.IndexStats, len(indexes))
+	for i, idx := range indexes {
+		out[i] = engines.IndexStats{
+			Name:      idx.Name,
+			Table:     tableID,
+			Columns:   idx.Columns,
+			Unique:    idx.Unique,
+			Primary:   idx.Primary,
+			SizeBytes: sizes[idx.Name],
+		}
+	}
+	return out, nil
+}
+
+var (
+	_ engines.SQLAdapter    = (*Adapter)(nil)
+	_ engines.TableStatser  = (*Adapter)(nil)
+	_ engines.IndexStatser  = (*Adapter)(nil)
+	_ engines.BoundedReader = (*Adapter)(nil)
+)
 
 func (a *Adapter) Close() error {
 	return a.db.Close()

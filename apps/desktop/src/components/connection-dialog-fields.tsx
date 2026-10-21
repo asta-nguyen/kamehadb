@@ -334,9 +334,9 @@ export function ConnectionDetailsSection({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="database" className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Database
+              {kind === KIND.REDIS ? 'Database Index' : 'Database'}
             </Label>
-            <Input id="database" {...form.register('database')} placeholder="mydb" />
+            <Input id="database" {...form.register('database')} placeholder={kind === KIND.REDIS ? '0' : 'mydb'} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
@@ -356,7 +356,7 @@ export function ConnectionDetailsSection({
               <Input
                 id="password"
                 type="password"
-                onChange={(e) => form.setValue('password', e.target.value)}
+                {...form.register('password')}
                 placeholder={isEditing ? '(unchanged)' : ''}
               />
             </div>
@@ -457,9 +457,11 @@ export function DialogActions({
   return (
     <div className="flex items-center gap-3 pt-2 pb-1">
       <Button type="button" variant="outline" size="sm" onClick={onTest} disabled={isTesting}>
-        Test
+        {isTesting ? <Spinner size="sm" className="size-3.5 mr-1" /> : null}
+        {isTesting ? 'Testing…' : 'Test'}
       </Button>
-      {testMessage != null && (
+      {isTesting && <span className="text-xs text-muted-foreground animate-pulse">Testing connection…</span>}
+      {!isTesting && testMessage != null && (
         <span className={`text-xs ${testSuccess ? 'text-primary' : 'text-destructive'}`}>
           {testSuccess ? `Connected (${testServerVersion ?? 'ok'})` : testMessage}
         </span>
@@ -469,7 +471,7 @@ export function DialogActions({
         Cancel
       </Button>
       <Button size="sm" type="submit" disabled={isSaving}>
-        {isSaving ? <Spinner size="sm" className="size-3.5" /> : null}
+        {isSaving ? <Spinner size="sm" className="size-3.5 mr-1" /> : null}
         {isEditing ? 'Update' : 'Save'}
       </Button>
     </div>

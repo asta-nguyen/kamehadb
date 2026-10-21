@@ -90,4 +90,22 @@ describe('McpSettingsSection call history', () => {
     expect(html).toContain('Items: 1');
     expect(html).not.toContain('database result');
   });
+
+  it('renders managed account actions for eligible profiles', () => {
+    hooks.useConnections.mockReturnValue({
+      data: [
+        {
+          id: 'conn-pg',
+          name: 'Production PG',
+          kind: 'postgres',
+          database: 'appdb',
+          mcpEnabled: false,
+        },
+      ],
+    });
+
+    const html = renderToStaticMarkup(<McpSettingsSection />);
+    expect(html).toContain('Production PG');
+    expect(html).toContain('Create read-only account');
+  });
 });

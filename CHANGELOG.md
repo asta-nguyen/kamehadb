@@ -10,9 +10,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **Boolean dropdown editing** — editing boolean fields in MongoDB documents and SQL tables now renders an accessible dropdown (`true`/`false`) instead of a text input.
+- **Deep offset preview performance** — implemented deferred join (late row lookup) optimization for MySQL, MariaDB, PostgreSQL, and SQLite table previews, drastically reducing deep jump query latency by scanning only primary key indexes before looking up complete row data.
+- **Preview sorting index scan alignment** — aligned primary key tiebreaker directions with requested sort directions (`ORDER BY col DESC, pk DESC`), allowing query planners in MariaDB, MySQL, PostgreSQL, and SQLite to traverse indexes backwards instead of resorting to full-table filesorts, reducing sort latency from over 12s to under 2ms.
+
+### Changed
+
+- **Table view columns layout** — streamlined table column preview to 4 columns (`Name`, `Type`, `Nullable`, `Default`) by displaying the primary key indicator icon inline beside column names instead of in a separate column.
 
 ### Fixed
 
+- **SQL table in-cell editing and row deletion** — removed MCP read-only query safety enforcement from `SqlService.RunQuery`, allowing table-view `UPDATE` and `DELETE` operations to execute across all SQL engines, and surfaced inline toast errors when cell mutations fail.
+- **Sidebar click responsiveness** — disabled hoverable popups on connection tooltips, preventing invisible pointer-trap overlays from blocking clicks on sidebar items, chevrons, and action menus.
+- **Per-index and database size metrics** — added index size queries via `dbstat` for SQLite, `sys.allocation_units` for SQL Server, `user_segments` for Oracle, and file system size probes for DuckDB, eliminating `0 B` index sizes, aggregating table, index, and LOB segment allocations into Oracle total size, falling back to real-time counts before `DBMS_STATS` analysis, and reflecting complete database file and WAL sizes.
+- **DuckDB memory allocation limit** — raised the embedded DuckDB driver memory allocation limit from 64 MiB to 512 MiB to avoid driver out-of-memory crashes on deep offset queries.
+- **Table view indexes header layout** — corrected the grid column template in the table preview Indexes tab to match all 4 columns (`Name`, `Columns`, `Unique`, `Method`), preventing the `Method` header from wrapping to a second row.
+- **Sidebar connection action menu mouse click** — isolated mouse and click event propagation on the connection action trigger button and rendered it with shadcn `Button`, enabling reliable one-click opening of the action menu.
+- **Redis connection URL database index** — trimmed path slashes and synchronized React Hook Form state so database indexes in `redis://.../<db>` URLs populate the form and configure the Redis connection accurately.
+- **MySQL clustered primary key index size** — enriched MySQL index statistics with physical sizes from `mysql.innodb_index_stats` and `information_schema.TABLES` `DATA_LENGTH`, correctly reporting primary key clustered index byte sizes instead of `0 B`.
 - **MongoDB field update filter** — document updates and deletes now match both BSON `ObjectID` and string representations for 24-character hex `_id` values, resolving `no document matched the filter` errors.
 - **Unedited blur handling** — blurring or clicking outside an in-cell editor without changes now cleanly cancels editing as a no-op instead of triggering unnecessary update requests or error alerts.
 

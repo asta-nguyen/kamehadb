@@ -22,7 +22,7 @@ func TestPreviewOrderAppendsPrimaryKeyTiebreaker(t *testing.T) {
 		sort, dir string
 		want      string
 	}{
-		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "NUMBER(38,0)", PrimaryKey: true}, {Name: "name", Type: "VARCHAR2"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " ASC)"},
+		{"sort by a non-key column", []engines.ColumnInfo{{Name: "id", Type: "NUMBER(38,0)", PrimaryKey: true}, {Name: "name", Type: "VARCHAR2"}}, "name", "desc", "ORDER BY " + q("name") + " DESC, " + q("id") + " DESC)"},
 		{"composite key without a sort", []engines.ColumnInfo{{Name: "a", Type: "NUMBER(38,0)", PrimaryKey: true}, {Name: "b", Type: "NUMBER(38,0)", PrimaryKey: true}, {Name: "c", Type: "VARCHAR2"}}, "", "", "ORDER BY " + q("a") + " ASC, " + q("b") + " ASC)"},
 		{"sort by one composite key column", []engines.ColumnInfo{{Name: "a", Type: "NUMBER(38,0)", PrimaryKey: true}, {Name: "b", Type: "NUMBER(38,0)", PrimaryKey: true}, {Name: "c", Type: "VARCHAR2"}}, "b", "", "ORDER BY " + q("b") + " ASC, " + q("a") + " ASC)"},
 		{"sort by the single key adds nothing", []engines.ColumnInfo{{Name: "id", Type: "NUMBER(38,0)", PrimaryKey: true}, {Name: "name", Type: "VARCHAR2"}}, "id", "desc", "ORDER BY " + q("id") + " DESC)"},

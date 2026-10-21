@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 import type { WorkspaceTab } from '@/lib/types';
 import { TerminalPane } from '@/components/terminal-pane';
@@ -66,7 +68,15 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
     setTerminalReady(true);
   }, []);
 
-  const dark = theme === 'dark' || document.documentElement.classList.contains('dark');
+  // Write error to terminal if psql fails to spawn, matching Mongo Shell error feedback. (How / Why / What)
+  useEffect(() => {
+    if (session.state.status === 'error' && terminalReady && terminalRef.current) {
+      terminalRef.current.write(`\r\n\x1b[31mError: ${session.state.message}\x1b[0m\r\n`);
+    }
+  }, [session.state.status, session.state.message, terminalReady]);
+
+  const dark =
+    theme === 'dark' || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
 
   if (!connection) {
     return (
@@ -77,7 +87,24 @@ export function PostgresPsqlTab({ active, tab }: PostgresPsqlTabProps) {
   }
 
   return (
-    <div className="h-full w-full overflow-hidden bg-black">
+    <div className="relative h-full w-full overflow-hidden bg-black">
+      {session.state.status === 'error' && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/95 p-6 text-center">
+          <div className="max-w-md space-y-3">
+            <AlertCircle className="size-8 mx-auto text-destructive" />
+            <h3 className="text-sm font-semibold text-foreground">Could not start psql</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {session.state.message?.toLowerCase().includes('not found') ||
+              session.state.message?.toLowerCase().includes('executable')
+                ? 'psql is not installed or was not found in PATH. Install PostgreSQL client tools or add psql to PATH to use the embedded shell.'
+                : (session.state.message ?? 'An unknown error occurred while starting psql.')}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => void start()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
       {activated ? (
         <TerminalPane
           active={active}
