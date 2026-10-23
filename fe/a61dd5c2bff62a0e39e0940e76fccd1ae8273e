@@ -1,0 +1,978 @@
+dbcore/capabilities_test.go
+  s_9716c29917e442::t_b8bdf604cbc329 40-42
+  s_9716c29917e442::t_19e09bff28890a 1-19,24-39,43
+  s_9716c29917e442::t_8c40191b221c07 20-23
+dbcore/duckdriver/install_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-244
+internal/mcp/provisioner_postgres_integration_test.go
+  s_9716c29917e442::t_29382bd1dc6df6 11
+dbcore/providers/duckdb/preview_integration_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-24,26-67,69-78
+  s_9716c29917e442::t_4f38d9e1c91ab0 25,68
+dbcore/providers/sqlite/preview_scope_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-44
+internal/api/request-sql_test.go
+  s_9716c29917e442::t_d0c7cb1ecfa13f 11
+  s_4693a139a62450::t_8c4956b489db09 100,185-261
+  s_4693a139a62450::t_4553c8a2b69e01 49,140
+  s_9716c29917e442::t_b6fa1c7aa73d91 48
+  s_9716c29917e442::t_e65b6eeafd7367 134
+  s_9716c29917e442::t_a8aa57ee48e877 149
+  s_9716c29917e442::t_adeecc9c87b2fc 128-129
+  s_9716c29917e442::t_1785f2bb87a7c0 47,135
+docs/agent-devkit/changes/archive/2026-10-20-110-provider-core-review-hardening/design.md
+  s_984ebb0ac9b51f::t_4728d607b713c3 83-86
+  s_984ebb0ac9b51f::t_fc2d5da8c056fd 1-82
+internal/engines/kinds.go
+  s_9716c29917e442::t_ed5edf786ec843 3-5,33-43,45-51,54-55,57
+  s_9716c29917e442::t_3b04373f1e2df6 6-8,17-18,25,30
+dbcore/providers/sqlite/preview_cursor_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-169
+docs/llm/integrations/marketing-site.md
+  s_e99e09ab2f3c0e::t_631a64fee118d9 30
+  s_e99e09ab2f3c0e::t_50dbed711e6c88 61
+  s_e99e09ab2f3c0e::t_3eaa2145338af6 86
+docs/llm/workflows/sidecar-resume-recovery.md
+  s_9716c29917e442::t_c743e61aad0fb2 22,46
+dbcore/providers/sqlserver/preview_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-81
+internal/engines/engines_test.go
+  s_9716c29917e442::t_2559902607be29 10,13,16,22,25,28,31
+  s_9716c29917e442::t_deb20cf5fb5d44 5-6,54,59
+  s_9716c29917e442::t_9d3b62f2c1131a 36-40,42-43,45-48,50-51,53,55-57,60,62-63
+internal/api/sql_sort_test.go
+  s_4693a139a62450::t_4553c8a2b69e01 37
+  s_9716c29917e442::t_b6fa1c7aa73d91 35
+  s_9716c29917e442::t_d0c7cb1ecfa13f 7
+  s_9716c29917e442::t_1785f2bb87a7c0 34
+dbcore/manager.go
+  s_9716c29917e442::t_3e755362a66e55 58
+  s_984ebb0ac9b51f::t_b5b00246071fef 488-489
+  s_9716c29917e442::t_eaef15ec7c711f 544-545,547-552
+  s_9716c29917e442::t_2a88e24a115810 255-257,259-269
+  s_9716c29917e442::t_c70296c491b2f4 212
+  s_9716c29917e442::t_5a0fa9b981d104 254
+  s_9716c29917e442::t_b9e22a64df91ff 496-498,505
+  s_9716c29917e442::t_b921de92957f91 389,406-417,419-428,430-431
+  s_9716c29917e442::t_1ba116a0e6db62 203-209,213,215
+  s_9716c29917e442::t_719479bfae810a 19-23,25-27
+  s_984ebb0ac9b51f::t_a924b91887623c 77-78
+  s_9716c29917e442::t_539804d8fe7d8e 316-317,320-323,325,358,360,433-434,495,504,506
+  s_9716c29917e442::t_9c6fb9c4e56b12 233,239
+  s_9716c29917e442::t_7a43a8352008f3 1-4,6-18,38-57,60-61,66-69,90-99,106-112,115-119,128-133,135-140,153,167-169,173,187-188,191-192,196-202,210-211,214,216-219,224-228,230-232,240,243,246,248-253,281,290-291,294,296-302,308-309,311,313-315,444,446-447,457-461,531-543,546,553-559
+  s_9716c29917e442::t_31238d9a0148bf 235,258,270
+  s_9716c29917e442::t_a75bc76d7f5c07 283-284
+  s_9716c29917e442::t_04aa66894c697c 285
+  s_9716c29917e442::t_9e0d582a6f7d51 24,28-37
+  s_9716c29917e442::t_62368cb5180939 220-223,229,234,462,510-511,513-515,522
+  s_9716c29917e442::t_2005a7b1987b70 439,463-465,477,487,499,501,503,507-509,512,516,520,523-530
+  s_9716c29917e442::t_8b5995c1b7a258 500
+  s_9716c29917e442::t_78cddc7aac29d3 328-330,362-388,390-405,418,429,432
+  s_9716c29917e442::t_2f040e6b783b4a 5
+  s_9716c29917e442::t_3983264cffe2db 59
+  s_9716c29917e442::t_b72aecee08137b 141-148,150
+  s_9716c29917e442::t_f07ed3921b82ef 113-114
+  s_9716c29917e442::t_c5fa4815060353 71-76,79,87-88,100-105
+  s_9716c29917e442::t_01911b970e3d7f 236-238,241-242,244-245,247,282,286-289
+  s_9716c29917e442::t_786c076f6b5c68 318-319,326-327,331-333,357
+  s_984ebb0ac9b51f::t_b6e7e07759f427 62-65,70,80-86,89,120-127,134,149,151-152,154-166,170-172,174-186,189-190,193-195,271-280,292-293,295,303-307,310,312,435-438,440-443,445,448-456,466-476,478-486,490-494,502
+  s_9716c29917e442::t_73dd8cf2de7c8a 324,334-353,355-356,359,361
+  s_9716c29917e442::t_53df34baec51b0 354
+  s_984ebb0ac9b51f::t_71bda041e889a0 517-519,521
+dbcore/providers/clickhouse/preview_integration_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-164
+apps/desktop/src/lib/preview-cache.ts
+  s_9716c29917e442::t_9a418360ea49f4 99-101,105,107-109,117-125
+  s_9716c29917e442::t_3bebb3b307f796 3,11-28,31-40,43,45-50,54-56,67-68,72,77,95,98,162,166-167,169-171,179,181-182,184,193
+  s_9716c29917e442::t_ad502a9a0fe54e 102,112
+  s_9716c29917e442::t_b201adcbea3161 103-104,106
+  s_9716c29917e442::t_c49d7cd2031af8 144,147-161,163-165,168,172-178,180,183,185-192,194-195
+  s_9716c29917e442::t_44c4dba1eab5b4 110-111
+  s_9716c29917e442::t_15a8eef1b4f82d 60-62
+  s_9716c29917e442::t_6551a9974626bf 126-128
+  s_9716c29917e442::t_1387b88e906a6b 196-198
+internal/api/provider_lifecycle_test.go
+  s_9716c29917e442::t_b83cc3188c320e 277,289-293
+  s_984ebb0ac9b51f::t_090dd6780e7666 338
+  s_9716c29917e442::t_2c5f572a4a8de2 327,336-337,339-348,355-356,358,360,363-364,379,382-395
+  s_9716c29917e442::t_171ca8bbb05d51 25
+  s_4693a139a62450::t_8c1a2cea26f3e7 249-253
+  s_9716c29917e442::t_7d17b8fcae4bc0 324-326,328-335
+  s_9716c29917e442::t_96a7f8aebae460 154-156
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 278
+  s_9716c29917e442::t_14c47aac295a55 52,59-61,69,73,77,81,85,89,93,97,101,105,109,120,134,138,157,161,165,169,173,183-185
+  s_9716c29917e442::t_572792191d98aa 477
+  s_9716c29917e442::t_53a68c3fe3df26 1-10,12-14,16,18-24,26-51,53-58,62-68,70-72,74-76,78-80,82-84,86-88,90-92,94-96,98-100,102-104,106-108,110-119,121-133,135-137,139-153,158-160,162-164,166-168,170-172,174-182,186-204,209-219,234-248,254-276,279-288,294-323,350-354,357,359,361-362,365-377,396-397,399,402,404-405,407-408,410-411,414-415,418-419,422,424-476,478-483
+  s_9716c29917e442::t_e831c959a465e7 15
+  s_9716c29917e442::t_eba86c1555090b 17
+  s_9716c29917e442::t_c64af72d4be16e 349
+  s_9716c29917e442::t_2dade26c74508a 398,400-401,403,406,409,412-413,416-417,420-421,423
+  s_984ebb0ac9b51f::t_8012b4ef1495c2 205-208,220-233,378,380-381
+  s_42a83303036664::t_c597b88096f205 11
+apps/desktop/wailsjs/go/api/RedisService.d.ts
+  s_9716c29917e442::t_a6af7e7bc42a74 7-8,17
+  s_40efe3b61410e9::t_b542d122752dde 18
+internal/store/profiles.go
+  s_4693a139a62450::t_848c4c348137d0 249,253,257
+  s_4693a139a62450::t_b104f9799cf5ea 48,52
+  s_4693a139a62450::t_4e86a90900bef3 301-302,309
+  s_4693a139a62450::t_44dae8050794db 335,337,341,348,356
+  s_4693a139a62450::t_9e778cba8b9133 199-203
+  s_4693a139a62450::t_621fdd5f53a8bc 27
+  s_4693a139a62450::t_0adc20ad3f632c 214-215,217
+  s_9716c29917e442::t_843c67ce5ce7ce 7-8
+  s_4693a139a62450::t_f490c5813d0420 103-116
+  s_9716c29917e442::t_db19e30b15f39a 152
+  s_4693a139a62450::t_67e73b79822a2c 273-281
+dbcore/providers/mongo/ordered.go
+  s_9716c29917e442::t_247b0748438728 1-158
+dbcore/engines/sql-rows.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-53
+dbcore/providers/sqlite/sqlite_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-206
+dbcore/providers/sqlserver/preview_order_sql_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-53
+dbcore/duckdriver/install-lock_windows.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-22
+internal/mcp/manager.go
+  s_9716c29917e442::t_1710a0492db647 13
+  s_9716c29917e442::t_dbf760cf403448 419,422,454,458
+  s_9716c29917e442::t_3320e875fcb297 7-12
+dbcore/providers/oracle/register.go
+  s_9716c29917e442::t_3f1d6223909965 1-19
+dbcore/providers/mongo/count_test.go
+  s_9716c29917e442::t_247b0748438728 1-178
+dbcore/engines/csv-export_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-72
+dbcore/providers/all/all_test.go
+  s_9716c29917e442::t_56dae9a2de7452 5,20-21,25-27
+  s_9716c29917e442::t_6299f1f49c4f2a 24
+  s_9716c29917e442::t_7e3d54f6eaf9d4 1-4,6-19,22-23,28-31
+dbcore/providers/redis/paging_test.go
+  s_9716c29917e442::t_247b0748438728 1-465
+docs/agent-devkit/INDEX.md
+  s_9716c29917e442::t_3916d8935a2a9c 5
+  s_a2b706f2b4d666::t_e8af4f97a8bf99 9
+  s_984ebb0ac9b51f::t_413d8259ca43e2 11
+  s_984ebb0ac9b51f::t_fc2d5da8c056fd 10
+docs/agent-devkit/changes/2026-10-13-footprint-and-large-tables/tasks.md
+  s_9716c29917e442::t_ec9a119ed26d0f 154
+  s_9716c29917e442::t_70fbf20ae66e08 163
+  s_9716c29917e442::t_0495caf586d1b6 164
+  s_9716c29917e442::t_d8b2eb7f8ead9d 152
+  s_9716c29917e442::t_398cac904f58b5 172
+  s_9716c29917e442::t_3dd17b7a2dfc7b 155
+  s_9716c29917e442::t_14645b46676959 173
+docs/agent-devkit/changes/archive/2026-10-23-gui-sql-read-only-toggle/design.md
+  s_a2b706f2b4d666::t_1ad8b1e1b67bef 53-54
+  s_a2b706f2b4d666::t_36a7c282da97a5 1-52
+internal/api/redis.go
+  s_9716c29917e442::t_036c1a887929cc 8
+  s_9716c29917e442::t_9932c1071cf57e 14,32,37,109-110,113-115
+  s_9716c29917e442::t_b4fb28fea8aab7 23-24,29-30
+  s_9716c29917e442::t_b7b0f723908132 86-108,111-112,116-117
+  s_9716c29917e442::t_bd4a3a75b638f5 7
+  s_9716c29917e442::t_cfae1e60a81880 57
+  s_9716c29917e442::t_2cd98211ae6a75 19-20
+  s_9716c29917e442::t_34c09769e26639 25,31
+dbcore/providers/postgres/register.go
+  s_9716c29917e442::t_3f1d6223909965 1-19
+internal/schema/watcher.go
+  s_9716c29917e442::t_3320e875fcb297 13-14
+dbcore/providers/mongo/request_test.go
+  s_9716c29917e442::t_247b0748438728 1-47
+dbcore/engines/sql-rows_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-70
+dbcore/duckdriver/install-lock_unix.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-19
+internal/maintenance/filedb_test.go
+  s_9716c29917e442::t_d0c7cb1ecfa13f 13
+dbcore/sqlsafety/sqlsafety_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-140
+  s_4693a139a62450::t_94d7ef4792f2a7 141-171
+internal/maintenance/filedb.go
+  s_9716c29917e442::t_d0c7cb1ecfa13f 17
+internal/schema/migration.go
+  s_9716c29917e442::t_1782da4da24f47 7
+internal/mcp/credentials.go
+  s_9716c29917e442::t_1782da4da24f47 12
+main.go
+  s_9716c29917e442::t_1c0b7b120a9b53 45-49,52,62
+  s_9716c29917e442::t_a0fe6d6e4dc9fc 15
+apps/desktop/src/lib/preview-cache.test.ts
+  s_9716c29917e442::t_1a2f4be8927ff5 8-13
+  s_9716c29917e442::t_bb1abf4fde1a36 117-208
+  s_9716c29917e442::t_a1fefd66554760 209-213,216-217,219,221-225,227,230,232-234,241,245,249,251,254,257-260
+  s_9716c29917e442::t_c995c3fd8cb85f 214-215,218,220,226,228-229,231,237-238,240,243-244,246-248,250,252-253,255-256
+  s_9716c29917e442::t_80f9e2c2620cd2 236
+  s_9716c29917e442::t_3cb11a819d187c 235,239,242
+  s_9716c29917e442::t_2692042c3a0088 261-263
+apps/desktop/src/components/sidebar-donate.tsx
+  s_e99e09ab2f3c0e::t_388a6c2f7b7431 1-22
+docs/llm/workflows/engine-explorers.md
+  s_9716c29917e442::t_c743e61aad0fb2 43-44,58,150-151,165
+  s_9716c29917e442::t_47fb57034529ad 35
+  s_9716c29917e442::t_027a61e0e0d138 3,10-14,18-21,25,30,39,45,54,57
+  s_9716c29917e442::t_0efafce77bb383 9,116
+  s_9716c29917e442::t_7c79384c51faf5 117-119,121-122,126-128,132-133,137,141-142,146,152,160,163-164
+  s_9716c29917e442::t_b548cbc9f68488 120
+internal/api/sql.go
+  s_9716c29917e442::t_e831c959a465e7 12
+  s_4693a139a62450::t_9e71f89f508dde 41,44,50-56
+  s_4693a139a62450::t_ee4ad74f8be4c0 24-25
+  s_9716c29917e442::t_d0c7cb1ecfa13f 10
+  s_9716c29917e442::t_911647986ce02c 77,94,111,137,154,171,188,210,264,313,334,355,372
+  s_4693a139a62450::t_4d334520d80855 253-261
+  s_42a83303036664::t_85b77bcf0c403a 11,57-58
+dbcore/providers/mysql/mysql.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-826
+landing/src/app/layout.tsx
+  s_e99e09ab2f3c0e::t_994d2903d6d5f2 4
+  s_e99e09ab2f3c0e::t_ac1d79ed872712 141
+dbcore/providers/oracle/preview_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-77
+internal/mcp/root_ca_test.go
+  s_9716c29917e442::t_29382bd1dc6df6 7
+packages/shared/package.json
+  s_40efe3b61410e9::t_ca9418d9ea512d 4
+dbcore/providers/sqlite/result_budget_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-66
+packages/shared/src/types.ts
+  s_9716c29917e442::t_f9f29997d4c81d 253-256,266-275
+  s_9716c29917e442::t_a71a512eb7098b 208-209,212,214-215,225-252,257-265,276-279,346
+  s_9716c29917e442::t_2519c905ebee29 336,347-360
+  s_9716c29917e442::t_e0a6e4d5569571 337-338
+internal/engines/sql-lookup.go
+  s_9716c29917e442::t_19e09bff28890a 1-2,5,9,11,13
+  s_9716c29917e442::t_f46ff57d46d695 3-4,6-8,10,12
+dbcore/providers/sqlserver/sqlserver_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-67
+internal/api/mcp.go
+  s_9716c29917e442::t_d0c7cb1ecfa13f 11
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 143,164
+  s_9716c29917e442::t_e831c959a465e7 12
+dbcore/providers/duckdb/embedded/preview_order_sql_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-53
+dbcore/providers/postgres/export_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-162
+internal/store/profiles_test.go
+  s_9716c29917e442::t_29382bd1dc6df6 11
+  s_4693a139a62450::t_57ff6773d8a712 262-330
+  s_4693a139a62450::t_6d48061d7009ae 12
+dbcore/duckdriver/client.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-312
+internal/ai/indexer.go
+  s_9716c29917e442::t_e831c959a465e7 11
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 17
+  s_9716c29917e442::t_d0c7cb1ecfa13f 10
+  s_9716c29917e442::t_f344e7b9dbeb12 47
+apps/desktop/src/lib/table-editability.test.ts
+  s_a2b706f2b4d666::t_0fae522f78ada5 2-51
+dbcore/providers/mongo/provider.go
+  s_9716c29917e442::t_17025b928e29ac 8
+  s_9716c29917e442::t_8ab56ede4aff65 1-7,9-30
+docs/llm/integrations/read-only-mcp.md
+  s_9716c29917e442::t_c743e61aad0fb2 182,187-189,192
+dbcore/providers/redis/types.go
+  s_9716c29917e442::t_247b0748438728 1-17
+internal/api/duckdb_health_test.go
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 10
+  s_9716c29917e442::t_6c72bf1b8bab29 9
+  s_9716c29917e442::t_1785f2bb87a7c0 31
+apps/desktop/src/components/connection-dialog.test.tsx
+  s_a2b706f2b4d666::t_cef505ac488044 57,63,68-69,75
+  s_a2b706f2b4d666::t_d958176935f083 1-56,58-62,64-67,70-74,76-79
+dbcore/providers/oracle/oracle.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-523
+dbcore/providers/mongo/types.go
+  s_9716c29917e442::t_247b0748438728 1-18
+dbcore/example_test.go
+  s_9716c29917e442::t_ddc4cb720f0e90 1-92
+dbcore/engines/json-value_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-22
+internal/api/provider_mcp_isolation_test.go
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 9
+  s_9716c29917e442::t_235233ebec0679 1-8,10-121
+dbcore/providers/mysql/register.go
+  s_9716c29917e442::t_3f1d6223909965 1-24
+dbcore/providers/mongo/aggregate_plan_test.go
+  s_9716c29917e442::t_247b0748438728 1-65
+dbcore/engines/csv-export.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-113
+dbcore/providers/sqlite/export_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-41
+internal/api/schema.go
+  s_9716c29917e442::t_911647986ce02c 24,27,147
+  s_9716c29917e442::t_fc33313ab5e48f 18,20
+  s_9716c29917e442::t_d0c7cb1ecfa13f 9
+  s_9716c29917e442::t_e831c959a465e7 10
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 19,23
+dbcore/providers/sqlite/export.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-70
+scripts/build-duckdb-driver.mjs
+  s_9716c29917e442::t_a5840db94eb2c3 31
+dbcore/engines/engines_test.go
+  s_9716c29917e442::t_a2ae8c78723c6f 1-20
+dbcore/engines/preview-order_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-27
+internal/api/export.go
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 11
+  s_9716c29917e442::t_911647986ce02c 141
+  s_4693a139a62450::t_5df8bcb466f697 130-140
+  s_4693a139a62450::t_2622badaa08e91 12
+dbcore/providers/sqlite/preview_order_sql_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-53
+internal/api/testdb_test.go
+  s_9716c29917e442::t_db841e318b450e 1-7,10-37
+  s_9716c29917e442::t_d0c7cb1ecfa13f 8
+  s_984ebb0ac9b51f::t_9ca3cd6bbaa157 9
+dbcore/sqlsafety/sqlsafety.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-228,253-272
+  s_4693a139a62450::t_6f733eb1b78302 229-252
+landing/src/components/kofi-widget.tsx
+  s_e99e09ab2f3c0e::t_da13fb2b3468a6 1-33
+dbcore/providers/duckdb/duckdb.go
+  s_9716c29917e442::t_8ee07d6f2ceb9e 102,105,114
+  s_9716c29917e442::t_91c74155dac661 103-104
+  s_9716c29917e442::t_2d2c5e145678b2 15
+  s_9716c29917e442::t_6c72bf1b8bab29 1-14,16-19,22-29,36-37,41,43-101,106-113,115-229
+  s_9716c29917e442::t_eeab6402e452cc 20-21,30-35,38-40,42
+internal/mcp/tools.go
+  s_9716c29917e442::t_3320e875fcb297 8-9
+  s_9716c29917e442::t_73c2ecec70b507 10-11
+  s_9716c29917e442::t_dbf760cf403448 187
+CONTRIBUTING.md
+  s_9716c29917e442::t_3a378ca5f1ad8e 53
+dbcore/providers/mysql/preview_integration_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-168
+dbcore/providers/sqlite/sqlite.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-736
+dbcore/engines/kinds_test.go
+  s_9716c29917e442::t_9d3b62f2c1131a 1-4,8,10-12,14-21,23-25
+  s_9716c29917e442::t_6299f1f49c4f2a 5-7,9,13,22
+internal/mcp/mcp_test.go
+  s_9716c29917e442::t_1782da4da24f47 19
+  s_4693a139a62450::t_a93214c1c14d70 465-487
+dbcore/engines/result-budget.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-170
+dbcore/providers/sqlite/register.go
+  s_9716c29917e442::t_3f1d6223909965 1-19
+dbcore/engines/json-value.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-36
+package.json
+  s_40efe3b61410e9::t_ca9418d9ea512d 4
+dbcore/providers/duckdb/embedded/preview_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-130
+CHANGELOG.md
+  s_984ebb0ac9b51f::t_ba1a6604c03c86 28
+  s_984ebb0ac9b51f::t_f1adb4acd8e31c 29
+  s_9716c29917e442::t_6410e6f86e009d 22-24
+  s_a2b706f2b4d666::t_13fafe89fed2fc 20
+  s_a2b706f2b4d666::t_c9b6510d84d480 32
+  s_e99e09ab2f3c0e::t_34c4a95ef1ca96 16
+  s_40efe3b61410e9::t_ca9418d9ea512d 10-13
+  s_9716c29917e442::t_b0bd2046b1a86a 18-19
+  s_40efe3b61410e9::t_3951170fb2a94f 21
+dbcore/providers/redis/redis.go
+  s_9716c29917e442::t_888875870f9cfb 22
+  s_9716c29917e442::t_247b0748438728 6-8,11,15,17,21,29-39,78-80,85,90-91,94,103-104,106-108,110-112,114-119,122-124,127-132,150-447,455-466,468-481,485-647,651-656,660-782,784,836-844,960-970,974
+  s_9716c29917e442::t_f7a8612e58a578 92
+dbcore/providers/duckdb/embedded/duckdb_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-151
+docs/agent-devkit/changes/archive/2026-10-19-110-unified-provider-core/design.md
+  s_984ebb0ac9b51f::t_413d8259ca43e2 1-138
+dbcore/providers/sqlite/preview_order_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-47
+apps/desktop/src/components/redis-explorer.tsx
+  s_9716c29917e442::t_3563f7bc553150 125,132
+  s_9716c29917e442::t_190446b4b6db2f 2-17,26,44,46-56,58-72,74-113,126,130,134-139,144,146,149-154,162-165,169,180-182,184,260,266-271,278-304,343,345,350-351,355-356,360,364-375,378-385,388,391,400-411,413-433,439
+  s_9716c29917e442::t_5a512af32fcf62 219-220
+  s_9716c29917e442::t_10a3c5eb9a1553 1
+  s_9716c29917e442::t_7ae5533f271e5c 127-129
+  s_9716c29917e442::t_cc8a6abd03396c 133
+  s_9716c29917e442::t_fe18d7c5885084 185-187
+  s_9716c29917e442::t_cc02d1f1f52c84 221-222
+  s_9716c29917e442::t_137cba0936e26c 434-438
+dbcore/providers/postgres/postgres.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-1083
+dbcore/providers/redis/provider.go
+  s_9716c29917e442::t_8ab56ede4aff65 1-31
+dbcore/providers/all/all.go
+  s_9716c29917e442::t_7e3d54f6eaf9d4 1-26,29-33,35-38,42-44
+  s_9716c29917e442::t_ab3419364199b3 27-28,34,39-41
+docs/llm/architecture/engine-support.md
+  s_984ebb0ac9b51f::t_c827fe16fc1a2c 188-190,192,195
+  s_984ebb0ac9b51f::t_7ab2b7c6154490 31,35,37-39,47,49-51,53-58,70,120-135,137,156
+  s_9716c29917e442::t_a3501fc94de5a3 253
+  s_9716c29917e442::t_86e724842d2df7 267-269
+  s_9716c29917e442::t_c743e61aad0fb2 17,198-199,255,266,270-280
+  s_9716c29917e442::t_0efafce77bb383 209-211,223
+  s_984ebb0ac9b51f::t_4baa28d285ec29 19-30,33,59-65,67-69,71-78,138-155,191,193-194,196
+  s_984ebb0ac9b51f::t_3401476a8d40da 41-46
+  s_984ebb0ac9b51f::t_36821b2002f687 32,34,36,40,48,52,66,79-119,136,157-173,178-187,197
+  s_9716c29917e442::t_33845c3e3f067b 207-208
+dbcore/capabilities.go
+  s_9716c29917e442::t_e558bd2ffbea2f 1-53
+apps/desktop/src/lib/query-keys.ts
+  s_9716c29917e442::t_1d36c9e0bc6060 43,46-47
+dbcore/provider.go
+  s_9716c29917e442::t_4851f90b4dce44 1-38,42-46,50
+  s_9716c29917e442::t_3f1d6223909965 51-60
+  s_9716c29917e442::t_f708e86455ce3c 61-62
+  s_9716c29917e442::t_fd3967c8ca0e55 47-49
+  s_9716c29917e442::t_0e41e9e743c1ec 39-41
+internal/ai/vecstore.go
+  s_9716c29917e442::t_1782da4da24f47 13
+apps/desktop/package.json
+  s_40efe3b61410e9::t_ca9418d9ea512d 4
+dbcore/engines/preview-cursor_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-127
+dbcore/providers/oracle/preview_order_sql_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-53
+internal/ai/schemactx.go
+  s_9716c29917e442::t_1782da4da24f47 8
+dbcore/mongo/types.go
+  s_9716c29917e442::t_87ed8ae8a10c58 1-2,8
+  s_9716c29917e442::t_ab41a9870139f4 3-7,9-95
+apps/desktop/wailsjs/go/api/RedisService.js
+  s_9716c29917e442::t_a6af7e7bc42a74 9-12,29-31
+  s_40efe3b61410e9::t_792461a5febf43 32
+apps/desktop/src/lib/page-offsets.test.ts
+  s_9716c29917e442::t_476f72cc1c458c 1-29
+internal/mcp/provisioner.go
+  s_9716c29917e442::t_3320e875fcb297 18-21
+internal/api/connection-readonly_test.go
+  s_4693a139a62450::t_89bebfe7a2c25e 1-45
+dbcore/providers/postgres/preview_order_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-76
+dbcore/duckdriver/install.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-286
+internal/engines/errors.go
+  s_9716c29917e442::t_f46ff57d46d695 1-6
+dbcore/engines/tls_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-95
+dbcore/providers/redis/request_integration_test.go
+  s_9716c29917e442::t_247b0748438728 1-102
+internal/api/api_test.go
+  s_9716c29917e442::t_1785f2bb87a7c0 92,223,260
+  s_4693a139a62450::t_4553c8a2b69e01 58
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 11
+  s_9716c29917e442::t_59192d81223d29 270-295
+  s_9716c29917e442::t_a409dec7dc45a6 296-326
+dbcore/providers/postgres/export.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-80
+internal/api/export_test.go
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 12
+  s_4693a139a62450::t_fdd34e75a8b001 162-228
+  s_4693a139a62450::t_79f5f90ac117a4 34-42,45
+  s_9716c29917e442::t_1785f2bb87a7c0 43
+  s_9716c29917e442::t_145bd460c3e64c 44
+dbcore/providers/duckdb/embedded/preview_plan_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-52
+apps/desktop/src/components/mongo-view.tsx
+  s_9716c29917e442::t_8ce9fb0af26a89 195,207-209,211-212
+  s_9716c29917e442::t_0e7d33fb3ddc35 490-491
+  s_9716c29917e442::t_1ea2d2548f27ee 88,97,101
+  s_9716c29917e442::t_5ca8089a3ab41b 110-129
+  s_9716c29917e442::t_1570eec9fe7ccf 151-167,169-172,174-183
+  s_9716c29917e442::t_1d45cbd85bd0b9 220-231,236-238,240-241,256-257,259-262,264-265
+  s_9716c29917e442::t_015f8960737e18 445-447
+  s_9716c29917e442::t_67c85aadfdf03a 472-476
+  s_9716c29917e442::t_9cac78fb437b28 206,210,213,232-235,239,242-255,258,263
+  s_9716c29917e442::t_3b88891fb3c9e1 525-526,537-539
+  s_9716c29917e442::t_83f0be6a5e3c42 428-432
+  s_9716c29917e442::t_798ad362094147 541-544
+  s_9716c29917e442::t_ffbd73d610d921 508-511
+  s_9716c29917e442::t_743a4b72f3b425 674
+  s_9716c29917e442::t_a6f904cc61d83a 19
+  s_9716c29917e442::t_4470c31cde98e2 377-378,380-382
+  s_9716c29917e442::t_dd33dda3cc64d0 139-147
+  s_9716c29917e442::t_b66ffe6ca46b17 18
+  s_9716c29917e442::t_7b60bc825c6fff 192-194
+  s_9716c29917e442::t_3d6135fdfd83f8 379
+  s_9716c29917e442::t_2171cec332612f 149-150
+  s_984ebb0ac9b51f::t_ba1a6604c03c86 315-324,332,344
+  s_9716c29917e442::t_4471e6a54b2539 1
+dbcore/providers/mongo/ordered_test.go
+  s_9716c29917e442::t_247b0748438728 1-111
+dbcore/engines/result-budget_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-120
+dbcore/engines/enginetest/query.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-59
+internal/api/ai.go
+  s_9716c29917e442::t_7bb04324a6db94 20
+  s_9716c29917e442::t_6184ac75253192 41,313,430
+  s_9716c29917e442::t_32f210045eea27 443
+  s_9716c29917e442::t_fc33313ab5e48f 19,30,32-34
+  s_9716c29917e442::t_e831c959a465e7 22
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 31,40,590
+  s_9716c29917e442::t_8121c0d135777d 18
+AGENTS.md
+  s_9716c29917e442::t_d5fc5bbbdd6b9f 16-17
+  s_9716c29917e442::t_af7ac7ec9f6874 95-96
+dbcore/engines/preview-order.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-28
+dbcore/providers/postgres/postgres_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-132
+docs/llm/workflows/sql-workspace.md
+  s_a2b706f2b4d666::t_7120458f658c68 68-71,77-78,80,85,90,95-96,102-103,110-111,121-125
+  s_a2b706f2b4d666::t_e263e088bcc41f 194,196-197,201,205,209,216,220,231,233
+  s_9716c29917e442::t_c743e61aad0fb2 17,29,53,57-59
+internal/database/database_test.go
+  s_984ebb0ac9b51f::t_8012b4ef1495c2 14,371-401
+  s_9716c29917e442::t_1e78312f2fc98e 118-123,126-130,133,135-139,435-441,446-449
+  s_984ebb0ac9b51f::t_e82618a55b1116 23-32,305-370
+  s_9716c29917e442::t_59ef4916c1cb37 45,51,57,61,64,100,124,132,134,155,162-163,167,173,213,223-249,253-283,285-286,288-304
+  s_9716c29917e442::t_171ca8bbb05d51 52,101,125
+  s_984ebb0ac9b51f::t_a924b91887623c 60,107,131,166,284,287
+  s_984ebb0ac9b51f::t_cbf4cc71e6dae5 250-252
+  s_9716c29917e442::t_3e14a6535658f7 198-212,214-222,402-417
+  s_9716c29917e442::t_ec6f0a65e84709 429
+  s_9716c29917e442::t_69188e4fc09a79 1-4,7-13,15-22,33-44,46-50,53-56,58-59,62-63,65-80,86-99,102-106,108-117,442-445
+  s_9716c29917e442::t_318e39600807cd 156
+  s_984ebb0ac9b51f::t_27c4618020388f 5,81-85,190-194
+  s_9716c29917e442::t_19c6d14c8f74f2 140-154,157-161,164-165,168-172,174-189,195-197,418-428,430-434
+  s_984ebb0ac9b51f::t_98a41188d272c7 6
+apps/desktop/src/lib/page-offsets.ts
+  s_9716c29917e442::t_298c8130dbf2a3 1-22
+dbcore/duckdriver/server.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-201
+apps/desktop/src/hooks/use-redis.ts
+  s_9716c29917e442::t_4d0023119beec0 5,16-18,20-21,24
+apps/desktop/wailsjs/go/models.ts
+  s_a2b706f2b4d666::t_645d7ebfae5fe6 1039,1043,1058,1062,1311,1315,1335,1339
+  s_4693a139a62450::t_3ea97efaefaa7c 1932
+  s_9716c29917e442::t_a6af7e7bc42a74 1032-1038,1040-1042,1044-1057,1059-1061,1063-1069,1072,1182,1184-1185,1194,1196-1197,1300-1310,1312-1314,1316-1318,1321-1334,1336-1338,1340-1347,1351
+  s_4693a139a62450::t_0d060db8edaf44 1890
+  s_4693a139a62450::t_b6d217becb1393 1913
+  s_4693a139a62450::t_658ab2fa243f55 1952
+  s_40efe3b61410e9::t_8ee084abfceb3d 1319-1320
+apps/desktop/src/components/mongo-data-footer.tsx
+  s_9716c29917e442::t_8bff9a7c6908cc 16-21
+  s_9716c29917e442::t_b1e1cad4814573 116
+  s_9716c29917e442::t_fa470eaa02c8c9 132,137-142
+  s_9716c29917e442::t_709fcf7c88d70b 64-66
+  s_9716c29917e442::t_a4f84631145c5a 60-63
+  s_9716c29917e442::t_f2d1d333246e79 75-76,78
+  s_9716c29917e442::t_cac91d9211f53b 73,77,79-85,87-100
+  s_9716c29917e442::t_2d7d09425ff170 86
+  s_9716c29917e442::t_89e5744f9b5671 109
+  s_9716c29917e442::t_eb198fb7e2da07 22-26,44-47,58-59
+  s_9716c29917e442::t_d510b195ab7a4d 41-42
+  s_9716c29917e442::t_56d7c4bec5c9e2 74
+dbcore/duckdriver/command_windows.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-11
+dbcore/duckdriver/native_integration_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-84
+internal/api/ai_test.go
+  s_9716c29917e442::t_1785f2bb87a7c0 45
+  s_9716c29917e442::t_b6fa1c7aa73d91 49,62
+  s_9716c29917e442::t_e5738df25b6b6f 50-52
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 12
+dbcore/duckdriver/client_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-204
+dbcore/duckdriver/install-lock.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-38
+dbcore/README.md
+  s_9716c29917e442::t_b20631bb9a23f6 1-58,65-110
+  s_984ebb0ac9b51f::t_cbf4cc71e6dae5 59-64
+dbcore/manager_test.go
+  s_984ebb0ac9b51f::t_2a951f43a95c86 262-352
+  s_9716c29917e442::t_38827dee8438e7 69,83,228,361
+  s_9716c29917e442::t_995590710a7d25 615-628
+  s_9716c29917e442::t_38b8c323961a2d 563-614,629-633,635-639
+  s_9716c29917e442::t_70f3eab11037b4 513-514
+  s_9716c29917e442::t_b291aa7a99ffe8 634
+  s_9716c29917e442::t_f1d2c3f164cf44 640-696,858-865,867-871,873-883
+  s_9716c29917e442::t_3bc93ccad1c921 377-490,947-952
+  s_3cee0bb86cf903::t_ef921fa4025db9 768-775,777-779,808-809,812-850
+  s_9716c29917e442::t_c418c2d655da3f 491-512,515-525,884-946
+  s_9716c29917e442::t_de96d35d6e6afd 526-562
+  s_9716c29917e442::t_1170532897db47 776,780-807,810-811
+  s_984ebb0ac9b51f::t_5ba642e610c8ba 866,872
+  s_9716c29917e442::t_26579394fc5a25 1-68,70-82,84-96,220-227,229-261,353-360,362-376
+  s_984ebb0ac9b51f::t_ef4a81ca3c2147 97-219
+  s_9716c29917e442::t_b71913d2d92c4b 697-767,851-857
+dbcore/duckdriver/command_unix.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-7
+apps/desktop/wailsjs/go/api/MongoService.js
+  s_9716c29917e442::t_a6af7e7bc42a74 13-14
+apps/desktop/src/hooks/use-redis-command.ts
+  s_9716c29917e442::t_7c8deeeb596c7e 14-16,21-23
+  s_9716c29917e442::t_b1c4b7c15be536 26
+apps/desktop/wailsjs/go/api/MongoService.d.ts
+  s_9716c29917e442::t_a6af7e7bc42a74 11
+dbcore/engines/adapter.go
+  s_9716c29917e442::t_92f91b750d312f 1-111
+dbcore/registry.go
+  s_9716c29917e442::t_2573c3b249eb46 59-65
+  s_9716c29917e442::t_b85bce0139e3ab 22-24
+  s_9716c29917e442::t_fc4f128168fa0e 1-21,25-34,38-44,57-58,66-75
+  s_9716c29917e442::t_0a23b88c64255c 35-37,45-56
+packages/shared/src/schemas.ts
+  s_4693a139a62450::t_1c68f4decb839d 171-172
+  s_4693a139a62450::t_ffa0889df2d0f3 193
+dbcore/providers/duckdb/duckdb_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-12,14-23,33-37,39-52,54-68,70-143,145-152
+  s_9716c29917e442::t_0ea7df61f9c021 153-195
+  s_9716c29917e442::t_1a5d432c4e866a 13
+  s_9716c29917e442::t_d05600b95f9424 38,53,69,144
+  s_9716c29917e442::t_6a0f6bef7d2383 24-32
+internal/maintenance/pgtools.go
+  s_9716c29917e442::t_d0c7cb1ecfa13f 13
+dbcore/duckdriver/protocol.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-90
+dbcore/providers/redis/info_test.go
+  s_9716c29917e442::t_247b0748438728 1-48
+dbcore/providers/clickhouse/clickhouse.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-461
+.gitignore
+  s_9716c29917e442::t_8ea81a0f06c10b 4-6
+  s_e99e09ab2f3c0e::t_1b207cbdd1578d 56
+dbcore/providers/postgres/preview_integration_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-141
+dbcore/providers/clickhouse/register.go
+  s_9716c29917e442::t_3f1d6223909965 1-19
+apps/desktop/src/components/sql-editor.tsx
+  s_a2b706f2b4d666::t_ac1600b7e67421 393-437
+  s_a2b706f2b4d666::t_83349a6feea570 160-168,170,174
+  s_4693a139a62450::t_0628278e941461 505,517,536
+  s_4693a139a62450::t_f4f100b6524d43 855-857
+  s_4693a139a62450::t_09dc0d0338a08e 913-914,927-929
+  s_a2b706f2b4d666::t_d080617beae1d9 916-926,930-942,945-947
+  s_4693a139a62450::t_d0442f0f7ab727 1034
+  s_4693a139a62450::t_342a13229a8820 1260
+  s_4693a139a62450::t_fe6ae113a5ec83 1292
+apps/desktop/src/components/sidebar.tsx
+  s_e99e09ab2f3c0e::t_b024d487dd1269 372
+  s_e99e09ab2f3c0e::t_a4b5ca93680f8d 43
+apps/desktop/src/components/connection-dialog.tsx
+  s_4693a139a62450::t_cf25c1f23e6ea9 228
+  s_4693a139a62450::t_8de4b547ce968f 298-300,305-318
+  s_4693a139a62450::t_d216f23130e734 14,19
+  s_4693a139a62450::t_babb37db1d1db3 125-126
+  s_a2b706f2b4d666::t_b0913f6d2e0a3a 301-304
+  s_4693a139a62450::t_7a2f077974429a 99
+  s_4693a139a62450::t_711c925c4bebf3 118
+dbcore/providers/mysql/mysql_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-94
+internal/api/request-lifecycle_test.go
+  s_9716c29917e442::t_b6fa1c7aa73d91 48
+  s_9716c29917e442::t_d0c7cb1ecfa13f 8
+  s_4693a139a62450::t_4a76d099e5c5f6 41-45
+  s_9716c29917e442::t_1785f2bb87a7c0 47
+dbcore/engines/tls.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-27
+dbcore/providers/duckdb/embedded/preview_order_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-55
+dbcore/providers/mongo/ordered_inputs_test.go
+  s_9716c29917e442::t_247b0748438728 24,44,56,61,71,76,80,83
+wails.json
+  s_40efe3b61410e9::t_ca9418d9ea512d 10-12
+dbcore/redis/contracts.go
+  s_9716c29917e442::t_a6422539e81e2d 17
+  s_9716c29917e442::t_55fe03d55a082f 1-16,18-34
+apps/desktop/src/lib/constants.ts
+  s_e99e09ab2f3c0e::t_08324552814587 39
+dbcore/dependency_boundary_test.go
+  s_9716c29917e442::t_ab5332f679639e 1-78
+apps/desktop/src/lib/api-requests.test.ts
+  s_9716c29917e442::t_1e8ddbe1573acb 108
+  s_79a9baca6fb21d::t_9d0e345c911448 116
+dbcore/providers/sqlite/memory_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-25
+dbcore/providers/mysql/timeout_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-176
+dbcore/providers/redis/protocol_test.go
+  s_9716c29917e442::t_247b0748438728 1-136
+dbcore/providers/clickhouse/clickhouse_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-126
+dbcore/engines/preview-key-types_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-93
+internal/api/connections.go
+  s_984ebb0ac9b51f::t_2de2e7fd31108d 18-19,393-398
+  s_9716c29917e442::t_a64ec47e142518 266-268
+  s_9716c29917e442::t_5c82222997653c 298,304,306
+  s_9716c29917e442::t_b8fec67420019e 299-302
+  s_9716c29917e442::t_73e7bbd62b86ef 383-384,401,407-415
+  s_9716c29917e442::t_e04ea7f6e42925 314-317,321-328,330-336,400
+  s_984ebb0ac9b51f::t_cedc11ddf38da7 17,154,197,592,595
+  s_9716c29917e442::t_8b467465cceb56 277,279,281
+  s_9716c29917e442::t_e831c959a465e7 21
+  s_9716c29917e442::t_8352c40e47051e 62,104,106,110-111,115,128,259,387,451
+  s_9716c29917e442::t_8b32020506d685 282
+  s_984ebb0ac9b51f::t_a924b91887623c 16,278,280,303,305,307,318-320,329
+  s_9716c29917e442::t_fc33313ab5e48f 50-52,63
+  s_4693a139a62450::t_b1b889461534cf 108
+  s_bfc3975fb5235f::t_95d0894f5d6cb1 20,337-338
+dbcore/engines/types.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-203
+internal/api/mongo.go
+  s_984ebb0ac9b51f::t_2de2e7fd31108d 61
+  s_9716c29917e442::t_6178ff026da813 26,31,37,52,57
+  s_9716c29917e442::t_1b587903cc4e81 136-153
+  s_9716c29917e442::t_7bb04324a6db94 12
+  s_9716c29917e442::t_95b7902b9739c1 10-11,13,45,51,221,226,328
+  s_9716c29917e442::t_7e3698ac7d02c5 43-44,49-50
+  s_9716c29917e442::t_9d375ea3d49ec6 9
+dbcore/providers/duckdb/register.go
+  s_9716c29917e442::t_3f1d6223909965 1-9,15,17-22
+  s_9716c29917e442::t_229a9b9e583a58 10-14,16
+dbcore/engines/kinds.go
+  s_9716c29917e442::t_d3f57711836abc 69
+  s_9716c29917e442::t_3fedb8b356cc0a 1-17,21-68
+  s_9716c29917e442::t_25fdc658f76f60 70-74
+  s_9716c29917e442::t_54c3cd9d7e6006 18-20
+dbcore/engines/preview-cursor.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-339
+cmd/kamehadb-duckdb-driver/main.go
+  s_9716c29917e442::t_6c72bf1b8bab29 10
+  s_9716c29917e442::t_a5840db94eb2c3 11
+  s_9716c29917e442::t_9eccbc7d376d4c 12
+docs/llm/workflows/connections-and-workspace.md
+  s_984ebb0ac9b51f::t_8f3455fdcba1a9 29,39,63,71,89,92-93
+  s_a2b706f2b4d666::t_53f38eca3eca35 33
+  s_a2b706f2b4d666::t_77d20dc3afd434 73
+  s_a2b706f2b4d666::t_550259782c0cd0 83
+  s_a2b706f2b4d666::t_229fcf8a3b68d1 91
+  s_9716c29917e442::t_c743e61aad0fb2 94-95
+internal/api/request_postgres_integration_test.go
+  s_9716c29917e442::t_d0c7cb1ecfa13f 9
+  s_4693a139a62450::t_4553c8a2b69e01 48
+  s_9716c29917e442::t_1785f2bb87a7c0 43
+internal/database/database.go
+  s_9716c29917e442::t_ed27108bb763b5 105-109,117-119,122-133,140-154,164-165,167-168
+  s_9716c29917e442::t_43aa9bed8d3278 11
+  s_9716c29917e442::t_130a9e615866c1 110-112,135-136,138-139
+  s_9716c29917e442::t_edd03bfbce2383 246
+  s_9716c29917e442::t_507c65e1317886 176,181
+  s_9716c29917e442::t_56574e6977c840 235-239,244-245
+  s_9716c29917e442::t_3560fdf9db0f99 12
+  s_9716c29917e442::t_db841e318b450e 37
+  s_984ebb0ac9b51f::t_090dd6780e7666 45-46,48
+  s_9716c29917e442::t_b116d8de7e631a 155-163,166,169
+  s_9716c29917e442::t_2f2b7928560400 1-10,13-18,20-28,34-36,38-44,53-58,60-68,70-83,85-93,210-213,216,221-234,240-243,247-253
+  s_9716c29917e442::t_da922578b86f76 29,52,116
+  s_9716c29917e442::t_0256284336dafa 177,184
+  s_9716c29917e442::t_b2ced5466d62f2 19
+  s_984ebb0ac9b51f::t_12d08409f42db6 31-33,96-97,99-101,120-121,172-174,178-180,182,185,187-209,218-219
+  s_984ebb0ac9b51f::t_a924b91887623c 115,134,137
+  s_984ebb0ac9b51f::t_2de2e7fd31108d 47,49-51
+  s_9716c29917e442::t_0bb52c33c0013a 30,59,69,84,94-95,98,102-104,170-171,175,183,186
+  s_984ebb0ac9b51f::t_e0e52ce6b47f37 113-114
+  s_9716c29917e442::t_56a7f2b7c64e72 214-215,217,220
+dbcore/providers/duckdb/embedded/duckdb.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-475
+dbcore/mongo/contracts.go
+  s_9716c29917e442::t_a2b3b657514e07 1-30
+dbcore/providers/sqlserver/sqlserver.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-567
+dbcore/providers/postgres/stats.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-190
+apps/desktop/src/lib/api.ts
+  s_9716c29917e442::t_85ad0f22f9f134 374,376,378,380-382,433-449
+  s_9716c29917e442::t_503dad42795e87 50
+  s_9716c29917e442::t_96366001047912 67,71
+  s_79a9baca6fb21d::t_5a075192b5e218 373,375,377,379,383
+internal/store/store_test.go
+  s_9716c29917e442::t_29382bd1dc6df6 12
+  s_4693a139a62450::t_c6c76c0e17875e 544-572
+internal/store/vault.go
+  s_9716c29917e442::t_1782da4da24f47 16
+dbcore/providers/sqlserver/register.go
+  s_9716c29917e442::t_3f1d6223909965 1-19
+dbcore/providers/mysql/preview_order_sql_test.go
+  s_9716c29917e442::t_6c72bf1b8bab29 1-53
+apps/desktop/src/components/mongo-query.tsx
+  s_9716c29917e442::t_e55f307a25645d 82-86,88-96,98
+  s_9716c29917e442::t_6c575ad625ad12 328
+  s_9716c29917e442::t_f05316b10b0f39 40-45,53
+  s_9716c29917e442::t_6dd45a3e34149c 253-254
+  s_9716c29917e442::t_e87f97fb81fbc9 630
+  s_9716c29917e442::t_9c8ffd636ec17e 629
+  s_9716c29917e442::t_7abd76c5e32168 64-65,67-75,77-80
+  s_9716c29917e442::t_e416e094be5bd4 81
+  s_9716c29917e442::t_239f5e41135257 99-101
+dbcore/providers/mongo/mongo.go
+  s_9716c29917e442::t_247b0748438728 12,19,239-248,251-260,282,293-328,331-333,340,354,365-367,394,414-448,460-470,524,558-560,578-587,590-592,599,611-617,621,647
+dbcore/redis/types.go
+  s_9716c29917e442::t_2ba98c2a420306 1-83
+apps/desktop/src/components/sql-editor.test.ts
+  s_a2b706f2b4d666::t_c4c7f54c476ad2 73,81-82
+  s_a2b706f2b4d666::t_45472895858d46 15,18-72,74-80,83-96
+internal/store/migrate.go
+  s_4693a139a62450::t_0490f86e1284ca 78-82
+  s_4693a139a62450::t_3710c144eb1bf7 34
+docs/llm/architecture/overview.md
+  s_9716c29917e442::t_6e43b3bc951d07 34
+  s_9716c29917e442::t_f10974038ba1ee 36
+  s_9716c29917e442::t_0efafce77bb383 22-24
+  s_9716c29917e442::t_3ac1c96805be99 56
+  s_9716c29917e442::t_c743e61aad0fb2 7,55,57
+  s_9716c29917e442::t_90f784ac8d7318 19-21
+  s_9716c29917e442::t_979f341d299e47 25-27
+app.go
+  s_9716c29917e442::t_9681ef0ec7c94e 38-42
+  s_9716c29917e442::t_1c0b7b120a9b53 20,27,29,37
+  s_9716c29917e442::t_a0fe6d6e4dc9fc 9
+  s_9716c29917e442::t_4d33c5d178186e 10
+  s_1217002103483e::t_8d34f205a9ec93 18-19
+docs/agent-devkit/changes/2026-10-12-acp-agent-chat/delta.md
+  s_1ee5e170c032a6::t_356603969a2021 1-131
+docs/agent-devkit/changes/2026-10-13-footprint-and-large-tables/delta.md
+  s_9716c29917e442::t_3cdaae60d7c5c9 47,68,96,139,176,225,332,365,398
+docs/agent-devkit/changes/archive/2026-10-16-review-feedback-hardening/delta.md
+  s_4acd7ca197a190::t_9e818bd7896921 1-42
+docs/agent-devkit/changes/archive/2026-10-16-review-feedback-hardening/design.md
+  s_4acd7ca197a190::t_08f0d079d9ea6b 1-48
+docs/agent-devkit/changes/archive/2026-10-20-110-provider-core-review-hardening/delta.md
+  s_cf89229b6156eb::t_708d52a011e038 1-147
+docs/agent-devkit/research/2026-10-19-dbx-provider-core-patterns.md
+  s_fc1c86ff1ddf8e::t_561f59476878d3 1-27
+docs/agent-devkit/changes/2026-10-12-ai-schema-indexing/delta.md
+  s_e1bdbff7336662::t_5034f7ccbebe42 1-45
+docs/agent-devkit/changes/2026-10-12-ai-schema-indexing/design.md
+  s_e1bdbff7336662::t_1dcb1aec939d2c 1-65
+docs/agent-devkit/changes/2026-10-12-ai-schema-indexing/tasks.md
+  s_e1bdbff7336662::t_c4045f8d9ad627 1-121
+docs/agent-devkit/changes/archive/2026-10-19-110-unified-provider-core/delta.md
+  s_984ebb0ac9b51f::t_d3966937f55817 1-162
+docs/agent-devkit/changes/archive/2026-10-20-110-provider-core-review-hardening/tasks.md
+  s_984ebb0ac9b51f::t_7be7f66dcf0252 1-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fea61dd5c2bff62a0e39e0940e76fccd1ae8273e",
+  "prompts": {},
+  "sessions": {
+    "s_1217002103483e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_ea8cfca78ffeD7vyLeI6L970L5",
+        "model": "deepseek-v4.1-flash"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_1ee5e170c032a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74b01818-b907-45c0-9800-cc188fb441a9",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_3cee0bb86cf903": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "269494d0-cec9-4f13-9c3b-0459aad6dc40",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_40efe3b61410e9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a167a1-135d-7cf1-b296-881bea78e402",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_42a83303036664": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "sudsy-tuesday",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_4693a139a62450": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_e995dc0c5ffeiu7EGk41XILPJY",
+        "model": "deepseek-v4.1-flash-free"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_4acd7ca197a190": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a142bd-4b41-7cf3-8404-69bf5418d60f",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_79a9baca6fb21d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eab4733f6ffe0ojGgiIhYgK6m1",
+        "model": "deepseek-v4.1-flash"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_9716c29917e442": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "southern-wildflower",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_984ebb0ac9b51f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a154d4-0e02-76a2-b225-5ebff52b85d8",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_a2b706f2b4d666": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "first-cartoon",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_bfc3975fb5235f": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "wild-crafter",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_cf89229b6156eb": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "right-catcher",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_e1bdbff7336662": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12f98-57ef-7bb2-b15f-2749338ae9be",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_e99e09ab2f3c0e": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "polar-gorgonzola",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    },
+    "s_fc1c86ff1ddf8e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_eac9c0eddffewXz1sixc3VP1wF",
+        "model": "deepseek-v4.1-flash"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
