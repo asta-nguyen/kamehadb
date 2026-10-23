@@ -6,7 +6,8 @@ import (
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/internal/database"
+	"github.com/asta-nguyen/kamehadb/internal/logs"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
@@ -14,18 +15,18 @@ import (
 // alongside it in main.go so the generated bindings form one typed surface
 // for the frontend.
 type App struct {
-	ctx      context.Context
-	store    *store.Store
-	registry *engines.Registry
+	ctx   context.Context
+	store *store.Store
+	db    *database.DB
 }
 
 func NewApp() *App {
 	return &App{}
 }
 
-func (a *App) setServices(s *store.Store, reg *engines.Registry) {
+func (a *App) setServices(s *store.Store, db *database.DB) {
 	a.store = s
-	a.registry = reg
+	a.db = db
 }
 
 func (a *App) startup(ctx context.Context) {
@@ -33,8 +34,12 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(_ context.Context) {
-	if a.registry != nil {
-		a.registry.Close()
+	if a.db != nil {
+		// Manager.Close reports provider teardown errors (including
+		// constructions that finished during shutdown) — surface, don't drop.
+		if err := a.db.Close(); err != nil {
+			logs.Warn("app", "provider teardown reported errors: "+err.Error())
+		}
 	}
 	if a.store != nil {
 		a.store.Close()

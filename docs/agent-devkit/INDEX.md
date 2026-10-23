@@ -2,10 +2,13 @@
 
 ## Changes
 
-- [Runtime footprint and large-table browsing](changes/2026-10-13-footprint-and-large-tables/tasks.md) — all-engine performance revision approved; partial checkpoint authorized, 8/12 tasks recorded done, implementation still open. [Interim sorting/RAM benchmark](changes/2026-10-13-footprint-and-large-tables/benchmark.md).
+- [Runtime footprint and large-table browsing](changes/2026-10-13-footprint-and-large-tables/tasks.md) — all-engine performance revision approved; 11/12 tasks recorded done (Task 7 matched benchmark remains open). [Interim sorting/RAM benchmark](changes/2026-10-13-footprint-and-large-tables/benchmark.md).
 
 ## Archived changes
 
+- [GUI SQL read-only toggle](changes/archive/2026-10-23-gui-sql-read-only-toggle/tasks.md) — per-profile read-only flag enforced at GUI query/export boundaries; all four tasks verified including UI tests, docs, and the full build suite.
+- [Unified provider core review hardening](changes/archive/2026-10-20-110-provider-core-review-hardening/tasks.md) — all five tasks verified; manager races, guarded lookups, app compatibility, documentation, and final checks passed.
+- [Unified provider core](changes/archive/2026-10-19-110-unified-provider-core/tasks.md) — all six tasks verified — dbcore contracts/manager, all ten providers relocated, GUI services on the shared internal/database facade, shims removed, external-module validation passed.
 - [Review feedback hardening](changes/archive/2026-10-16-review-feedback-hardening/tasks.md) — AI chat no longer runs generated SQL, PostgreSQL TLS verification, atomic file backup/restore, encrypted stored credentials, least-privilege release workflow, loopback Docker ports. All 7 tasks verified.
 - [Connection Root CA and TLS Mode](changes/archive/2026-10-16-connection-root-ca/design.md) — local Root CA verification for PostgreSQL, MySQL/MariaDB, and SQL Server; all 9 implementation tasks passed final review.
 - [MCP runtime and history audit](changes/archive/mcp-audit/delta.md) — rollback recovery reporting, unavailable-runtime handling, and source-grounded MCP history documentation.

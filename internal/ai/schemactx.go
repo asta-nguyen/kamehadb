@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 )
 
 // renderTableDdl is the shared CREATE TABLE + index renderer from

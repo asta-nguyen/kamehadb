@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 )
 
 type sortTestLoader struct{}
@@ -31,10 +31,10 @@ func (a *sortTestAdapter) PreviewRows(context.Context, engines.PreviewRowsInput)
 // grid, not pay for another information_schema query on every sort click.
 func TestSortUsesCachedColumnsWithoutWeakeningValidation(t *testing.T) {
 	adapter := &sortTestAdapter{}
-	engines.RegisterFactory("test-cached-sort", func(engines.ConnProfile) (engines.SQLAdapter, error) { return adapter, nil })
-	registry := engines.NewRegistry(sortTestLoader{})
+	registry := testDB(t, sortTestLoader{})
+	testRegister(t, registry, "test-cached-sort", func(engines.ConnProfile) (engines.SQLAdapter, error) { return adapter, nil })
 	defer registry.Close()
-	service := NewSqlService(registry, newTTLCache())
+	service := NewSqlService(registry, newTTLCache(), nil)
 	if _, err := service.GetTableColumns("connection", "users"); err != nil {
 		t.Fatal(err)
 	}

@@ -50,7 +50,7 @@ Do not use pnpm commands to manage `landing/` dependencies.
 ## Repository Boundaries
 
 - `packages/shared/src/index.ts` is the frontend-facing contract for shared schemas and types.
-- `internal/` owns the Go backend: database adapters, the SQLite metadata store, Wails-bound services, MCP, and AI provider integrations.
+- `internal/` owns the Go backend: the SQLite metadata store, Wails-bound services, MCP, and AI provider integrations. Database providers live in the reusable `dbcore/` provider core.
 - `apps/desktop/` owns the React desktop experience plus the generated Wails bindings in `wailsjs/`.
 - `main.go`/`app.go` and `wails.json` hold the Wails entrypoint and project config.
 - `landing/` is the separate marketing and documentation site.

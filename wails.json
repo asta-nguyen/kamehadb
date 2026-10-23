@@ -7,6 +7,9 @@
   "frontend:build": "pnpm -r --filter @kamehadb/desktop... build",
   "frontend:dev:watcher": "pnpm dev",
   "frontend:dev:serverUrl": "http://localhost:1420",
+  "info": {
+    "productVersion": "2.1.0"
+  },
   "author": {
     "name": "asta-nguyen"
   }

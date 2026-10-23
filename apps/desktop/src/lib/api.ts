@@ -47,6 +47,7 @@ import type { engines, mongo, redis, store, api as bindingModels } from '../../w
 import { PickSaveFile, SaveTextFile } from '../../wailsjs/go/main/App';
 import {
   AttachMongoShell,
+  CountMongoDocuments,
   DeleteMongoDocument,
   AggregateMongoDocuments,
   FindMongoDocuments,
@@ -63,9 +64,11 @@ import {
   WriteMongoShell,
 } from '../../wailsjs/go/api/MongoService';
 import {
+  GetRedisKeyPage,
   GetRedisKeyWithRequest,
   GetRedisStats,
   GetRedisTTL,
+  ReleaseRedisCursor,
   RunRedisCommandWithRequest,
   ScanRedisKeys,
 } from '../../wailsjs/go/api/RedisService';
@@ -367,6 +370,17 @@ export const api = {
     );
   },
 
+  countMongoDocuments: (
+    connectionId: string,
+    input: import('@kamehadb/shared').CountDocumentsInput,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').CountResult> =>
+    runGUIRequest(
+      (requestId) => CountMongoDocuments(connectionId, { ...input, requestId } as mongo.CountDocumentsInput),
+      signal,
+      input.requestId,
+    ),
+
   deleteMongoDocument: (
     connectionId: string,
     input: { collection: string; database?: string; filter: Record<string, unknown> },
@@ -415,6 +429,23 @@ export const api = {
         GetRedisKeyWithRequest(connectionId, { key, requestId }) as Promise<import('@kamehadb/shared').RedisValue>,
       signal,
     ),
+
+  getRedisKeyPage: (
+    connectionId: string,
+    input: import('@kamehadb/shared').RedisValuePageInput,
+    signal?: AbortSignal,
+  ): Promise<import('@kamehadb/shared').RedisValuePage> =>
+    runGUIRequest(
+      (requestId) =>
+        GetRedisKeyPage(connectionId, { ...input, requestId } as redis.RedisValuePageInput) as Promise<
+          import('@kamehadb/shared').RedisValuePage
+        >,
+      signal,
+      input.requestId,
+    ),
+
+  releaseRedisCursor: (connectionId: string, cursor: string) =>
+    ReleaseRedisCursor(connectionId, cursor) as Promise<{ released: boolean }>,
 
   getRedisTTL: (connectionId: string, key: string) => GetRedisTTL(connectionId, key) as Promise<{ ttl: number }>,
 

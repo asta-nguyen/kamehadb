@@ -14,7 +14,7 @@ The system SHALL cap unpaginated GUI SQL results at 50,000 rows.
 - WHEN it runs through the GUI adapter
 - THEN 50,000 rows are returned with truncation indicated
 
-Evidence: `internal/engines/types.go`, `internal/engines/sqlite/sqlite.go`, `internal/engines/sqlite/sqlite_test.go`
+Evidence: `dbcore/engines/types.go`, `dbcore/providers/sqlite/sqlite.go`, `dbcore/providers/sqlite/sqlite_test.go`
 
 ### SQL-preview-paging
 
@@ -26,7 +26,7 @@ The system SHALL browse SQL table previews through limit/offset requests.
 - WHEN a descending name preview requests two rows
 - THEN two sorted rows are returned with further rows indicated
 
-Evidence: `internal/engines/sqlite/sqlite.go`, `internal/engines/sqlite/sqlite_test.go`, `apps/desktop/src/components/table-view.tsx`
+Evidence: `dbcore/providers/sqlite/sqlite.go`, `dbcore/providers/sqlite/sqlite_test.go`, `apps/desktop/src/components/table-view.tsx`
 
 ### SQL-result-export
 
@@ -50,13 +50,13 @@ The system SHALL configure SQLite with an approximately 64 MiB cache, a 256 MiB 
 - WHEN the normal or MCP adapter opens it
 - THEN the adapter applies the current cache, mmap, and temporary-storage PRAGMAs
 
-Evidence: `internal/engines/sqlite/sqlite.go`
+Evidence: `dbcore/providers/sqlite/sqlite.go`
 
 ## Sources
 
-- `internal/engines/types.go`
-- `internal/engines/sqlite/sqlite.go`
-- `internal/engines/sqlite/sqlite_test.go`
+- `dbcore/engines/types.go`
+- `dbcore/providers/sqlite/sqlite.go`
+- `dbcore/providers/sqlite/sqlite_test.go`
 - `apps/desktop/src/components/table-view.tsx`
 - `apps/desktop/src/lib/export.ts`
 
@@ -65,44 +65,50 @@ Evidence: `internal/engines/sqlite/sqlite.go`
 ### Business rules
 
 - SQL-kind profiles use the shared SQL adapter route. MongoDB, Redis, Qdrant, and TigerBeetle use their dedicated routes.
-- The sidecar applies shared `isQuerySafe` screening before execution. The helper strips SQL comments and string literals, rejects statement chaining and destructive keywords, and accepts only statements beginning with SELECT, WITH, SHOW, DESCRIBE, or EXPLAIN.
-- This is keyword screening rather than a complete SQL parser. The database account's own permissions remain relevant.
+- The saved profile's `readOnly` flag is the GUI write policy. New and migrated profiles default to read-only; the connection dialog shows a per-profile Read-only switch for SQL kinds, and turning it off permits SQL writes from the GUI. MCP stays unconditionally read-only and never consults this flag.
+- While a profile is read-only, the frontend editor screens with `isQuerySafe` and the backend runs `dbcore/sqlsafety.Check`: statement chaining and destructive keywords are rejected, and only statements beginning with SELECT, WITH, SHOW, DESCRIBE, or EXPLAIN pass.
+- While a profile is writable, the editor skips its safety gate and the backend runs `sqlsafety.CheckSingleStatement`, which still rejects a request containing more than one statement. A multi-statement editor batch is split and sent as a separate request per statement.
+- This is keyword screening rather than a complete SQL parser. The database account's own permissions remain the final boundary.
 - The editor supports completion, query results, query history, and exporting result data as CSV, JSON, or INSERT statements.
 
 ### Flow
 
 1. The user edits a SQL workspace tab and runs the selected statement.
-2. The desktop calls the connection-scoped SQL query endpoint.
-3. The route checks safety and dispatches to the adapter selected for the saved profile kind.
+2. The desktop calls the bound `SqlService.RunQuery` for the connection.
+3. The service reads the saved profile's `readOnly` flag and applies `sqlsafety.Check` or `sqlsafety.CheckSingleStatement` before adapter dispatch; a missing profile or policy-lookup error fails closed.
 4. The editor renders columns, rows, duration, and errors; successful queries can be added to query history.
-5. Export actions serialize the current result and download a dated file.
+5. Export actions serialize the current result and download a dated file; `ExportQueryCSV` applies the same profile policy before creating the export file.
 
 ### State changes
 
 - Query text and tab selection are held in workspace-tab state.
+- The profile's `readOnly` value is persisted in the metadata SQLite `read_only` column; query execution adds no new state.
 - Successful SQL executions can be persisted as query-history records by the desktop flow.
 
 ### Side effects
 
-- A query reaches the configured database through the adapter.
+- A query reaches the configured database through the adapter; on a writable profile it can modify the database.
 - Export creates a browser download. CSV serialization prefixes formula-leading values with an apostrophe.
 
 ### Authorization & constraints
 
-- The frontend and sidecar share the same query-safety helper.
+- The frontend safety prompt and inline editability read the saved profile's `readOnly`; an unresolved profile is treated as read-only.
+- The backend reads the policy from the persisted profile; request callers cannot override it.
 - SQL identifiers used in generated SQL are quoted through the shared helper.
 - The source safety check is not a database privilege boundary.
 
 ### Error paths
 
-- Unsafe SQL is rejected before reaching the adapter.
+- Unsafe SQL on a read-only profile, or a multi-statement request on a writable one, is rejected before reaching the adapter.
+- A write submitted on a writable profile can still fail at the database for missing grants; the adapter error is surfaced.
 - Adapter failures are returned to the editor, which displays the query error and records frontend diagnostics.
 - Export with no columns or rows produces a SQL comment instead of INSERT statements.
 
 ### Tests
 
 - apps/desktop/src/lib/sql-safety.test.ts covers accepted and rejected query patterns.
-- apps/desktop/src/components/sql-editor.test.ts covers SQL editor behavior.
+- apps/desktop/src/components/sql-editor.test.ts covers statement detection, dialect-aware limits, and read-only/writable batch execution.
+- dbcore/sqlsafety/sqlsafety_test.go covers the backend screening and single-statement checks; internal/api/request-sql_test.go and internal/api/export_test.go cover profile-policy enforcement on query and export.
 
 ### Related
 
@@ -112,17 +118,17 @@ Evidence: `internal/engines/sqlite/sqlite.go`
 
 ### Sources
 
-- internal/engines/types.go
-- internal/engines/sqlite/sqlite.go
-- internal/engines/sqlite/sqlite_test.go
+- internal/api/sql.go
+- internal/api/export.go
+- dbcore/sqlsafety/sqlsafety.go
+- dbcore/sqlsafety/sqlsafety_test.go
+- internal/store/profiles.go
 - apps/desktop/src/components/sql-editor.tsx
 - apps/desktop/src/hooks/use-query.ts
 - apps/desktop/src/lib/export.ts
 - apps/desktop/src/lib/sql-autocomplete.ts
 - apps/desktop/src/lib/sql-safety.test.ts
 - apps/desktop/src/components/sql-editor.test.ts
-- apps/sidecar/src/routes/sql.ts
-- apps/sidecar/src/adapters/factory.ts
 - packages/shared/src/types.ts
 
 ## Table browsing, schema tree, and graph
@@ -185,34 +191,33 @@ The recorded FFF test-file search for schema tree and graph component terms foun
 
 ### Flow
 
-1. The table view infers the source table and checks result columns against table metadata.
+1. The result view infers the source table and checks result columns against table metadata.
 2. Editing a cell builds an UPDATE statement with a WHERE clause based on the primary key, or all columns when no primary key exists.
-3. The desktop sends that statement through the normal SQL query hook to /sql/:id/query.
-4. The route applies `isQuerySafe`, which rejects UPDATE because it is not an allowed read statement.
+3. The desktop sends that statement through the normal SQL query hook to `SqlService.RunQuery`.
+4. The backend applies the profile's stored `readOnly` policy: on a writable profile the UPDATE reaches the adapter and the database account's grants decide success; on a read-only profile the edit is never offered.
 
 ### State changes
 
-- The edit form holds a proposed value in UI state; the source currently routes the generated update through the same SQL execution path.
+- The edit form holds a proposed value in UI state; the generated update travels the same SQL execution path and profile policy as editor statements.
 
 ### Side effects
 
-- An attempted update is sent to the SQL sidecar route and rejected by the route's shared safety check before the adapter executes it.
+- An enabled update is sent to the backend and, on a writable profile, executes against the database through the adapter.
 
 ### Authorization & constraints
 
-- A profile marked read-only disables cell editing in the UI.
+- A profile marked read-only disables cell editing in the UI, and the same persisted flag would reject the generated UPDATE at the backend.
 - Direct-table inference excludes joins, unions, grouping, computed or duplicate result columns, and subqueries.
-- Current source therefore contains a frontend/backend mismatch: the UI can offer editing for an otherwise eligible result, but the route rejects its generated UPDATE. The wiki records this as observed behavior, not as a supported successful write path.
 
 ### Error paths
 
 - Metadata not yet loaded prevents editing and displays a loading warning.
 - Unsupported query shapes or read-only profiles leave cells non-editable with an explanatory message.
-- If an enabled edit is submitted, the SQL route rejects the UPDATE as unsafe.
+- A submitted update can still fail at the adapter (missing grants, constraint violations); the error is surfaced like any query error.
 
 ### Tests
 
-The recorded FFF test-file search for `getTableEditabilityState` and `buildRowUpdateQuery` in test/spec files returned no matches.
+- apps/desktop/src/lib/table-editability.test.ts covers editability gating for read-only/writable profiles and update-query building.
 
 ### Related
 
@@ -223,8 +228,9 @@ The recorded FFF test-file search for `getTableEditabilityState` and `buildRowUp
 - apps/desktop/src/components/table-view.tsx
 - apps/desktop/src/components/sql-editor.tsx
 - apps/desktop/src/lib/table-editability.ts
+- apps/desktop/src/lib/table-editability.test.ts
 - apps/desktop/src/hooks/use-query.ts
-- apps/sidecar/src/routes/sql.ts
+- internal/api/sql.go
 - packages/shared/src/types.ts
 
 ## SQL schema search and autocomplete

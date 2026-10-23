@@ -12,9 +12,88 @@ import {
   containsMultipleStatements,
   hasTopLevelOrderBy,
   normalizeSqlForSafety,
+  runSqlBatch,
   stripLeadingComments,
 } from './sql-editor';
-import { isQuerySafe, KIND } from '@kamehadb/shared';
+import { isQuerySafe, KIND, type QueryResult } from '@kamehadb/shared';
+
+const fakeResult = (): QueryResult => ({
+  columns: [],
+  rows: [],
+  rowCount: 0,
+  durationMs: 1,
+  truncated: false,
+});
+
+const recordingRun = (calls: string[]) => async (statement: string) => {
+  calls.push(statement);
+  return fakeResult();
+};
+
+describe('SQLReadOnlyExecution', () => {
+  const identity = (sql: string) => sql;
+
+  it('sends each writable batch statement as a separate request', async () => {
+    const calls: string[] = [];
+    const batch = await runSqlBatch({
+      querySql: 'SELECT 1; UPDATE users SET name = $1',
+      isReadOnly: false,
+      withLimit: identity,
+      run: recordingRun(calls),
+    });
+    expect(calls).toEqual(['SELECT 1', 'UPDATE users SET name = $1']);
+    expect(batch?.error).toBeUndefined();
+    expect(batch?.results).toHaveLength(2);
+  });
+
+  it('blocks a batch containing a write before any request on a read-only profile', async () => {
+    const calls: string[] = [];
+    const batch = await runSqlBatch({
+      querySql: 'SELECT 1; UPDATE users SET name = $1',
+      isReadOnly: true,
+      withLimit: identity,
+      run: recordingRun(calls),
+    });
+    expect(calls).toEqual([]);
+    expect(batch?.error).toBeTruthy();
+  });
+
+  it('blocks a single write statement on a read-only profile', async () => {
+    const calls: string[] = [];
+    const batch = await runSqlBatch({
+      querySql: 'DELETE FROM users',
+      isReadOnly: true,
+      withLimit: identity,
+      run: recordingRun(calls),
+    });
+    expect(calls).toEqual([]);
+    expect(batch?.error).toBeTruthy();
+  });
+
+  it('blocks a multi-statement chain on a read-only profile before any request', async () => {
+    const calls: string[] = [];
+    const batch = await runSqlBatch({
+      querySql: 'SELECT 1; SELECT 2',
+      isReadOnly: true,
+      withLimit: identity,
+      run: recordingRun(calls),
+    });
+    expect(calls).toEqual([]);
+    expect(batch?.error).toBeTruthy();
+  });
+
+  it('returns null for empty input', async () => {
+    const calls: string[] = [];
+    const batch = await runSqlBatch({
+      querySql: '  ;  ',
+      isReadOnly: true,
+      withLimit: identity,
+      run: recordingRun(calls),
+    });
+    expect(batch).toBeNull();
+    expect(calls).toEqual([]);
+  });
+});
 
 describe('SQL editor statement detection', () => {
   it('does not treat semicolons inside literals or comments as statement separators', () => {

@@ -10,8 +10,8 @@ export function AttachMongoShell(arg1) {
   return window['go']['api']['MongoService']['AttachMongoShell'](arg1);
 }
 
-export function CloseAll() {
-  return window['go']['api']['MongoService']['CloseAll']();
+export function CountMongoDocuments(arg1, arg2) {
+  return window['go']['api']['MongoService']['CountMongoDocuments'](arg1, arg2);
 }
 
 export function DeleteMongoDocument(arg1, arg2) {

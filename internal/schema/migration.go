@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 )
 
 // Dialects from shared DIALECT / DIALECT_BY_KIND.

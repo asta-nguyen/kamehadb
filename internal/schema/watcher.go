@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/engines/postgres"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/providers/postgres"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 

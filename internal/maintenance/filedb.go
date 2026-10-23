@@ -14,7 +14,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 )
 
 // SQLITE_RELATED_SUFFIXES / DUCKDB_RELATED_SUFFIXES from sidecar constants:

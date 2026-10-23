@@ -13,7 +13,17 @@ interface DataFooterProps {
   rowCount: number;
   durationMs: number;
   page: number;
-  totalCount?: number;
+  // Actual skip offset of this page — may differ from page*pageSize after a
+  // byte-bounded page admitted fewer rows than requested.
+  startRow?: number;
+  // Disable the page-jump input once a byte-limited page was seen: offsets of
+  // unvisited pages are then unknowable.
+  disablePageJump?: boolean;
+  totalCount?: number | string;
+  countMode?: string;
+  countPending?: boolean;
+  countError?: string | null;
+  onCount?: (mode: 'estimated' | 'exact') => void;
   pageSize: number;
   hasMore: boolean;
   isFetching?: boolean;
@@ -28,7 +38,13 @@ export function DataFooter({
   rowCount,
   durationMs,
   page,
+  startRow,
+  disablePageJump,
   totalCount,
+  countMode,
+  countPending,
+  countError,
+  onCount,
   pageSize,
   hasMore,
   isFetching,
@@ -39,14 +55,49 @@ export function DataFooter({
   className,
 }: DataFooterProps) {
   // Page jumps need a known total; without one the footer offers Prev/Next only.
-  const maxPage = totalCount != null ? Math.max(page, Math.ceil(totalCount / pageSize) - 1) : page;
+  // String totals only appear beyond JS safe-integer range — page math uses
+  // Number() as a bound while the exact string is what gets displayed.
+  // A pending or failed count is not a total — displayTotal suppresses the
+  // placeholder 0 and keeps the Count menu reachable for retry.
+  const displayTotal = countPending || countError != null ? undefined : totalCount;
+  const maxPage = displayTotal != null ? Math.max(page, Math.ceil(Number(displayTotal) / pageSize) - 1) : page;
+  // startRow defaults to the old page*pageSize offset for callers that never
+  // see byte-shortened pages; range display uses the actual offset otherwise.
+  const first = startRow ?? page * pageSize;
   return (
     <div
       className={`px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30 flex items-center gap-3 rounded-b-md ${
         className ?? ''
       }`}
     >
-      <span>{rowCount} rows</span>
+      <span>
+        {rowCount > 0 ? `${first + 1}–${first + rowCount}` : 0} rows
+        {countPending && <Spinner size="sm" className="inline-block ml-1" />}
+        {displayTotal != null && (
+          <span className="ml-1">
+            of {displayTotal}
+            {countMode && <span className="text-muted-foreground/70"> ({countMode})</span>}
+          </span>
+        )}
+      </span>
+      {/* Counts are opt-in work: the page itself never runs a count. Estimated
+          is offered always and the backend rejects it when a filter/search is
+          active; exact counts the effective filter and is cancellable. (Why) */}
+      {(displayTotal == null || countError != null) && onCount && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={countPending}
+            className="inline-flex items-center justify-center rounded-lg border border-border text-xs font-medium h-6 px-2 hover:bg-muted hover:text-foreground"
+          >
+            {countPending ? <Spinner size="sm" /> : 'Count…'}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-auto min-w-32">
+            <DropdownMenuItem onClick={() => onCount('estimated')}>Estimated (fast)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onCount('exact')}>Exact (slower)</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      {countError && <span className="text-destructive">{countError}</span>}
       <span className="ml-auto">{durationMs}ms</span>
       {isFetching && (
         <span className="flex items-center gap-1 text-muted-foreground">
@@ -55,13 +106,14 @@ export function DataFooter({
         </span>
       )}
       <div className="flex items-center gap-2">
-        {totalCount != null ? (
+        {displayTotal != null && !disablePageJump ? (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <span>Page</span>
             <Input
               type="number"
               min={1}
               max={maxPage + 1}
+              disabled={isFetching}
               value={page + 1}
               onChange={(e) => {
                 const p = parseInt(e.target.value, 10);
@@ -77,12 +129,17 @@ export function DataFooter({
           <Button
             variant="ghost"
             size="icon-sm"
-            disabled={page === 0}
+            disabled={page === 0 || isFetching}
             onClick={() => onPageChange(Math.max(0, page - 1))}
           >
             <ChevronLeft className="size-3.5" />
           </Button>
-          <Button variant="ghost" size="icon-sm" disabled={!hasMore} onClick={() => onPageChange(page + 1)}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={!hasMore || isFetching}
+            onClick={() => onPageChange(page + 1)}
+          >
             <ChevronRight className="size-3.5" />
           </Button>
         </div>

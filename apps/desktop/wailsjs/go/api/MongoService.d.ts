@@ -8,7 +8,7 @@ export function AggregateMongoDocuments(arg1:string,arg2:mongo.AggregateInput):P
 
 export function AttachMongoShell(arg1:string):Promise<string>;
 
-export function CloseAll():Promise<void>;
+export function CountMongoDocuments(arg1:string,arg2:mongo.CountDocumentsInput):Promise<mongo.CountResult>;
 
 export function DeleteMongoDocument(arg1:string,arg2:api.MongoDeleteInput):Promise<Record<string, number>>;
 

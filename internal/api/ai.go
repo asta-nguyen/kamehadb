@@ -15,10 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	dbmongo "github.com/asta-nguyen/kamehadb/dbcore/mongo"
+	"github.com/asta-nguyen/kamehadb/dbcore/providers/postgres"
 	"github.com/asta-nguyen/kamehadb/internal/ai"
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/engines/postgres"
-	"github.com/asta-nguyen/kamehadb/internal/mongo"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 	"github.com/asta-nguyen/kamehadb/internal/terminal"
 )
@@ -26,18 +27,18 @@ import (
 // AiService replaces routes/ai.ts. Chat streams over `chat:<requestId>`
 // events instead of an SSE response; each payload is {type, delta|message}.
 type AiService struct {
-	st    *store.Store
-	reg   *engines.Registry
-	mongo *MongoService
-	cache *ttlCache
-	emit  terminal.EmitFunc
+	st     *store.Store
+	lookup appengines.SQLLookup
+	mongo  *MongoService
+	cache  *ttlCache
+	emit   terminal.EmitFunc
 
 	chatsMu sync.Mutex
 	chats   map[string]context.CancelFunc
 }
 
-func NewAiService(st *store.Store, reg *engines.Registry, mongoSvc *MongoService, _ *SqlService, cache *ttlCache, emit terminal.EmitFunc) *AiService {
-	return &AiService{st: st, reg: reg, mongo: mongoSvc, cache: cache, emit: emit, chats: map[string]context.CancelFunc{}}
+func NewAiService(st *store.Store, lookup appengines.SQLLookup, mongoSvc *MongoService, _ *SqlService, cache *ttlCache, emit terminal.EmitFunc) *AiService {
+	return &AiService{st: st, lookup: lookup, mongo: mongoSvc, cache: cache, emit: emit, chats: map[string]context.CancelFunc{}}
 }
 
 // --- settings -------------------------------------------------------------
@@ -309,7 +310,7 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 			case engines.KindRedis:
 				// No schema context for redis, same as the route.
 			default:
-				adapter, err := s.reg.Get(ctx, input.ConnectionID)
+				adapter, err := s.lookup.Get(ctx, input.ConnectionID)
 				if err != nil {
 					return "", errors.New("Schema context is unavailable due to an error")
 				}
@@ -426,7 +427,7 @@ func (s *AiService) runChat(ctx context.Context, requestID string, input ChatInp
 
 // buildMongoSchemaContext ports the route helper: db-scoped collections with
 // sample-document fields, or all user databases as fallback.
-func (s *AiService) buildMongoSchemaContext(ctx context.Context, adapter *mongo.Adapter, database string) (string, error) {
+func (s *AiService) buildMongoSchemaContext(ctx context.Context, adapter dbmongo.Operations, database string) (string, error) {
 	var lines []string
 	writeCollection := func(db, collName string) {
 		stats, err := adapter.GetCollectionStats(ctx, db, collName)
@@ -439,7 +440,7 @@ func (s *AiService) buildMongoSchemaContext(ctx context.Context, adapter *mongo.
 		}
 		lines = append(lines, fmt.Sprintf("### %s (%d docs)", collName, count))
 		if count > 0 {
-			res, err := adapter.FindDocuments(ctx, mongo.FindDocumentsInput{Collection: collName, Database: db, Limit: 1})
+			res, err := adapter.FindDocuments(ctx, dbmongo.FindDocumentsInput{Collection: collName, Database: db, Limit: 1})
 			if err == nil && len(res.Documents) > 0 {
 				sample := res.Documents[0]
 				fields := make([]string, 0, 15)
@@ -586,7 +587,7 @@ Rules:
 		prompt += "\n\nCurrent connection: Redis.\n- Use ```redis``` blocks with Redis CLI syntax only.\n- Prefer read-only commands: SCAN, TYPE, TTL, MEMORY USAGE, INFO, DBSIZE, HGETALL, LRANGE, SMEMBERS, ZRANGE.\n- Do NOT use SQL or JavaScript syntax."
 	case engines.KindMongoDB:
 		prompt += "\n\nCurrent connection: MongoDB.\n- Use ```javascript``` blocks for all queries (filter, find, aggregate, etc.).\n- Do NOT use SQL syntax.\n- Write the query using direct shell syntax: `db.collectionName.find(...)` or `db.collectionName.aggregate([...])`.\n- Prefix the query with a comment explaining what it does."
-	case engines.KindTigerBeetle:
+	case appengines.KindTigerBeetle:
 		prompt += "\n\nCurrent connection: TigerBeetle (financial transaction database).\n- Do NOT use SQL, MongoDB, or Redis syntax.\n- TigerBeetle is a double-entry accounting database with accounts and transfers.\n- Use the TigerBeetle CLI syntax or Node.js client API in ```javascript``` blocks.\n- Key operations: create_accounts, lookup_accounts, create_transfers, lookup_transfers, get_account_transfers, get_account_balances.\n- Accounts have: id (u128), debits_posted, debits_pending, credits_posted, credits_pending, flags, ledger, code.\n- Transfers have: id (u128), debit_account_id, credit_account_id, amount, flags, ledger, code.\n- Prefer read-only operations: lookup_accounts, lookup_transfers, get_account_balances."
 	case "":
 	default:

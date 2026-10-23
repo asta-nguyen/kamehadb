@@ -4,6 +4,8 @@ import {redis} from '../models';
 
 export function GetRedisKey(arg1:string,arg2:string):Promise<redis.RedisValue>;
 
+export function GetRedisKeyPage(arg1:string,arg2:redis.RedisValuePageInput):Promise<redis.RedisValuePage>;
+
 export function GetRedisKeyWithRequest(arg1:string,arg2:redis.RedisKeyRequest):Promise<redis.RedisValue>;
 
 export function GetRedisStats(arg1:string):Promise<redis.RedisStats>;
@@ -12,10 +14,10 @@ export function GetRedisTTL(arg1:string,arg2:string):Promise<Record<string, numb
 
 export function Invalidate(arg1:string):Promise<void>;
 
+export function ReleaseRedisCursor(arg1:string,arg2:string):Promise<Record<string, boolean>>;
+
 export function RunRedisCommand(arg1:string,arg2:string):Promise<redis.CommandResult>;
 
 export function RunRedisCommandWithRequest(arg1:string,arg2:redis.RedisCommandRequest):Promise<redis.CommandResult>;
 
 export function ScanRedisKeys(arg1:string,arg2:redis.ScanKeysInput):Promise<redis.KeyPage>;
-
-export function Shutdown():Promise<void>;

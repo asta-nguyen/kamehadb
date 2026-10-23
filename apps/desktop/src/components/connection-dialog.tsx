@@ -11,11 +11,12 @@ import {
   type ConnectionProfile,
   type DbKind,
 } from '@kamehadb/shared';
-import { KIND, ALL_KINDS, PROTOCOL_ALIASES, DEFAULT_PORTS, isFileDatabaseKind } from '@/lib/kinds';
+import { KIND, ALL_KINDS, PROTOCOL_ALIASES, DEFAULT_PORTS, isFileDatabaseKind, isSqlKind } from '@/lib/kinds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 import { useCreateConnection, useTestConnection, useUpdateConnection } from '@/hooks/use-connections';
 import { Plus } from 'lucide-react';
@@ -95,6 +96,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
       color: editConnection?.color ?? undefined,
       connectionString: editConnection?.connectionString ?? undefined,
       filePath: editConnection?.filePath ?? undefined,
+      readOnly: editConnection?.readOnly ?? true,
     },
   });
 
@@ -113,12 +115,15 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
         color: editConnection.color ?? undefined,
         connectionString: editConnection.connectionString ?? undefined,
         filePath: editConnection.filePath ?? undefined,
+        readOnly: editConnection.readOnly ?? true,
       });
     }
   }, [editConnection, form]);
 
   const kind = form.watch('kind') as DbKind;
   const selectedColor = form.watch('color');
+  const readOnly = form.watch('readOnly') ?? true;
+  const showReadOnly = isSqlKind(kind);
 
   // Auto-hide test connection result after 5 seconds
   useEffect(() => {
@@ -220,6 +225,7 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
           updateValues.connectionString = values.connectionString;
         }
         if (values.color !== editConnection.color) updateValues.color = values.color;
+        if (values.readOnly !== (editConnection.readOnly ?? true)) updateValues.readOnly = values.readOnly;
         await updateConnection.mutateAsync({
           id: editConnection.id,
           input: updateValues,
@@ -288,6 +294,27 @@ export function ConnectionDialog({ open, onOpenChange, editConnection }: Connect
               rootCAInputRef={rootCAInputRef}
               isEditing={isEditing}
             />
+
+            {showReadOnly && (
+              <div className="flex items-start justify-between gap-4 rounded-lg border border-border/60 p-3">
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="read-only"
+                    className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                  >
+                    Read-only
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    When off, SQL statements run from the GUI can modify this database. MCP stays read-only.
+                  </p>
+                </div>
+                <Switch
+                  id="read-only"
+                  checked={readOnly}
+                  onCheckedChange={(checked) => form.setValue('readOnly', checked, { shouldDirty: true })}
+                />
+              </div>
+            )}
 
             <DialogActions
               isEditing={isEditing}

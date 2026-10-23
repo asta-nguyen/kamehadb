@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/asta-nguyen/kamehadb/internal/duckdriver"
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/engines/duckdb/embedded"
+	"github.com/asta-nguyen/kamehadb/dbcore/duckdriver"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/providers/duckdb/embedded"
 )
 
 func main() {

@@ -7,13 +7,14 @@ import (
 
 	"github.com/asta-nguyen/kamehadb/internal/logs"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
 // IndexAllConnections ports ai/indexer.ts — embeds changed tables for every
 // SQL profile at startup. Errors per profile are logged, never fatal.
-func IndexAllConnections(ctx context.Context, s *store.Store, reg *engines.Registry) {
+func IndexAllConnections(ctx context.Context, s *store.Store, lookup appengines.SQLLookup) {
 	settings, err := s.GetAISettings()
 	if err != nil {
 		logs.Error("ai-indexer", fmt.Sprintf("settings unavailable: %v", err))
@@ -43,7 +44,7 @@ func IndexAllConnections(ctx context.Context, s *store.Store, reg *engines.Regis
 
 	logs.Info("ai-indexer", fmt.Sprintf("indexing schemas for %d SQL connections", len(sqlProfiles)))
 	for _, profile := range sqlProfiles {
-		adapter, err := reg.Get(ctx, profile.ID)
+		adapter, err := lookup.Get(ctx, profile.ID)
 		if err != nil {
 			logs.Warn("ai-indexer", fmt.Sprintf("%s: adapter: %v", profile.Name, err))
 			continue

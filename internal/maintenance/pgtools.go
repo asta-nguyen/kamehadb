@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 

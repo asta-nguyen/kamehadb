@@ -105,7 +105,7 @@ describe('managed GUI API requests', () => {
   it('uses the controlled Redis companions and preserves exact command text', async () => {
     await api.getRedisKey('connection', 'key');
     await api.runRedisCommand('connection', 'INCR counter');
-    await api.scanRedisKeys('connection', { pattern: 'a*', cursor: 0 });
+    await api.scanRedisKeys('connection', { pattern: 'a*', cursor: '0' });
     expect(GetRedisKeyWithRequest).toHaveBeenCalledWith('connection', { key: 'key', requestId: expect.any(String) });
     expect(RunRedisCommandWithRequest).toHaveBeenCalledExactlyOnceWith('connection', {
       command: 'INCR counter',
@@ -113,7 +113,7 @@ describe('managed GUI API requests', () => {
     });
     expect(ScanRedisKeys).toHaveBeenCalledWith('connection', {
       pattern: 'a*',
-      cursor: 0,
+      cursor: '0',
       requestId: expect.any(String),
     });
   });

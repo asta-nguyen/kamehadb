@@ -15,10 +15,10 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	mysqladapter "github.com/asta-nguyen/kamehadb/internal/engines/mysql"
-	pgadapter "github.com/asta-nguyen/kamehadb/internal/engines/postgres"
-	mssqladapter "github.com/asta-nguyen/kamehadb/internal/engines/sqlserver"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	mysqladapter "github.com/asta-nguyen/kamehadb/dbcore/providers/mysql"
+	pgadapter "github.com/asta-nguyen/kamehadb/dbcore/providers/postgres"
+	mssqladapter "github.com/asta-nguyen/kamehadb/dbcore/providers/sqlserver"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 

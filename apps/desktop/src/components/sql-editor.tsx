@@ -157,19 +157,21 @@ function splitSqlStatements(sql: string): string[] {
 
     // Dollar-quoting $$ or $tag$
     if (ch === '$') {
-      // Peek ahead for the closing tag
-      const start = i;
-      i++;
-      while (i < trimmed.length && trimmed[i] !== '$') i++;
-      if (i < trimmed.length && trimmed[i] === '$') {
-        const tag = trimmed.slice(start, i + 1); // e.g. $$ or $func$
+      // A dollar-quoted string opens with $$ or $tag$ (tag = identifier chars,
+      // not starting with a digit); a bare $ like a $1 placeholder is plain
+      // text. Peek with j so a failed tag scan does not swallow following text.
+      let j = i + 1;
+      while (j < trimmed.length && /[A-Za-z_0-9]/.test(trimmed[j])) j++;
+      const tagContent = trimmed.slice(i + 1, j);
+      const isTag = j < trimmed.length && trimmed[j] === '$' && (tagContent === '' || /^[A-Za-z_]/.test(tagContent));
+      if (isTag) {
+        const tag = trimmed.slice(i, j + 1); // e.g. $$ or $func$
         current += tag;
-        i++;
+        i = j + 1;
         // Scan for the closing tag
         while (i <= trimmed.length - tag.length) {
-          current += trimmed[i];
           if (trimmed.slice(i, i + tag.length) === tag) {
-            current += tag.slice(1); // the tag minus first $
+            current += tag;
             i += tag.length;
             break;
           }
@@ -388,6 +390,51 @@ export function applyQueryLimit(sql: string, limit: number, offsetVal?: number, 
   return offsetVal !== undefined ? `${trimmed} LIMIT ${limit} OFFSET ${offsetVal}` : `${trimmed} LIMIT ${limit}`;
 }
 
+export type SqlBatchRun = {
+  statements: string[];
+  results: QueryResult[];
+  error?: string;
+};
+
+// Run each split statement as its own request so every statement gets an
+// independent backend policy check. A read-only profile screens the original
+// input and each limited statement; a writable profile leaves the backend's
+// single-statement check to reject chains. Returns null for empty input so the
+// caller can skip display updates. (How / Why / What)
+export async function runSqlBatch(input: {
+  querySql: string;
+  isReadOnly: boolean;
+  withLimit: (statement: string) => string;
+  run: (statement: string) => Promise<QueryResult>;
+}): Promise<SqlBatchRun | null> {
+  // Validate the original input before splitting so a semicolon-delimited
+  // batch cannot bypass the one-statement safety policy.
+  if (input.isReadOnly) {
+    const originalSafety = isQuerySafe(normalizeSqlForSafety(input.querySql));
+    if (!originalSafety.safe) {
+      return { statements: [], results: [], error: originalSafety.reason ?? 'Query blocked by safety check' };
+    }
+  }
+
+  const statements = splitSqlStatements(input.querySql);
+  if (statements.length === 0) return null;
+
+  const results: QueryResult[] = [];
+  for (const statement of statements) {
+    // Apply LIMIT per individual statement so multi-statement SQL never
+    // produces a standalone "LIMIT N" after the split.
+    const stmt = input.withLimit(statement);
+    if (input.isReadOnly) {
+      const safety = isQuerySafe(stmt);
+      if (!safety.safe) {
+        return { statements, results, error: safety.reason ?? 'Query blocked by safety check' };
+      }
+    }
+    results.push(await input.run(stmt));
+  }
+  return { statements, results };
+}
+
 import { DataTable, type ColumnDef } from '@/components/data-table';
 import { MiddleTruncate } from '@/components/middle-truncate';
 import { RecordDetailTabs } from '@/components/record-detail-tabs';
@@ -455,6 +502,7 @@ function QueryResultTable({
   connectionId,
   executedSql,
   result,
+  isReadOnly,
   onSelectRow,
   onRefresh,
   queryLimit,
@@ -466,6 +514,7 @@ function QueryResultTable({
   connectionId: string;
   executedSql: string;
   result: QueryResult;
+  isReadOnly: boolean;
   onSelectRow: (row: Record<string, unknown>) => void;
   onRefresh: () => void;
   queryLimit: number;
@@ -484,7 +533,7 @@ function QueryResultTable({
     querySql: executedSql,
     resultColumns: result.columns,
     tableColumns,
-    isReadOnly: false,
+    isReadOnly,
   });
   const pkColumns = useMemo(
     () =>
@@ -803,6 +852,9 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
 
   const { data: connections } = useConnections();
   const targetConn = useMemo(() => connections?.find((c) => c.id === connectionId), [connections, connectionId]);
+  // The saved profile is the source of truth; an unresolved profile stays
+  // read-only so the client never offers a write the backend may reject.
+  const isReadOnly = targetConn?.readOnly ?? true;
 
   const handleCancel = useCallback(() => {
     isCancellingRef.current = true;
@@ -858,48 +910,41 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
       }
 
       // Validate the original input before splitting so a semicolon-delimited
-      // batch cannot bypass the one-statement safety policy.
-      const originalSafety = isQuerySafe(normalizeSqlForSafety(querySql));
-      if (!originalSafety.safe) {
-        setError(originalSafety.reason ?? 'Query blocked by safety check');
-        setIsExecutingBatch(false);
-        return;
-      }
-
-      const statements = splitSqlStatements(querySql);
-      if (statements.length === 0) {
-        setIsExecutingBatch(false);
-        return;
-      }
-
+      // batch cannot bypass the one-statement safety policy. Writable profiles
+      // still split batches into separate requests, each checked by the backend.
       try {
-        const allResults: QueryResult[] = [];
-        for (let i = 0; i < statements.length; i++) {
-          // Apply LIMIT per individual statement so multi-statement SQL never
-          // produces a standalone "LIMIT N" after the split.
-          const stmt = queryWithLimit(statements[i], queryLimit);
-          const safety = isQuerySafe(stmt);
-          if (!safety.safe) {
-            // Show results from statements that already executed before
-            // hitting the blocked one, so the user doesn't lose them.
-            if (allResults.length > 0) {
-              resultKeyRef.current++;
-              if (allResults.length === 1) {
-                setResult(allResults[0]);
-                setExecutedStatements([statements[0]]);
-              } else {
-                setResults(allResults);
-                setExecutedStatements(statements.slice(0, allResults.length));
-                setActiveResultIndex(0);
-              }
+        const batch = await runSqlBatch({
+          querySql,
+          isReadOnly,
+          withLimit: (stmt) => queryWithLimit(stmt, queryLimit),
+          run: async (stmt) => {
+            const res = await runQuery.mutateAsync({ query: stmt });
+            saveHistory.mutate({ query: stmt, durationMs: res.durationMs, rowCount: res.rowCount });
+            return res;
+          },
+        });
+        if (!batch) {
+          setIsExecutingBatch(false);
+          return;
+        }
+        const { statements, results: allResults, error: safetyError } = batch;
+        if (safetyError) {
+          // Show results from statements that already executed before
+          // hitting the blocked one, so the user doesn't lose them.
+          if (allResults.length > 0) {
+            resultKeyRef.current++;
+            if (allResults.length === 1) {
+              setResult(allResults[0]);
+              setExecutedStatements([statements[0]]);
+            } else {
+              setResults(allResults);
+              setExecutedStatements(statements.slice(0, allResults.length));
+              setActiveResultIndex(0);
             }
-            setError(safety.reason ?? 'Query blocked by safety check');
-            setIsExecutingBatch(false);
-            return;
           }
-          const res = await runQuery.mutateAsync({ query: stmt });
-          saveHistory.mutate({ query: stmt, durationMs: res.durationMs, rowCount: res.rowCount });
-          allResults.push(res);
+          setError(safetyError);
+          setIsExecutingBatch(false);
+          return;
         }
         resultKeyRef.current++;
         if (allResults.length === 1) {
@@ -986,7 +1031,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
         setIsExecutingBatch(false);
       }
     },
-    [runQuery, saveHistory, queryLimit],
+    [isReadOnly, runQuery, saveHistory, queryLimit],
   );
 
   const handleRun = useCallback(() => {
@@ -1212,6 +1257,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                       connectionId={connectionId}
                       executedSql={executedStatements[activeResultIndex] ?? baseSqlRef.current}
                       result={results[activeResultIndex]}
+                      isReadOnly={isReadOnly}
                       onSelectRow={setSelectedRow}
                       onRefresh={refreshCurrentResult}
                       queryLimit={queryLimit}
@@ -1243,6 +1289,7 @@ export function SqlEditor({ tab, connectionId }: SqlEditorProps) {
                   connectionId={connectionId}
                   executedSql={executedStatements[0] ?? baseSqlRef.current}
                   result={result}
+                  isReadOnly={isReadOnly}
                   onSelectRow={setSelectedRow}
                   onRefresh={refreshCurrentResult}
                   queryLimit={queryLimit}

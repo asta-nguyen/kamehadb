@@ -31,6 +31,7 @@ func (s *Store) migrate() error {
 		file_path TEXT,
 		color TEXT,
 		connection_string TEXT,
+		read_only INTEGER NOT NULL DEFAULT 1,
 		mcp_enabled INTEGER NOT NULL DEFAULT 0,
 		created_at TEXT NOT NULL DEFAULT (datetime('now')),
 		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -72,6 +73,11 @@ func (s *Store) migrate() error {
 	// mcp_enabled is added after the kind rebuilds because they copy an
 	// explicit column list and would drop it on a legacy database.
 	if err := s.addColumn("connection_profiles", "mcp_enabled", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	// Read-only is added after the kind rebuilds for the same reason: their
+	// explicit column copy drops it, and a legacy source may not have it yet.
+	if err := s.addColumn("connection_profiles", "read_only", "INTEGER NOT NULL DEFAULT 1"); err != nil {
 		return err
 	}
 

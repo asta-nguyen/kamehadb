@@ -16,8 +16,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/sqlite"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
@@ -462,4 +461,27 @@ func TestConcurrentBindKeepsLatestListener(t *testing.T) {
 		t.Fatalf("latest listener refused a connection: %v", err)
 	}
 	conn.Close()
+}
+
+// The GUI write policy is independent of MCP: a profile that the desktop may
+// write to must still reject writes through the read-only MCP server. (Why)
+func TestMCPRemainsReadOnlyWhenGUIProfileWritable(t *testing.T) {
+	r, st := newTestRuntime(t)
+	p := createSQLiteProfile(t, st, sqliteDBFile(t), true)
+	writable := false
+	if _, err := st.UpdateProfile(p.ID, store.ProfileInput{ReadOnly: &writable}); err != nil {
+		t.Fatal(err)
+	}
+	r.bind(0)
+
+	call := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sql_query","arguments":{"connection_id":%q,"sql":"DROP TABLE t"}}}`, p.ID)
+	resp := rpcCall(t, r, call)
+	result := resp["result"].(map[string]any)
+	if result["isError"] != true {
+		t.Fatal("want isError for DROP on a writable GUI profile")
+	}
+	text := result["content"].([]any)[0].(map[string]any)["text"].(string)
+	if !strings.HasPrefix(text, "READ_ONLY_QUERY_REQUIRED:") {
+		t.Fatalf("bad error code: %s", text)
+	}
 }

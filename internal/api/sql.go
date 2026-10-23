@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/sqlsafety"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/sqlsafety"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 )
 
 // CompletionsResult wraps the tables list the autocomplete endpoint returns.
@@ -20,7 +21,8 @@ type CompletionsResult struct {
 // stats. The metadata cache + per-connection query cancel map mirror the
 // sidecar behavior.
 type SqlService struct {
-	registry *engines.Registry
+	lookup   appengines.SQLLookup
+	readOnly func(string) (bool, error)
 	cache    *ttlCache
 
 	queriesMu sync.Mutex
@@ -36,13 +38,22 @@ type SqlService struct {
 	exportsClosed    bool
 }
 
-func NewSqlService(reg *engines.Registry, cache *ttlCache) *SqlService {
+func NewSqlService(lookup appengines.SQLLookup, cache *ttlCache, readOnly func(string) (bool, error)) *SqlService {
 	root, cancel := context.WithCancel(context.Background())
 	return &SqlService{
-		registry: reg, cache: cache, queries: map[string]string{}, requests: newRequestJobs(),
+		lookup: lookup, readOnly: readOnly, cache: cache, queries: map[string]string{}, requests: newRequestJobs(),
 		exports: map[string]context.CancelFunc{}, cancelledExports: map[string]time.Time{},
 		exportRoot: root, exportCancel: cancel,
 	}
+}
+
+// connectionReadOnly resolves the persisted GUI write policy. A nil lookup
+// (fixtures that only exercise read paths) fails closed to read-only. (Why)
+func (s *SqlService) connectionReadOnly(connectionID string) (bool, error) {
+	if s.readOnly == nil {
+		return true, nil
+	}
+	return s.readOnly(connectionID)
 }
 
 // clearConnectionCache is the clearConnectionCache hook called by
@@ -63,7 +74,7 @@ func (s *SqlService) ListDatabases(connectionID string) ([]engines.DatabaseInfo,
 	if cached := s.cache.get(key, schemaCacheTime); cached != nil {
 		return cached.([]engines.DatabaseInfo), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +91,7 @@ func (s *SqlService) ListSchemas(connectionID string) ([]engines.SchemaInfo, err
 	if cached := s.cache.get(key, schemaCacheTime); cached != nil {
 		return cached.([]engines.SchemaInfo), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +108,7 @@ func (s *SqlService) ListTables(connectionID, schema string) ([]engines.TableInf
 	if cached := s.cache.get(key, schemaCacheTime); cached != nil {
 		return cached.([]engines.TableInfo), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +134,7 @@ func (s *SqlService) getTableColumns(ctx context.Context, connectionID, tableID 
 	if cached := s.cache.get(key, schemaCacheTime); cached != nil {
 		return cached.([]engines.ColumnInfo), nil
 	}
-	adapter, err := s.registry.Get(ctx, connectionID)
+	adapter, err := s.lookup.Get(ctx, connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +151,7 @@ func (s *SqlService) GetTableIndexes(connectionID, tableID string) ([]engines.In
 	if cached := s.cache.get(key, schemaCacheTime); cached != nil {
 		return cached.([]engines.IndexInfo), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +168,7 @@ func (s *SqlService) GetCompletions(connectionID, schema string) (*CompletionsRe
 	if cached := s.cache.get(key, schemaCacheTime); cached != nil {
 		return cached.(*CompletionsResult), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +185,7 @@ func (s *SqlService) SearchSchema(connectionID, query, schema string, limit int)
 	if query == "" {
 		return []engines.SchemaSearchMatch{}, nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +207,7 @@ func (s *SqlService) PreviewRows(connectionID string, input engines.PreviewRowsI
 		return nil, err
 	}
 	defer s.requests.finish(job)
-	adapter, err := s.registry.Get(job.ctx, connectionID)
+	adapter, err := s.lookup.Get(job.ctx, connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -239,10 +250,18 @@ func (s *SqlService) RunQuery(connectionID string, input engines.RunQueryInput) 
 		return nil, err
 	}
 	defer s.requests.finish(job)
-	if safe, reason := sqlsafety.Check(input.Query); !safe {
+	readOnly, err := s.connectionReadOnly(connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if readOnly {
+		if safe, reason := sqlsafety.Check(input.Query); !safe {
+			return nil, errors.New(reason)
+		}
+	} else if safe, reason := sqlsafety.CheckSingleStatement(input.Query); !safe {
 		return nil, errors.New(reason)
 	}
-	adapter, err := s.registry.Get(job.ctx, connectionID)
+	adapter, err := s.lookup.Get(job.ctx, connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +310,7 @@ func (s *SqlService) GetTableStats(connectionID, tableID string) (*engines.Table
 	if cached := s.cache.get(key, statsCacheTime); cached != nil {
 		return cached.(*engines.TableStats), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +331,7 @@ func (s *SqlService) GetIndexStats(connectionID, tableID string) ([]engines.Inde
 	if cached := s.cache.get(key, statsCacheTime); cached != nil {
 		return cached.([]engines.IndexStats), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +352,7 @@ func (s *SqlService) GetDatabaseSizes(connectionID, schema string) ([]engines.Da
 	if cached := s.cache.get(key, statsCacheTime); cached != nil {
 		return cached.([]engines.DatabaseSize), nil
 	}
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +369,7 @@ func (s *SqlService) GetDatabaseSizes(connectionID, schema string) ([]engines.Da
 }
 
 func (s *SqlService) GetActiveConnections(connectionID string) ([]engines.ConnectionInfo, error) {
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}

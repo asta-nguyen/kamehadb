@@ -28,7 +28,7 @@ const dir = flags.get('--out-dir') ?? join(root, 'build', 'duckdb-driver');
 mkdirSync(dir, { recursive: true });
 const name = `kamehadb-duckdb-driver-${platform}${target === 'windows' ? '.exe' : ''}`;
 const output = join(dir, name);
-const pkg = 'github.com/asta-nguyen/kamehadb/internal/duckdriver';
+const pkg = 'github.com/asta-nguyen/kamehadb/dbcore/duckdriver';
 
 // Build the native helper before the desktop: its actual bytes, not a remote
 // checksum file, establish the checksum embedded in the matching app.

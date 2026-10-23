@@ -44,7 +44,7 @@ The system SHALL bound GUI SQL results by whole-row admission, an 8 MiB encoded-
 - WHEN its table is browsed
 - THEN no clipped value is represented as the original row and the UI explains the limit
 
-Evidence: `internal/engines/types.go`, `internal/engines/result-budget.go`, `internal/engines/sqlite/sqlite.go`, `internal/engines/sqlite/sqlite_test.go`
+Evidence: `dbcore/engines/types.go`, `dbcore/engines/result-budget.go`, `dbcore/providers/sqlite/sqlite.go`, `dbcore/providers/sqlite/sqlite_test.go`
 ````
 
 ### SQL-preview-paging
@@ -65,7 +65,7 @@ The system SHALL browse SQL table previews through limit/offset requests.
 - WHEN a descending name preview requests two rows
 - THEN two sorted rows are returned with further rows indicated
 
-Evidence: `internal/engines/sqlite/sqlite.go`, `internal/engines/sqlite/sqlite_test.go`, `apps/desktop/src/components/table-view.tsx`
+Evidence: `dbcore/providers/sqlite/sqlite.go`, `dbcore/providers/sqlite/sqlite_test.go`, `apps/desktop/src/components/table-view.tsx`
 ````
 
 Replacement:
@@ -93,7 +93,7 @@ The system SHALL use lossless backend-generated keyset cursors for verified elig
 - WHEN it is submitted
 - THEN paging returns an actionable restart error instead of silently changing the query
 
-Evidence: `internal/engines/preview-cursor.go`, `internal/engines/postgres/postgres.go`, `internal/engines/sqlite/sqlite.go`, `internal/engines/mysql/mysql.go`, `internal/engines/sqlserver/sqlserver.go`, `internal/engines/oracle/oracle.go`, `internal/engines/duckdb/embedded/duckdb.go`, `internal/engines/clickhouse/clickhouse.go`, `apps/desktop/src/components/table-view.tsx`
+Evidence: `dbcore/engines/preview-cursor.go`, `dbcore/providers/postgres/postgres.go`, `dbcore/providers/sqlite/sqlite.go`, `dbcore/providers/mysql/mysql.go`, `dbcore/providers/sqlserver/sqlserver.go`, `dbcore/providers/oracle/oracle.go`, `dbcore/providers/duckdb/embedded/duckdb.go`, `dbcore/providers/clickhouse/clickhouse.go`, `apps/desktop/src/components/table-view.tsx`
 ````
 
 ### SQL-result-export
@@ -136,7 +136,7 @@ The system SHALL retain current-result CSV/JSON/SQL exports and provide cancella
 - WHEN cancellation or a write/query error occurs
 - THEN its partial file is removed and an existing target is preserved
 
-Evidence: `internal/api/export.go`, `internal/engines/csv-export.go`, `apps/desktop/src/lib/export.ts`, `apps/desktop/src/lib/api.ts`
+Evidence: `internal/api/export.go`, `dbcore/engines/csv-export.go`, `apps/desktop/src/lib/export.ts`, `apps/desktop/src/lib/api.ts`
 ````
 
 ### SQL-sqlite-memory
@@ -173,7 +173,7 @@ The system SHALL configure normal and MCP SQLite connections with an 8 MiB page 
 - WHEN the normal or MCP adapter opens it
 - THEN the native-memory defaults are applied without changing journal mode or database contents
 
-Evidence: `internal/engines/sqlite/sqlite.go`, `internal/engines/sqlite/sqlite_test.go`
+Evidence: `dbcore/providers/sqlite/sqlite.go`, `dbcore/providers/sqlite/sqlite_test.go`
 ````
 
 ### ENG-duckdb-runtime
@@ -222,7 +222,7 @@ The system SHALL preserve DuckDB support through an app-managed optional driver 
 - WHEN DuckDB is opened offline
 - THEN the cached driver is verified and reused without a download
 
-Evidence: `internal/engines/duckdb/duckdb.go`, `internal/duckdriver/install.go`, `internal/duckdriver/client.go`, `cmd/kamehadb-duckdb-driver/main.go`, `.github/workflows/release.yml`
+Evidence: `dbcore/providers/duckdb/duckdb.go`, `dbcore/duckdriver/install.go`, `dbcore/duckdriver/client.go`, `cmd/kamehadb-duckdb-driver/main.go`, `.github/workflows/release.yml`
 ````
 
 ### WSP-preview-lifetime
@@ -329,7 +329,7 @@ The system SHALL bound GUI Mongo/Redis browse outputs to 2 MiB with complete doc
 - WHEN it is returned to the GUI
 - THEN an explicit size/possibly-executed indication is shown instead of a clipped original or automatic retry
 
-Evidence: `internal/engines/result-budget.go`, `internal/mongo/mongo.go`, `internal/redis/redis.go`, `internal/api/mongo.go`, `internal/api/redis.go`, `apps/desktop/src/components/mongo-data-footer.tsx`, `apps/desktop/src/components/redis-explorer.tsx`
+Evidence: `dbcore/engines/result-budget.go`, `dbcore/providers/mongo/mongo.go`, `dbcore/providers/redis/redis.go`, `internal/api/mongo.go`, `internal/api/redis.go`, `apps/desktop/src/components/mongo-data-footer.tsx`, `apps/desktop/src/components/redis-explorer.tsx`
 ````
 
 ### ENG-mongo-counts
@@ -362,7 +362,7 @@ The system SHALL fetch normal Mongo document/aggregation pages without compulsor
 - WHEN it is requested
 - THEN estimates are labelled, limits remain intentional, and writing pipelines are not replayed for totals
 
-Evidence: `internal/mongo/mongo.go`, `internal/api/mongo.go`, `packages/shared/src/types.ts`, `apps/desktop/src/hooks/use-mongo.ts`, `apps/desktop/src/components/mongo-view.tsx`, `apps/desktop/src/components/mongo-query.tsx`, `apps/desktop/src/components/mongo-data-footer.tsx`
+Evidence: `dbcore/providers/mongo/mongo.go`, `internal/api/mongo.go`, `packages/shared/src/types.ts`, `apps/desktop/src/hooks/use-mongo.ts`, `apps/desktop/src/components/mongo-view.tsx`, `apps/desktop/src/components/mongo-query.tsx`, `apps/desktop/src/components/mongo-data-footer.tsx`
 ````
 
 ### ENG-redis-pages
@@ -395,5 +395,5 @@ The system SHALL browse Redis through exact context-bound scan/rank continuation
 - WHEN the user copies the original or continues
 - THEN incomplete originals cannot be copied/edited/exported and stale continuation returns an actionable restart instead of silently skipping data
 
-Evidence: `internal/redis/redis.go`, `internal/api/redis.go`, `packages/shared/src/types.ts`, `apps/desktop/src/hooks/use-redis.ts`, `apps/desktop/src/components/redis-explorer.tsx`, `apps/desktop/src/lib/preview-cache.ts`
+Evidence: `dbcore/providers/redis/redis.go`, `internal/api/redis.go`, `packages/shared/src/types.ts`, `apps/desktop/src/hooks/use-redis.ts`, `apps/desktop/src/components/redis-explorer.tsx`, `apps/desktop/src/lib/preview-cache.ts`
 ````

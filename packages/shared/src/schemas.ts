@@ -168,6 +168,8 @@ export type ConnectionProfile = {
   filePath?: string;
   color?: string;
   connectionString?: string;
+  /** GUI SQL write policy; true blocks writes and inline cell edits. */
+  readOnly: boolean;
   /** Explicit opt-in flag for the read-only MCP server. Never set by ordinary create/edit payloads. */
   mcpEnabled: boolean;
   createdAt: string;
@@ -188,6 +190,7 @@ const BaseCreateSchema = z.object({
   filePath: z.string().optional(),
   color: z.string().optional(),
   connectionString: z.string().optional(),
+  readOnly: z.boolean().optional(),
 });
 
 export const CreateConnectionProfileSchema = BaseCreateSchema.refine(

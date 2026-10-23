@@ -205,10 +205,14 @@ export type KeyEntry = {
   sizeBytes?: number;
 };
 
+// Continuations cross the bridge as opaque strings: native SCAN cursors can
+// exceed JS safe-integer range and remainder leases are not numbers.
 export type KeyPage = {
   keys: KeyEntry[];
-  cursor: number;
+  nextCursor?: string;
   done: boolean;
+  payloadBytes?: number;
+  limitReason?: string;
 };
 
 export type RedisValue = {
@@ -218,11 +222,66 @@ export type RedisValue = {
   value: unknown;
 };
 
+export type RedisStringWindow = {
+  data: string;
+  encoding: 'utf8' | 'base64';
+  start: number;
+  end: number;
+  total: number;
+};
+
+export type RedisHashPair = {
+  field: string;
+  value: string;
+};
+
+export type RedisZsetMember = {
+  member: string;
+  score: number;
+  /** Exact score text for non-finite scores (±Inf/NaN); `score` is 0 then. */
+  scoreText?: string;
+};
+
+export type RedisPageValue = RedisStringWindow | string[] | RedisHashPair[] | RedisZsetMember[];
+
+// One bounded value page. `complete` only when the first response held the
+// entire value; partial pages must not be copied/exported as the original.
+// The type/value pair is discriminated: 'string' carries a labelled byte
+// window, collections carry their member array. Streams have no paged
+// representation yet.
+type RedisValuePageBase = {
+  key: string;
+  ttl: number;
+  complete: boolean;
+  nextCursor?: string;
+  hasMore: boolean;
+  payloadBytes?: number;
+  limitReason?: string;
+  durationMs: number;
+};
+
+export type RedisValuePage = RedisValuePageBase &
+  (
+    | { type: 'string'; value?: RedisStringWindow }
+    | { type: 'list'; value?: string[] }
+    | { type: 'hash'; value?: RedisHashPair[] }
+    | { type: 'set'; value?: string[] }
+    | { type: 'zset'; value?: RedisZsetMember[] }
+    | { type: 'stream'; value?: RedisPageValue }
+  );
+
+export type RedisValuePageInput = {
+  requestId?: string;
+  key: string;
+  cursor?: string;
+  limit?: number;
+};
+
 export type ScanKeysInput = {
   requestId?: string;
   pattern?: string;
   count?: number;
-  cursor?: number;
+  cursor?: string;
 };
 
 export type GetKeyInput = {
@@ -274,11 +333,28 @@ export type CollectionInfo = {
 
 export type DocumentResult = {
   documents: Record<string, unknown>[];
-  totalCount?: number;
+  // Counts beyond JS safe-integer range arrive as decimal strings so nothing
+  // is silently rounded across the bridge.
+  totalCount?: number | string;
   countMode?: string;
   hasMore: boolean;
   payloadBytes?: number;
   limitReason?: string;
+  durationMs: number;
+};
+
+export type CountDocumentsInput = {
+  requestId?: string;
+  collection: string;
+  database?: string;
+  filter?: Record<string, unknown>;
+  search?: string;
+  mode: 'estimated' | 'exact';
+};
+
+export type CountResult = {
+  count: number | string;
+  countMode: string;
   durationMs: number;
 };
 

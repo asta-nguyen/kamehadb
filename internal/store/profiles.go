@@ -4,7 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/logs"
 )
 
@@ -23,6 +24,7 @@ type Profile struct {
 	FilePath         *string `json:"filePath,omitempty"`
 	Color            *string `json:"color,omitempty"`
 	ConnectionString *string `json:"connectionString,omitempty"`
+	ReadOnly         bool    `json:"readOnly"`
 	MCPEnabled       bool    `json:"mcpEnabled"`
 	CreatedAt        string  `json:"createdAt"`
 	UpdatedAt        string  `json:"updatedAt"`
@@ -43,10 +45,11 @@ type ProfileInput struct {
 	FilePath         *string `json:"filePath,omitempty"`
 	Color            *string `json:"color,omitempty"`
 	ConnectionString *string `json:"connectionString,omitempty"`
+	ReadOnly         *bool   `json:"readOnly,omitempty"`
 }
 
 const profileColumns = `id, name, kind, host, port, database, username, ssl,
-	ssl_ca_cert, file_path, color, connection_string, mcp_enabled, created_at, updated_at`
+	ssl_ca_cert, file_path, color, connection_string, read_only, mcp_enabled, created_at, updated_at`
 
 // Field names bound into the authenticated data of encrypted profile secrets.
 const (
@@ -97,6 +100,20 @@ func (s *Store) getProfile(id string, lenient bool) (*Profile, error) {
 	return &p, nil
 }
 
+// ProfileReadOnly reads only the GUI write policy. It intentionally avoids
+// decrypting profile secrets so a locked vault cannot change the policy. (Why)
+func (s *Store) ProfileReadOnly(id string) (bool, error) {
+	var readOnly int64
+	err := s.db.QueryRow(`SELECT read_only FROM connection_profiles WHERE id = ?`, id).Scan(&readOnly)
+	if err == sql.ErrNoRows {
+		return false, appengines.ErrConnectionNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	return readOnly == 1, nil
+}
+
 func (s *Store) GetProfilePassword(id string) (string, error) {
 	var password sql.NullString
 	err := s.db.QueryRow(`SELECT password FROM connection_profiles WHERE id = ?`, id).Scan(&password)
@@ -132,7 +149,7 @@ func (s *Store) ProfileForConnect(id string) (engines.ConnProfile, error) {
 		return engines.ConnProfile{}, err
 	}
 	if p == nil {
-		return engines.ConnProfile{}, engines.ErrConnectionNotFound
+		return engines.ConnProfile{}, appengines.ErrConnectionNotFound
 	}
 	password, err := s.GetProfilePassword(id)
 	if err != nil {
@@ -179,6 +196,11 @@ func (s *Store) CreateProfile(in ProfileInput) (*Profile, error) {
 	if in.SSL != nil && *in.SSL {
 		ssl = 1
 	}
+	// Writes are opt-in: an omitted create value keeps the profile read-only.
+	readOnly := int64(1)
+	if in.ReadOnly != nil && !*in.ReadOnly {
+		readOnly = 0
+	}
 	password, err := s.encryptOptional(id, profilePasswordField, in.Password)
 	if err != nil {
 		return nil, err
@@ -189,10 +211,10 @@ func (s *Store) CreateProfile(in ProfileInput) (*Profile, error) {
 	}
 	_, err = s.db.Exec(
 		`INSERT INTO connection_profiles (id, name, kind, host, port, database, username, password,
-			ssl, ssl_ca_cert, file_path, color, connection_string, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			ssl, ssl_ca_cert, file_path, color, connection_string, read_only, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, strVal(in.Name), strVal(in.Kind), in.Host, in.Port, in.Database, in.Username,
-		password, ssl, in.SSLCACert, in.FilePath, in.Color, connStr, now, now)
+		password, ssl, in.SSLCACert, in.FilePath, in.Color, connStr, readOnly, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -224,14 +246,15 @@ func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
 		curFilePath      sql.NullString
 		curColor         sql.NullString
 		curConnStr       sql.NullString
+		curReadOnly      int64
 	)
 	err := s.db.QueryRow(`
 		SELECT name, kind, host, port, database, username, password,
-		       ssl, ssl_ca_cert, file_path, color, connection_string
+		       ssl, ssl_ca_cert, file_path, color, connection_string, read_only
 		FROM connection_profiles WHERE id = ?`, id,
 	).Scan(
 		&curName, &curKind, &curHost, &curPort, &curDB, &curUser, &curPassword,
-		&curSSL, &curSSLCACert, &curFilePath, &curColor, &curConnStr,
+		&curSSL, &curSSLCACert, &curFilePath, &curColor, &curConnStr, &curReadOnly,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -246,6 +269,15 @@ func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
 		ssl = 1
 	case in.SSL == nil && curSSL == 1:
 		ssl = 1
+	}
+	// An omitted update preserves the stored policy so metadata-only edits
+	// cannot silently enable or disable writes.
+	readOnly := curReadOnly
+	if in.ReadOnly != nil {
+		readOnly = 0
+		if *in.ReadOnly {
+			readOnly = 1
+		}
 	}
 	password := any(nil)
 	if in.Password != nil {
@@ -266,14 +298,15 @@ func (s *Store) UpdateProfile(id string, in ProfileInput) (*Profile, error) {
 	_, err = s.db.Exec(
 		`UPDATE connection_profiles SET
 			name = ?, kind = ?, host = ?, port = ?, database = ?, username = ?, password = ?,
-			ssl = ?, ssl_ca_cert = ?, file_path = ?, color = ?, connection_string = ?, updated_at = ?
+			ssl = ?, ssl_ca_cert = ?, file_path = ?, color = ?, connection_string = ?,
+			read_only = ?, updated_at = ?
 		 WHERE id = ?`,
 		orStr(in.Name, curName), orStr(in.Kind, curKind),
 		orPtr(in.Host, nullStr(curHost)), orInt(in.Port, nullInt(curPort)),
 		orPtr(in.Database, nullStr(curDB)), orPtr(in.Username, nullStr(curUser)),
 		password, ssl, orPtr(in.SSLCACert, nullStr(curSSLCACert)),
 		orPtr(in.FilePath, nullStr(curFilePath)), orPtr(in.Color, nullStr(curColor)),
-		connStr, nowISO(), id)
+		connStr, readOnly, nowISO(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -299,20 +332,20 @@ func (s *Store) scanProfile(row interface{ Scan(...any) error }, lenient bool) (
 	var id any
 	var host, database, username, caCert, filePath, color, connStr sql.NullString
 	var port sql.NullInt64
-	var ssl, mcp int64
+	var ssl, readOnly, mcp int64
 	err := row.Scan(&id, &p.Name, &p.Kind, &host, &port, &database, &username,
-		&ssl, &caCert, &filePath, &color, &connStr, &mcp, &p.CreatedAt, &p.UpdatedAt)
+		&ssl, &caCert, &filePath, &color, &connStr, &readOnly, &mcp, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return p, err
 	}
-	if err := s.fillProfile(&p, id, host, port, database, username, caCert, filePath, color, connStr, ssl, mcp, lenient); err != nil {
+	if err := s.fillProfile(&p, id, host, port, database, username, caCert, filePath, color, connStr, ssl, readOnly, mcp, lenient); err != nil {
 		return p, err
 	}
 	return p, nil
 }
 
 func (s *Store) fillProfile(p *Profile, id any, host sql.NullString, port sql.NullInt64,
-	database, username, caCert, filePath, color, connStr sql.NullString, ssl, mcp int64, lenient bool,
+	database, username, caCert, filePath, color, connStr sql.NullString, ssl, readOnly, mcp int64, lenient bool,
 ) error {
 	p.ID = fmt.Sprint(id)
 	p.Host = nullStr(host)
@@ -320,6 +353,7 @@ func (s *Store) fillProfile(p *Profile, id any, host sql.NullString, port sql.Nu
 	p.Database = nullStr(database)
 	p.Username = nullStr(username)
 	p.SSL = ssl == 1
+	p.ReadOnly = readOnly == 1
 	p.SSLCACert = nullStr(caCert)
 	p.FilePath = nullStr(filePath)
 	p.Color = nullStr(color)

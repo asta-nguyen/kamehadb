@@ -6,7 +6,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/schema"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
@@ -14,16 +15,16 @@ import (
 // SchemaService ports routes/sql-schema.ts — snapshots, changelog, diff,
 // migration generation, and the watcher controls.
 type SchemaService struct {
-	st       *store.Store
-	registry *engines.Registry
-	watcher  *schema.WatcherManager
+	st      *store.Store
+	lookup  appengines.SQLLookup
+	watcher *schema.WatcherManager
 }
 
-func NewSchemaService(st *store.Store, registry *engines.Registry, watcher *schema.WatcherManager) *SchemaService {
-	s := &SchemaService{st: st, registry: registry, watcher: watcher}
+func NewSchemaService(st *store.Store, lookup appengines.SQLLookup, watcher *schema.WatcherManager) *SchemaService {
+	s := &SchemaService{st: st, lookup: lookup, watcher: watcher}
 	// Same injection as sql-schema.ts → schemaWatcher.setCaptureFn.
 	watcher.SetCaptureFunc(func(connectionID string, source schema.SnapshotSource) error {
-		adapter, err := registry.Get(context.Background(), connectionID)
+		adapter, err := lookup.Get(context.Background(), connectionID)
 		if err != nil {
 			return err
 		}
@@ -143,7 +144,7 @@ func summary(s *schema.SnapshotRecord) schema.SnapshotSummary {
 
 // CaptureSchemaSnapshot — POST /sql/:id/schema/snapshots.
 func (s *SchemaService) CaptureSchemaSnapshot(connectionID string) (*captureResult, error) {
-	adapter, err := s.registry.Get(context.Background(), connectionID)
+	adapter, err := s.lookup.Get(context.Background(), connectionID)
 	if err != nil {
 		return nil, err
 	}

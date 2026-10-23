@@ -1029,9 +1029,47 @@ export namespace mongo {
 		    return a;
 		}
 	}
+	export class CountDocumentsInput {
+	    collection: string;
+	    database?: string;
+	    filter?: Record<string, any>;
+	    search?: string;
+	    mode: string;
+	    requestId?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CountDocumentsInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.collection = source["collection"];
+	        this.database = source["database"];
+	        this.filter = source["filter"];
+	        this.search = source["search"];
+	        this.mode = source["mode"];
+	        this.requestId = source["requestId"];
+	    }
+	}
+	export class CountResult {
+	    count: any;
+	    countMode: string;
+	    durationMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CountResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.count = source["count"];
+	        this.countMode = source["countMode"];
+	        this.durationMs = source["durationMs"];
+	    }
+	}
 	export class DocumentResult {
 	    documents: any[];
-	    totalCount?: number;
+	    totalCount?: any;
 	    countMode?: string;
 	    hasMore: boolean;
 	    payloadBytes?: number;
@@ -1141,8 +1179,10 @@ export namespace redis {
 	}
 	export class KeyPage {
 	    keys: KeyEntry[];
-	    cursor: number;
+	    nextCursor?: string;
 	    done: boolean;
+	    payloadBytes?: number;
+	    limitReason?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new KeyPage(source);
@@ -1151,8 +1191,10 @@ export namespace redis {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.keys = this.convertValues(source["keys"], KeyEntry);
-	        this.cursor = source["cursor"];
+	        this.nextCursor = source["nextCursor"];
 	        this.done = source["done"];
+	        this.payloadBytes = source["payloadBytes"];
+	        this.limitReason = source["limitReason"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1255,10 +1297,58 @@ export namespace redis {
 	        this.value = source["value"];
 	    }
 	}
+	export class RedisValuePage {
+	    key: string;
+	    type: string;
+	    ttl: number;
+	    complete: boolean;
+	    value?: any;
+	    nextCursor?: string;
+	    hasMore: boolean;
+	    payloadBytes?: number;
+	    limitReason?: string;
+	    durationMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisValuePage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.type = source["type"];
+	        this.ttl = source["ttl"];
+	        this.complete = source["complete"];
+	        this.value = source["value"];
+	        this.nextCursor = source["nextCursor"];
+	        this.hasMore = source["hasMore"];
+	        this.payloadBytes = source["payloadBytes"];
+	        this.limitReason = source["limitReason"];
+	        this.durationMs = source["durationMs"];
+	    }
+	}
+	export class RedisValuePageInput {
+	    key: string;
+	    cursor?: string;
+	    limit?: number;
+	    requestId?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisValuePageInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.cursor = source["cursor"];
+	        this.limit = source["limit"];
+	        this.requestId = source["requestId"];
+	    }
+	}
 	export class ScanKeysInput {
 	    pattern?: string;
 	    count?: number;
-	    cursor?: number;
+	    cursor?: string;
 	    requestId?: string;
 	
 	    static createFrom(source: any = {}) {
@@ -1797,6 +1887,7 @@ export namespace store {
 	    filePath?: string;
 	    color?: string;
 	    connectionString?: string;
+	    readOnly: boolean;
 	    mcpEnabled: boolean;
 	    createdAt: string;
 	    updatedAt: string;
@@ -1819,6 +1910,7 @@ export namespace store {
 	        this.filePath = source["filePath"];
 	        this.color = source["color"];
 	        this.connectionString = source["connectionString"];
+	        this.readOnly = source["readOnly"];
 	        this.mcpEnabled = source["mcpEnabled"];
 	        this.createdAt = source["createdAt"];
 	        this.updatedAt = source["updatedAt"];
@@ -1837,6 +1929,7 @@ export namespace store {
 	    filePath?: string;
 	    color?: string;
 	    connectionString?: string;
+	    readOnly?: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProfileInput(source);
@@ -1856,6 +1949,7 @@ export namespace store {
 	        this.filePath = source["filePath"];
 	        this.color = source["color"];
 	        this.connectionString = source["connectionString"];
+	        this.readOnly = source["readOnly"];
 	    }
 	}
 	export class QueryHistoryEntry {

@@ -8,7 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/sqlsafety"
 )
 
 const (
@@ -126,7 +127,18 @@ func (s *SqlService) ExportQueryCSV(connectionID string, input QueryExportInput)
 	if input.Path == "" || !filepath.IsAbs(input.Path) {
 		return nil, errors.New("Choose an absolute export file path")
 	}
-	adapter, err := s.registry.Get(ctx, connectionID)
+	readOnly, err := s.connectionReadOnly(connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if readOnly {
+		if safe, reason := sqlsafety.Check(input.Query); !safe {
+			return nil, errors.New(reason)
+		}
+	} else if safe, reason := sqlsafety.CheckSingleStatement(input.Query); !safe {
+		return nil, errors.New(reason)
+	}
+	adapter, err := s.lookup.Get(ctx, connectionID)
 	if err != nil {
 		return nil, err
 	}

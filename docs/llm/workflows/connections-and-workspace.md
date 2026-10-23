@@ -26,15 +26,17 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 ### Business rules
 
 - Profiles are created and edited in the desktop connection dialog, tested before save when the user requests it, then listed from the Go backend.
+- Unsaved PostgreSQL and MySQL tests use their one-shot helpers, preserving the helpers' friendly connection errors and deadlines. Saved SQL health checks reuse the managed provider; unsaved tests for other kinds open a fresh provider.
 - The dialog supports connection URLs and structured fields. URL parsing uses shared protocol aliases; engine-specific defaults come from shared constants.
 - PostgreSQL, MySQL, MariaDB, and SQL Server show an SSL toggle. When SSL is enabled, the dialog can save an optional Root CA PEM from pasted text or a selected file. The PEM is local profile trust data; it is not sent to the database server. Per-engine certificate verification behavior is documented in [Database support and adapter boundaries](../architecture/engine-support.md).
 - The backend persists profiles in the metadata SQLite store. Secrets (profile password, connection string, and AI provider API key) are AES-256-GCM encrypted at rest; the returned profile list omits the password value. If a profile has an active managed MCP account, connection identity, target, SSL toggle, credentials, and deletion are protected until that account is revoked; Root CA PEM remains editable.
+- SQL-kind profiles carry a `readOnly` flag stored in the `read_only` column (default true for new profiles and for rows migrated from older databases). The dialog shows a Read-only switch only for SQL kinds and explains that turning it off permits SQL writes from the GUI; the flag drives editor safety checks, inline cell editing, and full-query CSV export as documented in [SQL workspace](sql-workspace.md). It stays editable while a managed MCP account exists, and MCP access is never affected by it.
 
 ### Flow
 
 1. The connection dialog validates the selected engine fields and calls create, update, or test mutations from use-connections. For the four SSL-capable kinds, the SSL toggle controls Root CA field visibility; selecting a PEM file reads its text into the same form field used for save and edit.
 2. The desktop API client calls the bound `ConnectionsService` methods through `apps/desktop/src/lib/api.ts`.
-3. The backend validates the shared profile contract, performs the relevant adapter health check for test requests, and reads or writes the metadata store for profile CRUD.
+3. The backend validates the shared profile contract, reuses the managed provider for saved SQL health checks, uses one-shot helpers for unsaved PostgreSQL/MySQL tests, and opens a fresh provider for other unsaved tests.
 4. Successful desktop mutations invalidate the saved-connection query so the sidebar reloads the profile list.
 
 ### State changes
@@ -58,6 +60,7 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 
 - Invalid profile data is rejected by schema validation.
 - Failed database tests return the adapter's connection failure to the dialog.
+- PostgreSQL and MySQL one-shot helpers retain their connection-error classification and test deadlines for unsaved dialog input.
 - Invalid Root CA PEM is rejected before the SQL driver opens a connection.
 - A profile protected by an MCP managed account cannot be edited or deleted until that account is revoked.
 - An unreadable vault key never falls back to plaintext. During `ListProfiles`, an unreadable encrypted connection string is omitted from the returned profile with a warning, so the rest of the list remains visible; `GetProfile` and connection attempts still fail on decryption errors.
@@ -65,8 +68,9 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 
 ### Tests
 
-- `internal/store/credentials_test.go` covers secret migration, keychain/file key resolution, fail-closed decryption, and POSIX permissions; `internal/store/vault_test.go` covers record/field binding. `internal/store/profiles_test.go` covers listing a profile with an unreadable connection string while keeping `GetProfile` strict; `internal/store/store_test.go` covers retaining a removed-engine profile when its secret cannot be exported.
+- `internal/api/provider_lifecycle_test.go` covers saved SQL health reuse, fresh unsaved-probe cleanup, and one-shot PostgreSQL/MySQL helper dispatch. `internal/store/credentials_test.go` covers secret migration, keychain/file key resolution, fail-closed decryption, and POSIX permissions; `internal/store/vault_test.go` covers record/field binding. `internal/store/profiles_test.go` covers listing a profile with an unreadable connection string while keeping `GetProfile` strict; `internal/store/store_test.go` covers retaining a removed-engine profile when its secret cannot be exported.
 - `apps/desktop/src/components/connection-dialog-fields.test.tsx` covers SSL-kind visibility, Root CA visibility, edit values, and PEM file loading. `internal/store/profiles_test.go` covers Root CA persistence and migration; `internal/api/api_test.go` covers profile pass-through and Root CA edits while a managed MCP account exists.
+- `apps/desktop/src/components/connection-dialog.test.tsx` covers the SQL-only Read-only switch defaults; `internal/api/connection-readonly_test.go` covers changing the flag while a managed MCP account exists.
 
 ### Related
 
@@ -76,14 +80,19 @@ Evidence: `apps/desktop/src/hooks/use-schema.ts`, `apps/desktop/src/hooks/use-sc
 ### Sources
 
 - apps/desktop/src/components/connection-dialog.tsx
+- apps/desktop/src/components/connection-dialog.test.tsx
 - apps/desktop/src/components/connection-dialog-fields.tsx
 - apps/desktop/src/components/connection-dialog-fields.test.tsx
 - apps/desktop/src/hooks/use-connections.ts
 - apps/desktop/src/lib/api.ts
 - internal/api/connections.go
+- internal/api/provider_lifecycle_test.go
 - internal/api/api_test.go
-- internal/engines/tls.go
-- internal/engines/tls_test.go
+- internal/api/connection-readonly_test.go
+- dbcore/providers/postgres/postgres.go
+- dbcore/providers/mysql/mysql.go
+- dbcore/engines/tls.go
+- dbcore/engines/tls_test.go
 - internal/store/migrate.go
 - internal/store/profiles_test.go
 - internal/store/profiles.go

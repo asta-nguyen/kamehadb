@@ -7,14 +7,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [v2.1.0] — 2026-10-23
+
 ### Added
 
+- **Ko-fi donation links** — the desktop sidebar footer carries a "Support KamehaDB" button that opens the project's Ko-fi page in the system browser, and the landing site loads Ko-fi's floating donate widget.
 - **Boolean dropdown editing** — editing boolean fields in MongoDB documents and SQL tables now renders an accessible dropdown (`true`/`false`) instead of a text input.
+- **Bounded MongoDB browsing** — find and aggregation pages admit whole documents under a 2 MiB budget with `payloadBytes`/`limitReason`/`hasMore`; totals are now opt-in via a cancellable `CountMongoDocuments` (estimated/exact), and pagination advances by the admitted row count so byte-shortened pages never skip documents.
+- **Redis key and value paging** — key scans use opaque versioned continuations with bounded overflow sessions; a paged value inspector serves string byte windows, list/ZSET rank pages, and hash/set scan continuations, with explicit restart/mismatch errors and `ReleaseRedisCursor`.
+- **Per-profile read-only toggle for SQL connections** — the connection dialog shows a Read-only switch for SQL kinds (on by default; existing profiles migrate to read-only). Turning it off lets the SQL editor and inline cell edits run writes against that profile and permits write statements in full-query CSV export; each request still carries a single statement and MCP stays read-only regardless.
+
+### Changed
+
+- **Unified provider core** — all ten database engines now live under `dbcore/providers` behind driver-free contracts (`dbcore/engines`, `dbcore/mongo`, `dbcore/redis`), and a single `dbcore.Manager` owns provider lifecycle for SQL, MongoDB, and Redis behind the `internal/database` facade instead of per-service adapter caches. MCP keeps its own scoped, read-only provider sessions.
 
 ### Fixed
 
+- **MongoDB pagination after writes** — editing or deleting a document restarts browsing from the first page and clears saved offsets so later pages do not skip documents after page boundaries change.
+- **Connection test feedback** — unsaved PostgreSQL and MySQL tests again show the adapters' friendly connection errors and use their intended test deadlines.
 - **MongoDB field update filter** — document updates and deletes now match both BSON `ObjectID` and string representations for 24-character hex `_id` values, resolving `no document matched the filter` errors.
 - **Unedited blur handling** — blurring or clicking outside an in-cell editor without changes now cleanly cancels editing as a no-op instead of triggering unnecessary update requests or error alerts.
+- **SQL batch statement splitting** — multi-statement editor batches no longer drop text after a `$1`-style placeholder or double the characters inside `$$…$$`/`$tag$…$tag$` dollar-quoted bodies.
 
 ---
 

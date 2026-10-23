@@ -12,14 +12,7 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"github.com/asta-nguyen/kamehadb/internal/api"
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/clickhouse"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/duckdb"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/mysql"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/oracle"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/postgres"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/sqlite"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/sqlserver"
+	"github.com/asta-nguyen/kamehadb/internal/database"
 	"github.com/asta-nguyen/kamehadb/internal/logs"
 	"github.com/asta-nguyen/kamehadb/internal/mcp"
 	"github.com/asta-nguyen/kamehadb/internal/store"
@@ -49,10 +42,14 @@ func main() {
 		println("Error opening metadata store:", err.Error())
 		return
 	}
-	registry := engines.NewRegistry(metadata)
+	db, err := database.New(metadata)
+	if err != nil {
+		println("Error assembling providers:", err.Error())
+		return
+	}
 
 	app := NewApp()
-	app.setServices(metadata, registry)
+	app.setServices(metadata, db)
 	emit := func(event string, data any) {
 		if app.ctx != nil {
 			wailsRuntime.EventsEmit(app.ctx, event, data)
@@ -62,7 +59,7 @@ func main() {
 	if err != nil {
 		logs.Error("mcp", "runtime init failed: "+err.Error())
 	}
-	services := api.NewServices(metadata, registry, emit, mcpRuntime)
+	services := api.NewServices(metadata, db, emit, mcpRuntime)
 
 	err = wails.Run(&options.App{
 		Title:  "KamehaDB",
@@ -94,7 +91,6 @@ func main() {
 			}
 			services.Watcher.StopAll()
 			services.Mongo.Shutdown()
-			services.Redis.Shutdown()
 			services.Health.Stop()
 			services.CloseExports()
 			app.shutdown(ctx)

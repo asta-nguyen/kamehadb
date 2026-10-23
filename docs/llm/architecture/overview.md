@@ -4,7 +4,7 @@ Verification: [x] Current entry points and domain map checked against the source
 
 ## Purpose
 
-KamehaDB is a local-first database workspace built as a single Wails v2 desktop app: a Go backend embedded in the executable plus a React 19 + Vite frontend. There is no external sidecar process or HTTP API — the frontend calls bound Go services through generated Wails bindings. `packages/shared` owns the frontend-facing kind constants, validation schemas, and shared types. The supported database kinds are defined in the shared schemas and mirrored in `internal/engines/kinds.go`.
+KamehaDB is a local-first database workspace built as a single Wails v2 desktop app: a Go backend embedded in the executable plus a React 19 + Vite frontend. There is no external sidecar process or HTTP API — the frontend calls bound Go services through generated Wails bindings. `packages/shared` owns the frontend-facing kind constants, validation schemas, and shared types. The supported database kinds are defined in the shared schemas and mirrored in `dbcore/engines/kinds.go`.
 
 ## Runtime entry points
 
@@ -16,24 +16,24 @@ KamehaDB is a local-first database workspace built as a single Wails v2 desktop 
 
 ## Domain map
 
-| Domain                             | User-visible scope                                                                                                                   | Main entry points                                                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Connections and workspace          | Create and manage profiles, inspect connection health, navigate database objects, and open workspace tabs.                           | `components/sidebar.tsx`, `components/workspace-content.tsx`, `internal/api/connections.go`                                        |
-| SQL and schema exploration         | Edit and run SQL, browse tables and metadata, and view database/table statistics.                                                    | `components/sql-editor.tsx`, `components/schema-tree.tsx`, `internal/api/sql.go`, `internal/engines/`                              |
-| Schema lifecycle                   | Capture schema snapshots, watch changes, compare snapshots, and generate migration SQL.                                              | `components/schema-timeline.tsx`, `components/schema-diff-view.tsx`, `internal/schema/`, `internal/api/schema.go`                  |
-| Engine-specific explorers          | Browse MongoDB documents and Redis keys.                                                                                             | `components/mongo-view.tsx`, `components/redis-view.tsx`, `internal/mongo/`, `internal/redis/`, `internal/api/mongo.go`            |
-| AI and client integrations         | Configure AI providers and chat with schema context; expose opted-in profiles to local MCP clients through the read-only MCP server. | `components/api-settings-page.tsx`, `internal/api/ai.go`, `internal/ai/`, [Read-only MCP server](../integrations/read-only-mcp.md) |
-| Query history                      | Revisit saved queries, manage favorites, and inspect slow query patterns.                                                            | `components/query-history-panel.tsx`, `internal/api/history.go`                                                                    |
-| Diagnostics and native maintenance | View combined app logs and use PostgreSQL `psql`/`pg_dump` or file-database maintenance workflows.                                   | `components/logs-page.tsx`, `internal/logs/`, `internal/terminal/`, `internal/maintenance/`, `internal/api/maintenance.go`         |
-| Marketing and documentation site   | Separate Next.js pages for product information, engine overview, changelog, team/video pages, and generated marketing imagery.       | [Marketing site](../integrations/marketing-site.md), `landing/src/app/`                                                            |
+| Domain                             | User-visible scope                                                                                                                   | Main entry points                                                                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Connections and workspace          | Create and manage profiles, inspect connection health, navigate database objects, and open workspace tabs.                           | `components/sidebar.tsx`, `components/workspace-content.tsx`, `internal/api/connections.go`                                             |
+| SQL and schema exploration         | Edit and run SQL, browse tables and metadata, and view database/table statistics.                                                    | `components/sql-editor.tsx`, `components/schema-tree.tsx`, `internal/api/sql.go`, `dbcore/`                                             |
+| Schema lifecycle                   | Capture schema snapshots, watch changes, compare snapshots, and generate migration SQL.                                              | `components/schema-timeline.tsx`, `components/schema-diff-view.tsx`, `internal/schema/`, `internal/api/schema.go`                       |
+| Engine-specific explorers          | Browse MongoDB documents and Redis keys.                                                                                             | `components/mongo-view.tsx`, `components/redis-view.tsx`, `dbcore/providers/mongo/`, `dbcore/providers/redis/`, `internal/api/mongo.go` |
+| AI and client integrations         | Configure AI providers and chat with schema context; expose opted-in profiles to local MCP clients through the read-only MCP server. | `components/api-settings-page.tsx`, `internal/api/ai.go`, `internal/ai/`, [Read-only MCP server](../integrations/read-only-mcp.md)      |
+| Query history                      | Revisit saved queries, manage favorites, and inspect slow query patterns.                                                            | `components/query-history-panel.tsx`, `internal/api/history.go`                                                                         |
+| Diagnostics and native maintenance | View combined app logs and use PostgreSQL `psql`/`pg_dump` or file-database maintenance workflows.                                   | `components/logs-page.tsx`, `internal/logs/`, `internal/terminal/`, `internal/maintenance/`, `internal/api/maintenance.go`              |
+| Marketing and documentation site   | Separate Next.js pages for product information, engine overview, changelog, team/video pages, and generated marketing imagery.       | [Marketing site](../integrations/marketing-site.md), `landing/src/app/`                                                                 |
 
 ## Cross-domain dependencies
 
 - `apps/desktop/src/lib/api.ts` calls generated Wails bindings; `wailsjs/go/models.ts` mirrors the Go response shapes. Backend→frontend notifications (health ticks, terminal output, AI streaming, tool jobs) use `runtime.EventsEmit`/`EventsOn`.
 - SQL, MongoDB, Redis, and federated editors share `apps/desktop/src/lib/code-editor.tsx`, a CodeMirror 6 wrapper; completion logic stays in `lib/sql-autocomplete.ts` and `lib/mongo-autocomplete.ts`.
-- Bound services use the metadata store and the engine adapter registry (`internal/engines/registry.go`). Connection profile IDs tie together database operations, query history, AI context, and MCP access.
+- Bound services use the metadata store and the shared provider lifecycle owner (`internal/database` facade over `dbcore.Manager`/`dbcore.Registry`). Connection profile IDs tie together database operations, query history, AI context, and MCP access.
 - The MCP server uses its own read-only adapter manager rather than reusing the UI adapter cache; its flow and constraints are documented in [Read-only MCP server](../integrations/read-only-mcp.md).
-- Wails supplies the desktop lifecycle and native dialogs; `internal/` is the entire database boundary — no network hop exists between frontend and backend.
+- Wails supplies the desktop lifecycle and native dialogs; the database boundary is the reusable `dbcore/` provider core, reached from Wails-bound services through `internal/database` — no network hop exists between frontend and backend.
 - The landing app has a separate npm package and build path and is not part of the pnpm workspace.
 
 ## Sources
@@ -52,8 +52,9 @@ KamehaDB is a local-first database workspace built as a single Wails v2 desktop 
 - `internal/api/maintenance.go`
 - `internal/api/terminal.go`
 - `internal/store/profiles.go`
-- `internal/engines/registry.go`
-- `internal/engines/kinds.go`
+- `internal/database/database.go`
+- `dbcore/manager.go`
+- `dbcore/engines/kinds.go`
 - `internal/schema/watcher.go`
 - `internal/mcp/runtime.go`
 - `internal/mcp/tools.go`

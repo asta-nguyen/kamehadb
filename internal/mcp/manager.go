@@ -4,13 +4,14 @@ import (
 	"context"
 	"sync"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	mysqladapter "github.com/asta-nguyen/kamehadb/internal/engines/mysql"
-	pgadapter "github.com/asta-nguyen/kamehadb/internal/engines/postgres"
-	sqliteadapter "github.com/asta-nguyen/kamehadb/internal/engines/sqlite"
-	mssqladapter "github.com/asta-nguyen/kamehadb/internal/engines/sqlserver"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	mongoadapter "github.com/asta-nguyen/kamehadb/dbcore/providers/mongo"
+	mysqladapter "github.com/asta-nguyen/kamehadb/dbcore/providers/mysql"
+	pgadapter "github.com/asta-nguyen/kamehadb/dbcore/providers/postgres"
+	sqliteadapter "github.com/asta-nguyen/kamehadb/dbcore/providers/sqlite"
+	mssqladapter "github.com/asta-nguyen/kamehadb/dbcore/providers/sqlserver"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/logs"
-	mongoadapter "github.com/asta-nguyen/kamehadb/internal/mongo"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
@@ -415,10 +416,10 @@ func (m *AdapterManager) GetCredential(profileID string) *store.MCPCredentialBun
 
 // CanServe mirrors manager.canServe — sqlite needs no managed account.
 func (m *AdapterManager) CanServe(profile *store.Profile) bool {
-	if !profile.MCPEnabled || !engines.IsMCPSupportedKind(profile.Kind) {
+	if !profile.MCPEnabled || !appengines.IsMCPSupportedKind(profile.Kind) {
 		return false
 	}
-	if !engines.IsMCPServerKind(profile.Kind) {
+	if !appengines.IsMCPServerKind(profile.Kind) {
 		return profile.Kind == engines.KindSQLite
 	}
 	account, err := m.st.GetMCPManagedAccount(profile.ID)
@@ -450,11 +451,11 @@ func (m *AdapterManager) WithConnection(ctx context.Context, connectionID string
 	if profile == nil {
 		return nil, newToolError(ErrProfileNotFound, "Unknown connection: "+connectionID)
 	}
-	if !profile.MCPEnabled || !engines.IsMCPSupportedKind(profile.Kind) {
+	if !profile.MCPEnabled || !appengines.IsMCPSupportedKind(profile.Kind) {
 		return nil, newToolError(ErrProfileNotEnabled, "This connection is not enabled for MCP")
 	}
 
-	serverKind := engines.IsMCPServerKind(profile.Kind)
+	serverKind := appengines.IsMCPServerKind(profile.Kind)
 	if serverKind {
 		account, err := m.st.GetMCPManagedAccount(profile.ID)
 		if err != nil {

@@ -6,8 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	_ "github.com/asta-nguyen/kamehadb/internal/engines/postgres"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -41,12 +40,12 @@ func TestNativePostgresGUIRequestCancellation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer monitor.Close(context.Background())
-	registry := engines.NewRegistry(requestNativeLoader{engines.ConnProfile{
+	registry := testDB(t, requestNativeLoader{engines.ConnProfile{
 		Kind: engines.KindPostgres, Host: cfg.Host, Port: int64(cfg.Port), Database: cfg.Database,
 		Username: cfg.User, Password: cfg.Password, HasPassword: true, SSL: cfg.TLSConfig != nil,
 	}})
 	defer registry.Close()
-	service := NewSqlService(registry, newTTLCache())
+	service := NewSqlService(registry, newTTLCache(), nil)
 	defer service.requests.close()
 	oneID, twoID := uuid.NewString(), uuid.NewString()
 	marker := "kameha-request-" + uuid.NewString()

@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	mongoadapter "github.com/asta-nguyen/kamehadb/internal/mongo"
-	"github.com/asta-nguyen/kamehadb/internal/sqlsafety"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	mongoadapter "github.com/asta-nguyen/kamehadb/dbcore/providers/mongo"
+	"github.com/asta-nguyen/kamehadb/dbcore/sqlsafety"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 )
 
 // toolDef is the tools/list shape — name, description, JSON-Schema args.
@@ -183,7 +184,7 @@ func (s *serverState) toolListProfiles(ctx context.Context, _ map[string]any) (a
 	out := []map[string]any{}
 	for i := range profiles {
 		p := &profiles[i]
-		if !s.manager.CanServe(p) || !engines.IsMCPSupportedKind(p.Kind) {
+		if !s.manager.CanServe(p) || !appengines.IsMCPSupportedKind(p.Kind) {
 			continue
 		}
 		out = append(out, map[string]any{

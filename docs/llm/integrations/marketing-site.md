@@ -27,6 +27,7 @@ Verification: [x] The separate Next.js app, public routes, metadata, remote data
 
 - The home page makes a request to the GitHub repository API; a non-OK response or fetch error yields no star count.
 - The root layout loads the configured Umami analytics script after interaction.
+- The root layout mounts a Ko-fi floating donation widget that lazy-loads the Ko-fi overlay script and draws a floating support button on every public page.
 
 ### Authorization & constraints
 
@@ -57,6 +58,7 @@ The recorded FFF test-file search for landing marketing/page identifiers found n
 - landing/src/app/team/page.tsx
 - landing/src/app/video/page.tsx
 - landing/src/components/home-view.tsx
+- landing/src/components/kofi-widget.tsx
 - landing/src/lib/contributors.ts
 - apps/sidecar/src/db/mcp-credential-vault.ts
 - apps/sidecar/src/db/metadata-store.ts
@@ -81,7 +83,7 @@ The recorded FFF test-file search for landing marketing/page identifiers found n
 
 ### Side effects
 
-- Rendering the root layout requests the configured analytics script from an external host.
+- Rendering the root layout requests the configured analytics script and the Ko-fi overlay script from external hosts.
 
 ### Authorization & constraints
 

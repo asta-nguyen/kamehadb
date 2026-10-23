@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
@@ -38,9 +38,14 @@ func TestGUIRequestsSharedOwnerAndLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer metadata.Close()
+	// The query path now resolves the persisted write policy before dispatch.
+	if _, err := metadata.DB().Exec(
+		`INSERT INTO connection_profiles (id, name, kind, read_only) VALUES ('same', 'same', 'postgres', 1)`); err != nil {
+		t.Fatal(err)
+	}
 	adapter := &requestLifecycleAdapter{started: make(chan context.Context, 1)}
-	engines.RegisterFactory(requestFixtureKind, func(engines.ConnProfile) (engines.SQLAdapter, error) { return adapter, nil })
-	registry := engines.NewRegistry(&requestSQLLoader{})
+	registry := testDB(t, &requestSQLLoader{})
+	testRegister(t, registry, requestFixtureKind, func(engines.ConnProfile) (engines.SQLAdapter, error) { return adapter, nil })
 	defer registry.Close()
 	services := NewServices(metadata, registry, nil, nil)
 	if services.SQL.requests != services.Mongo.requests || services.SQL.requests != services.Redis.requests {

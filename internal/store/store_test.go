@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	_ "modernc.org/sqlite"
 )
 
@@ -539,5 +539,34 @@ func TestMigrationFromLegacySidecarDB(t *testing.T) {
 	}
 	if loaded == nil || loaded.Username != "mcp_ro" || loaded.Password != "secret" {
 		t.Fatalf("credential = %+v, want the seeded bundle", loaded)
+	}
+}
+
+// Legacy profile tables have no policy column; migration must add it and
+// default every existing row to read-only so an upgrade cannot enable writes.
+func TestLegacyConnectionProfilesMigrateReadOnly(t *testing.T) {
+	for _, withCACert := range []bool{false, true} {
+		s, err := Open(createLegacyProfileDB(t, withCACert))
+		if err != nil {
+			t.Fatalf("open legacy profile database: %v", err)
+		}
+		if !s.hasColumn("connection_profiles", "read_only") {
+			s.Close()
+			t.Fatal("read_only column missing after migration")
+		}
+		profile, err := s.GetProfile("legacy")
+		if err != nil || profile == nil {
+			s.Close()
+			t.Fatalf("get migrated profile = %+v, err = %v", profile, err)
+		}
+		if !profile.ReadOnly {
+			s.Close()
+			t.Fatal("legacy profile should migrate to read-only")
+		}
+		if readOnly, err := s.ProfileReadOnly("legacy"); err != nil || !readOnly {
+			s.Close()
+			t.Fatalf("ProfileReadOnly = %v, %v", readOnly, err)
+		}
+		s.Close()
 	}
 }

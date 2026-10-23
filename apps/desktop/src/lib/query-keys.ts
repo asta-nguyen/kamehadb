@@ -40,9 +40,11 @@ export const QUERY_KEYS = {
   MONGO_COMPLETIONS: (connectionId: string | null) => ['mongo-completions', connectionId] as const,
   CHAT_HISTORY: (connectionId: string | null, mongoDatabase?: string) =>
     ['chat-history', connectionId, mongoDatabase] as const,
-  REDIS_KEYS: (connectionId: string | null, pattern: string | null, cursor?: number) =>
+  REDIS_KEYS: (connectionId: string | null, pattern: string | null, cursor?: string) =>
     ['redis-keys', connectionId, pattern, cursor] as const,
   REDIS_KEY: (connectionId: string | null, key: string | null) => ['redis-key', connectionId, key] as const,
+  REDIS_KEY_PAGE: (connectionId: string | null, key: string | null, cursor?: string, limit?: number) =>
+    ['redis-key-page', connectionId, key, cursor, limit] as const,
   REDIS_STATS: (connectionId: string | null) => ['redis-stats', connectionId] as const,
   ACTIVE_CONNECTIONS: (connectionId: string) => ['active-connections', connectionId] as const,
   TABLE_STATS: (connectionId: string | null, tableId?: string | null) =>

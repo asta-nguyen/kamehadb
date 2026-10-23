@@ -8,7 +8,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	"github.com/asta-nguyen/kamehadb/internal/schema"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
@@ -55,7 +55,7 @@ func TestClearConnectionCache(t *testing.T) {
 }
 
 func TestRunQueryUnsafe(t *testing.T) {
-	s := NewSqlService(nil, newTTLCache())
+	s := NewSqlService(nil, newTTLCache(), nil)
 	if _, err := s.RunQuery("conn-1", engines.RunQueryInput{Query: "DROP TABLE x"}); err == nil {
 		t.Fatal("unsafe query should be rejected before adapter lookup")
 	}
@@ -89,7 +89,7 @@ func TestSchemaCaptureEndToEnd(t *testing.T) {
 	}
 	id := prof.ID
 
-	registry := engines.NewRegistry(st)
+	registry := testDB(t, st)
 	watcher := schema.NewWatcherManager(st)
 	svc := NewSchemaService(st, registry, watcher)
 
@@ -220,7 +220,7 @@ func TestUpdateConnectionAllowsRootCAChangeWithManagedAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := NewConnectionsService(st, engines.NewRegistry(st))
+	service := NewConnectionsService(st, testDB(t, st))
 	cacheCleared := false
 	service.onCacheClear = func(id string) { cacheCleared = id == profile.ID }
 	newPEM := "new-root-ca"
@@ -257,7 +257,7 @@ func TestUpdateConnectionSurvivesUnreadableVaultKey(t *testing.T) {
 	)
 	defer restore()
 
-	service := NewConnectionsService(st, engines.NewRegistry(st))
+	service := NewConnectionsService(st, testDB(t, st))
 	newName := "mongo-renamed"
 	updated, err := service.UpdateConnection(profile.ID, store.ProfileInput{Name: &newName})
 	if err != nil {
@@ -265,5 +265,62 @@ func TestUpdateConnectionSurvivesUnreadableVaultKey(t *testing.T) {
 	}
 	if updated.Name != newName {
 		t.Errorf("updated name = %q, want %q", updated.Name, newName)
+	}
+}
+
+// A restore must clear the Go-side TTL caches even when the file op itself
+// fails — the file may still have been replaced, and stale
+// ListDatabases/Schemas/Tables rows must not survive to the next TTL tick.
+func TestRestoreFileDatabaseClearsCachesOnError(t *testing.T) {
+	st, err := store.Open(t.TempDir() + "/m.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	name, kind, fp := "filedb", engines.KindSQLite, t.TempDir()+"/profile.db"
+	profile, err := st.CreateProfile(store.ProfileInput{Name: &name, Kind: &kind, FilePath: &fp})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewConnectionsService(st, testDB(t, st))
+	cleared := false
+	service.onCacheClear = func(id string) { cleared = id == profile.ID }
+	if _, err := service.RestoreFileDatabase(profile.ID, t.TempDir()+"/missing-backup.db"); err == nil {
+		t.Fatal("restore should fail for a missing backup file")
+	}
+	if !cleared {
+		t.Fatal("backend caches not cleared after restore")
+	}
+}
+
+// TTL caches are keyed by connection id, so a restore must clear them for
+// EVERY profile pointing at the replaced file — a sibling profile would
+// otherwise keep serving metadata from the pre-restore file.
+func TestRestoreFileDatabaseClearsCachesForSameFileProfiles(t *testing.T) {
+	st, err := store.Open(t.TempDir() + "/m.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	shared := t.TempDir() + "/shared.db"
+	name1, name2, kind := "p1", "p2", engines.KindSQLite
+	p1, err := st.CreateProfile(store.ProfileInput{Name: &name1, Kind: &kind, FilePath: &shared})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p2, err := st.CreateProfile(store.ProfileInput{Name: &name2, Kind: &kind, FilePath: &shared})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewConnectionsService(st, testDB(t, st))
+	cleared := map[string]bool{}
+	service.onCacheClear = func(id string) { cleared[id] = true }
+	if _, err := service.RestoreFileDatabase(p1.ID, t.TempDir()+"/missing-backup.db"); err == nil {
+		t.Fatal("restore should fail for a missing backup file")
+	}
+	if !cleared[p1.ID] || !cleared[p2.ID] {
+		t.Fatalf("caches cleared = %v, want both same-file profiles", cleared)
 	}
 }

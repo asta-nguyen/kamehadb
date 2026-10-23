@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 )
 
 type exportTestLoader struct{}
@@ -31,9 +31,18 @@ func (a *exportTestAdapter) ExportQueryCSV(ctx context.Context, input engines.Ru
 // temporary files and destination replacement without desktop dialogs.
 func exportService(t *testing.T, run func(context.Context, engines.RunQueryInput, io.Writer) (*engines.QueryExportStats, error)) *SqlService {
 	t.Helper()
-	engines.RegisterFactory("test-native-csv", func(engines.ConnProfile) (engines.SQLAdapter, error) { return &exportTestAdapter{run: run}, nil })
-	registry := engines.NewRegistry(exportTestLoader{})
-	service := NewSqlService(registry, newTTLCache())
+	return exportServiceWithPolicy(t, nil, run)
+}
+
+func exportServiceWithPolicy(
+	t *testing.T,
+	policy func(string) (bool, error),
+	run func(context.Context, engines.RunQueryInput, io.Writer) (*engines.QueryExportStats, error),
+) *SqlService {
+	t.Helper()
+	registry := testDB(t, exportTestLoader{})
+	testRegister(t, registry, "test-native-csv", func(engines.ConnProfile) (engines.SQLAdapter, error) { return &exportTestAdapter{run: run}, nil })
+	service := NewSqlService(registry, newTTLCache(), policy)
 	t.Cleanup(func() { service.closeExports(); registry.Close() })
 	return service
 }
@@ -148,5 +157,72 @@ func TestNativeExportEarlyCancelAndIndependentJobs(t *testing.T) {
 	wg.Wait()
 	if calls != 2 {
 		t.Fatal("independent jobs lost", calls)
+	}
+}
+
+// Full-query CSV export uses the same persisted policy as RunQuery, and a
+// rejected export must not create the destination or a temporary file. (Why)
+func TestNativeExportReadOnlyPolicy(t *testing.T) {
+	cases := []struct {
+		name     string
+		readOnly bool
+		query    string
+		wantErr  bool
+	}{
+		{name: "read-only rejects update", readOnly: true, query: "UPDATE t SET x = 1", wantErr: true},
+		{name: "writable allows update", readOnly: false, query: "UPDATE t SET x = 1"},
+		{name: "read-only rejects chain", readOnly: true, query: "UPDATE t SET x = 1; DROP TABLE t", wantErr: true},
+		{name: "writable rejects chain", readOnly: false, query: "UPDATE t SET x = 1; DROP TABLE t", wantErr: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls int
+			service := exportServiceWithPolicy(t, func(string) (bool, error) { return tc.readOnly, nil },
+				func(_ context.Context, _ engines.RunQueryInput, w io.Writer) (*engines.QueryExportStats, error) {
+					calls++
+					n, err := io.WriteString(w, "id\n1\n")
+					return &engines.QueryExportStats{Rows: 1, Bytes: int64(n)}, err
+				})
+			dir := t.TempDir()
+			path := filepath.Join(dir, "result.csv")
+			_, err := service.ExportQueryCSV("connection", QueryExportInput{ID: "job", Path: path, Query: tc.query})
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected policy rejection")
+				}
+				if calls != 0 {
+					t.Fatal("rejected export reached the adapter")
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			entries, readErr := os.ReadDir(dir)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if tc.wantErr && len(entries) != 0 {
+				t.Fatalf("rejected export left files: %v", entries)
+			}
+			if !tc.wantErr && len(entries) != 1 {
+				t.Fatalf("successful export files = %v", entries)
+			}
+		})
+	}
+}
+
+func TestNativeExportFailsClosedOnPolicyLookupError(t *testing.T) {
+	service := exportServiceWithPolicy(t, func(string) (bool, error) {
+		return false, errors.New("metadata unavailable")
+	}, func(context.Context, engines.RunQueryInput, io.Writer) (*engines.QueryExportStats, error) {
+		t.Fatal("policy failure reached the adapter")
+		return nil, nil
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "result.csv")
+	if _, err := service.ExportQueryCSV("connection", QueryExportInput{ID: "job", Path: path, Query: "SELECT 1"}); err == nil {
+		t.Fatal("expected policy lookup error")
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Fatalf("policy failure left files: %v", entries)
 	}
 }

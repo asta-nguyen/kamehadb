@@ -19,7 +19,7 @@ Verification: [x] **verified** — connection health checking runs via in-proces
 
 ## State changes
 
-- Backend maintains connection pool state in `internal/engines/registry.go`.
+- Backend maintains connection pool state in `internal/database/database.go`.
 - Frontend store keeps connection status (`connected`, `connecting`, `disconnected`) in `appStore`.
 - Profile credentials and configuration remain persisted in SQLite metadata store (`internal/store/`).
 
@@ -43,4 +43,4 @@ Verification: [x] **verified** — connection health checking runs via in-proces
 - `apps/desktop/src/lib/api.ts`
 - `apps/desktop/src/lib/query-keys.ts`
 - `internal/api/connections.go`
-- `internal/engines/registry.go`
+- `internal/database/database.go`

@@ -13,7 +13,8 @@ There is also a separate marketing/docs site in `landing/`, but it is not part o
 ```text
 ├── apps/
 │   └── desktop/          # React 19 + Vite 7 frontend (Wails webview)
-├── internal/             # Go backend: adapters, services, store, MCP, terminal
+├── dbcore/               # Reusable provider core: contracts, providers, lifecycle manager
+├── internal/             # Go backend: services, store, MCP, terminal
 ├── packages/
 │   └── shared/           # Shared Zod schemas and frontend-facing types
 ├── landing/              # Separate Next.js marketing site (not in pnpm workspace)
@@ -91,8 +92,8 @@ node landing/scripts/capture-images.mjs # Regenerate AI compare panels
 The backend is embedded in the Wails binary — there is no external process or IPC.
 
 - `internal/store/` — SQLite metadata store (`kamehadb.db`): profiles, query history, AI settings, chat history, MCP state, and the AES-256-GCM credential vault
-- `internal/engines/` — `SQLAdapter` contract plus the adapter registry; `internal/engines/<name>/` holds each driver adapter (postgres via pgx, mysql/mariadb, sqlite, sqlserver, oracle, clickhouse, duckdb)
-- `internal/mongo/`, `internal/redis/` — dedicated non-SQL adapters
+- `dbcore/` — reusable provider core (no `internal/` or Wails imports): `dbcore/engines/` holds the `SQLAdapter` contract and shared helpers, `dbcore/providers/<name>/` holds each provider (postgres via pgx, mysql/mariadb, sqlite, sqlserver, oracle, clickhouse, duckdb, mongo, redis), `dbcore/providers/all` assembles all ten kinds, and `dbcore.Manager`/`Registry` own provider lifecycle
+- `internal/database/` — app facade wiring the store to the shared manager; `internal/engines/` keeps app-only kind metadata (legacy kinds, MCP lists); `internal/mongo/` keeps `mongosh` support
 - `internal/api/` — Wails-bound services (`ConnectionsService`, `SqlService`, `SchemaService`, `MongoService`, `RedisService`, `AiService`, `QueryHistoryService`, `McpService`, `MaintenanceService`, `TerminalService`, `LogsService`) constructed by `NewServices` in `internal/api/connections.go`
 - `internal/schema/` — snapshots, diffing, watcher, migration generation
 - `internal/terminal/` — shared PTY manager used by the mongosh and psql shells

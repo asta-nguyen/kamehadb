@@ -3,108 +3,39 @@ package api
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"sync"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/redis"
-	"github.com/asta-nguyen/kamehadb/internal/store"
+	"github.com/asta-nguyen/kamehadb/dbcore/redis"
+	"github.com/asta-nguyen/kamehadb/internal/database"
 )
 
 // RedisService ports routes/redis.ts: key scan/value/ttl, raw commands,
 // INFO stats (TTL-cached), and the test dispatch.
 type RedisService struct {
-	st *store.Store
-
-	mu       sync.Mutex
-	adapters map[string]*redis.Adapter
+	db       *database.DB
 	cache    *ttlCache
 	requests *requestJobs
 }
 
-func NewRedisService(st *store.Store, cache *ttlCache) *RedisService {
-	return &RedisService{st: st, adapters: map[string]*redis.Adapter{}, cache: cache, requests: newRequestJobs()}
+func NewRedisService(db *database.DB, cache *ttlCache) *RedisService {
+	return &RedisService{db: db, cache: cache, requests: newRequestJobs()}
 }
 
-// adapterFor mirrors getNonSqlAdapter(REDIS) — profile.database parses to
-// the logical DB index like createRedisDbAdapter.
-func (s *RedisService) adapterFor(connectionID string) (*redis.Adapter, error) {
+// adapterFor mirrors getNonSqlAdapter(REDIS): the shared manager owns the
+// provider; wrong-kind profiles are rejected by its ConfigCheck.
+func (s *RedisService) adapterFor(connectionID string) (redis.Operations, error) {
 	return s.adapterForContext(context.Background(), connectionID)
 }
 
-// Do not publish a newly constructed old-profile client after cancellation.
-// Only the winning cache owner keeps its prototype; other clients are closed.
-func (s *RedisService) adapterForContext(ctx context.Context, connectionID string) (*redis.Adapter, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	s.mu.Lock()
-	if a, ok := s.adapters[connectionID]; ok {
-		s.mu.Unlock()
-		return a, nil
-	}
-	s.mu.Unlock()
-
-	p, err := s.st.GetProfile(connectionID)
-	if err != nil {
-		return nil, err
-	}
-	if p == nil {
-		return nil, errConnectionNotFound
-	}
-	if p.Kind != engines.KindRedis {
-		return nil, fmt.Errorf("This endpoint is for redis connections only")
-	}
-	password, err := s.st.GetProfilePassword(connectionID)
-	if err != nil {
-		return nil, err
-	}
-	cfg := redis.Config{
-		Host:     strOf(p.Host),
-		Port:     int64Of(p.Port),
-		Password: password,
-	}
-	if db := strOf(p.Database); db != "" {
-		if n, err := strconv.Atoi(db); err == nil && n >= 0 {
-			cfg.Database = n
-		}
-	}
-	a := redis.New(cfg)
-	s.mu.Lock()
-	if err := ctx.Err(); err != nil {
-		s.mu.Unlock()
-		_ = a.Close()
-		return nil, err
-	}
-	if cached := s.adapters[connectionID]; cached != nil {
-		s.mu.Unlock()
-		_ = a.Close()
-		return cached, nil
-	}
-	s.adapters[connectionID] = a
-	s.mu.Unlock()
-	return a, nil
+// Cancellation during lookup bounds only this caller's wait; a cancelled
+// caller never receives a stale-profile provider.
+func (s *RedisService) adapterForContext(ctx context.Context, connectionID string) (redis.Operations, error) {
+	return s.db.Redis(ctx, connectionID)
 }
 
 // Invalidate drops the cached client on profile change.
 func (s *RedisService) Invalidate(connectionID string) {
-	s.mu.Lock()
-	if a, ok := s.adapters[connectionID]; ok {
-		delete(s.adapters, connectionID)
-		a.Close()
-	}
-	s.mu.Unlock()
+	s.db.Invalidate(connectionID)
 	s.cache.clearConnection(connectionID)
-}
-
-// Shutdown closes every cached client.
-func (s *RedisService) Shutdown() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, a := range s.adapters {
-		a.Close()
-		delete(s.adapters, id)
-	}
 }
 
 // ScanRedisKeys — POST /redis/:id/keys.
@@ -123,6 +54,7 @@ func (s *RedisService) ScanRedisKeys(connectionID string, input redis.ScanKeysIn
 	}
 	owned, close := a.ForRequest(job.ctx)
 	defer close()
+	input.Scope = connectionID
 	return owned.ScanKeys(job.ctx, input)
 }
 
@@ -149,6 +81,38 @@ func (s *RedisService) GetRedisKeyWithRequest(connectionID string, input redis.R
 	owned, close := a.ForRequest(job.ctx)
 	defer close()
 	return owned.GetKey(job.ctx, input.Key)
+}
+
+// GetRedisKeyPage — POST /redis/:id/keys/page. Paged value inspector.
+func (s *RedisService) GetRedisKeyPage(connectionID string, input redis.RedisValuePageInput) (*redis.RedisValuePage, error) {
+	job, err := s.requests.begin(connectionID, input.RequestID)
+	if err != nil {
+		return nil, err
+	}
+	defer s.requests.finish(job)
+	a, err := s.adapterForContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	owned, close := a.ForRequest(job.ctx)
+	defer close()
+	input.Scope = connectionID
+	return owned.GetKeyPage(job.ctx, input)
+}
+
+// ReleaseRedisCursor drops the remainder session referenced by a lease
+// cursor. Releasing an unknown or completed continuation is a no-op.
+func (s *RedisService) ReleaseRedisCursor(connectionID, cursor string) (map[string]bool, error) {
+	ops, err := s.adapterForContext(context.Background(), connectionID)
+	if err != nil {
+		return map[string]bool{"released": false}, nil
+	}
+	req, cleanup := ops.ForRequest(context.Background())
+	defer cleanup()
+	return map[string]bool{"released": req.ReleaseCursor(cursor)}, nil
 }
 
 // GetRedisTTL — POST /redis/:id/keys/ttl (returns {ttl} like the route).

@@ -40,6 +40,7 @@ import { ConnectionTooltip } from './sidebar-tooltip';
 import { MongoExplorer } from './mongo-explorer';
 import { SchemaTree } from './schema-tree';
 import { SidebarUpdateNotice } from './sidebar-update-notice';
+import { SidebarDonateLink } from './sidebar-donate';
 import { useUpdateCheck } from '@/hooks/use-update-check';
 
 const ConnectionItem = memo(function ConnectionItem({
@@ -368,6 +369,7 @@ export function Sidebar() {
           updateAvailable={updateCheck.updateAvailable}
           onDismiss={updateCheck.dismissUpdate}
         />
+        <SidebarDonateLink />
       </div>
 
       <div

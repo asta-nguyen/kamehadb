@@ -7,25 +7,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/engines/clickhouse"
-	"github.com/asta-nguyen/kamehadb/internal/engines/duckdb"
-	"github.com/asta-nguyen/kamehadb/internal/engines/mysql"
-	"github.com/asta-nguyen/kamehadb/internal/engines/oracle"
-	"github.com/asta-nguyen/kamehadb/internal/engines/postgres"
-	"github.com/asta-nguyen/kamehadb/internal/engines/sqlite"
-	"github.com/asta-nguyen/kamehadb/internal/engines/sqlserver"
+	"github.com/asta-nguyen/kamehadb/dbcore"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	mysqlprovider "github.com/asta-nguyen/kamehadb/dbcore/providers/mysql"
+	postgresprovider "github.com/asta-nguyen/kamehadb/dbcore/providers/postgres"
+	"github.com/asta-nguyen/kamehadb/internal/database"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/maintenance"
 	"github.com/asta-nguyen/kamehadb/internal/mcp"
-	"github.com/asta-nguyen/kamehadb/internal/mongo"
-	"github.com/asta-nguyen/kamehadb/internal/redis"
 	"github.com/asta-nguyen/kamehadb/internal/schema"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 	"github.com/asta-nguyen/kamehadb/internal/terminal"
@@ -52,9 +47,9 @@ type HealthResult struct {
 
 // ConnectionsService replaces routes/connections.ts.
 type ConnectionsService struct {
-	store    *store.Store
-	registry *engines.Registry
-	ctx      context.Context
+	store *store.Store
+	db    *database.DB
+	ctx   context.Context
 
 	// onCacheClear mirrors clearConnectionCache — wired to SqlService's
 	// cache in main.go.
@@ -64,8 +59,8 @@ type ConnectionsService struct {
 	inflight   map[string]*healthCall
 }
 
-func NewConnectionsService(s *store.Store, reg *engines.Registry) *ConnectionsService {
-	return &ConnectionsService{store: s, registry: reg, inflight: map[string]*healthCall{}}
+func NewConnectionsService(s *store.Store, db *database.DB) *ConnectionsService {
+	return &ConnectionsService{store: s, db: db, inflight: map[string]*healthCall{}}
 }
 
 // Services is the full set of Wails-bound services plus lifecycle pieces.
@@ -106,18 +101,18 @@ func (sv *Services) Bound() []interface{} {
 // mutate, the health loop drives the ConnectionsService, the schema watcher
 // gets its capture function through the registry, and the terminal manager
 // is shared by every embedded-shell service.
-func NewServices(s *store.Store, reg *engines.Registry, emit terminal.EmitFunc, mcpRuntime *mcp.Runtime) *Services {
+func NewServices(s *store.Store, db *database.DB, emit terminal.EmitFunc, mcpRuntime *mcp.Runtime) *Services {
 	sv := &Services{}
-	sv.Connections = NewConnectionsService(s, reg)
+	sv.Connections = NewConnectionsService(s, db)
 	cache := newTTLCache() // one shared cache, like the sidecar's module-level map
-	sv.SQL = NewSqlService(reg, cache)
+	sv.SQL = NewSqlService(db, cache, s.ProfileReadOnly)
 	term := terminal.NewManager(emit)
-	sv.Mongo = NewMongoService(s, term, cache)
-	sv.Redis = NewRedisService(s, cache)
+	sv.Mongo = NewMongoService(s, db, term, cache)
+	sv.Redis = NewRedisService(db, cache)
 	sv.Mongo.requests = sv.SQL.requests
 	sv.Redis.requests = sv.SQL.requests
 	sv.History = NewQueryHistoryService(s)
-	sv.AI = NewAiService(s, reg, sv.Mongo, sv.SQL, cache, emit)
+	sv.AI = NewAiService(s, db, sv.Mongo, sv.SQL, cache, emit)
 	sv.Terminal = NewTerminalService(s, term, emit)
 	sv.Maintenance = NewMaintenanceService(s, emit)
 	sv.Logs = NewLogsService()
@@ -125,14 +120,12 @@ func NewServices(s *store.Store, reg *engines.Registry, emit terminal.EmitFunc, 
 	sv.Connections.onCacheClear = func(connectionID string) {
 		sv.SQL.requests.cancelConnection(connectionID)
 		sv.SQL.clearConnectionCache(connectionID)
-		sv.Mongo.Invalidate(connectionID)
-		sv.Redis.Invalidate(connectionID)
 		if mcpRuntime != nil {
 			mcpRuntime.Manager.Invalidate(connectionID)
 		}
 	}
 	sv.Watcher = schema.NewWatcherManager(s)
-	sv.Schemas = NewSchemaService(s, reg, sv.Watcher)
+	sv.Schemas = NewSchemaService(s, db, sv.Watcher)
 	sv.Health = NewHealthLoop(sv.Connections)
 	return sv
 }
@@ -158,7 +151,7 @@ func validateCreate(in store.ProfileInput) error {
 	if in.Name == nil || strings.TrimSpace(*in.Name) == "" {
 		return errors.New("name is required")
 	}
-	if !engines.IsValidKind(kind) {
+	if !appengines.IsValidKind(kind) {
 		return fmt.Errorf("Invalid database kind: %s", kind)
 	}
 	if kind == engines.KindMongoDB && strOf(in.ConnectionString) == "" {
@@ -201,7 +194,7 @@ func (s *ConnectionsService) UpdateConnection(id string, in store.ProfileInput) 
 	if in.Name != nil && strings.TrimSpace(*in.Name) == "" {
 		return nil, errors.New("name is required")
 	}
-	if in.Kind != nil && !engines.IsValidKind(*in.Kind) {
+	if in.Kind != nil && !appengines.IsValidKind(*in.Kind) {
 		return nil, fmt.Errorf("Invalid database kind: %s", *in.Kind)
 	}
 	account, err := s.store.GetMCPManagedAccount(id)
@@ -263,15 +256,16 @@ func (s *ConnectionsService) invalidateConnection(id string) {
 	if s.onCacheClear != nil {
 		s.onCacheClear(id)
 	}
-	s.registry.Invalidate(id)
+	s.db.Invalidate(id)
 	s.inflightMu.Lock()
 	delete(s.inflight, id)
 	s.inflightMu.Unlock()
 	// MCP adapter-manager invalidation is wired by Task 25.
 }
 
-// BackupFileDatabase mirrors POST /connections/:id/backup — invalidate the
-// pooled adapter before touching the file, then clear the metadata cache.
+// BackupFileDatabase mirrors POST /connections/:id/backup — the file op runs
+// inside WithMaintenance so managed provider opens for the connection are
+// serialized and the entry is invalidated on every outcome.
 func (s *ConnectionsService) BackupFileDatabase(id, outputPath string) (*maintenance.MaintenanceResult, error) {
 	profile, err := s.store.GetProfile(id)
 	if err != nil {
@@ -280,13 +274,14 @@ func (s *ConnectionsService) BackupFileDatabase(id, outputPath string) (*mainten
 	if profile == nil {
 		return nil, errConnectionNotFound
 	}
-	s.invalidateConnection(id)
-	res, err := maintenance.BackupFileDatabase(profile.Kind, strOf(profile.FilePath), outputPath)
+	var res *maintenance.MaintenanceResult
+	err = s.db.WithMaintenance(id, func(cfg dbcore.Config) error {
+		var err error
+		res, err = maintenance.BackupFileDatabase(cfg.Kind, cfg.FilePath, outputPath)
+		return err
+	}, nil)
 	if err != nil {
 		return nil, err
-	}
-	if s.onCacheClear != nil {
-		s.onCacheClear(id)
 	}
 	return res, nil
 }
@@ -300,15 +295,45 @@ func (s *ConnectionsService) RestoreFileDatabase(id, inputPath string) (*mainten
 	if profile == nil {
 		return nil, errConnectionNotFound
 	}
-	s.invalidateConnection(id)
-	res, err := maintenance.RestoreFileDatabase(profile.Kind, strOf(profile.FilePath), inputPath)
+	var res *maintenance.MaintenanceResult
+	// The file may have changed on disk even on error — the after hook drops
+	// the Go-side TTL caches (ListDatabases/Schemas/Tables) and health state
+	// for EVERY profile pointing at this file while the write lock still
+	// holds, so a queued same-file lookup cannot open a provider mid-clear.
+	err = s.db.WithMaintenance(id, func(cfg dbcore.Config) error {
+		var err error
+		res, err = maintenance.RestoreFileDatabase(cfg.Kind, cfg.FilePath, inputPath)
+		return err
+	}, func(cfg dbcore.Config) { s.invalidateFileProfiles(id, cfg) })
 	if err != nil {
 		return nil, err
 	}
-	if s.onCacheClear != nil {
-		s.onCacheClear(id)
-	}
 	return res, nil
+}
+
+// invalidateFileProfiles runs invalidateConnection for the profile and for
+// every other stored profile resolving to the same canonical file — the
+// maintenance lock already retired their providers, but TTL caches keyed
+// by connection id still hold metadata from the replaced file.
+func (s *ConnectionsService) invalidateFileProfiles(connectionID string, target dbcore.Config) {
+	s.invalidateConnection(connectionID)
+	key, ok := database.CanonicalFilePath(target.Kind, target.FilePath)
+	if !ok {
+		return
+	}
+	profiles, err := s.store.ListProfiles()
+	if err != nil {
+		return // best-effort; the target's own invalidation already ran
+	}
+	for _, p := range profiles {
+		if p.ID == connectionID {
+			continue
+		}
+		k, ok := database.CanonicalFilePath(p.Kind, strOf(p.FilePath))
+		if ok && k == key {
+			s.invalidateConnection(p.ID)
+		}
+	}
 }
 
 // TestConnection probes unvalidated input (the /test endpoint): per-kind
@@ -355,53 +380,39 @@ func (s *ConnectionsService) CheckConnectionHealth(id string) (*engines.TestConn
 }
 
 // testConnectionByKind mirrors the sidecar's centralized dispatch: stored
-// SQL profiles reuse their pooled adapter; other kinds run a fresh probe.
-// Missing engines fall to the unsupported message until their tasks land.
+// SQL profiles reuse their pooled provider; other kinds run a fresh
+// uncached probe through the registry (dialog input has no connectionID).
 func (s *ConnectionsService) testConnectionByKind(connectionID string, cp engines.ConnProfile) (*engines.TestConnectionResult, error) {
 	if connectionID != "" && engines.IsSQLKind(cp.Kind) {
-		adapter, err := s.registry.Get(s.ctxOrBG(), connectionID)
+		adapter, err := s.db.Get(s.ctxOrBG(), connectionID)
 		if err != nil {
 			return nil, err
 		}
 		return adapter.TestConnection(s.ctxOrBG())
 	}
-	switch cp.Kind {
-	case engines.KindPostgres:
-		return postgres.TestPostgresConnection(s.ctxOrBG(), cp)
-	case engines.KindMySQL, engines.KindMariaDB:
-		return mysql.TestMysqlConnection(s.ctxOrBG(), cp)
-	case engines.KindSQLite:
-		return sqlite.TestSqliteConnection(s.ctxOrBG(), cp)
-	case engines.KindSQLServer:
-		return sqlserver.TestSqlServerConnection(s.ctxOrBG(), cp)
-	case engines.KindOracle:
-		return oracle.TestOracleConnection(s.ctxOrBG(), cp)
-	case engines.KindClickHouse:
-		return clickhouse.TestClickHouseConnection(s.ctxOrBG(), cp)
-	case engines.KindDuckDB:
-		return duckdb.TestDuckDBConnection(s.ctxOrBG(), cp.FilePath)
-	case engines.KindMongoDB:
-		// Mirrors the mongo test endpoint — fresh client, buildInfo probe.
-		a, err := mongo.New(mongo.Config{ConnectionString: cp.ConnectionString, Database: cp.Database})
-		if err != nil {
-			return &engines.TestConnectionResult{Success: false, Message: err.Error()}, nil
+	if connectionID == "" {
+		switch cp.Kind {
+		case engines.KindPostgres:
+			return postgresprovider.TestPostgresConnection(s.ctxOrBG(), cp)
+		case engines.KindMySQL:
+			return mysqlprovider.TestMysqlConnection(s.ctxOrBG(), cp)
 		}
-		defer a.Close(context.Background())
-		return a.TestConnection(s.ctxOrBG())
-	case engines.KindRedis:
-		cfg := redis.Config{Host: cp.Host, Port: cp.Port, Password: cp.Password}
-		if cp.Database != "" {
-			if n, err := strconv.Atoi(cp.Database); err == nil && n >= 0 {
-				cfg.Database = n
-			}
-		}
-		return redis.TestRedisConnection(s.ctxOrBG(), cfg)
-	default:
+	}
+	if !engines.IsSQLKind(cp.Kind) && cp.Kind != engines.KindMongoDB && cp.Kind != engines.KindRedis {
 		return &engines.TestConnectionResult{
 			Success: false,
 			Message: fmt.Sprintf("Unsupported database kind: %s", cp.Kind),
 		}, nil
 	}
+	p, err := s.db.Open(s.ctxOrBG(), cp)
+	if err != nil {
+		if engines.IsSQLKind(cp.Kind) {
+			return nil, err
+		}
+		return &engines.TestConnectionResult{Success: false, Message: err.Error()}, nil
+	}
+	defer func() { _ = p.Close() }()
+	return p.TestConnection(s.ctxOrBG())
 }
 
 func (s *ConnectionsService) ctxOrBG() context.Context {
@@ -437,7 +448,7 @@ func (s *ConnectionsService) activeHealthCheck(id string, cp engines.ConnProfile
 		ctx, cancel := context.WithTimeout(s.ctxOrBG(), connTestTimeout)
 		defer cancel()
 		var adapter engines.SQLAdapter
-		adapter, err = s.registry.Get(ctx, id)
+		adapter, err = s.db.Get(ctx, id)
 		if err == nil {
 			if probe, ok := adapter.(interface {
 				BackgroundHealth(context.Context) (*engines.TestConnectionResult, error)
@@ -578,10 +589,10 @@ func (s *ConnectionsService) SetConnectionMCPEnabled(id string, enabled bool) (*
 	if existing == nil {
 		return nil, errConnectionNotFound
 	}
-	if enabled && !engines.IsMCPSupportedKind(existing.Kind) {
+	if enabled && !appengines.IsMCPSupportedKind(existing.Kind) {
 		return nil, errors.New("This database kind is not supported for MCP")
 	}
-	if enabled && engines.IsMCPServerKind(existing.Kind) {
+	if enabled && appengines.IsMCPServerKind(existing.Kind) {
 		account, err := s.store.GetMCPManagedAccount(id)
 		if err != nil {
 			return nil, err
@@ -646,11 +657,4 @@ func strOf(s *string) string {
 		return ""
 	}
 	return *s
-}
-
-func int64Of(n *int64) int64 {
-	if n == nil {
-		return 0
-	}
-	return *n
 }

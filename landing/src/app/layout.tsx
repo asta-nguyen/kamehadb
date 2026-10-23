@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
 import { getBaseUrl } from '@/lib/url';
+import { KofiWidget } from '@/components/kofi-widget';
 import { jetbrainsMono, outfit } from './fonts';
 import './globals.css';
 import Providers from './providers';
@@ -137,6 +138,7 @@ export default async function RootLayout({
           strategy="afterInteractive"
         />
         <Providers>{children}</Providers>
+        <KofiWidget />
       </body>
     </html>
   );

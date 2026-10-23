@@ -8,7 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/mcp"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
@@ -139,7 +140,7 @@ func (s *McpService) GetMCPAccounts() (map[string]any, error) {
 		}
 		accounts = append(accounts, ManagedAccountStatus{
 			ProfileID:           p.ID,
-			Applicable:          engines.IsMCPServerKind(p.Kind) || p.Kind == engines.KindSQLite,
+			Applicable:          appengines.IsMCPServerKind(p.Kind) || p.Kind == engines.KindSQLite,
 			State:               state,
 			CredentialAvailable: runtime.Manager.HasCredential(p.ID),
 		})
@@ -160,7 +161,7 @@ func (s *McpService) PrepareMCPAccount(profileID string) (map[string]any, error)
 	if profile == nil {
 		return nil, errConnectionNotFound
 	}
-	if !engines.IsMCPServerKind(profile.Kind) {
+	if !appengines.IsMCPServerKind(profile.Kind) {
 		return nil, errors.New("This database does not use a managed MCP account")
 	}
 	account, err := s.store.GetMCPManagedAccount(profileID)

@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
-	"github.com/asta-nguyen/kamehadb/internal/mongo"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/mongo"
+	mongoadapter "github.com/asta-nguyen/kamehadb/dbcore/providers/mongo"
+	"github.com/asta-nguyen/kamehadb/internal/database"
+	appmongo "github.com/asta-nguyen/kamehadb/internal/mongo"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 	"github.com/asta-nguyen/kamehadb/internal/terminal"
 )
@@ -20,106 +23,43 @@ type MongoService struct {
 	term    *terminal.Manager
 	dataDir string
 
-	mu       sync.Mutex
-	adapters map[string]*mongo.Adapter
+	db       *database.DB
 	cache    *ttlCache
 	requests *requestJobs
 }
 
-func NewMongoService(st *store.Store, term *terminal.Manager, cache *ttlCache) *MongoService {
+func NewMongoService(st *store.Store, db *database.DB, term *terminal.Manager, cache *ttlCache) *MongoService {
 	dataDir, _ := store.DataDir()
 	return &MongoService{
 		st:       st,
 		term:     term,
 		dataDir:  dataDir,
-		adapters: map[string]*mongo.Adapter{},
+		db:       db,
 		cache:    cache,
 		requests: newRequestJobs(),
 	}
 }
 
-// getAdapter mirrors getNonSqlAdapter(MONGODB): cached adapter built from
-// the profile's connection string; wrong-kind profiles are rejected.
-func (s *MongoService) getAdapter(connectionID string) (*mongo.Adapter, error) {
+// getAdapter mirrors getNonSqlAdapter(MONGODB): the shared manager owns the
+// provider; wrong-kind profiles are rejected by its ConfigCheck.
+func (s *MongoService) getAdapter(connectionID string) (mongo.Operations, error) {
 	return s.getAdapterContext(context.Background(), connectionID)
 }
 
-// An invalidated request must not publish a newly constructed stale-profile
-// client. Check again under the cache lock before transferring ownership.
-func (s *MongoService) getAdapterContext(ctx context.Context, connectionID string) (*mongo.Adapter, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	s.mu.Lock()
-	if a, ok := s.adapters[connectionID]; ok {
-		s.mu.Unlock()
-		return a, nil
-	}
-	s.mu.Unlock()
-
-	p, err := s.st.GetProfile(connectionID)
-	if err != nil {
-		return nil, err
-	}
-	if p == nil {
-		return nil, errConnectionNotFound
-	}
-	if p.Kind != engines.KindMongoDB {
-		return nil, fmt.Errorf("Connection %s is not a mongodb connection", connectionID)
-	}
-	connStr := ""
-	if p.ConnectionString != nil {
-		connStr = *p.ConnectionString
-	}
-	database := ""
-	if p.Database != nil {
-		database = *p.Database
-	}
-	a, err := mongo.New(mongo.Config{ConnectionString: connStr, Database: database})
-	if err != nil {
-		return nil, err
-	}
-	s.mu.Lock()
-	if err := ctx.Err(); err != nil {
-		s.mu.Unlock()
-		_ = a.Close(context.Background())
-		return nil, err
-	}
-	if cached := s.adapters[connectionID]; cached != nil {
-		s.mu.Unlock()
-		_ = a.Close(context.Background())
-		return cached, nil
-	}
-	s.adapters[connectionID] = a
-	s.mu.Unlock()
-	return a, nil
+// Cancellation during lookup bounds only this caller's wait; a cancelled
+// caller never receives a stale-profile provider.
+func (s *MongoService) getAdapterContext(ctx context.Context, connectionID string) (mongo.Operations, error) {
+	return s.db.Mongo(ctx, connectionID)
 }
 
 // Invalidate drops the cached adapter + cache entries for a profile change.
 func (s *MongoService) Invalidate(connectionID string) {
-	s.mu.Lock()
-	if a, ok := s.adapters[connectionID]; ok {
-		delete(s.adapters, connectionID)
-		a.Close(context.Background())
-	}
-	s.mu.Unlock()
+	s.db.Invalidate(connectionID)
 	s.cache.clearConnection(connectionID)
 }
 
-// CloseAll drops every cached adapter — shutdown path.
-func (s *MongoService) CloseAll() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, a := range s.adapters {
-		a.Close(context.Background())
-		delete(s.adapters, id)
-	}
-}
-
-// Shutdown kills cached adapters plus every shell on the shared terminal
-// manager (killAllMongoShells). Other services sharing the manager stop too.
+// Shutdown stops Mongo shells; managed provider teardown belongs to db.Close.
 func (s *MongoService) Shutdown() {
-	s.CloseAll()
 	s.term.Shutdown()
 }
 
@@ -193,6 +133,24 @@ func (s *MongoService) AggregateMongoDocuments(connectionID string, input mongo.
 	return a.Aggregate(job.ctx, input)
 }
 
+// CountMongoDocuments — POST /mongo/:id/count. Explicit counts run as their own
+// cancellable request so a slow or failed count never blocks fetched pages.
+func (s *MongoService) CountMongoDocuments(connectionID string, input mongo.CountDocumentsInput) (*mongo.CountResult, error) {
+	job, err := s.requests.begin(connectionID, input.RequestID)
+	if err != nil {
+		return nil, err
+	}
+	defer s.requests.finish(job)
+	a, err := s.getAdapterContext(job.ctx, connectionID)
+	if err != nil {
+		return nil, err
+	}
+	if err := job.ctx.Err(); err != nil {
+		return nil, err
+	}
+	return a.CountDocuments(job.ctx, input)
+}
+
 // MongoDeleteInput mirrors the delete route body.
 type MongoDeleteInput struct {
 	Collection string         `json:"collection"`
@@ -260,12 +218,12 @@ func (s *MongoService) GetMongoCollectionStats(connectionID, database, collectio
 
 // RunMongoCommand — POST /mongo/:id/command.
 func (s *MongoService) RunMongoCommand(connectionID, database string, command map[string]any) (any, error) {
-	return s.RunMongoCommandWithRequest(connectionID, mongo.MongoCommandRequest{Database: database, Command: command})
+	return s.RunMongoCommandWithRequest(connectionID, mongoadapter.MongoCommandRequest{Database: database, Command: command})
 }
 
 // Preserve the legacy arguments while allowing new UI callers to cancel only
 // their command. Cancellation is not rollback and no command is replayed.
-func (s *MongoService) RunMongoCommandWithRequest(connectionID string, input mongo.MongoCommandRequest) (any, error) {
+func (s *MongoService) RunMongoCommandWithRequest(connectionID string, input mongoadapter.MongoCommandRequest) (any, error) {
 	job, err := s.requests.begin(connectionID, input.RequestID)
 	if err != nil {
 		return nil, err
@@ -367,7 +325,7 @@ func (s *MongoService) StartMongoShell(connectionID string, cols, rows int) (map
 	if p.ConnectionString != nil {
 		connStr = *p.ConnectionString
 	}
-	cmd, err := mongo.ResolveMongosh(s.dataDir)
+	cmd, err := appmongo.ResolveMongosh(s.dataDir)
 	if err != nil {
 		return nil, err
 	}

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/asta-nguyen/kamehadb/internal/duckdriver"
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/duckdriver"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
@@ -28,7 +28,7 @@ func TestBackgroundDuckDBHealthDoesNotInitializeDriver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry := engines.NewRegistry(metadata)
+	registry := testDB(t, metadata)
 	defer registry.Close()
 	service := NewConnectionsService(metadata, registry)
 	for range 2 {

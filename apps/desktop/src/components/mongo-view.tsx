@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useReducer } from 'react';
+import { useState, useCallback, useMemo, useReducer, useRef, useEffect } from 'react';
 import { debounce } from '@tanstack/pacer';
 import { useMongoDocuments, useMongoCollectionStats } from '@/hooks/use-mongo';
 import { api } from '@/lib/api';
@@ -15,6 +15,8 @@ import { MongoViewHeader } from '@/components/mongo-view-header';
 import { appendFrontendLog } from '@/lib/app-logs';
 import { MongoStatsPanel } from '@/components/mongo-stats-panel';
 import { DataFooter } from '@/components/mongo-data-footer';
+import { useGUIRequests } from '@/hooks/use-gui-requests';
+import { pageOffsetsFor } from '@/lib/page-offsets';
 import { collectRecordFields } from '@/hooks/use-field-visibility';
 import { PAGE_LIMIT } from '@/lib/constants';
 import { saveTextAs } from '@/lib/export';
@@ -83,7 +85,7 @@ function mongoReducer(state: MongoState, action: MongoAction): MongoState {
   }
 }
 
-function useDebouncedSearchQuery(dispatch: React.Dispatch<MongoAction>) {
+function useDebouncedSearchQuery(dispatch: React.Dispatch<MongoAction>, onReset: () => void) {
   // Debounce user keystrokes into a "querySearch" + page-reset so the
   // expensive fetch isn't triggered on every keypress.
   return useMemo(
@@ -92,10 +94,11 @@ function useDebouncedSearchQuery(dispatch: React.Dispatch<MongoAction>) {
         (v: string) => {
           dispatch({ type: 'querySearch', value: v });
           dispatch({ type: 'page', value: 0 });
+          onReset();
         },
         { wait: 300 },
       ),
-    [dispatch],
+    [dispatch, onReset],
   );
 }
 
@@ -104,7 +107,26 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
   const queryClient = useQueryClient();
 
   const [state, dispatch] = useReducer(mongoReducer, INITIAL_MONGO_STATE);
-  const debouncedSetQuerySearch = useDebouncedSearchQuery(dispatch);
+
+  // Page index → exact skip offset. Byte-bounded pages can admit fewer than
+  // PAGE_LIMIT documents, so the next page's skip must come from the admitted
+  // count — page*PAGE_LIMIT would silently skip documents. sawByteLimitedPage
+  // disables arbitrary page jumps: offsets for unvisited pages only exist when
+  // every visited page was full. (Why)
+  const [pageOffsets, setPageOffsets] = useState<number[]>([0]);
+  const [sawByteLimitedPage, setSawByteLimitedPage] = useState(false);
+  const [countResult, setCountResult] = useState<{
+    count: number | string;
+    mode: string;
+    error?: string;
+    pending?: boolean;
+  } | null>(null);
+  const resetPaging = useCallback(() => {
+    setPageOffsets([0]);
+    setSawByteLimitedPage(false);
+    setCountResult(null);
+  }, []);
+  const debouncedSetQuerySearch = useDebouncedSearchQuery(dispatch, resetPaging);
 
   const handleSearchChange = useCallback(
     (v: string) => {
@@ -114,43 +136,51 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     [debouncedSetQuerySearch],
   );
 
-  const handleSortChange = useCallback((v: string) => {
-    dispatch({ type: 'sortStr', value: v });
-    dispatch({ type: 'querySort', value: v });
-    dispatch({ type: 'page', value: 0 });
-  }, []);
+  const handleSortChange = useCallback(
+    (v: string) => {
+      dispatch({ type: 'sortStr', value: v });
+      dispatch({ type: 'querySort', value: v });
+      dispatch({ type: 'page', value: 0 });
+      resetPaging();
+    },
+    [resetPaging],
+  );
 
-  const toggleSortField = useCallback((field: string | null) => {
-    if (!field) return;
-    dispatch({
-      type: 'sortStr',
-      value: (prev) => {
-        try {
-          const parsed = JSON.parse(prev);
-          if (typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed)[0] === field) {
-            const dir = Object.values(parsed)[0];
-            if (dir === 1) {
-              const next = JSON.stringify({ [field]: -1 });
-              dispatch({ type: 'querySort', value: next });
-              return next;
+  const toggleSortField = useCallback(
+    (field: string | null) => {
+      if (!field) return;
+      dispatch({
+        type: 'sortStr',
+        value: (prev) => {
+          try {
+            const parsed = JSON.parse(prev);
+            if (typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed)[0] === field) {
+              const dir = Object.values(parsed)[0];
+              if (dir === 1) {
+                const next = JSON.stringify({ [field]: -1 });
+                dispatch({ type: 'querySort', value: next });
+                return next;
+              }
+              if (dir === -1) {
+                dispatch({ type: 'querySort', value: '' });
+                return '';
+              }
             }
-            if (dir === -1) {
-              dispatch({ type: 'querySort', value: '' });
-              return '';
-            }
+          } catch (err) {
+            // Invalid JSON is expected while the user is typing the sort spec —
+            // treat it as unsorted and start fresh. Debug-level to avoid spam.
+            console.debug('mongo sort spec parse failed:', err);
           }
-        } catch (err) {
-          // Invalid JSON is expected while the user is typing the sort spec —
-          // treat it as unsorted and start fresh. Debug-level to avoid spam.
-          console.debug('mongo sort spec parse failed:', err);
-        }
-        const next = JSON.stringify({ [field]: 1 });
-        dispatch({ type: 'querySort', value: next });
-        return next;
-      },
-    });
-    dispatch({ type: 'page', value: 0 });
-  }, []);
+          const next = JSON.stringify({ [field]: 1 });
+          dispatch({ type: 'querySort', value: next });
+          return next;
+        },
+      });
+      dispatch({ type: 'page', value: 0 });
+      resetPaging();
+    },
+    [resetPaging],
+  );
 
   const sortParsed = useMemo(() => {
     const parsed = parseJsonSafe(state.querySort);
@@ -159,8 +189,10 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     return Object.values(parsed).every((v) => v === 1 || v === -1) ? (parsed as Record<string, 1 | -1>) : undefined;
   }, [state.querySort]);
 
-  const skip = state.page * PAGE_LIMIT;
-  const { data, isLoading, error, isFetching, refetch } = useMongoDocuments(
+  // Offsets are recorded per visited page so byte-shortened pages advance by
+  // the admitted document count, not the requested page size.
+  const skip = pageOffsets[state.page] ?? state.page * PAGE_LIMIT;
+  const { data, isLoading, error, isFetching, isPlaceholderData, refetch } = useMongoDocuments(
     connectionId,
     database,
     collection,
@@ -171,11 +203,65 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     state.querySearch || undefined,
   );
 
+  // Byte-limited pages make unvisited offsets unknowable — remember and gate
+  // the page-jump input on it. Placeholder pages from the previous context
+  // (keepPreviousData) must not set the flag, and a fresh page re-reporting
+  // 'bytes' must re-set it — so key off the result object, not the string.
+  useEffect(() => {
+    if (!isPlaceholderData && data?.limitReason === 'bytes') setSawByteLimitedPage(true);
+  }, [data, isPlaceholderData]);
+
   const {
     data: statsData,
     isLoading: statsLoading,
     error: statsError,
   } = useMongoCollectionStats(connectionId, database, collection);
+
+  // Explicit count state: pages never count implicitly. The query key change
+  // (filter/search/sort/page-size) is what invalidates a displayed count —
+  // reset it on every effective-query change. (What/Why)
+  const countEpoch = JSON.stringify({
+    s: state.querySearch,
+    q: state.querySort,
+  });
+  const lastCountEpoch = useRef(countEpoch);
+  if (lastCountEpoch.current !== countEpoch) {
+    lastCountEpoch.current = countEpoch;
+    if (countResult) setCountResult(null);
+  }
+
+  // Count requests are separately cancellable through the request owner; the
+  // scope ties them to this connection+namespace only.
+  const requests = useGUIRequests(`${connectionId}:${database}:${collection}`);
+
+  const handleCount = useCallback(
+    async (mode: 'estimated' | 'exact') => {
+      const epoch = lastCountEpoch.current;
+      setCountResult({ count: 0, mode, pending: true });
+      try {
+        const res = await requests.run((signal) =>
+          api.countMongoDocuments(
+            connectionId,
+            {
+              collection,
+              database,
+              search: state.querySearch || undefined,
+              mode,
+            },
+            signal,
+          ),
+        );
+        // Drop late completions whose query context already moved on.
+        if (!requests.isCurrent() || epoch !== lastCountEpoch.current) return;
+        setCountResult({ count: res.count, mode: res.countMode });
+      } catch (err) {
+        if (!requests.isCurrent() || epoch !== lastCountEpoch.current) return;
+        // A failed count must never hide already-fetched documents.
+        setCountResult({ count: 0, mode, error: safeErrorMessage(err) });
+      }
+    },
+    [connectionId, collection, database, state.querySearch, requests],
+  );
 
   const [expandedDocs, setExpandedDocs] = useState<Set<number>>(new Set());
 
@@ -226,6 +312,16 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     void saveTextAs(csv, `${collection}-${Date.now()}.csv`, 'CSV files', '*.csv', docs.length);
   }, [data, collection]);
 
+  const invalidateDocuments = useCallback(() => {
+    // Writes can change ordering and byte-page boundaries, so discard offsets
+    // and restart at the first page before fetching the changed collection.
+    dispatch({ type: 'page', value: 0 });
+    resetPaging();
+    queryClient.invalidateQueries({
+      queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
+    });
+  }, [connectionId, database, collection, queryClient, resetPaging]);
+
   const handleDeleteDocument = useCallback(
     async (doc: Record<string, unknown>) => {
       if (!doc._id) return;
@@ -233,9 +329,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
       if (!confirmed) return;
       try {
         await api.deleteMongoDocument(connectionId, { collection, database, filter: { _id: doc._id } });
-        queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
-        });
+        invalidateDocuments();
       } catch (err) {
         const message = safeErrorMessage(err);
         alert(`Delete failed: ${message}`);
@@ -247,7 +341,7 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
         });
       }
     },
-    [connectionId, collection, database, queryClient],
+    [connectionId, collection, database, invalidateDocuments],
   );
 
   const currentSortField = useMemo(() => {
@@ -280,12 +374,12 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
     refetch();
   }, [refetch]);
 
-  const invalidateDocuments = useCallback(
-    () =>
-      queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.MONGO_DOCUMENTS_PREFIX(connectionId, database, collection),
-      }),
-    [connectionId, database, collection, queryClient],
+  const onPageChange = useCallback(
+    (p: number) => {
+      setPageOffsets((prev) => pageOffsetsFor(prev, p, state.page, data?.documents.length ?? PAGE_LIMIT, PAGE_LIMIT));
+      dispatch({ type: 'page', value: p });
+    },
+    [state.page, data?.documents.length],
   );
 
   return (
@@ -331,7 +425,11 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             viewMode={state.viewMode}
             page={state.page}
             pageSize={PAGE_LIMIT}
-            totalCount={data?.totalCount}
+            totalCount={countResult?.count ?? data?.totalCount}
+            countMode={countResult?.mode ?? data?.countMode}
+            countPending={countResult?.pending}
+            countError={countResult?.error ?? null}
+            onCount={handleCount}
             hasMore={data?.hasMore ?? false}
             durationMs={data?.durationMs ?? 0}
             isFetching={isFetching}
@@ -344,7 +442,9 @@ export function MongoView({ tab, connectionId }: MongoViewProps) {
             onDelete={handleDeleteDocument}
             onUpdate={invalidateDocuments}
             onSortFieldChange={toggleSortField}
-            onPageChange={(p) => dispatch({ type: 'page', value: p })}
+            onPageChange={onPageChange}
+            startRow={skip}
+            disablePageJump={sawByteLimitedPage}
             onExportJSON={handleExportJSON}
             onExportCSV={handleExportCSV}
             onCopyJSON={handleCopyJSON}
@@ -369,7 +469,11 @@ interface DocumentsPanelProps {
   viewMode: 'list' | 'table';
   page: number;
   pageSize: number;
-  totalCount?: number;
+  totalCount?: number | string;
+  countMode?: string;
+  countPending?: boolean;
+  countError?: string | null;
+  onCount?: (mode: 'estimated' | 'exact') => void;
   hasMore: boolean;
   durationMs: number;
   isFetching: boolean;
@@ -383,6 +487,8 @@ interface DocumentsPanelProps {
   onUpdate: () => void;
   onSortFieldChange: (field: string | null) => void;
   onPageChange: (page: number) => void;
+  startRow: number;
+  disablePageJump: boolean;
   onExportJSON: () => void;
   onExportCSV: () => void;
   onCopyJSON: () => void;
@@ -399,6 +505,10 @@ function DocumentsPanel({
   page,
   pageSize,
   totalCount,
+  countMode,
+  countPending,
+  countError,
+  onCount,
   hasMore,
   durationMs,
   isFetching,
@@ -412,6 +522,8 @@ function DocumentsPanel({
   onUpdate,
   onSortFieldChange,
   onPageChange,
+  startRow,
+  disablePageJump,
   onExportJSON,
   onExportCSV,
   onCopyJSON,
@@ -422,7 +534,14 @@ function DocumentsPanel({
   const footerProps = {
     page,
     pageSize,
+    startRow,
+    disablePageJump,
+    isFetching,
     totalCount,
+    countMode,
+    countPending,
+    countError,
+    onCount,
     hasMore,
     durationMs,
     onPageChange,
@@ -552,7 +671,7 @@ function DocumentsPanel({
           />
         ))}
       </ul>
-      <DataFooter rowCount={documents.length} isFetching={isFetching} className="mt-2" {...footerProps} />
+      <DataFooter rowCount={documents.length} className="mt-2" {...footerProps} />
     </div>
   );
 }

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
 	"github.com/asta-nguyen/kamehadb/internal/ai"
-	"github.com/asta-nguyen/kamehadb/internal/engines"
 	"github.com/asta-nguyen/kamehadb/internal/store"
 )
 
@@ -42,14 +42,14 @@ func TestRunChatDoesNotExecuteGeneratedSQL(t *testing.T) {
 	defer server.Close()
 
 	factoryCalls := 0
-	engines.RegisterFactory(fakeChatKind, func(engines.ConnProfile) (engines.SQLAdapter, error) {
-		factoryCalls++
-		return nil, fmt.Errorf("adapter must not be constructed from AI chat")
-	})
-	reg := engines.NewRegistry(fakeProfileLoader{cp: engines.ConnProfile{
+	reg := testDB(t, fakeProfileLoader{cp: engines.ConnProfile{
 		Kind: fakeChatKind, Host: "localhost", Port: 5432, Database: "d",
 		Username: "u", Password: "p", HasPassword: true,
 	}})
+	testRegister(t, reg, fakeChatKind, func(engines.ConnProfile) (engines.SQLAdapter, error) {
+		factoryCalls++
+		return nil, fmt.Errorf("adapter must not be constructed from AI chat")
+	})
 
 	st, err := store.Open(filepath.Join(t.TempDir(), "kamehadb.db"))
 	if err != nil {
@@ -59,7 +59,7 @@ func TestRunChatDoesNotExecuteGeneratedSQL(t *testing.T) {
 
 	var events []chatEvent
 	svc := &AiService{
-		st: st, reg: reg, cache: newTTLCache(), chats: map[string]context.CancelFunc{},
+		st: st, lookup: reg, cache: newTTLCache(), chats: map[string]context.CancelFunc{},
 		emit: func(_ string, data any) {
 			if ev, ok := data.(chatEvent); ok {
 				events = append(events, ev)

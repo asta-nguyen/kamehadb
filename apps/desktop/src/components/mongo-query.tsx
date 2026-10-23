@@ -3,6 +3,7 @@ import { javascript } from '@codemirror/lang-javascript';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useGUIRequests } from '@/hooks/use-gui-requests';
+import { pageOffsetsFor } from '@/lib/page-offsets';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,12 @@ type MongoQueryState = {
   error: string | null;
   running: boolean;
   page: number;
+  // Actual skip offset the current page was fetched with — differs from
+  // page*PAGE_LIMIT after a byte-bounded page admitted fewer documents.
+  pageOffset: number;
+  // True once any page in the current run reported limitReason 'bytes'; page
+  // jumps are then unsafe because unvisited offsets are unknowable.
+  byteLimited: boolean;
   showChart: boolean;
 };
 
@@ -43,7 +50,7 @@ type MongoQueryAction =
   | { type: 'setPipeline'; value: string }
   | { type: 'setDb'; value: string; resetCollection?: boolean }
   | { type: 'setCollection'; value: string }
-  | { type: 'startRun'; page: number }
+  | { type: 'startRun'; page: number; offset: number }
   | { type: 'finishRun'; result: DocumentResult; page: number }
   | { type: 'failRun'; error: string }
   | { type: 'endRun' }
@@ -54,16 +61,57 @@ const DEFAULT_PIPELINE = '[\n  { $match: {} }\n]';
 
 function mongoQueryReducer(state: MongoQueryState, action: MongoQueryAction): MongoQueryState {
   switch (action.type) {
+    // Context changes drop the previous run's result and pager state — offsets
+    // recorded for the old pipeline/collection must never drive a new one.
     case 'setPipeline':
-      return { ...state, pipeline: action.value, running: false };
+      return {
+        ...state,
+        pipeline: action.value,
+        running: false,
+        result: null,
+        page: 0,
+        pageOffset: 0,
+        byteLimited: false,
+      };
     case 'setDb':
-      return { ...state, db: action.value, collection: action.resetCollection ? '' : state.collection, running: false };
+      return {
+        ...state,
+        db: action.value,
+        collection: action.resetCollection ? '' : state.collection,
+        running: false,
+        result: null,
+        page: 0,
+        pageOffset: 0,
+        byteLimited: false,
+      };
     case 'setCollection':
-      return { ...state, collection: action.value, running: false };
+      return {
+        ...state,
+        collection: action.value,
+        running: false,
+        result: null,
+        page: 0,
+        pageOffset: 0,
+        byteLimited: false,
+      };
     case 'startRun':
-      return { ...state, error: null, result: null, running: true, page: action.page };
+      return {
+        ...state,
+        error: null,
+        result: null,
+        running: true,
+        page: action.page,
+        pageOffset: action.offset,
+        byteLimited: action.page === 0 ? false : state.byteLimited,
+      };
     case 'finishRun':
-      return { ...state, result: action.result, page: action.page, running: false };
+      return {
+        ...state,
+        result: action.result,
+        page: action.page,
+        running: false,
+        byteLimited: state.byteLimited || action.result.limitReason === 'bytes',
+      };
     case 'failRun':
       return { ...state, error: action.error, running: false };
     case 'endRun':
@@ -98,7 +146,7 @@ function MongoQueryToolbar({
   databases?: DatabaseInfo[];
   collections?: CollectionInfo[];
   running: boolean;
-  resultTotal?: number;
+  resultTotal?: number | string;
   showChart: boolean;
   onDbChange: (v: string | null) => void;
   onCollectionChange: (v: string) => void;
@@ -202,17 +250,23 @@ function AggregationResult({
   running,
   error,
   page,
+  pageOffset,
+  byteLimited,
   onPageChange,
 }: {
   result: DocumentResult;
   running: boolean;
   error: string | null;
   page: number;
+  pageOffset: number;
+  byteLimited: boolean;
   onPageChange: (page: number) => void;
 }) {
   // Without a server-reported total the page count is unknowable; the footer
   // then shows only the current page and navigation stays Prev/Next.
-  const totalPages = result.totalCount != null ? Math.max(1, Math.ceil(result.totalCount / PAGE_LIMIT)) : null;
+  // String counts only appear beyond JS safe-integer range; page math uses
+  // Number() as a bound approximation while displays keep the exact string.
+  const totalPages = result.totalCount != null ? Math.max(1, Math.ceil(Number(result.totalCount) / PAGE_LIMIT)) : null;
   const columns = Array.from(new Set(result.documents.flatMap((doc) => Object.keys(doc))));
   const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(
     () =>
@@ -260,7 +314,7 @@ function AggregationResult({
               columns={tableColumns}
               rowKey={(doc, i) => String(doc._id ?? i)}
               showIndex
-              indexOffset={page * PAGE_LIMIT}
+              indexOffset={pageOffset}
               stickyHeader
               className="bg-background"
             />
@@ -271,7 +325,7 @@ function AggregationResult({
         <span>
           {result.totalCount != null
             ? `${result.totalCount} documents`
-            : `${page * PAGE_LIMIT + result.documents.length}${result.hasMore ? '+' : ''} documents`}
+            : `${pageOffset + result.documents.length}${result.hasMore ? '+' : ''} documents`}
         </span>
         {result.hasMore && (
           <Badge variant="outline" className="text-xs">
@@ -282,11 +336,11 @@ function AggregationResult({
       <div className="flex items-center justify-between pt-3 border-t border-border mt-3">
         <div className="text-xs text-muted-foreground">
           {result.documents.length > 0
-            ? `${page * PAGE_LIMIT + 1}–${page * PAGE_LIMIT + result.documents.length}${result.totalCount != null ? ` of ${result.totalCount}` : ''}`
+            ? `${pageOffset + 1}–${pageOffset + result.documents.length}${result.totalCount != null ? ` of ${result.totalCount}` : ''}`
             : '0 results'}
         </div>
         <div className="flex items-center gap-2">
-          {totalPages != null ? (
+          {totalPages != null && !byteLimited ? (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <span>Page</span>
               <Input
@@ -309,7 +363,7 @@ function AggregationResult({
             <Button
               variant="outline"
               size="sm"
-              disabled={page === 0}
+              disabled={page === 0 || running}
               onClick={() => onPageChange(page - 1)}
               className="h-7 text-xs"
             >
@@ -319,7 +373,7 @@ function AggregationResult({
             <Button
               variant="outline"
               size="sm"
-              disabled={!result.hasMore}
+              disabled={!result.hasMore || running}
               onClick={() => onPageChange(page + 1)}
               className="h-7 text-xs"
             >
@@ -357,6 +411,8 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
     error: null,
     running: false,
     page: 0,
+    pageOffset: 0,
+    byteLimited: false,
     showChart: false,
   });
 
@@ -398,6 +454,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
 
   const handlePipelineChange = useCallback(
     (value: string) => {
+      pageOffsets.current = [0];
       dispatch({ type: 'setPipeline', value });
       updateTabPipeline(tab.id, value);
     },
@@ -428,15 +485,20 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
   const requests = useGUIRequests(JSON.stringify([connectionId, state.db, state.collection, state.pipeline]));
   const runSequence = useRef(0);
   const runRef = useRef<() => Promise<void>>(async () => {});
+  // Visited page index → actual skip offset. Byte-bounded pages may admit
+  // fewer than PAGE_LIMIT docs; advancing by admitted count prevents skipping.
+  const pageOffsets = useRef<number[]>([0]);
   const completionsRef = useRef<MongoCompletionsData | null>(null);
   completionsRef.current = completionsData ?? null;
   const handleRun = useCallback(
     async (p?: number) => {
       if (!state.collection || !state.db) return;
       const currentPage = p ?? 0;
+      if (currentPage === 0) pageOffsets.current = [0];
+      const skip = pageOffsets.current[currentPage] ?? currentPage * PAGE_LIMIT;
       const sequence = ++runSequence.current;
       requests.cancel();
-      dispatch({ type: 'startRun', page: currentPage });
+      dispatch({ type: 'startRun', page: currentPage, offset: skip });
 
       try {
         let parsed: Record<string, unknown>[];
@@ -454,7 +516,7 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
               collection: state.collection,
               database: state.db,
               pipeline: parsed,
-              skip: currentPage * PAGE_LIMIT,
+              skip,
               limit: PAGE_LIMIT,
             },
             signal,
@@ -495,7 +557,9 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
   );
 
   const handleDbChange = useCallback((value: string | null) => {
-    if (value) dispatch({ type: 'setDb', value, resetCollection: true });
+    if (!value) return;
+    pageOffsets.current = [0];
+    dispatch({ type: 'setDb', value, resetCollection: true });
   }, []);
 
   return (
@@ -511,7 +575,10 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
         resultTotal={state.result?.totalCount}
         showChart={state.showChart}
         onDbChange={handleDbChange}
-        onCollectionChange={(v) => dispatch({ type: 'setCollection', value: v })}
+        onCollectionChange={(v) => {
+          pageOffsets.current = [0];
+          dispatch({ type: 'setCollection', value: v });
+        }}
         onRun={() => handleRun()}
         onToggleChart={() => dispatch({ type: 'toggleChart' })}
         onFormat={() => {
@@ -559,7 +626,8 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
                 result={{
                   columns: deriveColumns(state.result.documents),
                   rows: state.result.documents,
-                  rowCount: state.result.totalCount ?? state.result.documents.length,
+                  rowCount:
+                    state.result.totalCount != null ? Number(state.result.totalCount) : state.result.documents.length,
                   durationMs: state.result.durationMs,
                   truncated: state.result.hasMore,
                 }}
@@ -570,9 +638,19 @@ export function MongoQuery({ tab, connectionId }: MongoQueryProps) {
                 running={state.running}
                 error={state.error}
                 page={state.page}
+                pageOffset={state.pageOffset}
+                byteLimited={state.byteLimited}
                 onPageChange={(p) => {
-                  dispatch({ type: 'setPage', value: p });
-                  handleRun(p);
+                  // Record the target page's offset before running: forward
+                  // steps advance by the current page's admitted count.
+                  pageOffsets.current = pageOffsetsFor(
+                    pageOffsets.current,
+                    p,
+                    state.page,
+                    state.result?.documents.length ?? PAGE_LIMIT,
+                    PAGE_LIMIT,
+                  );
+                  void handleRun(p);
                 }}
               />
             ) : state.running ? (

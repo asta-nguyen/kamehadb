@@ -8,7 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/asta-nguyen/kamehadb/internal/engines"
+	"github.com/asta-nguyen/kamehadb/dbcore/engines"
+	appengines "github.com/asta-nguyen/kamehadb/internal/engines"
 )
 
 // Empty lists must cross Wails as arrays so a fresh or emptied workspace can
@@ -256,5 +257,74 @@ func TestUpdateProfileFailsWhenVaultKeyUnavailableForNewSecret(t *testing.T) {
 	newConn := "postgres://new-uri"
 	if _, err := s.UpdateProfile("p1", ProfileInput{ConnectionString: &newConn}); err == nil {
 		t.Fatal("expected UpdateProfile with new secret to fail when vault key is unavailable and ciphertexts exist")
+	}
+}
+
+// The GUI write policy is set once per profile: new rows default to read-only,
+// an omitted update keeps the previous value, and explicit false round-trips.
+func TestProfileReadOnlyDefaultsAndUpdates(t *testing.T) {
+	s := openTemp(t)
+	name, kind := "read-only-default", engines.KindPostgres
+
+	created, err := s.CreateProfile(ProfileInput{Name: &name, Kind: &kind})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created.ReadOnly {
+		t.Fatal("new profile should be read-only when the value is omitted")
+	}
+	if readOnly, err := s.ProfileReadOnly(created.ID); err != nil || !readOnly {
+		t.Fatalf("ProfileReadOnly = %v, %v", readOnly, err)
+	}
+
+	writable := false
+	updated, err := s.UpdateProfile(created.ID, ProfileInput{ReadOnly: &writable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ReadOnly {
+		t.Fatal("explicit false should make the profile writable")
+	}
+
+	renamed := "renamed"
+	preserved, err := s.UpdateProfile(created.ID, ProfileInput{Name: &renamed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preserved.ReadOnly {
+		t.Fatal("an omitted update value must preserve the writable policy")
+	}
+	if readOnly, err := s.ProfileReadOnly(created.ID); err != nil || readOnly {
+		t.Fatalf("ProfileReadOnly after update = %v, %v", readOnly, err)
+	}
+
+	profiles, err := s.ListProfiles()
+	if err != nil || len(profiles) != 1 || profiles[0].ReadOnly {
+		t.Fatalf("listed profile readOnly = %+v, %v", profiles, err)
+	}
+}
+
+// The policy lookup must not depend on decrypting secrets, or a locked vault
+// could silently change whether GUI SQL writes are allowed. (Why)
+func TestProfileReadOnlyIgnoresUnreadableSecrets(t *testing.T) {
+	withMemoryKeyring(t)
+	s := openTemp(t)
+	name, kind := "locked-vault", engines.KindPostgres
+	conn := "postgres://u:p@h/db"
+	created, err := s.CreateProfile(ProfileInput{Name: &name, Kind: &kind, ConnectionString: &conn})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	originalGet := keyringGet
+	keyringGet = func(string, string) (string, error) { return "", errors.New("keychain locked") }
+	defer func() { keyringGet = originalGet }()
+
+	readOnly, err := s.ProfileReadOnly(created.ID)
+	if err != nil || !readOnly {
+		t.Fatalf("ProfileReadOnly with locked vault = %v, %v", readOnly, err)
+	}
+	if _, err := s.ProfileReadOnly("missing"); !errors.Is(err, appengines.ErrConnectionNotFound) {
+		t.Fatalf("missing profile error = %v", err)
 	}
 }

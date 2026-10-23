@@ -36,6 +36,7 @@ export const UPDATE_SETTINGS_STORAGE_KEY = 'kamehadb_check_for_updates';
 export const UPDATE_DISMISSED_VERSION_KEY = 'kamehadb_dismissed_update_version';
 export const DEMO_PREVIEW_STORAGE_KEY = 'kamehadb_preview_update';
 export const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/asta-nguyen/kamehadb/releases/latest';
+export const KOFI_URL = 'https://ko-fi.com/n2q1910';
 
 import { PostgreSQL, MySQL, Redis, MongoDB, Oracle, MicrosoftSQLServer, ClickHouse } from 'developer-icons';
 import type { DbKind } from '@kamehadb/shared';
