@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **On-demand AI schema indexing** — the app no longer scans saved SQL connections' schemas or issues embedding requests at startup; the first general AI chat for a connection waits while only that connection is indexed, concurrent chats for the same connection share the running job, connections are indexed one at a time, and a failed index falls back to full schema context and retries on a later chat.
+
 ---
 
 ## [v2.1.0] — 2026-10-23

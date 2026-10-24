@@ -1,6 +1,6 @@
 # AI Assistant
 
-Verification: [x] Provider settings, schema-aware chat, provider-generated SQL display, and chat persistence were checked against current Go backend, desktop source, and tests.
+Verification: [x] Provider settings, schema-aware chat, on-demand schema indexing, provider-generated SQL display, and chat persistence were checked against current Go backend, desktop source, and tests.
 
 ## Requirements
 
@@ -52,6 +52,36 @@ The system SHALL persist provider configuration and the active provider in metad
 
 Evidence: `apps/desktop/src/components/api-settings-page.tsx`, `internal/api/ai.go`, `internal/store/ai.go`, `internal/ai/provider.go`
 
+### AI-schema-index-on-demand
+
+The system SHALL defer SQL schema indexing until a selected connection needs relevance search for a general AI chat, reuse an in-flight index job for concurrent requests to the same connection, and serialize index jobs across connections.
+
+#### Scenario: App starts without an AI schema scan
+
+- GIVEN saved SQL connections exist
+- WHEN the app starts
+- THEN the AI indexer does not scan those connections' schemas
+
+#### Scenario: First general chat indexes its selected connection
+
+- GIVEN an uncached general AI chat targets a SQL connection
+- WHEN the chat needs schema relevance search and that connection has not been indexed in this process lifetime
+- THEN the chat waits while only that connection is indexed, then searches the local schema index
+
+#### Scenario: Concurrent chats share and serialize index work
+
+- GIVEN concurrent general AI chats need schema indexes
+- WHEN they target the same connection or different connections
+- THEN requests for the same connection share one index job and jobs across connections run one at a time
+
+#### Scenario: Indexing fails
+
+- GIVEN indexing the selected connection fails
+- WHEN the chat continues to build schema context
+- THEN it uses the existing full-schema fallback, and returns the existing schema-unavailable error only if that fallback also fails
+
+Evidence: `internal/ai/indexer.go`, `internal/api/ai.go`, `internal/ai/vecstore.go`
+
 ## Flow
 
 1. API Settings exposes Ollama local, Ollama cloud, OpenAI, 9router, DeepSeek, and Gemini; it loads provider configurations and saves changes through Wails bindings.
@@ -60,7 +90,7 @@ Evidence: `apps/desktop/src/components/api-settings-page.tsx`, `internal/api/ai.
 4. For provider-based SQL chat, the service streams the provider's response verbatim, so any fenced SQL is displayed in chat for the user to review and run in the editor; the AI flow never executes the generated SQL or sends query result rows to the provider.
 5. Chat history loads and clears through `GetChatHistory`/`ClearChatHistory`; `CancelChat` aborts an active stream.
 
-MongoDB chat uses Mongo schema context. Redis receives an engine-specific system prompt without schema context. SQL chat checks the schema cache first — table-scoped when a table is selected, connection-scoped otherwise. On a cache miss, a selected table triggers a table-scoped DDL lookup; if that returns no DDL, the service searches stored embeddings, then falls back to the full schema, which caches at connection scope.
+MongoDB chat uses Mongo schema context. Redis receives an engine-specific system prompt without schema context. SQL chat checks the schema cache first — table-scoped when a table is selected, connection-scoped otherwise. On a cache miss, a selected table triggers a table-scoped DDL lookup and never indexes the connection. A general chat instead ensures the connection's schema index: `SchemaIndexer` scans that connection's metadata and writes embeddings the first time it is needed, concurrent chats for the same connection share the in-flight job, and connections are indexed one at a time under a global lock. The service then searches the stored embeddings and falls back to the full schema when indexing was skipped or produced no hits; the fallback caches at connection scope.
 
 ## State changes
 
@@ -74,6 +104,7 @@ MongoDB chat uses Mongo schema context. Redis receives an engine-specific system
 - The configured provider receives the prompt and schema context for each chat or embedding request. A remote provider endpoint receives these values when configured.
 - The AI chat flow does not read the selected database or send query results to the provider: provider-generated SQL is displayed for review and runs only when the user executes it in the editor.
 - The backend caches schema context in its TTL cache under the same key the chat reads: table-scoped entries for selected tables and connection-scoped entries for full-schema fallbacks.
+- Schema metadata reads and provider embedding calls are deferred to the first uncached general AI chat of each SQL connection in a process lifetime — nothing is scanned at application startup; on restart the first chat recomputes table hashes and re-embeds only changed tables.
 
 ## Authorization & constraints
 
@@ -89,12 +120,14 @@ MongoDB chat uses Mongo schema context. Redis receives an engine-specific system
 - Missing credentials, provider network errors, and streaming failures surface as `error` events.
 - `CancelChat` aborts the active chat stream; the desktop keeps partial output and attaches the failure to the assistant message.
 - Embedding API failures fall back to the local embedding implementation.
+- A skipped or failed schema-index run is logged, leaves the connection uncompleted so a later chat retries, and the chat proceeds to relevance search and the full-schema fallback; the schema-unavailable error is returned only when that fallback also fails.
 
 ## Tests
 
 - `internal/store/entities_test.go` (`TestChatMessages`, `TestAISettings`) covers chat-message and provider-settings persistence.
 - `internal/api/ai_test.go` (`TestRunChatDoesNotExecuteGeneratedSQL`) asserts a chat makes exactly one provider request and never acquires a database adapter, proving generated SQL is not executed.
-- Searches across `internal/api`, `internal/ai`, and `apps/desktop/src` test files found no chat-streaming or schema-context tests.
+- `internal/ai/indexer_test.go` (`TestEnsureConnectionSchemaIndexed_*`) covers first-use indexing, subsequent-use reuse, same-connection in-flight sharing, cross-connection serialization, disabled-provider skip, failure retry, and caller cancellation leaving the job running.
+- `internal/api/ai_test.go` (`TestStartChatOnDemandIndexing`) proves a general chat indexes before relevance search, a table-scoped chat skips indexing, and a failed index still falls back to the full schema.
 
 ## Related
 
@@ -110,6 +143,8 @@ MongoDB chat uses Mongo schema context. Redis receives an engine-specific system
 - `apps/desktop/src/hooks/use-chat.ts`
 - `apps/desktop/src/hooks/use-ai-chat.ts`
 - `apps/desktop/src/lib/api.ts`
+- `internal/ai/indexer.go`
+- `internal/ai/indexer_test.go`
 - `internal/ai/provider.go`
 - `internal/ai/schemactx.go`
 - `internal/ai/vecstore.go`
