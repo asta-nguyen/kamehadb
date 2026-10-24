@@ -27,18 +27,34 @@ import (
 // AiService replaces routes/ai.ts. Chat streams over `chat:<requestId>`
 // events instead of an SSE response; each payload is {type, delta|message}.
 type AiService struct {
-	st     *store.Store
-	lookup appengines.SQLLookup
-	mongo  *MongoService
-	cache  *ttlCache
-	emit   terminal.EmitFunc
+	st      *store.Store
+	lookup  appengines.SQLLookup
+	mongo   *MongoService
+	cache   *ttlCache
+	emit    terminal.EmitFunc
+	indexer *ai.SchemaIndexer
 
-	chatsMu sync.Mutex
-	chats   map[string]context.CancelFunc
+	indexerMu sync.Mutex
+	chatsMu   sync.Mutex
+	chats     map[string]context.CancelFunc
 }
 
 func NewAiService(st *store.Store, lookup appengines.SQLLookup, mongoSvc *MongoService, _ *SqlService, cache *ttlCache, emit terminal.EmitFunc) *AiService {
-	return &AiService{st: st, lookup: lookup, mongo: mongoSvc, cache: cache, emit: emit, chats: map[string]context.CancelFunc{}}
+	return &AiService{
+		st: st, lookup: lookup, mongo: mongoSvc, cache: cache, emit: emit,
+		indexer: ai.NewSchemaIndexer(st), chats: map[string]context.CancelFunc{},
+	}
+}
+
+// getIndexer lazily builds the schema indexer so tests that construct
+// &AiService{} directly still get a working indexer. (Why)
+func (s *AiService) getIndexer() *ai.SchemaIndexer {
+	s.indexerMu.Lock()
+	defer s.indexerMu.Unlock()
+	if s.indexer == nil {
+		s.indexer = ai.NewSchemaIndexer(s.st)
+	}
+	return s.indexer
 }
 
 // --- settings -------------------------------------------------------------
@@ -325,6 +341,14 @@ func (s *AiService) StartChat(input ChatInput) (string, error) {
 				}
 				if ddl == "" {
 					if latestUserMsg != "" {
+						// On-demand schema indexing: a general chat waits for the
+						// connection's first index before relevance search; errors
+						// are ignored because the full-schema fallback below covers
+						// failures (indexer stays uncompleted so later chats retry).
+						// Table-scoped chats keep table DDL only, never index. (Why)
+						if input.TableID == "" {
+							_ = s.getIndexer().EnsureConnectionSchemaIndexed(ctx, input.ConnectionID, adapter)
+						}
 						hits, err := ai.SearchRelevantSchema(ctx, s.st, input.ConnectionID, latestUserMsg, providerName, ai.ProviderConfig(config), 5)
 						if err == nil && len(hits) > 0 {
 							var parts []string

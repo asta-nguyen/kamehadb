@@ -6,6 +6,7 @@
 
 ## Archived changes
 
+- [AI schema indexing on demand](changes/archive/2026-10-12-ai-schema-indexing/tasks.md) — SQL schema indexing deferred from startup to the first general AI chat per connection, with shared in-flight jobs, serialized connections, and fallback retry; all three tasks verified.
 - [GUI SQL read-only toggle](changes/archive/2026-10-23-gui-sql-read-only-toggle/tasks.md) — per-profile read-only flag enforced at GUI query/export boundaries; all four tasks verified including UI tests, docs, and the full build suite.
 - [Unified provider core review hardening](changes/archive/2026-10-20-110-provider-core-review-hardening/tasks.md) — all five tasks verified; manager races, guarded lookups, app compatibility, documentation, and final checks passed.
 - [Unified provider core](changes/archive/2026-10-19-110-unified-provider-core/tasks.md) — all six tasks verified — dbcore contracts/manager, all ten providers relocated, GUI services on the shared internal/database facade, shims removed, external-module validation passed.
