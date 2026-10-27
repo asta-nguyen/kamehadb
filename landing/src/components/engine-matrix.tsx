@@ -120,7 +120,7 @@ function EngineCard({
 
   return (
     <div
-      className="group relative h-52 [perspective:1200px] cursor-pointer"
+      className="group relative h-56 [perspective:1200px] cursor-pointer"
       role="button"
       tabIndex={0}
       onClick={() => setFlipped((f) => !f)}
@@ -163,7 +163,7 @@ function EngineCard({
           {/* Type badge */}
           <span
             className={cn(
-              'relative mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border',
+              'relative mt-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border',
               ENGINE_TYPE_COLORS[engine.type],
             )}
           >
@@ -182,13 +182,13 @@ function EngineCard({
                 transition={{ duration: 0.8, ease: 'easeOut' }}
               />
             </div>
-            <span className="text-[10px] font-mono text-muted">
-              {supportedCount}/{engine.features.length}
+            <span className="text-xs font-mono text-muted">
+              {supportedCount}/{engine.features.length} features
             </span>
           </div>
 
           {/* Hint */}
-          <span className="relative mt-2 text-[9px] text-muted/50 font-mono uppercase tracking-wider">
+          <span className="relative mt-2 text-[11px] text-muted font-mono uppercase tracking-wider">
             Click for details
           </span>
         </div>
@@ -210,7 +210,7 @@ function EngineCard({
                 onCopy(engine);
               }}
               tabIndex={!flipped ? -1 : undefined}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-colors"
             >
               {copied ? <CheckCheck className="size-3" /> : <Copy className="size-3" />}
               {copied ? 'Copied' : 'Copy'}
@@ -220,19 +220,19 @@ function EngineCard({
           {/* Features */}
           <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 flex-1 overflow-hidden">
             {engine.features.map((f) => (
-              <div key={f.label} className="flex items-center gap-1 text-[10px]">
+              <div key={f.label} className="flex items-center gap-1 text-[11px]">
                 {f.supported ? (
                   <Check className="size-2.5 text-emerald-500 shrink-0" />
                 ) : (
-                  <X className="size-2.5 text-muted/30 shrink-0" />
+                  <X className="size-2.5 text-muted/50 shrink-0" />
                 )}
-                <span className={cn(f.supported ? 'text-body' : 'text-muted/40 line-through')}>{f.label}</span>
+                <span className={cn(f.supported ? 'text-body' : 'text-muted/70 line-through')}>{f.label}</span>
               </div>
             ))}
           </div>
 
           {/* Docker snippet */}
-          <pre className="mt-2 bg-[#0d0d14] border border-[#27273a] rounded p-2 text-[9px] font-mono text-emerald-400 overflow-x-auto whitespace-pre max-h-16">
+          <pre className="mt-2 bg-[#0d0d14] border border-[#27273a] rounded p-2 text-[10px] font-mono text-emerald-400 overflow-x-auto whitespace-pre max-h-16">
             {engine.dockerSnippet.split('\n').slice(0, 3).join('\n')}
           </pre>
         </div>
@@ -262,7 +262,7 @@ export function EngineMatrix() {
             className={cn(
               'px-4 py-1.5 rounded-full text-sm font-medium transition-all',
               activeFilter === option
-                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                ? 'bg-amber-500 text-zinc-950 shadow-lg shadow-amber-500/25'
                 : 'bg-surface-soft text-body border border-border hover:border-amber-500/30',
             )}
           >

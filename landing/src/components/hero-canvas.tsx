@@ -2,6 +2,7 @@
 
 import { useRef, useMemo, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
+import { useTheme } from 'next-themes';
 import * as THREE from 'three';
 
 import { siPostgresql, siMysql, siMongodb, siRedis, siSqlite, siClickhouse, siDuckdb, siMariadb } from 'simple-icons';
@@ -379,8 +380,11 @@ function CoreNode() {
   );
 }
 
-function GridFloor() {
-  return <gridHelper args={[20, 20, '#27273a', '#1a1a2e']} position={[0, -3.5, 0]} />;
+// The dark-navy lines are invisible on dark but read as a heavy cage on the white
+// light theme, so light mode swaps to faint amber tints (gridHelper takes no alpha).
+function GridFloor({ isDark }: { isDark: boolean }) {
+  const [centerLine, gridLine] = isDark ? ['#27273a', '#1a1a2e'] : ['#fcd9a0', '#fdecd0'];
+  return <gridHelper args={[20, 20, centerLine, gridLine]} position={[0, -3.5, 0]} />;
 }
 
 function Stars() {
@@ -404,7 +408,7 @@ function Stars() {
   );
 }
 
-function Scene() {
+function Scene({ isDark }: { isDark: boolean }) {
   const orbits = useMemo(() => ORBIT_DATA, []);
   const [texCache] = useState(() => new Map() as TexCache);
 
@@ -414,7 +418,7 @@ function Scene() {
       <pointLight position={[0, 6, 4]} intensity={0.5} color="#f59e0b" />
       <pointLight position={[-4, -2, -6]} intensity={0.2} color="#f43f5e" />
 
-      <GridFloor />
+      <GridFloor isDark={isDark} />
       <Stars />
       <TechRing />
       <ScanRing />
@@ -432,10 +436,14 @@ function Scene() {
 }
 
 export default function HeroCanvas() {
+  // The page defaults to dark, so treat an unresolved theme as dark to avoid a light flash.
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== 'light';
+
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
       <Canvas camera={{ position: [0, 3, 11], fov: 45 }} dpr={[1, 1.5]} gl={{ antialias: true, alpha: true }}>
-        <Scene />
+        <Scene isDark={isDark} />
       </Canvas>
     </div>
   );

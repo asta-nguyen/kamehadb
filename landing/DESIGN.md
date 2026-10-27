@@ -28,6 +28,8 @@ KamehaDB feels like a local database workbench with public-source energy: precis
 - Use amber for primary interaction and rose/orange only as supporting energy.
 - Use the existing CSS custom properties and Tailwind theme tokens before adding new colors.
 - Team-page depth uses blue-tinted Stripe-style shadows only through CSS custom properties documented in Section 7.
+- Text on an amber-500 surface is `zinc-950`, never white (white is 2.15:1). Amber text on a light surface uses `amber-700`; `amber-500` text is only for dark surfaces or decoration.
+- The hero terminal is always dark in both themes, so its text uses fixed `slate` shades, not the theme-aware `body`/`muted` tokens.
 
 ## 3. Typography
 
@@ -82,8 +84,8 @@ All spacing derives from a base of 4px.
 
 ### Team Navigation
 
-- **Structure**: fixed `nav` with logo, text links, GitHub CTA, and theme toggle.
-- **Variants**: landing page and team page.
+- **Structure**: fixed `nav` with logo, text links, GitHub CTA, and theme toggle. One shared `NavBar` serves every page; below `md` the text links collapse into a menu-button panel.
+- **Variants**: none; hash links are written as `/#...` so they resolve from any page.
 - **Spacing**: `--space-sm` horizontal groups, `--space-base` container padding.
 - **States**: hover color shift, focus ring via link/button defaults.
 - **Accessibility**: semantic `nav`, visible link text, external links use `rel`.

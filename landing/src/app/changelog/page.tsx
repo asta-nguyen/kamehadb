@@ -241,7 +241,7 @@ export default function ChangelogPage() {
       <NavBar />
 
       {/* Content */}
-      <main className="pt-32 pb-24 px-6 flex-grow">
+      <main id="content" className="pt-32 pb-24 px-6 flex-grow">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-4xl font-extrabold text-ink tracking-tight mb-2">Changelog</h1>
           <p className="text-lg text-body mb-12">What&apos;s new in KamehaDB</p>

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import HomeView from '../components/home-view';
+import { NavBar } from '../components/nav-bar';
+import { ParticleFooter } from '../components/particle-footer';
 
 export const metadata: Metadata = {
   alternates: {
@@ -29,5 +31,11 @@ async function loadGithubStars(): Promise<number | null> {
 
 export default async function Page() {
   const githubStars = await loadGithubStars();
-  return <HomeView githubStars={githubStars} />;
+  return (
+    <>
+      <NavBar />
+      <HomeView githubStars={githubStars} />
+      <ParticleFooter />
+    </>
+  );
 }

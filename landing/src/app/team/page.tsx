@@ -21,7 +21,7 @@ export default async function TeamPage() {
     <div className="min-h-screen bg-canvas font-sans antialiased flex flex-col">
       <NavBar />
 
-      <main className="pt-20 flex-grow">
+      <main id="content" className="pt-20 flex-grow">
         <TeamSection contributors={contributors} />
       </main>
 

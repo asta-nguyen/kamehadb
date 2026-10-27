@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { motion, useInView } from 'motion/react';
+import { motion, useInView, useReducedMotion } from 'motion/react';
 import { SAMPLE_SCHEMA, type SampleTable, type SampleColumn } from '../lib/sample-schema';
 
 // Spread positions — no overlap, no cropping, fits 5 tables cleanly
@@ -65,6 +65,8 @@ function TableCard({
   index: number;
   visible: boolean;
 }) {
+  const reduceMotion = useReducedMotion();
+
   return (
     <motion.div
       className="absolute z-10"
@@ -81,14 +83,18 @@ function TableCard({
       <motion.div
         className="absolute -inset-3 rounded-xl blur-lg"
         style={{ background: meta.glow }}
-        animate={{ opacity: [0.4, 0.7, 0.4] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: index * 0.3 }}
+        animate={{ opacity: reduceMotion ? 0.5 : [0.4, 0.7, 0.4] }}
+        transition={
+          reduceMotion ? { duration: 0 } : { duration: 3, repeat: Infinity, ease: 'easeInOut', delay: index * 0.3 }
+        }
       />
       {/* Card */}
       <motion.div
-        className="relative w-32 sm:w-40 rounded-xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#11111e]"
-        animate={{ y: [0, -4, 0] }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: index * 0.5 }}
+        className="relative w-40 rounded-xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#11111e]"
+        animate={reduceMotion ? { y: 0 } : { y: [0, -4, 0] }}
+        transition={
+          reduceMotion ? { duration: 0 } : { duration: 4, repeat: Infinity, ease: 'easeInOut', delay: index * 0.5 }
+        }
       >
         {/* Header with gradient + shine */}
         <div
@@ -105,7 +111,6 @@ function TableCard({
             {meta.icon}
           </span>
           <span className="relative">{table.name}</span>
-          <span className="relative ml-auto text-[9px] font-mono opacity-60">{table.columns.length} cols</span>
         </div>
         {/* Columns */}
         <div className="py-0.5">
@@ -140,6 +145,7 @@ function selfLoopPath(x: number, y: number): string {
 export function SchemaGraph3D() {
   const containerRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(containerRef, { once: true, margin: '-80px' });
+  const reduceMotion = useReducedMotion();
 
   const tables = SAMPLE_SCHEMA.tables;
 
@@ -151,6 +157,7 @@ export function SchemaGraph3D() {
     toPos: { x: number; y: number };
     self: boolean;
     color: string;
+    label: string;
   }[] = [];
 
   for (const table of tables) {
@@ -169,6 +176,7 @@ export function SchemaGraph3D() {
         toPos,
         self,
         color: fromMeta?.color ?? '#f59e0b',
+        label: `${table.name}.${col.name} references ${col.foreignKey.table}.${col.foreignKey.column}`,
       });
     }
   }
@@ -176,119 +184,130 @@ export function SchemaGraph3D() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 dark:from-[#0a0a14] dark:via-[#0d0d1a] dark:to-[#0a0a14]"
-      style={{ height: 560 }}
+      role="region"
+      aria-label={`Sample ER diagram. ${connections.map((conn) => conn.label).join('; ')}.`}
+      // Focusable so keyboard users can scroll the stage on narrow screens.
+      tabIndex={0}
+      className="relative w-full overflow-x-auto overflow-y-hidden rounded-xl bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:from-[#0a0a14] dark:via-[#0d0d1a] dark:to-[#0a0a14]"
     >
-      {/* Subtle grid background */}
-      <div
-        className="absolute inset-0 opacity-[0.04] dark:opacity-[0.07]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(100,100,200,1) 1px, transparent 1px), linear-gradient(90deg, rgba(100,100,200,1) 1px, transparent 1px)',
-          backgroundSize: '32px 32px',
-        }}
-      />
+      {/* Cards are placed in % of this stage. Below 720px they overlap and clip, so the stage keeps a minimum width and the container scrolls instead. */}
+      <div className="relative h-[560px] min-w-[720px]">
+        <div className="absolute left-4 top-3 font-mono text-[11px] text-slate-500 dark:text-slate-400 md:hidden">
+          Swipe to explore →
+        </div>
+        {/* Subtle grid background */}
+        <div
+          className="absolute inset-0 opacity-[0.04] dark:opacity-[0.07]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(100,100,200,1) 1px, transparent 1px), linear-gradient(90deg, rgba(100,100,200,1) 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+          }}
+        />
 
-      {/* SVG layer for FK lines */}
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <filter id="fk-glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="0.4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+        {/* SVG layer for FK lines */}
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <filter id="fk-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="0.4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-        {connections.map((conn, i) => (
-          <g key={`${conn.from}-${conn.to}-${i}`}>
-            {/* Static base line */}
-            <motion.path
-              d={
-                conn.self
-                  ? selfLoopPath(conn.fromPos.x, conn.fromPos.y)
-                  : curvePath(conn.fromPos.x, conn.fromPos.y, conn.toPos.x, conn.toPos.y)
-              }
-              fill="none"
-              stroke={conn.color}
-              strokeWidth={0.2}
-              strokeLinecap="round"
-              opacity={0.15}
-              initial={{ pathLength: 0 }}
-              animate={isInView ? { pathLength: 1 } : {}}
-              transition={{ duration: 1.2, delay: 0.5 + i * 0.12, ease: 'easeOut' }}
-            />
-            {/* Glowing drawn line */}
-            <motion.path
-              d={
-                conn.self
-                  ? selfLoopPath(conn.fromPos.x, conn.fromPos.y)
-                  : curvePath(conn.fromPos.x, conn.fromPos.y, conn.toPos.x, conn.toPos.y)
-              }
-              fill="none"
-              stroke={conn.color}
-              strokeWidth={0.3}
-              strokeLinecap="round"
-              filter="url(#fk-glow)"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={isInView ? { pathLength: 1, opacity: 0.6 } : {}}
-              transition={{
-                pathLength: { duration: 1.2, delay: 0.5 + i * 0.12, ease: 'easeOut' },
-                opacity: { duration: 0.3, delay: 0.5 + i * 0.12 },
-              }}
-            />
-            {/* Moving pulse along the line */}
-            <motion.path
-              d={
-                conn.self
-                  ? selfLoopPath(conn.fromPos.x, conn.fromPos.y)
-                  : curvePath(conn.fromPos.x, conn.fromPos.y, conn.toPos.x, conn.toPos.y)
-              }
-              fill="none"
-              stroke={conn.color}
-              strokeWidth={0.5}
-              strokeLinecap="round"
-              strokeDasharray="0.8 12"
-              opacity={0}
-              initial={{ opacity: 0, strokeDashoffset: 0 }}
-              animate={
-                isInView
-                  ? {
-                      opacity: [0, 0.9, 0.9, 0],
-                      strokeDashoffset: [0, -24],
-                    }
-                  : {}
-              }
-              transition={{
-                opacity: { duration: 0.5, delay: 1.5 + i * 0.12 },
-                strokeDashoffset: {
-                  duration: 2.5,
-                  repeat: Infinity,
-                  ease: 'linear',
-                  delay: 1.5 + i * 0.12,
-                },
-              }}
-            />
-          </g>
-        ))}
-      </svg>
+          {connections.map((conn, i) => (
+            <g key={`${conn.from}-${conn.to}-${i}`}>
+              {/* Static base line */}
+              <motion.path
+                d={
+                  conn.self
+                    ? selfLoopPath(conn.fromPos.x, conn.fromPos.y)
+                    : curvePath(conn.fromPos.x, conn.fromPos.y, conn.toPos.x, conn.toPos.y)
+                }
+                fill="none"
+                stroke={conn.color}
+                strokeWidth={0.2}
+                strokeLinecap="round"
+                opacity={0.15}
+                initial={{ pathLength: 0 }}
+                animate={isInView ? { pathLength: 1 } : {}}
+                transition={{ duration: 1.2, delay: 0.5 + i * 0.12, ease: 'easeOut' }}
+              />
+              {/* Glowing drawn line */}
+              <motion.path
+                d={
+                  conn.self
+                    ? selfLoopPath(conn.fromPos.x, conn.fromPos.y)
+                    : curvePath(conn.fromPos.x, conn.fromPos.y, conn.toPos.x, conn.toPos.y)
+                }
+                fill="none"
+                stroke={conn.color}
+                strokeWidth={0.3}
+                strokeLinecap="round"
+                filter="url(#fk-glow)"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={isInView ? { pathLength: 1, opacity: 0.6 } : {}}
+                transition={{
+                  pathLength: { duration: 1.2, delay: 0.5 + i * 0.12, ease: 'easeOut' },
+                  opacity: { duration: 0.3, delay: 0.5 + i * 0.12 },
+                }}
+              />
+              {/* Moving pulse along the line; skipped for reduced motion because it loops forever. */}
+              {!reduceMotion && (
+                <motion.path
+                  d={
+                    conn.self
+                      ? selfLoopPath(conn.fromPos.x, conn.fromPos.y)
+                      : curvePath(conn.fromPos.x, conn.fromPos.y, conn.toPos.x, conn.toPos.y)
+                  }
+                  fill="none"
+                  stroke={conn.color}
+                  strokeWidth={0.5}
+                  strokeLinecap="round"
+                  strokeDasharray="0.8 12"
+                  opacity={0}
+                  initial={{ opacity: 0, strokeDashoffset: 0 }}
+                  animate={
+                    isInView
+                      ? {
+                          opacity: [0, 0.9, 0.9, 0],
+                          strokeDashoffset: [0, -24],
+                        }
+                      : {}
+                  }
+                  transition={{
+                    opacity: { duration: 0.5, delay: 1.5 + i * 0.12 },
+                    strokeDashoffset: {
+                      duration: 2.5,
+                      repeat: Infinity,
+                      ease: 'linear',
+                      delay: 1.5 + i * 0.12,
+                    },
+                  }}
+                />
+              )}
+            </g>
+          ))}
+        </svg>
 
-      {/* Table cards */}
-      {tables.map((table, i) => {
-        const pos = POSITIONS[table.name];
-        if (!pos) return null;
-        const meta = TABLE_META[table.name] ?? { color: '#64748b', glow: '#64748b40', icon: '?' };
-        return <TableCard key={table.name} table={table} position={pos} meta={meta} index={i} visible={isInView} />;
-      })}
+        {/* Table cards */}
+        {tables.map((table, i) => {
+          const pos = POSITIONS[table.name];
+          if (!pos) return null;
+          const meta = TABLE_META[table.name] ?? { color: '#64748b', glow: '#64748b40', icon: '?' };
+          return <TableCard key={table.name} table={table} position={pos} meta={meta} index={i} visible={isInView} />;
+        })}
 
-      {/* Corner label */}
-      <div className="absolute bottom-3 right-4 font-mono text-[10px] text-slate-400 dark:text-slate-600 tracking-wider uppercase pointer-events-none">
-        5 tables · 6 FK relations
+        {/* Corner label */}
+        <div className="absolute bottom-3 right-4 font-mono text-[10px] text-slate-500 dark:text-slate-400 tracking-wider uppercase pointer-events-none">
+          5 tables · 6 FK relations
+        </div>
       </div>
     </div>
   );

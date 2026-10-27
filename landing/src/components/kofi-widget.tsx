@@ -23,9 +23,11 @@ export function KofiWidget() {
       onLoad={() => {
         window.kofiWidgetOverlay?.draw('n2q1910', {
           type: 'floating-chat',
-          'floating-chat.donateButton.text': 'Support KamehaDB',
+          // Short label: the widget iframe clips longer text ("Support Kameha…").
+          'floating-chat.donateButton.text': 'Support us',
           'floating-chat.donateButton.background-color': '#f59e0b',
-          'floating-chat.donateButton.text-color': '#fff',
+          // Dark text: white on amber-500 is only 2.15:1.
+          'floating-chat.donateButton.text-color': '#18181b',
         });
       }}
     />

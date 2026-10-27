@@ -4,10 +4,12 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
   Apple,
+  ArrowRight,
   Brain,
   Cable,
   Code2,
   Database,
+  Download,
   Gift,
   History,
   Laptop,
@@ -20,11 +22,10 @@ import {
   Star,
   Workflow,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import clickhouse from 'thesvg/clickhouse';
 import duckdb from 'thesvg/duckdb';
 import mariadb from 'thesvg/mariadb';
@@ -35,14 +36,13 @@ import oracle from 'thesvg/oracle';
 import postgresql from 'thesvg/postgresql';
 import redis from 'thesvg/redis';
 import sqlite from 'thesvg/sqlite';
+import { RELEASES_URL } from '@/lib/links';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { EngineMatrix } from './engine-matrix';
 import { SchemaGraph3D } from './schema-graph-3d';
-import { ThemeToggle } from './theme-toggle';
 import { BrandIcon } from './ui/brand-icon';
-import { Compare } from './ui/compare';
 
 const HeroCanvas = dynamic(() => import('./hero-canvas'), { ssr: false });
-const ParticleFooter = dynamic(() => import('./particle-footer').then((m) => m.ParticleFooter), { ssr: false });
 
 type HomeViewProps = {
   readonly githubStars: number | null;
@@ -325,9 +325,12 @@ const queries = [
 function TerminalTypewriter() {
   const [queryIndex, setQueryIndex] = useState(0);
   const [visibleChars, setVisibleChars] = useState(0);
+  const reduceMotion = useReducedMotion();
   const done = visibleChars >= queries[queryIndex].length;
 
   useEffect(() => {
+    // Reduced motion: no typing loop, the first query is shown in full instead.
+    if (reduceMotion) return;
     if (!done) {
       const timeout = setTimeout(() => setVisibleChars((v) => v + 1), 12 + Math.random() * 20);
       return () => clearTimeout(timeout);
@@ -338,19 +341,19 @@ function TerminalTypewriter() {
       }, 2500);
       return () => clearTimeout(timeout);
     }
-  }, [done, queryIndex, visibleChars]);
+  }, [done, queryIndex, visibleChars, reduceMotion]);
 
   return (
-    <div className="relative w-full max-w-3xl mx-auto group">
+    <div className="relative w-full max-w-3xl mx-auto group text-left">
       <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-amber-500/20 rounded-2xl blur-xl opacity-60 group-hover:opacity-80 transition-opacity" />
-      <div className="relative bg-[#0d0d14] border border-[#27273a] rounded-xl shadow-2xl h-40 md:h-40 overflow-hidden">
+      <div className="relative bg-[#0d0d14] border border-[#27273a] rounded-xl shadow-2xl h-48 md:h-40 overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2.5 bg-[#12121a] border-b border-[#27273a] rounded-t-xl">
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-full bg-rose-500/60" />
             <div className="w-3 h-3 rounded-full bg-amber-500/60" />
             <div className="w-3 h-3 rounded-full bg-emerald-500/60" />
           </div>
-          <span className="text-xs text-slate-600 ml-3 font-mono flex items-center gap-2">
+          <span className="text-xs text-slate-400 ml-3 font-mono flex items-center gap-2">
             <span className="w-3.5 h-3.5 rounded bg-amber-500/20 flex items-center justify-center text-[9px] text-amber-400 font-bold">
               &#60;
             </span>
@@ -358,16 +361,16 @@ function TerminalTypewriter() {
           </span>
         </div>
         <div className="p-4 md:p-5 font-mono text-xs md:text-sm leading-relaxed">
-          <div className="flex items-center gap-2 text-muted mb-2 md:mb-2.5 text-[10px] md:text-xs">
+          <div className="flex items-center gap-2 text-slate-400 mb-2 md:mb-2.5 text-[11px] md:text-xs">
             <span className="text-emerald-400 font-semibold">kamehadb</span>
             <span className="text-slate-600">@</span>
             <span className="text-amber-400 font-semibold">local</span>
             <span className="text-slate-600">:</span>
-            <span className="text-muted">~</span>
+            <span className="text-slate-400">~</span>
             <span className="text-slate-600">$</span>
           </div>
-          <pre className="text-body whitespace-pre-wrap leading-relaxed overflow-hidden">
-            {queries[queryIndex].slice(0, visibleChars)}
+          <pre className="text-slate-200 whitespace-pre-wrap leading-relaxed overflow-hidden">
+            {reduceMotion ? queries[0] : queries[queryIndex].slice(0, visibleChars)}
             <span className="text-amber-400/90 animate-[blink_0.8s_step-end_infinite] font-mono select-none">
               &#9608;
             </span>
@@ -378,7 +381,81 @@ function TerminalTypewriter() {
   );
 }
 
+// Plays the 19 MB demo only while it is on screen and never preloads it, so
+// visitors who do not scroll here (or who prefer reduced motion) never pay for it.
+function DemoVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || reduceMotion) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // play() rejects when autoplay is blocked; the poster simply stays visible then.
+        if (entry.isIntersecting) video.play().catch(() => {});
+        else video.pause();
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [reduceMotion]);
+
+  return (
+    <video
+      ref={videoRef}
+      src="/kamehadb-demo.mp4"
+      poster="/images/demo-poster.jpg"
+      preload="none"
+      loop
+      muted
+      playsInline
+      controls={Boolean(reduceMotion)}
+      aria-label="KamehaDB product demo"
+      className="w-full h-auto relative"
+    />
+  );
+}
+
+// One half of the "ask -> SQL" story. The source PNGs are pre-cropped to their
+// content, so the image can fill the tile and stay legible on a phone.
+function AiPanel({
+  label,
+  labelClassName,
+  src,
+  alt,
+}: {
+  label: string;
+  labelClassName: string;
+  src: string;
+  alt: string;
+}) {
+  return (
+    <figure className="min-w-0">
+      <figcaption className={`mb-3 inline-block rounded-full border px-3 py-1 text-xs font-medium ${labelClassName}`}>
+        {label}
+      </figcaption>
+      <div className="aspect-[940/900] overflow-hidden rounded-2xl border border-slate-700/50 bg-[#1f1d2b]">
+        <Image
+          src={src}
+          alt={alt}
+          width={940}
+          height={900}
+          sizes="(min-width: 768px) 520px, 92vw"
+          className="h-auto w-full"
+        />
+      </div>
+    </figure>
+  );
+}
+
 export default function HomeView({ githubStars }: HomeViewProps) {
+  // The 3D hero is decoration: skip its three.js bundle on phones and for reduced-motion users.
+  const reduceMotion = useReducedMotion();
+  const isWide = useMediaQuery('(min-width: 768px)');
+  const showCanvas = isWide && !reduceMotion;
+
   // Format star count: 9 → "9", 1200 → "1.2k"
   const formattedStars =
     githubStars !== null
@@ -388,60 +465,16 @@ export default function HomeView({ githubStars }: HomeViewProps) {
       : null;
 
   return (
-    <main id="content" className="min-h-screen bg-canvas font-sans antialiased">
-      {/* Navigation */}
-      <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-canvas/70 border-b border-border/60 before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-linear-to-r before:from-transparent before:via-amber-500/30 before:to-transparent"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-      >
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-            <div className="w-9 h-9 relative">
-              <Image src="/logo.png" alt="KamehaDB" fill className="object-contain" />
-            </div>
-            <span className="font-bold text-slate-900 dark:text-slate-100 text-lg">KamehaDB</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <a
-              href="#features"
-              className="text-body hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-sm font-medium hidden sm:block"
-            >
-              Features
-            </a>
-            <a
-              href="#install"
-              className="text-body hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-sm font-medium hidden sm:block"
-            >
-              Install
-            </a>
-            <Link
-              href="/team"
-              className="text-body hover:text-amber-600 dark:hover:text-amber-400 transition-colors text-sm font-medium hidden sm:block"
-            >
-              Team
-            </Link>
-            <a
-              href="https://github.com/asta-nguyen/kamehadb"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/25"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-              </svg>
-              GitHub
-            </a>
-            <ThemeToggle />
-          </div>
-        </div>
-      </motion.nav>
-
+    <main id="content" className="min-h-screen overflow-x-clip bg-canvas font-sans antialiased">
       {/* Hero Section */}
       <section className="relative pt-24 md:pt-32 pb-16 md:pb-20 px-4 md:px-6 overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(245,158,11,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(245,158,11,0.06)_1px,transparent_1px)] bg-[size:64px_64px]" />
-        <HeroCanvas />
+        {/* Fade the 3D scene out behind the headline column so orbiting icons never cross the text. */}
+        {showCanvas && (
+          <div className="absolute inset-0 [mask-image:radial-gradient(ellipse_55%_50%_at_50%_38%,transparent_30%,#000_100%)]">
+            <HeroCanvas />
+          </div>
+        )}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-160 h-160 bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
         <div className="max-w-6xl mx-auto text-center relative" style={{ zIndex: 1 }}>
           <motion.div
@@ -451,7 +484,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             variants={stagger}
           >
             <motion.div
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-full text-sm font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium"
               variants={fadeUp}
               transition={{ duration: 0.4 }}
             >
@@ -459,7 +492,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
               10 engines • SQL, document & cache
             </motion.div>
             <motion.div
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full text-sm font-medium"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 rounded-full text-sm font-medium"
               variants={fadeUp}
               transition={{ duration: 0.4 }}
             >
@@ -469,13 +502,13 @@ export default function HomeView({ githubStars }: HomeViewProps) {
           </motion.div>
 
           <motion.h1
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-ink tracking-tight mb-6 leading-tight"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-ink tracking-tight mb-6 leading-tight text-balance"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            Your databases, in one{' '}
-            <span className="bg-gradient-to-r from-amber-500 to-rose-500 bg-clip-text text-transparent">
+            Your databases, in one {/* amber-600 start: amber-500 text on white is only 2.15:1 at this size. */}
+            <span className="bg-gradient-to-r from-amber-600 to-rose-500 dark:from-amber-500 bg-clip-text text-transparent">
               local-first workspace
             </span>
           </motion.h1>
@@ -510,16 +543,19 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             transition={{ duration: 0.6, delay: 0.5 }}
           >
             <a
-              href="#install"
-              className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/25 hover:scale-105"
+              href={RELEASES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-8 py-4 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold rounded-xl transition-all hover:shadow-lg hover:shadow-amber-500/25 hover:scale-105"
             >
-              Get Started
+              <Download className="w-5 h-5" />
+              Download for free
             </a>
             <a
               href="#features"
-              className="px-8 py-4 border border-slate-300 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-500 text-slate-700 dark:text-body font-medium rounded-xl transition-all hover:bg-surface-soft dark:hover:bg-surface-strong"
+              className="w-full sm:w-auto text-center px-8 py-4 border border-slate-300 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-500 text-slate-700 dark:text-body font-medium rounded-xl transition-all hover:bg-surface-soft dark:hover:bg-surface-strong"
             >
-              Learn More
+              See features
             </a>
           </motion.div>
           <motion.div
@@ -535,7 +571,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             ].map((os) => (
               <div
                 key={os.label}
-                className="flex items-center gap-1.5 px-3 py-1 bg-surface-soft/50 border border-border/30 rounded-md text-[11px] font-medium text-muted transition-colors hover:border-amber-500/30 hover:text-body"
+                className="flex items-center gap-1.5 px-3 py-1 bg-surface-soft/50 border border-border/30 rounded-md text-xs font-medium text-muted transition-colors hover:border-amber-500/30 hover:text-body"
               >
                 <os.icon className="w-3 h-3" />
                 {os.label}
@@ -571,7 +607,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
               <span className="text-sm font-medium text-muted">
-                10 engines — <span className="text-body">SQL, document &amp; cache</span>
+                Works with <span className="text-body">PostgreSQL, MySQL, MongoDB, Redis and more</span>
               </span>
             </motion.div>
 
@@ -602,7 +638,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
               </div>
               <div className="bg-surface-strong rounded-2xl overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-900/30 to-slate-800" />
-                <video src="/kamehadb-demo.mp4" autoPlay loop muted playsInline className="w-full h-auto relative" />
+                <DemoVideo />
               </div>
             </div>
           </motion.div>
@@ -685,27 +721,21 @@ export default function HomeView({ githubStars }: HomeViewProps) {
           >
             <div className="relative w-full max-w-6xl">
               <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-amber-500/20 rounded-3xl blur-xl opacity-60" />
-              <div className="relative shadow-2xl shadow-amber-500/10 border border-slate-700/50 bg-surface-strong rounded-3xl overflow-hidden">
-                <div className="relative">
-                  <div className="absolute top-3 left-4 z-[22]">
-                    <span className="text-xs font-medium text-body bg-surface-strong/80 backdrop-blur-sm px-3 py-1 rounded-full border border-slate-700/50">
-                      You asks
-                    </span>
-                  </div>
-                  <div className="absolute top-3 right-4 z-[22]">
-                    <span className="text-xs font-medium text-amber-300 bg-amber-950/60 backdrop-blur-sm px-3 py-1 rounded-full border border-amber-500/30">
-                      KamehaDB writes
-                    </span>
-                  </div>
-                  <Compare
-                    firstImage="/images/chat-panel.png"
-                    secondImage="/images/sql-panel.png"
-                    slideMode="drag"
-                    initialSliderPercentage={50}
-                    showHandlebar
-                    className="w-full aspect-11/5"
-                    firstImageClassName="rounded-none"
-                    secondImageClassname="rounded-none"
+              <div className="relative shadow-2xl shadow-amber-500/10 border border-slate-700/50 bg-surface-strong rounded-3xl p-4 md:p-6">
+                {/* Side by side (stacked on phones): a wipe slider cut the chat bubble and the SQL in half at its default position. */}
+                <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr] md:gap-6">
+                  <AiPanel
+                    label="You ask"
+                    labelClassName="text-body bg-surface-strong/80 border-slate-700/50"
+                    src="/images/chat-panel.png"
+                    alt="KamehaDB AI chat: the user asks for all users who signed up last month, ordered at least once and have a subscription plan, with their total spending."
+                  />
+                  <ArrowRight className="mx-auto size-6 shrink-0 rotate-90 text-amber-500 md:rotate-0" aria-hidden />
+                  <AiPanel
+                    label="KamehaDB writes"
+                    labelClassName="text-amber-300 bg-amber-950/60 border-amber-500/30"
+                    src="/images/sql-panel.png"
+                    alt="The PostgreSQL query KamehaDB generates: users joined to orders, filtered to active subscriptions, grouped by user and ordered by total spent."
                   />
                 </div>
               </div>
@@ -715,7 +745,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-16 md:py-24 px-4 md:px-6">
+      <section id="features" className="scroll-mt-16 py-16 md:py-24 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           <SectionHeading
             title="Everything you need"
@@ -761,7 +791,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
         <div className="max-w-6xl mx-auto">
           <SectionHeading
             title="See your schema, visualized"
-            subtitle="Animated ER diagram from bundled sample data — tables slide in, FK lines draw on scroll"
+            subtitle="Explore tables and foreign keys as an interactive ER diagram. Shown here with sample data."
           />
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -780,7 +810,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
       </section>
 
       {/* Installation Section */}
-      <section id="install" className="py-16 md:py-24 px-4 md:px-6 bg-surface-soft">
+      <section id="install" className="scroll-mt-16 py-16 md:py-24 px-4 md:px-6 bg-surface-soft">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div
@@ -830,6 +860,23 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                   </motion.div>
                 ))}
               </div>
+              {/* Download first: most visitors want a binary, the terminal on the right is for contributors. */}
+              <motion.div
+                className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3"
+                variants={fadeUp}
+                transition={{ duration: 0.4 }}
+              >
+                <a
+                  href={RELEASES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-6 py-3 font-semibold text-zinc-950 transition-all hover:bg-amber-600 hover:shadow-lg hover:shadow-amber-500/25"
+                >
+                  <Download className="h-5 w-5" />
+                  Download for free
+                </a>
+                <span className="text-sm text-muted">macOS · Windows · Linux</span>
+              </motion.div>
             </motion.div>
 
             <motion.div
@@ -845,10 +892,11 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                   <div className="w-3 h-3 rounded-full bg-rose-500/80" />
                   <div className="w-3 h-3 rounded-full bg-amber-500/80" />
                   <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
+                  <span className="ml-2 font-mono text-xs text-slate-400">build from source</span>
                 </div>
                 <div className="font-mono text-sm space-y-2">
                   <motion.div
-                    className="text-muted"
+                    className="text-slate-400"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
@@ -866,7 +914,7 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                     git clone https://github.com/asta-nguyen/kamehadb.git
                   </motion.div>
                   <motion.div
-                    className="text-muted mt-4"
+                    className="text-slate-400 mt-4"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
@@ -894,13 +942,13 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                   </motion.div>
 
                   <motion.div
-                    className="text-muted mt-4"
+                    className="text-slate-400 mt-4"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: 1.3 }}
                   >
-                    # Build you app in your OS
+                    # Build for macOS
                   </motion.div>
 
                   <motion.div
@@ -914,13 +962,13 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                   </motion.div>
 
                   <motion.div
-                    className="text-muted mt-4"
+                    className="text-slate-400 mt-4"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: 1.8 }}
                   >
-                    # Build you app in your Windows
+                    # Build for Windows
                   </motion.div>
 
                   <motion.div
@@ -934,13 +982,13 @@ export default function HomeView({ githubStars }: HomeViewProps) {
                   </motion.div>
 
                   <motion.div
-                    className="text-muted mt-4"
+                    className="text-slate-400 mt-4"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: 2.0 }}
                   >
-                    # Build you app in your Linux
+                    # Build for Linux
                   </motion.div>
 
                   <motion.div
@@ -958,9 +1006,6 @@ export default function HomeView({ githubStars }: HomeViewProps) {
           </div>
         </div>
       </section>
-
-      {/* Footer — Particle wordmark with CTA combined */}
-      <ParticleFooter />
     </main>
   );
 }

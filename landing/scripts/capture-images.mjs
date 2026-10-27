@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Screenshot capture script for the AI Compare panel on the landing page.
+ * Screenshot capture script for the AI panels ("You ask" / "KamehaDB writes") on the landing page.
  *
  * Starts the Next.js dev server, navigates to the landing page, and captures
  * fresh screenshots of the chat panel and SQL panel into public/images/.
- * These images are used by the Compare slider component in home-view.tsx.
+ * These images are shown side by side in the AI section of home-view.tsx.
  *
  * Usage:
  *   node landing/scripts/capture-images.mjs
@@ -90,40 +90,29 @@ async function main() {
     console.log('Navigating to landing page...');
     await page.goto(BASE_URL, { waitUntil: 'networkidle' });
 
-    // Wait for the AI Compare section to render — it uses the Compare component
-    // which loads two images. We wait for the section heading to appear.
+    // Wait for the AI section to render — it shows two panel images side by side.
+    // We wait for the section heading to appear.
     const compareHeading = await page.getByText('Just say what you need').first();
     await compareHeading.scrollIntoViewIfNeeded();
-    // Give the Compare slider and images time to settle after scroll.
+    // Give the images time to settle after scroll.
     await page.waitForTimeout(2000);
 
-    // The Compare component renders two layered <img> elements (via next/image
-    // with fill). Instead of dragging the slider and screenshotting the
-    // composite (which bakes in the slider chrome), we screenshot the
-    // underlying <img> elements directly so the output is the raw source panel.
+    // The AI section renders the two panel <img> elements next to each other
+    // (chat first, SQL second). We screenshot the <img> elements directly so the
+    // output is the raw source panel, without the surrounding card chrome.
     const compareContainer = page.locator('[class*="shadow-2xl"]').filter({
-      hasText: 'You asks',
+      hasText: 'KamehaDB writes',
     });
-
-    // The two <img> tags inside the Compare component. The first image
-    // (chat-panel) is rendered in a clipped overlay; the second image
-    // (sql-panel) is rendered underneath. Both fill the container.
     const compareImages = compareContainer.locator('img');
     await compareImages.first().waitFor({ state: 'visible' });
 
-    // Hide the slider line + handle so they don't appear in screenshots.
-    await page.addStyleTag({
-      content:
-        '[data-testid="compare-slider-handle"] { display: none !important; } .compare-container [class*="z-30"] { display: none !important; }',
-    });
-
-    // chat-panel.png — the first image (top overlay).
+    // chat-panel.png — the first image (left / top).
     await compareImages.nth(0).screenshot({
       path: join(imagesDir, 'chat-panel.png'),
     });
     console.log('Saved chat-panel.png');
 
-    // sql-panel.png — the second image (underneath).
+    // sql-panel.png — the second image (right / bottom).
     await compareImages.nth(1).screenshot({
       path: join(imagesDir, 'sql-panel.png'),
     });

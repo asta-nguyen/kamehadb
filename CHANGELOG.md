@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Landing page UX pass** — the hero and install section now lead with a direct "Download for free" link to the latest GitHub release (the source-build commands stay as a "build from source" panel), the AI section shows the question and the generated SQL side by side instead of a drag slider, and the demo video loads only when scrolled into view with a poster.
+
+### Fixed
+
+- **Landing page on phones** — the footer no longer overflows the viewport, a menu button exposes Features/Download/Changelog/Team (the home page now uses the same nav as the other pages), the 3D hero is skipped on small screens, and the schema diagram pans sideways instead of overlapping and clipping its tables.
+- **Landing page readability and accessibility** — the always-dark hero terminal is legible in light mode, amber buttons use dark text (white was 2.15:1), engine card text and footer links are larger and higher contrast, motion respects `prefers-reduced-motion`, and a skip-to-content link was added.
+
 ---
 
 ## [v2.1.0] — 2026-10-23

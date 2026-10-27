@@ -17,7 +17,7 @@ export default function VideoPage() {
       <NavBar />
 
       {/* Content */}
-      <main className="pt-32 pb-24 px-6 flex-grow flex flex-col items-center justify-center">
+      <main id="content" className="pt-32 pb-24 px-6 flex-grow flex flex-col items-center justify-center">
         <div className="max-w-4xl w-full mx-auto text-center">
           <h1 className="text-4xl font-extrabold text-ink tracking-tight mb-2">Video Demo</h1>
           <p className="text-lg text-body mb-12">See KamehaDB in action.</p>
