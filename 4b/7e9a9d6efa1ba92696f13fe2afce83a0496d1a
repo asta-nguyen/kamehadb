@@ -1,0 +1,62 @@
+landing/src/app/page.tsx
+  s_731aca6bacf9d0::t_6a133413c7b125 3-4,34-40
+landing/src/components/hero-canvas.tsx
+  s_731aca6bacf9d0::t_06aa4f70f5afc8 5,383-387,411,421,439-442,446
+landing/src/lib/use-media-query.ts
+  s_731aca6bacf9d0::t_783991a36ead9a 1-16
+landing/src/app/providers.tsx
+  s_731aca6bacf9d0::t_287acfd12d6fb5 3,9-10
+landing/DESIGN.md
+  s_731aca6bacf9d0::t_5d910a71678c3c 87-88
+  s_731aca6bacf9d0::t_9d36429b1fca5a 31-32
+landing/src/components/nav-bar.tsx
+  s_731aca6bacf9d0::t_571fe9641627a4 1-3,6-8,11-23,25-36,38-47,56-64,66,69,71-73,77-86,89-104
+landing/src/lib/links.ts
+  s_731aca6bacf9d0::t_ba6b60838db32b 1-4
+landing/src/components/schema-graph-3d.tsx
+  s_731aca6bacf9d0::t_b7d723fead6774 93
+  s_731aca6bacf9d0::t_d50f9f9d83c8b2 87-89,94-97
+  s_731aca6bacf9d0::t_a13c17811fc51b 4,68-69,86,148,160,179,187-191,193-206,208-222,224-297,299-305,307-310
+landing/src/components/kofi-widget.tsx
+  s_731aca6bacf9d0::t_2645502b423b9c 26-27,29-30
+landing/src/components/particle-footer.tsx
+  s_731aca6bacf9d0::t_90560b21efe9f3 8,17,24-26,34-36,38,51,55,61,64,79,93,100,109,125-127,129,133
+landing/scripts/capture-images.mjs
+  s_731aca6bacf9d0::t_7b3dd7493a5645 3,7,93-94,97,100-102,104,109,115
+CHANGELOG.md
+  s_731aca6bacf9d0::t_e22050a46ca883 10-15,17-18
+  s_731aca6bacf9d0::t_6ccbebc5220cd3 16
+landing/src/components/engine-matrix.tsx
+  s_731aca6bacf9d0::t_5c6c6372f44f5a 123,166,185-186,191,213,223,227,229,235,265
+landing/src/app/globals.css
+  s_731aca6bacf9d0::t_ccabc11b2610c3 107-122
+landing/src/components/home-view.tsx
+  s_731aca6bacf9d0::t_6a133413c7b125 472-477,487,495,505,510-511,546-549,551-552,556,558,574,610,641,724-738,748,794,813,863,865-867,869-873,875-878,895,899,917,945,951,965,971,985,991
+  s_731aca6bacf9d0::t_ced6016bd49c79 423-433,864,868,874,879
+  s_731aca6bacf9d0::t_508daaf17c7036 439
+  s_731aca6bacf9d0::t_af0d5ff2aeddd4 347
+  s_731aca6bacf9d0::t_d50f9f9d83c8b2 468
+  s_731aca6bacf9d0::t_bbd59c088fb803 7,12,25,28,39-40,328,332-333,344,349,356,364,369,372-373,384-422,434-438,440-452,454-458
+landing/src/app/changelog/page.tsx
+  s_731aca6bacf9d0::t_064b08f38053ca 244
+landing/src/app/team/page.tsx
+  s_731aca6bacf9d0::t_20a281779a49da 24
+landing/src/app/video/page.tsx
+  s_731aca6bacf9d0::t_1d1dcc2033561d 20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4b7e9a9d6efa1ba92696f13fe2afce83a0496d1a",
+  "prompts": {},
+  "sessions": {
+    "s_731aca6bacf9d0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1f817ed3-e552-4da6-8683-9c84d50e13d2",
+        "model": "unknown"
+      },
+      "human_author": "asta-nguyen <asta.dev.520@gmail.com>"
+    }
+  }
+}
